@@ -2,6 +2,17 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-30 — Sprint S3.2: rates.json engine (SDLT/LTT + tax rates)
+
+- **Brief arrived truncated again** (cut off inside the Wales LTT higher-rates reference values and before the commit-message line) — no gap in practice: step 1 makes the live official pages authoritative, so every table was taken from source; the commit message was chosen in-pattern and logged here.
+- **Live verification, 2026-08-30**: gov.uk SDLT, gov.wales LTT, gov.uk income-tax/self-employed-NIC/corporation-tax pages all fetched; **every value matched the sprint's reference numbers** — no differences to log. LTT higher (from 11 Dec 2024): 5/8.5/10/12.5/15/17 at £180k/£250k/£400k/£750k/£1.5m, standalone per CLAUDE.md. Both official worked examples (gov.uk £295,000 → £4,750; gov.wales £260,000 → £15,950) are now regression tests.
+- **£40,000 de minimis encoded** as sdlt.additionalMinPrice / ltt.higherMinPrice: below it, additional-property purchases fall back to the standard/main table (which taxes them at £0). From HMRC/WRA higher-rates guidance; the truncated brief didn't reach it, but omitting it would overtax sub-£40k purchases.
+- **rates.json entries are append-only with effectiveFrom dates** — changing a rate means adding a new dated entry, never editing an old one; the engine picks the newest entry on or before the transaction date, so historical calculations stay reproducible. Every entry carries its source URL + access date.
+- **S3.1's constants.ts deleted** — income tax, Class 4 NIC, corporation tax (incl. marginal-relief fraction 3/200 = 0.015) and the Section 24 credit all moved into rates.json; tax.ts reads them via the loader. No rate literal remains in code.
+- **flipTax added** (trading income: band rate + Class 4 NIC for individuals, corporation tax for companies) — simplified to the deal alone (other income ignored), stated in its note.
+- **Verification-driven hardening** — the displayed Section 24 credit rate now interpolates from rates.json (a hardcoded "20%" in the breakdown strings could silently contradict the computed value); band tables that fail to cover a price throw instead of under-taxing; dates validate as yyyy-mm-dd; today() uses the UK (Europe/London) date; income/NIC entries backdated to 2025-04-06 (same values applied) so historical dates resolve; rates.json + docs/MATHS.md are now in the README scaffold map; `npm run typecheck` (tsc --noEmit) added with typescript/@types/node devDeps.
+- **Commit message chosen**: "feat(rates): effective-dated rates.json with SDLT/LTT marginal band engine".
+
 ## 2026-08-30 — Sprint S3.1: Maths library
 
 - **Stats maths mirrored, not shared** — the pipeline must stay plain-JS (runs under node with no build step) and the app is strict TS, so src/lib/maths/stats.ts mirrors pipeline/stats.mjs and a parity test locks them together across n % 4 ≠ 0 shapes. Divergence now fails CI rather than lurking.

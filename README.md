@@ -14,6 +14,8 @@ https://gil-bricks-app.gil-782.workers.dev
 
 ```
 src/site.config.ts        site identity — name, tagline, socials (edit here, nowhere else)
+src/config/rates.json     every tax rate (SDLT/LTT bands, income/NIC/corporation tax) — edit here, append a dated entry
+src/lib/maths/            the canonical maths library (see docs/MATHS.md for plain English)
 src/styles/tokens.css     design tokens: colours, glass, spacing, type scales
 src/styles/global.css     base styles: gradient body, headings, focus rings
 src/components/           UI primitives: GlassCard, Button, SectionHeading
@@ -28,6 +30,7 @@ astro.config.mjs          Astro config — static output, no adapter
 wrangler.jsonc            Cloudflare Worker config — serves ./dist as static assets
 docs/DECISIONS_LOG.md     why things are the way they are
 docs/DATA_SCHEMA.md       the locked R2 data contract (schema v1)
+docs/MATHS.md             every formula in plain English with worked examples
 ```
 
 Fonts are self-hosted via `@fontsource` packages (Montserrat 600/700/800,

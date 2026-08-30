@@ -21,6 +21,9 @@ page doubles as the source for the 'i' tooltips. Definitions are LOCKED in
 | **Flip profit** | sale price − purchase − refurb − buying costs − finance costs − selling costs | £250,000 − £211,000 = **£39,000** (15.6% of the sale price, 18.9% on cash) |
 | **Typical price** | average of the sold prices after setting aside the lowest and highest quarter (rounded down), with the 80% range (p10–p90) | 12 Pontypridd sales → **£137,575** (range £98,650–£206,300) |
 | **Valuation range** | estimate ±5% (fairly reliable) / ±10% (less certain) / ±20% (rough guide) | £200,000 medium → **£180,000–£220,000** |
+| **Stamp duty (England, SDLT)** | each slice of the price taxed at its band rate; +5% every band for an additional property; first-time buyers pay nothing to £300,000 (no relief above £500,000) | £295,000 standard → **£4,750** (the gov.uk example) |
+| **Land transaction tax (Wales, LTT)** | same slice-by-slice idea with Wales's own bands; a second home uses Wales's separate higher-rates table (from the first pound — not a surcharge); no first-time-buyer relief in Wales | £260,000 second home → **£15,950** (the gov.wales example) |
+| **Tax on a flip (personal)** | flip profit × your tax band + Class 4 National Insurance (flips are trading income) | £39,000 at higher rate → **£17,186** |
 | **Tax — personal (Section 24)** | (rent − allowable costs) × your band, minus a 20% credit on mortgage interest (capped at the profit) | £10,000 × 40% − £800 = **£3,200/yr** |
 | **Tax — limited company** | (rent − allowable costs − mortgage interest) × corporation tax, with marginal relief £50k–£250k | £6,000 × 19% = **£1,140/yr** |
 
@@ -28,5 +31,7 @@ Notes that apply throughout:
 - Money shows as whole pounds (£1,234); percentages get one decimal.
 - Rates will be entered as percentages in the app; code holds them as decimals.
 - Flip ROI is the return on the whole project, not a yearly rate.
+- Every rate above lives in src/config/rates.json with its effective date and
+  official source — editing that file changes the maths; code holds no rates.
 - Tax figures are simplified deal-comparison estimates: personal allowance,
   other income and basis-period rules are out of scope — not tax advice.

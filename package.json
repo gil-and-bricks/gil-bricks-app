@@ -13,7 +13,8 @@
     "test": "vitest run",
     "pipeline:download": "node pipeline/download.mjs",
     "pipeline:build": "node pipeline/build.mjs",
-    "pipeline:upload": "node pipeline/upload.mjs"
+    "pipeline:upload": "node pipeline/upload.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",
@@ -27,6 +28,8 @@
   },
   "devDependencies": {
     "@duckdb/node-api": "^1.5.5-r.4",
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.11",
     "wrangler": "^4.127.1"
   }

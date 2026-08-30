@@ -1,0 +1,225 @@
+{
+  "_readme": "Every tax rate the app uses lives in THIS file — code never hardcodes a rate (CLAUDE.md). To change a rate: add a NEW entry with its effectiveFrom date rather than editing an old one; the engine picks the newest entry on or before the transaction date. Rates are decimal fractions (0.05 = 5%). 'upTo: null' means no upper limit.",
+  "sdlt": {
+    "_note": "England. The additional-property table currently sits 5 percentage points above every standard band (structure since 31 Oct 2024; these threshold values from 1 Apr 2025). History starts at each entry’s effectiveFrom. Purchases under additionalMinPrice fall back to the standard table.",
+    "additionalMinPrice": 40000,
+    "standard": [
+      {
+        "effectiveFrom": "2025-04-01",
+        "source": {
+          "url": "https://www.gov.uk/stamp-duty-land-tax/residential-property-rates",
+          "accessed": "2026-08-30"
+        },
+        "bands": [
+          {
+            "upTo": 125000,
+            "rate": 0
+          },
+          {
+            "upTo": 250000,
+            "rate": 0.02
+          },
+          {
+            "upTo": 925000,
+            "rate": 0.05
+          },
+          {
+            "upTo": 1500000,
+            "rate": 0.1
+          },
+          {
+            "upTo": null,
+            "rate": 0.12
+          }
+        ]
+      }
+    ],
+    "additional": [
+      {
+        "effectiveFrom": "2025-04-01",
+        "source": {
+          "url": "https://www.gov.uk/stamp-duty-land-tax/residential-property-rates",
+          "accessed": "2026-08-30"
+        },
+        "bands": [
+          {
+            "upTo": 125000,
+            "rate": 0.05
+          },
+          {
+            "upTo": 250000,
+            "rate": 0.07
+          },
+          {
+            "upTo": 925000,
+            "rate": 0.1
+          },
+          {
+            "upTo": 1500000,
+            "rate": 0.15
+          },
+          {
+            "upTo": null,
+            "rate": 0.17
+          }
+        ]
+      }
+    ],
+    "firstTimeBuyer": [
+      {
+        "effectiveFrom": "2025-04-01",
+        "source": {
+          "url": "https://www.gov.uk/stamp-duty-land-tax/residential-property-rates",
+          "accessed": "2026-08-30"
+        },
+        "maxPrice": 500000,
+        "bands": [
+          {
+            "upTo": 300000,
+            "rate": 0
+          },
+          {
+            "upTo": 500000,
+            "rate": 0.05
+          }
+        ]
+      }
+    ],
+    "_minPriceSource": {
+      "url": "https://www.gov.uk/guidance/stamp-duty-land-tax-buying-an-additional-residential-property",
+      "accessed": "2026-08-30"
+    }
+  },
+  "ltt": {
+    "_note": "Wales. The higher-rates table is STANDALONE (never main + surcharge — CLAUDE.md). Wales has no first-time-buyer relief. Purchases under higherMinPrice fall back to the main table.",
+    "higherMinPrice": 40000,
+    "main": [
+      {
+        "effectiveFrom": "2022-10-10",
+        "source": {
+          "url": "https://www.gov.wales/land-transaction-tax-rates-and-bands",
+          "accessed": "2026-08-30"
+        },
+        "bands": [
+          {
+            "upTo": 225000,
+            "rate": 0
+          },
+          {
+            "upTo": 400000,
+            "rate": 0.06
+          },
+          {
+            "upTo": 750000,
+            "rate": 0.075
+          },
+          {
+            "upTo": 1500000,
+            "rate": 0.1
+          },
+          {
+            "upTo": null,
+            "rate": 0.12
+          }
+        ]
+      }
+    ],
+    "higher": [
+      {
+        "effectiveFrom": "2024-12-11",
+        "source": {
+          "url": "https://www.gov.wales/land-transaction-tax-rates-and-bands",
+          "accessed": "2026-08-30"
+        },
+        "bands": [
+          {
+            "upTo": 180000,
+            "rate": 0.05
+          },
+          {
+            "upTo": 250000,
+            "rate": 0.085
+          },
+          {
+            "upTo": 400000,
+            "rate": 0.1
+          },
+          {
+            "upTo": 750000,
+            "rate": 0.125
+          },
+          {
+            "upTo": 1500000,
+            "rate": 0.15
+          },
+          {
+            "upTo": null,
+            "rate": 0.17
+          }
+        ]
+      }
+    ],
+    "_minPriceSource": {
+      "url": "https://www.gov.wales/land-transaction-tax-higher-rates",
+      "accessed": "2026-08-30"
+    }
+  },
+  "incomeTax": [
+    {
+      "effectiveFrom": "2025-04-06",
+      "source": {
+        "url": "https://www.gov.uk/income-tax-rates",
+        "accessed": "2026-08-30"
+      },
+      "personalAllowance": 12570,
+      "rates": {
+        "basic": 0.2,
+        "higher": 0.4,
+        "additional": 0.45
+      },
+      "_note": "Same values applied in 2025/26; entry backdated so historical dates resolve."
+    }
+  ],
+  "class4Nic": [
+    {
+      "effectiveFrom": "2025-04-06",
+      "source": {
+        "url": "https://www.gov.uk/self-employed-national-insurance-rates",
+        "accessed": "2026-08-30"
+      },
+      "lowerLimit": 12570,
+      "upperLimit": 50270,
+      "mainRate": 0.06,
+      "upperRate": 0.02,
+      "_note": "Same values applied in 2025/26; entry backdated so historical dates resolve."
+    }
+  ],
+  "corporationTax": [
+    {
+      "effectiveFrom": "2023-04-01",
+      "source": {
+        "url": "https://www.gov.uk/corporation-tax-rates",
+        "accessed": "2026-08-30"
+      },
+      "smallRate": 0.19,
+      "mainRate": 0.25,
+      "lowerLimit": 50000,
+      "upperLimit": 250000,
+      "marginalReliefFraction": 0.015,
+      "marginalReliefSource": {
+        "url": "https://www.gov.uk/guidance/corporation-tax-marginal-relief",
+        "accessed": "2026-08-30"
+      }
+    }
+  ],
+  "financeCostCredit": [
+    {
+      "effectiveFrom": "2020-04-06",
+      "source": {
+        "url": "https://www.gov.uk/guidance/changes-to-tax-relief-for-residential-landlords-how-its-worked-out-including-case-studies",
+        "accessed": "2026-08-30"
+      },
+      "rate": 0.2
+    }
+  ]
+}
