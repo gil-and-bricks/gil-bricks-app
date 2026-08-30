@@ -2,6 +2,27 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-30 — Sprint S2.2: Real data pipeline (PPD + ONSPD → R2)
+
+- **PPD source: yearly part files pp-2025.csv + pp-2026.csv** (~222MB total) from HM Land Registry's official S3 hosting (the gov.uk "Price Paid Data downloads" endpoints; prod redirects to prod2) — the smallest official set guaranteeing 12 full months; pp-complete is ~5GB for no extra coverage.
+- **ONSPD edition: May 2026** — the latest CSV Collection published on the ONS Open Geography portal at build time (August 2026 edition not yet released as CSV). Discovered via the portal search API so the monthly workflow always picks up the newest edition; May 2026 renamed the country column to `ctry25cd`, handled in the build.
+- **PPD category A only** — category B (repossessions, portfolio/other non-standard transfers) is not arm's-length market evidence and would distort typical prices. Logged per sprint instruction.
+- **Tenure U (unknown) rows dropped** — schema v1 locks tenure to F|L; unknowns are a tiny residue and dropping beats guessing.
+- **DuckDB in the runner** (@duckdb/node-api) — parses/joins the ~1.7GB of CSVs in seconds without ever holding them in JS memory; per-sector stats stay in shared JS (pipeline/stats.mjs) so the canonical maths has exactly one implementation shape.
+- **epcExtractDate and ukhpiMonth are "" (empty string), not null** — the sprint said null, but schema v1 LOCKS both as strings and the client rejects non-strings; "" is documented in DATA_SCHEMA.md as the none-value. Making them properly nullable is a v2 change if ever wanted.
+- **ppdMonth 2026-07 = newest month in the published data** — Land Registry's most recent month or two are inherently incomplete (registration lag); the manifest reports what the source contains, and each monthly refresh rolls the window forward.
+- **Upload: Cloudflare REST API when CI secrets exist, wrangler fallback locally** — R2's S3 API needs separate keys (a human step), so CI uses the plain REST object PUT with the repo-secret token, and local runs spawn wrangler under the OAuth session. Idempotent either way: an md5 state file skips unchanged objects, and manifest.json always uploads LAST so the as-of pointer never precedes its data.
+- **Fixture CF37-1.json on R2 overwritten by real data by design** — tests use the local copies under data/fixtures/ only.
+- **Verification-driven pipeline fixes** — ONSPD discovery needed limit=100 + a looser title match (the item ranked 11th and titles vary by edition); extraction is now tied to the discovered edition with stale CSVs removed; January runs fetch the year-before-last PPD file so the window never silently shrinks; BOTH upload modes self-throttle to ~3.3 req/s with 429-aware backoff — Cloudflare caps the client API at 1,200 req/5min, and a full-speed local run proved the cap covers wrangler puts too (429s from ~5,000 objects in; the state file resumed the run cleanly, and the manifest-last gate kept the as-of pointer unpublished until every sector landed); border-straddling sectors take the majority country; PPD now downloads over HTTPS (path-style S3 URL); refresh cron moved to the 2nd so each run lands just after PPD's month-end release.
+
+### OPERATOR TO DO — CI secrets (one-time, ~5 minutes)
+
+1. In the Cloudflare dashboard: **R2 → Manage API tokens → Create API token** (or dash.cloudflare.com → R2 object storage → {} API → Manage API tokens). Name it `gil-bricks-data-ci`, set **Permissions: Object Read & Write**, and under **Specify bucket(s)** choose **Apply to specific buckets only → gil-bricks-data**. Leave TTL = Forever. Click **Create API Token** and copy the **Token value** shown (not the Access Key ID/Secret — the token string itself).
+2. In Terminal, store the two repo secrets (paste the token when prompted):
+   `gh secret set CLOUDFLARE_API_TOKEN --repo gil-and-bricks/gil-bricks-app`
+   `gh secret set CLOUDFLARE_ACCOUNT_ID --repo gil-and-bricks/gil-bricks-app --body 782ad8529292de59fdaf1d63afce8cad`
+3. Test it: `gh workflow run data-refresh --repo gil-and-bricks/gil-bricks-app`, then watch with `gh run list --repo gil-and-bricks/gil-bricks-app`.
+
 ## 2026-08-30 — Sprint S2.1: Locked data schema + fixture on R2
 
 - **Bucket created with `npx wrangler r2 bucket create gil-bricks-data --location weur`** — Western-Europe location hint for UK users; no EU jurisdiction flag because the bucket holds only public open data (no personal data), and jurisdiction-scoped buckets don't guarantee r2.dev support.

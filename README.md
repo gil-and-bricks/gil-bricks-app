@@ -21,7 +21,8 @@ src/layouts/Base.astro    shared page shell — fonts, tokens, head defaults
 src/pages/index.astro     the holding page
 src/pages/styleguide.astro  internal brand reference (noindex)
 src/lib/data/            typed data layer: schema types + R2 client (+ tests)
-data/fixtures/           fixture JSON mirrored to the R2 bucket
+data/fixtures/           fixture JSON used by the tests (schema v1 examples)
+pipeline/                data pipeline: download PPD+ONSPD, build sector JSONs, upload to R2
 public/                   static files copied verbatim into the build
 astro.config.mjs          Astro config — static output, no adapter
 wrangler.jsonc            Cloudflare Worker config — serves ./dist as static assets
@@ -42,7 +43,22 @@ Requires Node 22.12+ (this machine runs Node 24 via nvm). Install dependencies o
 | Build | `npm run build` |
 | Preview the build locally | `npm run preview` |
 | Run tests | `npm test` |
+| Refresh the data (download → build → upload) | `npm run pipeline:download && npm run pipeline:build && npm run pipeline:upload` |
 | Deploy | `npx wrangler deploy` |
 
 `npm run build` writes the site to `dist/`. `npx wrangler deploy` uploads whatever
 is currently in `dist/`, so always build before deploying.
+
+## Data pipeline
+
+Monthly GitHub Actions workflow (`data-refresh.yml`) rebuilds every England &
+Wales postcode-sector file from HM Land Registry Price Paid Data + the ONS
+Postcode Directory and uploads them to the `gil-bricks-data` R2 bucket.
+Downloads land in `pipeline/.data/` (gitignored; ~2GB). A weekly `keepalive.yml`
+heartbeat stops GitHub disabling the schedule after 60 quiet days. CI needs the
+`CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` repo secrets and fails with a
+clear message if they are missing.
+
+Contains HM Land Registry data © Crown copyright and database right 2026,
+licensed under the Open Government Licence v3.0. Contains OS, Royal Mail and
+National Statistics data per the ONSPD licence terms (see docs/DATA_SCHEMA.md).

@@ -1,0 +1,28 @@
+          git commit -m "chore: keepalive heartbeat" || echo "nothing to commit"
+          git pull --rebase || true
+          git pushname: keepalive
+
+# GitHub disables scheduled workflows after 60 days without repo activity.
+# This tiny weekly commit keeps the monthly data-refresh alive.
+on:
+  schedule:
+    - cron: "43 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit heartbeat
+        run: |
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > .github/keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive
+          git commit -m "chore: keepalive heartbeat" || echo "nothing to commit"
+          git push

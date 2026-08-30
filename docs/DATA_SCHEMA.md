@@ -80,8 +80,8 @@ reads `dataAsOf` from it and never invents dates.
   "schemaVersion": 1,
   "fixture": true,              // OPTIONAL — only on hand-authored test data
   "ppdMonth": "2026-07",        // Land Registry Price Paid Data month included
-  "ukhpiMonth": "2026-06",      // UK House Price Index month used for indexation
-  "epcExtractDate": "2026-08-01",
+  "ukhpiMonth": "2026-06",      // UK House Price Index month used for indexation; "" until UKHPI is ingested
+  "epcExtractDate": "2026-08-01", // "" until the EPC join lands (fields are strings; "" is the none-value)
   "onspdEdition": "2026-08",    // ONS Postcode Directory edition
   "generatedAt": "2026-08-30T00:00:00Z",
   "sectorsCount": 1
@@ -100,3 +100,12 @@ reads `dataAsOf` from it and never invents dates.
 ### Migration log
 
 - **v1** — 2026-08-30 — initial schema (this document).
+
+## Source data attribution
+
+- Contains HM Land Registry data © Crown copyright and database right 2026.
+  This data is licensed under the Open Government Licence v3.0.
+- Contains OS data © Crown copyright and database right 2026; contains Royal
+  Mail data © Royal Mail copyright and database right 2026; contains
+  National Statistics data © Crown copyright and database right 2026
+  (ONS Postcode Directory, via the ONS Open Geography portal).

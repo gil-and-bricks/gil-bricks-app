@@ -23,3 +23,6 @@ pnpm-debug.log*
 # os / editor
 .DS_Store
 .idea/
+
+# pipeline downloads and build output (multi-GB — never committed)
+pipeline/.data/
