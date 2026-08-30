@@ -1,9 +1,9 @@
 /**
  * The ONE ComparablesEngine (CLAUDE.md golden rule 3). Pure orchestration
  * over the data client: geocode the subject, pick candidate sectors from
- * sectors-index (centroid distance ≤ radius + that sector's own spanMiles —
- * rural sectors are miles across, urban ones a few streets, so the widening
- * margin comes from each sector's real geometry), fetch, filter, measure.
+ * sectors-index (centroid distance ≤ radius + that sector's own spanMiles,
+ * which covers both its live postcodes AND its window sales — so a sale at
+ * a terminated postcode can never be silently missed), fetch, filter, measure.
  *
  * Radius is HARD-CAPPED at 1 mile and never auto-widened: thin results get
  * an honest empty state with a suggestion instead of quietly casting wider.
@@ -126,6 +126,15 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
   if (![6, 12].includes(input.periodMonths)) {
     throw new ComparablesError('BadInput', `periodMonths must be 6 or 12 (got ${String(input.periodMonths)})`);
   }
+  if (!(input.propertyType in TYPE_SETS)) {
+    throw new ComparablesError('BadInput', `propertyType must be D, S, DS, T, houses, F or all (got ${String(input.propertyType)})`);
+  }
+  if (!['any', 'F', 'L'].includes(input.tenure)) {
+    throw new ComparablesError('BadInput', `tenure must be any, F or L (got ${String(input.tenure)})`);
+  }
+  if (!['all', 'new', 'old'].includes(input.age)) {
+    throw new ComparablesError('BadInput', `age must be all, new or old (got ${String(input.age)})`);
+  }
 
   const [subject, index, manifest] = await Promise.all([
     geocodePostcode(input.postcode),
@@ -137,7 +146,16 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
     (s) => distanceMiles(subject.lat, subject.lng, s.lat, s.lng) <= input.radiusMiles + s.spanMiles,
   );
 
-  const sectorFiles = await Promise.all(candidates.map((c) => getSector(c.sectorId)));
+  // All-or-nothing: partial results would silently understate the evidence.
+  let sectorFiles;
+  try {
+    sectorFiles = await Promise.all(candidates.map((c) => getSector(c.sectorId)));
+  } catch (err) {
+    throw new ComparablesError(
+      'DataUnavailable',
+      `Could not load all the sales data for this search — please try again shortly (${err instanceof Error ? err.message : String(err)})`,
+    );
+  }
 
   const start = periodStart(manifest.ppdMonth, input.periodMonths);
   const excluded = new Set(input.excludedIds ?? []);
@@ -169,7 +187,10 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
     const widenables: string[] = [];
     if (input.radiusMiles < MAX_RADIUS_MILES) widenables.push('widening the radius');
     if (input.periodMonths < 12) widenables.push('looking back 12 months');
-    if (input.propertyType !== 'all' || input.tenure !== 'any' || input.age !== 'all') widenables.push('relaxing the filters');
+    const boundsSet =
+      input.minPrice !== undefined || input.maxPrice !== undefined ||
+      input.minAreaSqm !== undefined || input.maxAreaSqm !== undefined;
+    if (input.propertyType !== 'all' || input.tenure !== 'any' || input.age !== 'all' || boundsSet) widenables.push('relaxing the filters');
     result.suggestion =
       widenables.length > 0
         ? `No sales found — try ${widenables.join(' or ')}.`

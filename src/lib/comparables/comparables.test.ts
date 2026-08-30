@@ -103,6 +103,11 @@ describe('geocodePostcode', () => {
     }
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('border areas (TD, DG) are NOT hard-rejected — they fall through to lookup', async () => {
+    // DG16 has English postcodes at Gretna; a lookup miss gets the softer message
+    await expect(geocodePostcode('DG1 1AA')).rejects.toMatchObject({ kind: 'UnknownPostcode' });
+    await expect(geocodePostcode('TD1 1AA')).rejects.toMatchObject({ kind: 'UnknownPostcode' });
+  });
   it('rejects unknown postcodes and garbage clearly', async () => {
     await expect(geocodePostcode('CF37 9ZZ')).rejects.toMatchObject({ kind: 'UnknownPostcode' });
     await expect(geocodePostcode('NOT A PC')).rejects.toMatchObject({ kind: 'BadInput' });
@@ -154,8 +159,28 @@ describe('findComparables — filters', () => {
   it('tenure and age filters', async () => {
     const lease = await findComparables({ ...baseInput, tenure: 'L' });
     expect(lease.comps.every((c) => c.tenure === 'L')).toBe(true);
+    const free = await findComparables({ ...baseInput, tenure: 'F' });
+    expect(free.comps.every((c) => c.tenure === 'F')).toBe(true);
     const oldOnly = await findComparables({ ...baseInput, age: 'old' });
     expect(oldOnly.comps.every((c) => !c.newBuild)).toBe(true);
+    // the fixture holds no new-builds, so 'new' honestly returns none
+    const newOnly = await findComparables({ ...baseInput, age: 'new' });
+    expect(newOnly.comps).toEqual([]);
+  });
+  it('single D and S types, maxAreaSqm, and unknown excluded ids', async () => {
+    const d = await findComparables({ ...baseInput, propertyType: 'D' });
+    expect(d.comps.every((c) => c.type === 'D')).toBe(true);
+    const s = await findComparables({ ...baseInput, propertyType: 'S' });
+    expect(s.comps.every((c) => c.type === 'S')).toBe(true);
+    const small = await findComparables({ ...baseInput, maxAreaSqm: 90 });
+    expect(small.comps.every((c) => c.floorAreaSqm !== null && c.floorAreaSqm <= 90)).toBe(true);
+    const ghost = await findComparables({ ...baseInput, excludedIds: ['{NOT-A-REAL-ID}'] });
+    expect(ghost.comps.every((c) => c.included)).toBe(true);
+  });
+  it('rejects unknown propertyType/tenure/age as BadInput', async () => {
+    await expect(findComparables({ ...baseInput, propertyType: 'X' as never })).rejects.toMatchObject({ kind: 'BadInput' });
+    await expect(findComparables({ ...baseInput, tenure: 'X' as never })).rejects.toMatchObject({ kind: 'BadInput' });
+    await expect(findComparables({ ...baseInput, age: 'X' as never })).rejects.toMatchObject({ kind: 'BadInput' });
   });
   it('price and area bounds (unknown areas excluded when bounds set)', async () => {
     const cheap = await findComparables({ ...baseInput, maxPrice: 130000 });
@@ -192,6 +217,12 @@ describe('empty state', () => {
     expect(r.comps).toEqual([]);
     expect(r.stats.count).toBe(0);
     expect(r.suggestion).toMatch(/No sales found/);
+  });
+  it('bounds that filtered everything out still count as relaxable filters', async () => {
+    const r = await findComparables({ ...baseInput, minPrice: 99999999 });
+    expect(r.comps).toEqual([]);
+    expect(r.suggestion).toMatch(/relaxing the filters/);
+    expect(r.suggestion).not.toMatch(/very little price evidence/);
   });
   it('at max radius+period with no filters the suggestion is honest about thin evidence', async () => {
     // subject far north of the fixture sales: nothing within a mile

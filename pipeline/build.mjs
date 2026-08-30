@@ -205,6 +205,9 @@ const flush = () => {
     salesCount: bucket.length,
     salesLat: bucket.reduce((a, r) => a + Number(r.lat), 0) / bucket.length,
     salesLng: bucket.reduce((a, r) => a + Number(r.lng), 0) / bucket.length,
+    // every sale's coords: the index span must cover sales at TERMINATED
+    // postcodes too, or the engine can silently skip an in-radius comp
+    salePts: bucket.map((r) => [Number(r.lat), Number(r.lng)]),
   });
   sectorsWritten += 1;
   totalSales += bucket.length;
@@ -285,8 +288,10 @@ for (const [sectorId, meta] of sectorMeta) {
   // back to the centroid of their sales
   const lat = g ? g.sumLat / g.n : meta.salesLat;
   const lng = g ? g.sumLng / g.n : meta.salesLng;
-  // spanMiles: farthest live postcode from the centroid — lets the engine
-  // widen its sector search exactly as far as each sector's real geometry
+  // spanMiles: farthest LIVE POSTCODE *or WINDOW SALE* from the centroid —
+  // sales can sit at terminated postcodes outside the live-postcode cloud
+  // (verified: a Crawley sale 1.7mi out vs a 0.71mi live span), so the
+  // engine's widening bound must cover both.
   let spanMiles = 0;
   if (g) {
     for (const [pLat, pLng] of g.pts) {
@@ -294,13 +299,17 @@ for (const [sectorId, meta] of sectorMeta) {
       if (d > spanMiles) spanMiles = d;
     }
   }
+  for (const [sLat, sLng] of meta.salePts) {
+    const d = havMiles(lat, lng, sLat, sLng);
+    if (d > spanMiles) spanMiles = d;
+  }
   index.push({
     sectorId,
     lat: Math.round(lat * 1e6) / 1e6,
     lng: Math.round(lng * 1e6) / 1e6,
     country: meta.country,
     salesCount: meta.salesCount,
-    spanMiles: Math.round(spanMiles * 100) / 100,
+    spanMiles: Math.ceil(spanMiles * 100) / 100, // ceil: the bound must never understate
   });
 }
 index.sort((a, b) => (a.sectorId < b.sectorId ? -1 : 1));

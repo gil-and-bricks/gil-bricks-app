@@ -1,4 +1,4 @@
-export type ComparablesErrorKind = 'OutsideEnglandWales' | 'UnknownPostcode' | 'BadInput';
+export type ComparablesErrorKind = 'OutsideEnglandWales' | 'UnknownPostcode' | 'BadInput' | 'DataUnavailable';
 
 export class ComparablesError extends Error {
   readonly kind: ComparablesErrorKind;

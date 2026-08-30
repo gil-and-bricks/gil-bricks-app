@@ -13,10 +13,11 @@ export interface GeocodedPostcode {
 }
 
 // Postcode AREAS entirely outside England & Wales — rejected without a fetch.
-// TD straddles the border, so Scottish TD postcodes fall through to the
-// (E&W-only) outcode files and get the unknown-postcode message instead.
+// TD and DG straddle the border (DG16 has English postcodes at Gretna), so
+// their Scottish postcodes fall through to the (E&W-only) outcode files and
+// get the unknown-postcode message instead.
 const OUTSIDE_EW = new Set([
-  'AB', 'DD', 'DG', 'EH', 'FK', 'G', 'HS', 'IV', 'KA', 'KW', 'KY', 'ML', 'PA', 'PH', 'ZE', // Scotland
+  'AB', 'DD', 'EH', 'FK', 'G', 'HS', 'IV', 'KA', 'KW', 'KY', 'ML', 'PA', 'PH', 'ZE', // Scotland
   'BT', // Northern Ireland
   'IM', 'JE', 'GY', // Crown dependencies (not England & Wales either)
 ]);

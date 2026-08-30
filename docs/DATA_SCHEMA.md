@@ -84,7 +84,9 @@ reads `dataAsOf` from it and never invents dates.
   "epcExtractDate": "2026-08-01", // "" until the EPC join lands (fields are strings; "" is the none-value)
   "onspdEdition": "2026-08",    // ONS Postcode Directory edition
   "generatedAt": "2026-08-30T00:00:00Z",
-  "sectorsCount": 1
+  "sectorsCount": 1,
+  "postcodeFiles": 2414,          // OPTIONAL — additive v1 companions (S3.3)
+  "sectorsIndexAt": "2026-08-31T00:00:00Z"
 }
 ```
 
@@ -97,7 +99,7 @@ manifest records them (`postcodeFiles`, `sectorsIndexAt`).
 | Object | Path | Shape |
 | --- | --- | --- |
 | Postcode geocode map | `postcodes/{OUTCODE}.json` | `{ "CF371DL": [lat, lng, country, "CF37 1"], ... }` — every LIVE England & Wales postcode in the outcode (keys uppercase, no space). Lets the app geocode a subject postcode with zero third-party calls. |
-| Sectors index | `sectors-index.json` (bucket root) | `[{ sectorId, lat, lng, country, salesCount, spanMiles }]` — centroid of each sector's live postcodes plus `spanMiles`, the farthest live postcode from that centroid, which bounds how far a radius search must widen its sector sweep. |
+| Sectors index | `sectors-index.json` (bucket root) | `[{ sectorId, lat, lng, country, salesCount, spanMiles }]` — centroid of each sector's live postcodes plus `spanMiles`, the farthest live postcode OR window sale from that centroid (rounded up), which bounds how far a radius search must widen its sector sweep — verified: every sale sits within its sector's span. Sectors whose postcodes have all terminated fall back to the centroid of their sales. |
 
 ## Versioning policy
 

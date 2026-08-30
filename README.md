@@ -47,6 +47,7 @@ Requires Node 22.12+ (this machine runs Node 24 via nvm). Install dependencies o
 | Build | `npm run build` |
 | Preview the build locally | `npm run preview` |
 | Run tests | `npm test` |
+| Live comparables smoke test | `npm run smoke:comps` |
 | Refresh the data (download → build → upload) | `npm run pipeline:download && npm run pipeline:build && npm run pipeline:upload` |
 | Deploy | `npx wrangler deploy` |
 
