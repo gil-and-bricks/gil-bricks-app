@@ -20,10 +20,13 @@ src/components/           UI primitives: GlassCard, Button, SectionHeading
 src/layouts/Base.astro    shared page shell — fonts, tokens, head defaults
 src/pages/index.astro     the holding page
 src/pages/styleguide.astro  internal brand reference (noindex)
+src/lib/data/            typed data layer: schema types + R2 client (+ tests)
+data/fixtures/           fixture JSON mirrored to the R2 bucket
 public/                   static files copied verbatim into the build
 astro.config.mjs          Astro config — static output, no adapter
 wrangler.jsonc            Cloudflare Worker config — serves ./dist as static assets
 docs/DECISIONS_LOG.md     why things are the way they are
+docs/DATA_SCHEMA.md       the locked R2 data contract (schema v1)
 ```
 
 Fonts are self-hosted via `@fontsource` packages (Montserrat 600/700/800,
@@ -38,6 +41,7 @@ Requires Node 22.12+ (this machine runs Node 24 via nvm). Install dependencies o
 | Local dev server | `npm run dev` |
 | Build | `npm run build` |
 | Preview the build locally | `npm run preview` |
+| Run tests | `npm test` |
 | Deploy | `npx wrangler deploy` |
 
 `npm run build` writes the site to `dist/`. `npx wrangler deploy` uploads whatever

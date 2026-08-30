@@ -2,6 +2,18 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-30 — Sprint S2.1: Locked data schema + fixture on R2
+
+- **Bucket created with `npx wrangler r2 bucket create gil-bricks-data --location weur`** — Western-Europe location hint for UK users; no EU jurisdiction flag because the bucket holds only public open data (no personal data), and jurisdiction-scoped buckets don't guarantee r2.dev support.
+- **Public access via the r2.dev development URL** (`https://pub-ed7263f454104eb1a02055393ee15800.r2.dev`) — £0 and instant; r2.dev is rate-limited and dev-grade, so before launch (Phase 11) the bucket should move behind a custom domain or the Worker. Logged here so it isn't forgotten.
+- **CORS: GET/HEAD from any origin** — the data is public open data, and the browser client needs cross-origin reads from the app origin. First `cors set` attempt used the AWS-style rule shape and silently didn't apply; the Cloudflare shape (`rules[].allowed`) worked and the header was verified live.
+- **Stats maths pinned in DATA_SCHEMA.md** — interquartile mean = drop floor(n/4) each end then mean; percentiles = linear interpolation (type-7). definitions.md stays untouched (LOCKED); the schema doc adds the computational detail.
+- **`typicalPpsqm` is nullable** — a sector where no sale matches an EPC has no honest £/sqm figure; null beats a fabricated number.
+- **Sector ids normalised, not trusted** — client uppercases and collapses whitespace ("cf37  1" works); malformed ids throw TypeError (caller bug), reserving the three DataError kinds (NotFound/Network/BadSchema) for genuine data-layer outcomes.
+- **Fixture GUIDs use an FA0E… pattern** — Land Registry GUID *format* but visibly fake; both files carry top-level `fixture: true`, and four hand-authored postcodes that fell outside CF37 1 were corrected before upload (a sector file must only contain its own sector's postcodes).
+- **Tests read the exact files uploaded to R2** (data/fixtures/) — one source of truth; no drift between what tests validate and what the bucket serves.
+- **Verification-driven hardening** — sector files claiming a different sector than requested are rejected (BadSchema), the first sale is spot-checked for corruption, and tests derive URLs from siteConfig.dataBaseUrl so a launch-time base-URL change cannot break them for the wrong reason.
+
 ## 2026-08-30 — Sprint S1.3: Design system, brand tokens, site.config
 
 - **First pass rebuilt to the full brief** — the sprint message first arrived truncated mid-step-2; work built from CLAUDE.md's locked brand was reconciled to the full spec when it arrived (fonts switched from direct downloads to @fontsource packages; public/fonts/, fonts.css and BaseLayout.astro removed in favour of the spec'd layout and font setup).
