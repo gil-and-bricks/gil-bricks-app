@@ -19,7 +19,7 @@ wrangler.jsonc          Cloudflare Worker config — serves ./dist as static ass
 docs/DECISIONS_LOG.md   why things are the way they are
 ```
 
-Requires Node 24 (this machine uses nvm). Install dependencies once with `npm install`.
+Requires Node 22.12+ (this machine runs Node 24 via nvm). Install dependencies once with `npm install`.
 
 ## Commands
 
