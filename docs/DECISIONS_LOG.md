@@ -2,6 +2,17 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-30 — Sprint S3.1: Maths library
+
+- **Stats maths mirrored, not shared** — the pipeline must stay plain-JS (runs under node with no build step) and the app is strict TS, so src/lib/maths/stats.ts mirrors pipeline/stats.mjs and a parity test locks them together across n % 4 ≠ 0 shapes. Divergence now fails CI rather than lurking.
+- **Rates are decimal fractions in code** (0.055 = 5.5%) — breakdowns format them as percentages; the UI layer owns conversion. One convention everywhere beats guessing per-function.
+- **Values are unrounded; formatting happens only in breakdowns** — chained maths never compounds rounding. Exceptions: valuation-range endpoints round to whole pounds, and the stats maths (IQM/percentiles) rounds by the locked schema (terminal display values; float artifacts like 200000×1.1 = 220000.00000000003 would leak).
+- **BRRRR reads the plainest way**: proceeds = new value × LTV, compared with cash invested; no bridging-redemption modelling at this layer (strategies compose that later). Differences under £1 either way read as plain "All money out" (float noise at deal scale — never "+£0" or "£0 left in").
+- **ICR passes on meeting the threshold exactly** (value ≥ threshold), encoded as a test.
+- **Flip cash-in = purchase + buying costs + refurb + finance costs** — selling costs come out of sale proceeds so they reduce profit but are not cash employed; flip ROI is labelled a project return, not annualised.
+- **Section 24 simplified but honest**: credit = 20% × min(interest, property profit) — the statutory cap on property profits is kept, but personal allowance and other-income interactions are out of scope; the breakdown note says so. Ltd path is a separate function (keeps the personal taxBand union clean) with proper marginal-relief maths between £50k and £250k.
+- **Tax rates live in constants.ts temporarily** — S3.2 moves them into effective-dated rates.json per CLAUDE.md.
+
 ## 2026-08-30 — Sprint S2.3: EPC floor-area join
 
 - **EPC bulk source: `GET /api/files/domestic/csv`** on api.get-energy-performance-data.communities.gov.uk (Bearer auth; `/info` variant reports fileSize + lastUpdated). Current extract: 8.26GB zip, lastUpdated 2026-08-17 → `manifest.epcExtractDate = "2026-08-17"`.
