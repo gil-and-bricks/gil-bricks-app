@@ -88,6 +88,17 @@ reads `dataAsOf` from it and never invents dates.
 }
 ```
 
+## Additive v1 companions (S3.3)
+
+Two additional file families sit beside the sector files. They are ADDITIVE —
+sector schema v1 is untouched — and carry no schemaVersion of their own; the
+manifest records them (`postcodeFiles`, `sectorsIndexAt`).
+
+| Object | Path | Shape |
+| --- | --- | --- |
+| Postcode geocode map | `postcodes/{OUTCODE}.json` | `{ "CF371DL": [lat, lng, country, "CF37 1"], ... }` — every LIVE England & Wales postcode in the outcode (keys uppercase, no space). Lets the app geocode a subject postcode with zero third-party calls. |
+| Sectors index | `sectors-index.json` (bucket root) | `[{ sectorId, lat, lng, country, salesCount, spanMiles }]` — centroid of each sector's live postcodes plus `spanMiles`, the farthest live postcode from that centroid, which bounds how far a radius search must widen its sector sweep. |
+
 ## Versioning policy
 
 - `schemaVersion` appears in **every** sector file and in the manifest.

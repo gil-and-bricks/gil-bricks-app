@@ -152,6 +152,7 @@ const rows = reader.getRowObjects();
 console.log(`rows after filter+join: ${rows.length}`);
 
 mkdirSync(OUT, { recursive: true });
+const sectorMeta = new Map(); // sector -> {country, salesCount, salesLat, salesLng}
 let sectorsWritten = 0;
 let totalSales = 0;
 let current = null;
@@ -199,6 +200,12 @@ const flush = () => {
   };
   file.stats = sectorStats(file.sales);
   writeFileSync(join(dir, `${outcode}-${digit}.json`), JSON.stringify(file));
+  sectorMeta.set(current, {
+    country,
+    salesCount: bucket.length,
+    salesLat: bucket.reduce((a, r) => a + Number(r.lat), 0) / bucket.length,
+    salesLng: bucket.reduce((a, r) => a + Number(r.lng), 0) / bucket.length,
+  });
   sectorsWritten += 1;
   totalSales += bucket.length;
   bucket = [];
@@ -213,6 +220,93 @@ for (const r of rows) {
 }
 flush();
 
+// --- Additive v1 companions (docs/DATA_SCHEMA.md): postcode geocode maps
+// --- per outcode + a sector centroid index for neighbour discovery.
+console.log('building postcode maps + sectors index...');
+const pcReader = await db.runAndReadAll(`
+  SELECT upper(replace(trim(pcds), ' ', '')) AS key,
+         upper(trim(pcds)) AS pcds, lat, lng, ctry
+  FROM (
+    SELECT pcds, lat, long AS lng, ctry25cd AS ctry, doterm
+    FROM read_csv('${DATA}/onspd/${onspdCsv}', header=true, all_varchar=false)
+  )
+  WHERE (doterm IS NULL OR trim(CAST(doterm AS VARCHAR)) = '')
+    AND ctry IN ('E92000001','W92000004')
+    AND lat IS NOT NULL AND lat < 90
+  ORDER BY key
+`);
+const pcRows = pcReader.getRowObjects();
+console.log(`live E&W postcodes: ${pcRows.length}`);
+
+const byOutcode = new Map();
+const sectorGeo = new Map(); // sector -> {sumLat, sumLng, n, maxSpan later}
+for (const r of pcRows) {
+  const m = /^(\S+) (\d)/.exec(r.pcds);
+  if (!m) continue;
+  const sectorId = `${m[1]} ${m[2]}`;
+  const outcode = m[1];
+  if (!byOutcode.has(outcode)) byOutcode.set(outcode, {});
+  byOutcode.get(outcode)[r.key] = [
+    Math.round(Number(r.lat) * 1e6) / 1e6,
+    Math.round(Number(r.lng) * 1e6) / 1e6,
+    r.ctry,
+    sectorId,
+  ];
+  const g = sectorGeo.get(sectorId) ?? { sumLat: 0, sumLng: 0, n: 0, pts: [] };
+  g.sumLat += Number(r.lat);
+  g.sumLng += Number(r.lng);
+  g.n += 1;
+  g.pts.push([Number(r.lat), Number(r.lng)]);
+  sectorGeo.set(sectorId, g);
+}
+
+mkdirSync(join(OUT, 'postcodes'), { recursive: true });
+let postcodeFiles = 0;
+for (const [outcode, map] of byOutcode) {
+  writeFileSync(join(OUT, 'postcodes', `${outcode}.json`), JSON.stringify(map));
+  postcodeFiles += 1;
+}
+console.log(`postcode files: ${postcodeFiles}`);
+
+// haversine in miles (matches the app engine)
+const R_MILES = 3958.8;
+const toRad = (d) => (d * Math.PI) / 180;
+const havMiles = (aLat, aLng, bLat, bLng) => {
+  const dLat = toRad(bLat - aLat);
+  const dLng = toRad(bLng - aLng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(aLat)) * Math.cos(toRad(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R_MILES * Math.asin(Math.sqrt(h));
+};
+
+const index = [];
+for (const [sectorId, meta] of sectorMeta) {
+  const g = sectorGeo.get(sectorId);
+  // centroid of live postcodes; sectors whose postcodes all terminated fall
+  // back to the centroid of their sales
+  const lat = g ? g.sumLat / g.n : meta.salesLat;
+  const lng = g ? g.sumLng / g.n : meta.salesLng;
+  // spanMiles: farthest live postcode from the centroid — lets the engine
+  // widen its sector search exactly as far as each sector's real geometry
+  let spanMiles = 0;
+  if (g) {
+    for (const [pLat, pLng] of g.pts) {
+      const d = havMiles(lat, lng, pLat, pLng);
+      if (d > spanMiles) spanMiles = d;
+    }
+  }
+  index.push({
+    sectorId,
+    lat: Math.round(lat * 1e6) / 1e6,
+    lng: Math.round(lng * 1e6) / 1e6,
+    country: meta.country,
+    salesCount: meta.salesCount,
+    spanMiles: Math.round(spanMiles * 100) / 100,
+  });
+}
+index.sort((a, b) => (a.sectorId < b.sectorId ? -1 : 1));
+writeFileSync(join(OUT, 'sectors-index.json'), JSON.stringify(index));
+console.log(`sectors index: ${index.length} entries`);
+
 const manifest = {
   schemaVersion: 1,
   ppdMonth,
@@ -221,6 +315,8 @@ const manifest = {
   onspdEdition,
   generatedAt: new Date().toISOString(),
   sectorsCount: sectorsWritten,
+  postcodeFiles,
+  sectorsIndexAt: new Date().toISOString(),
 };
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 

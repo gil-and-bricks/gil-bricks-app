@@ -2,6 +2,17 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S3.3: ComparablesEngine
+
+- **Sector-search margin is per-sector, not a global constant** — sectors-index carries `spanMiles` (farthest live postcode from each sector's centroid); a sector is fetched when centroid distance ≤ radius + its own span. Real geometry justified it: spans run p50 1.3mi / p90 4.6mi / max 36mi, so any fixed margin either misses rural comps or over-fetches cities.
+- **Scotland/NI rejection is two-layer** — postcode areas entirely outside England & Wales (plus Crown dependencies) are rejected instantly with a clear "England & Wales only"; border-straddling areas (TD) fall through to the E&W-only outcode files, where a miss reads "check the postcode, or it may be outside England & Wales". Logged: Scottish-side TD postcodes get the softer message.
+- **Area bounds exclude unknown-area comps** — when the user sets min/max sqm, comps without an EPC match can't be verified against the bound, so they drop out rather than sneak through.
+- **Excluded comps stay in the list** with included:false; stats recompute over included comps only — the UI toggle never refetches.
+- **Empty results never auto-widen** — the suggestion string proposes wider radius/period/filters only when something is actually left to widen; at maximum everything it says the area has very little price evidence.
+- **Period counts back from manifest.ppdMonth**, never the wall clock — the data's as-of is the only honest anchor.
+- **tsx added as a devDependency** for the live smoke script — Node's native type-stripping can't resolve the repo's extensionless TS imports.
+- **Portal links are entry pages only** (Land Registry per-transaction open-data page + Zoopla/Rightmove house-prices landing pages) — constructing internal portal property URLs is a compliance no (docs/exclusions.md); noted in code.
+
 ## 2026-08-30 — Sprint S3.2: rates.json engine (SDLT/LTT + tax rates)
 
 - **Brief arrived truncated again** (cut off inside the Wales LTT higher-rates reference values and before the commit-message line) — no gap in practice: step 1 makes the live official pages authoritative, so every table was taken from source; the commit message was chosen in-pattern and logged here.

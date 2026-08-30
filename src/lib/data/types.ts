@@ -80,4 +80,23 @@ export interface Manifest {
   onspdEdition: string;
   generatedAt: string;
   sectorsCount: number;
+  /** Additive v1 companions (S3.3): count of postcodes/{OUTCODE}.json files. */
+  postcodeFiles?: number;
+  /** When sectors-index.json was generated. */
+  sectorsIndexAt?: string;
 }
+
+/** One row of sectors-index.json — additive v1 companion (DATA_SCHEMA.md). */
+export interface SectorsIndexEntry {
+  sectorId: string;
+  /** Centroid of the sector's live postcodes. */
+  lat: number;
+  lng: number;
+  country: CountryCode;
+  salesCount: number;
+  /** Farthest live postcode from the centroid, miles — search-widening bound. */
+  spanMiles: number;
+}
+
+/** postcodes/{OUTCODE}.json: "CF371DL" → [lat, lng, country, sectorId]. */
+export type PostcodeMap = Record<string, [number, number, CountryCode, string]>;

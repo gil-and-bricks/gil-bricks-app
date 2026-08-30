@@ -23,6 +23,7 @@ src/layouts/Base.astro    shared page shell — fonts, tokens, head defaults
 src/pages/index.astro     the holding page
 src/pages/styleguide.astro  internal brand reference (noindex)
 src/lib/data/            typed data layer: schema types + R2 client (+ tests)
+src/lib/comparables/     the ComparablesEngine: geocode, radius search, filters, sorting
 data/fixtures/           fixture JSON used by the tests (schema v1 examples)
 pipeline/                data pipeline: PPD+ONSPD+EPC ingest, sector JSON build, R2 upload
 public/                   static files copied verbatim into the build

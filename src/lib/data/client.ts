@@ -4,7 +4,7 @@
  * Returned objects are the cached objects — treat them as frozen.
  */
 import { siteConfig } from '../../site.config';
-import { SCHEMA_VERSION, type Manifest, type Sale, type SectorFile } from './types';
+import { SCHEMA_VERSION, type Manifest, type PostcodeMap, type Sale, type SectorFile, type SectorsIndexEntry } from './types';
 
 export type DataErrorKind = 'NotFound' | 'Network' | 'BadSchema';
 
@@ -137,4 +137,38 @@ export async function getSector(sectorId: string): Promise<SectorFile> {
   assertSectorFile(body, path, expected);
   cache.set(path, body);
   return body;
+}
+
+/** sectors-index.json — additive companion, no schemaVersion of its own. */
+export async function getSectorsIndex(): Promise<SectorsIndexEntry[]> {
+  const path = 'sectors-index.json';
+  const hit = cache.get(path);
+  if (hit) return hit as SectorsIndexEntry[];
+  const body = await fetchJson(path);
+  if (!Array.isArray(body) || body.length === 0) {
+    throw new DataError('BadSchema', `Malformed sectors index at ${path}`);
+  }
+  const first = body[0] as Partial<SectorsIndexEntry>;
+  if (typeof first.sectorId !== 'string' || typeof first.lat !== 'number' || typeof first.spanMiles !== 'number') {
+    throw new DataError('BadSchema', `Malformed sectors index entries at ${path}`);
+  }
+  cache.set(path, body);
+  return body as SectorsIndexEntry[];
+}
+
+/** postcodes/{OUTCODE}.json — additive companion geocode map. */
+export async function getOutcodePostcodes(outcode: string): Promise<PostcodeMap> {
+  const oc = outcode.trim().toUpperCase();
+  if (!/^[A-Z]{1,2}\d[A-Z\d]?$/.test(oc)) {
+    throw new TypeError(`Not an outcode: "${outcode}"`);
+  }
+  const path = `postcodes/${oc}.json`;
+  const hit = cache.get(path);
+  if (hit) return hit as PostcodeMap;
+  const body = await fetchJson(path);
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new DataError('BadSchema', `Malformed postcode map at ${path}`);
+  }
+  cache.set(path, body);
+  return body as PostcodeMap;
 }
