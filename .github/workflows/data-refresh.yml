@@ -24,10 +24,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EPC_BEARER_TOKEN: ${{ secrets.EPC_BEARER_TOKEN }}
         run: |
           if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
             echo "::error::Missing repo secrets CLOUDFLARE_API_TOKEN and/or CLOUDFLARE_ACCOUNT_ID."
             echo "::error::Create them per the OPERATOR TO DO block in docs/DECISIONS_LOG.md (S2.2) — the data refresh cannot upload without them."
+            exit 1
+          fi
+          if [ -z "$EPC_BEARER_TOKEN" ]; then
+            echo "::error::Missing repo secret EPC_BEARER_TOKEN — the EPC floor-area stage cannot run without it."
+            echo "::error::Copy the bearer token from your get-energy-performance-data.communities.gov.uk account page and run: gh secret set EPC_BEARER_TOKEN --repo gil-and-bricks/gil-bricks-app"
             exit 1
           fi
           echo "Secrets present."
@@ -47,6 +53,14 @@ jobs:
       - name: Download PPD + ONSPD
         run: npm run pipeline:download
 
+      - name: Download + slim EPC bulk (streamed, zip never on disk)
+        env:
+          EPC_BEARER_TOKEN: ${{ secrets.EPC_BEARER_TOKEN }}
+        run: |
+          command -v bsdtar >/dev/null || (sudo apt-get update && sudo apt-get install -y libarchive-tools)
+          node pipeline/epc.mjs
+          df -h /
+
       - name: Build sector files (full England & Wales)
         run: npm run pipeline:build
 
@@ -57,4 +71,6 @@ jobs:
         run: npm run pipeline:upload -- --concurrency 20
 
       - name: Report
-        run: cat pipeline/.data/out/manifest.json
+        run: |
+          cat pipeline/.data/out/manifest.json
+          df -h /

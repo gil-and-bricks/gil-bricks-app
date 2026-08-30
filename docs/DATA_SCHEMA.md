@@ -49,7 +49,7 @@ precomputed stats for that window.
   "stats": {
     "count": 12,
     "typicalPrice": 137575,     // interquartile mean of sale prices
-    "typicalPpsqm": 1668,       // interquartile mean of ppsqm values; null if no areas
+    "typicalPpsqm": 1668,       // interquartile mean of ppsqm values; null when fewer than 3 sales have one
     "p10Price": 98650,          // 80% range, lower bound
     "p90Price": 206300          // 80% range, upper bound
   }

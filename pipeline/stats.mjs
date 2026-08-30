@@ -24,7 +24,7 @@ export function sectorStats(sales) {
   return {
     count: sales.length,
     typicalPrice: iqm(prices),
-    typicalPpsqm: ppsqms.length > 0 ? iqm(ppsqms) : null,
+    typicalPpsqm: ppsqms.length >= 3 ? iqm(ppsqms) : null,  // <3 areas = too thin to summarise
     p10Price: percentile(prices, 0.1),
     p90Price: percentile(prices, 0.9),
   };

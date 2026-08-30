@@ -22,7 +22,7 @@ src/pages/index.astro     the holding page
 src/pages/styleguide.astro  internal brand reference (noindex)
 src/lib/data/            typed data layer: schema types + R2 client (+ tests)
 data/fixtures/           fixture JSON used by the tests (schema v1 examples)
-pipeline/                data pipeline: download PPD+ONSPD, build sector JSONs, upload to R2
+pipeline/                data pipeline: PPD+ONSPD+EPC ingest, sector JSON build, R2 upload
 public/                   static files copied verbatim into the build
 astro.config.mjs          Astro config — static output, no adapter
 wrangler.jsonc            Cloudflare Worker config — serves ./dist as static assets

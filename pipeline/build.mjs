@@ -9,7 +9,7 @@
  * Usage: node pipeline/build.mjs [--country W92000004] [--out pipeline/.data/out]
  */
 import { DuckDBInstance } from '@duckdb/node-api';
-import { mkdirSync, writeFileSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { sectorStats } from './stats.mjs';
 
@@ -59,6 +59,46 @@ await db.run(`
   FROM read_csv('${DATA}/onspd/${onspdCsv}', header=true, all_varchar=false)
 `);
 
+// EPC slim extract (from pipeline/epc.mjs). Required: the join is the point now.
+const EPC_SLIM = `${DATA}/epc-slim.csv`;
+const EPC_META = `${DATA}/epc-meta.json`;
+if (!existsSync(EPC_SLIM) || !existsSync(EPC_META)) {
+  throw new Error("EPC slim extract missing — run `node pipeline/epc.mjs` first");
+}
+const epcExtractDate = JSON.parse(readFileSync(EPC_META, "utf8")).lastUpdated.slice(0, 10);
+console.log(`epcExtractDate=${epcExtractDate}`);
+
+// Normalise both sides the same way: uppercase, strip punctuation,
+// collapse whitespace. Conservative address matching (see cand/uniq CTEs):
+// exact key or key-plus-street prefix, unambiguous single candidate only.
+await db.run(`
+  CREATE MACRO norm(s) AS trim(regexp_replace(regexp_replace(upper(coalesce(s, '')), '[^A-Z0-9 ]+', ' ', 'g'), ' +', ' ', 'g'))
+`);
+
+await db.run(`
+  CREATE VIEW epc_raw AS
+  SELECT upper(trim(postcode)) AS postcode,
+         norm(concat_ws(' ', a1, a2, a3)) AS addr_norm,
+         TRY_CAST(area AS DOUBLE) AS area,
+         lodgement
+  FROM read_csv('${EPC_SLIM}', header=true, all_varchar=true)
+`);
+
+// Latest certificate per address (ambiguity counted BEFORE the area bounds,
+// so an address whose latest certificate has a junk area still blocks a
+// same-key neighbour from matching — conservative).
+await db.run(`
+  CREATE VIEW epc AS
+  SELECT postcode, addr_norm, min(area) AS area FROM (
+    -- rank(): every certificate sharing the LATEST lodgement date stays in
+    SELECT *, rank() OVER (PARTITION BY postcode, addr_norm ORDER BY lodgement DESC) AS rk
+    FROM epc_raw WHERE addr_norm <> ''
+  ) WHERE rk = 1
+  GROUP BY postcode, addr_norm
+  -- same-day certificates disagreeing on area = ambiguous -> drop the address
+  HAVING count(DISTINCT area) <= 1
+`);
+
 const countrySql = countryFilter
   ? `AND o.ctry = '${countryFilter}'`
   : `AND o.ctry IN ('E92000001','W92000004')`;
@@ -72,6 +112,7 @@ const sql = `
       coalesce(p.paon,'') AS paon, coalesce(p.saon,'') AS saon,
       coalesce(p.street,'') AS street, coalesce(p.town,'') AS town,
       upper(trim(p.postcode)) AS postcode,
+      norm(coalesce(p.saon, '') || ' ' || coalesce(p.paon, '')) AS addr_key,
       p.type, p.tenure, p.new_build,
       o.lat, o.lng, o.ctry
     FROM ppd p
@@ -84,10 +125,24 @@ const sql = `
       AND o.lat IS NOT NULL AND o.lat < 90
       ${countrySql}
     ORDER BY p.id, p.record_status DESC
+  ),
+  cand AS (
+    -- candidate EPC areas per sale: same postcode, address key equal to the
+    -- EPC address or its street-prefix ('FLAT 2 8' matches 'FLAT 2 8 TYFICA ROAD')
+    SELECT c.id AS sale_id, e.area
+    FROM clean c
+    JOIN epc e ON e.postcode = c.postcode
+     AND c.addr_key <> ''
+     AND (e.addr_norm = c.addr_key OR e.addr_norm LIKE c.addr_key || ' %')
+  ),
+  uniq AS (
+    -- unambiguous only: exactly one candidate address, sane area or nothing
+    SELECT sale_id, min(area) AS area
+    FROM cand GROUP BY sale_id HAVING count(*) = 1
   )
-  SELECT *,
+  SELECT clean.*, u.area AS floor_area,
     regexp_extract(postcode, '^(\\S+) (\\d)', 1) || ' ' || regexp_extract(postcode, '^(\\S+) (\\d)', 2) AS sector
-  FROM clean
+  FROM clean LEFT JOIN uniq u ON u.sale_id = clean.id
   WHERE regexp_extract(postcode, '^(\\S+) (\\d)', 1) <> ''
   ORDER BY sector, date, id
 `;
@@ -131,8 +186,14 @@ const flush = () => {
       newBuild: r.new_build === 'Y',
       lat: Number(r.lat),
       lng: Number(r.lng),
-      floorAreaSqm: null,
-      ppsqm: null,
+      // area bounds: outside 10-500 sqm is junk data, not a small/large home
+      ...(r.floor_area !== null && Number(r.floor_area) >= 10 && Number(r.floor_area) <= 500
+        ? {
+            floorAreaSqm: Math.round(Number(r.floor_area) * 10) / 10,
+            // from the STORED area, so ppsqm always equals round(price/floorAreaSqm)
+            ppsqm: Math.round(Number(r.price) / (Math.round(Number(r.floor_area) * 10) / 10)),
+          }
+        : { floorAreaSqm: null, ppsqm: null }),
     })),
     stats: null,
   };
@@ -156,13 +217,24 @@ const manifest = {
   schemaVersion: 1,
   ppdMonth,
   ukhpiMonth: '',
-  epcExtractDate: '',
+  epcExtractDate,
   onspdEdition,
   generatedAt: new Date().toISOString(),
   sectorsCount: sectorsWritten,
 };
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 
+{
+  const matched = rows.filter((r) => r.floor_area !== null && Number(r.floor_area) >= 10 && Number(r.floor_area) <= 500).length;
+  const byCtry = {};
+  for (const r of rows) {
+    byCtry[r.ctry] ??= { total: 0, matched: 0 };
+    byCtry[r.ctry].total += 1;
+    if (r.floor_area !== null && Number(r.floor_area) >= 10 && Number(r.floor_area) <= 500) byCtry[r.ctry].matched += 1;
+  }
+  console.log(`match rate: ${matched}/${rows.length} = ${((matched / rows.length) * 100).toFixed(1)}%`);
+  for (const [c, v] of Object.entries(byCtry)) console.log(`  ${c}: ${((v.matched / v.total) * 100).toFixed(1)}% (${v.matched}/${v.total})`);
+}
 console.log(`sectors written: ${sectorsWritten}`);
 console.log(`total sales: ${totalSales}`);
 console.log(`build seconds: ${((Date.now() - t0) / 1000).toFixed(1)}`);

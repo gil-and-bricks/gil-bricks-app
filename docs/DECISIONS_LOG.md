@@ -2,6 +2,15 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-30 — Sprint S2.3: EPC floor-area join
+
+- **EPC bulk source: `GET /api/files/domestic/csv`** on api.get-energy-performance-data.communities.gov.uk (Bearer auth; `/info` variant reports fileSize + lastUpdated). Current extract: 8.26GB zip, lastUpdated 2026-08-17 → `manifest.epcExtractDate = "2026-08-17"`.
+- **The zip never touches disk** — the HTTP body streams through `bsdtar -xOf -` and an RFC4180 parser straight down to a 6-column `epc-slim.csv`; the ~30GB uncompressed CSV never exists anywhere. Chosen for the CI runner's ~14GB disk; idempotent via the extract's lastUpdated recorded in epc-meta.json.
+- **Match rule (conservative, no guessing)**: normalise both sides (uppercase, punctuation → space, collapse); PPD key = norm(SAON + PAON); EPC address = norm(line1+line2+line3) deduped to the LATEST certificate per address; a sale matches when exactly ONE EPC address in its postcode equals the key or extends it as a street prefix ("FLAT 2 8" ↔ "FLAT 2 8 TYFICA ROAD"). Ambiguity is counted BEFORE the area bounds so a junk-area certificate still blocks a same-key neighbour. Areas outside 10–500 sqm are junk → null. Same-day duplicate certificates that disagree on area are ambiguous → address dropped (verification caught ~70 nondeterministic sales).
+- **typicalPpsqm needs ≥3 matched sales** — an IQM of one or two values is noise dressed as a statistic; DATA_SCHEMA.md wording updated (v1 clarification, nullability unchanged).
+- **Future upgrade: UPRN matching** — PPD lacks UPRNs but the EPC data carries them; joining via a UPRN address lookup (OS Open UPRN + ONS UPRN directory) would lift the match rate above address-string matching. Logged for a later sprint.
+- **Production rebuild + upload happens in CI** — this machine deliberately no longer holds the Cloudflare token after the rotation, so the local run is for verification and match-rate reporting; the dispatched workflow (S3 uploader, fresh runner) publishes the real files.
+
 ## 2026-08-30 — Sprint S2.2: Real data pipeline (PPD + ONSPD → R2)
 
 - **PPD source: yearly part files pp-2025.csv + pp-2026.csv** (~222MB total) from HM Land Registry's official S3 hosting (the gov.uk "Price Paid Data downloads" endpoints; prod redirects to prod2) — the smallest official set guaranteeing 12 full months; pp-complete is ~5GB for no extra coverage.
@@ -21,7 +30,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
 1. In the Cloudflare dashboard: **R2 → Manage API tokens → Create API token** (or dash.cloudflare.com → R2 object storage → {} API → Manage API tokens). Name it `gil-bricks-data-ci`, set **Permissions: Object Read & Write**, and under **Specify bucket(s)** choose **Apply to specific buckets only → gil-bricks-data**. Leave TTL = Forever. Click **Create API Token** and copy the **Token value** shown (not the Access Key ID/Secret — the token string itself).
 2. In Terminal, store the two repo secrets (paste the token when prompted):
    `gh secret set CLOUDFLARE_API_TOKEN --repo gil-and-bricks/gil-bricks-app`
-   `gh secret set CLOUDFLARE_ACCOUNT_ID --repo gil-and-bricks/gil-bricks-app --body 782ad8529292de59fdaf1d63afce8cad`
+   `gh secret set CLOUDFLARE_ACCOUNT_ID --repo gil-and-bricks/gil-bricks-app --body <your Cloudflare account id — shown by `npx wrangler whoami`>`
 3. Test it: `gh workflow run data-refresh --repo gil-and-bricks/gil-bricks-app`, then watch with `gh run list --repo gil-and-bricks/gil-bricks-app`.
 
 ## 2026-08-30 — Sprint S2.1: Locked data schema + fixture on R2
