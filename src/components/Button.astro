@@ -1,0 +1,50 @@
+---
+/**
+ * Button primitive. Primary = lime fill + near-black text (never white on
+ * lime); secondary = lime outline. Renders an <a> when href is given,
+ * otherwise a <button>.
+ */
+interface Props {
+  variant?: 'primary' | 'secondary';
+  href?: string;
+  class?: string;
+}
+const { variant = 'primary', href, class: className = '' } = Astro.props;
+const Tag = href ? 'a' : 'button';
+---
+
+<Tag class:list={['btn', variant, className]} href={href} type={href ? undefined : 'button'}>
+  <slot />
+</Tag>
+
+<style>
+  .btn {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-weight: 500;
+    font-size: var(--text-base);
+    line-height: 1;
+    padding: var(--space-3) var(--space-5);
+    border-radius: var(--radius-btn);
+    border: 1px solid transparent;
+    text-decoration: none;
+    cursor: pointer;
+    transition: filter 120ms ease;
+  }
+
+  .btn.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: var(--accent);
+  }
+
+  .btn.secondary {
+    background: transparent;
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .btn:hover {
+    filter: brightness(1.08);
+  }
+</style>

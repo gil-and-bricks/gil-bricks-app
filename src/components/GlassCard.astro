@@ -1,0 +1,64 @@
+---
+/**
+ * Glass card primitive (CLAUDE.md → Style / a11y, LOCKED):
+ * glass tint + 12px blur (with -webkit- prefix), 1px lime border, 16px radius,
+ * subtle inner glow, solid fallback when blur is unsupported,
+ * reduced transparency honoured, lighter blur on touch devices.
+ */
+interface Props {
+  class?: string;
+}
+const { class: className = '' } = Astro.props;
+---
+
+<div class:list={['glass-card', className]}>
+  <slot />
+</div>
+
+<style>
+  .glass-card {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    padding: var(--space-6);
+    /* subtle inner glow: hairline top light + faint lime bloom */
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 0 32px rgba(220, 255, 0, 0.04);
+  }
+
+  /* Solid fallback when backdrop blur is not supported */
+  @supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+    .glass-card {
+      background: var(--glass-bg-fallback);
+    }
+  }
+
+  /* Honour reduced-transparency preference */
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-card {
+      background: var(--glass-bg-fallback);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /* Extra belt: prefers-reduced-transparency is Chromium-only today, so the
+     opaque card also applies when the user asks for more contrast */
+  @media (prefers-contrast: more) {
+    .glass-card {
+      background: var(--glass-bg-fallback);
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+
+  /* Reduce blur cost on touch devices */
+  @media (pointer: coarse) {
+    .glass-card {
+      --glass-blur: 6px;
+    }
+  }
+</style>

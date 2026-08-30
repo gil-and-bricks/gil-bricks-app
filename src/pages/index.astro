@@ -1,50 +1,43 @@
 ---
+import Base from '../layouts/Base.astro';
+import GlassCard from '../components/GlassCard.astro';
+import Button from '../components/Button.astro';
+import { siteConfig } from '../site.config';
 ---
 
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Gil & Bricks — coming soon" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Gil &amp; Bricks — coming soon</title>
-    <style>
-      :root {
-        color-scheme: dark;
-      }
+<Base title={`${siteConfig.siteName} — coming soon`}>
+  <main>
+    <GlassCard class="holding-card">
+      <h1>{siteConfig.siteName}</h1>
+      <p class="tagline">{siteConfig.tagline}</p>
+      <Button variant="primary" href={siteConfig.socials.instagram}>Follow the build</Button>
+    </GlassCard>
+  </main>
+</Base>
 
-      html,
-      body {
-        height: 100%;
-      }
+<style>
+  main {
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-5);
+  }
 
-      body {
-        margin: 0;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #070014;
-        color: #ffffff;
-        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
-        text-align: center;
-      }
+  main :global(.holding-card) {
+    max-width: 34rem;
+    text-align: center;
+  }
 
-      main {
-        padding: 1.5rem;
-      }
+  h1 {
+    font-size: clamp(1.75rem, 5vw, var(--text-3xl));
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    overflow-wrap: break-word;
+  }
 
-      h1 {
-        margin: 0;
-        font-size: clamp(1.5rem, 5vw, 2.75rem);
-        font-weight: 500;
-        letter-spacing: 0.01em;
-      }
-    </style>
-  </head>
-  <body>
-    <main>
-      <h1>Gil &amp; Bricks — coming soon</h1>
-    </main>
-  </body>
-</html>
+  .tagline {
+    margin: var(--space-4) 0 var(--space-6);
+    color: var(--text-dim);
+  }
+</style>

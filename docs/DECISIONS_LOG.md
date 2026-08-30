@@ -2,6 +2,18 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-30 — Sprint S1.3: Design system, brand tokens, site.config
+
+- **First pass rebuilt to the full brief** — the sprint message first arrived truncated mid-step-2; work built from CLAUDE.md's locked brand was reconciled to the full spec when it arrived (fonts switched from direct downloads to @fontsource packages; public/fonts/, fonts.css and BaseLayout.astro removed in favour of the spec'd layout and font setup).
+- **Font payload: 84KB woff2** (Montserrat 600/700/800 ~20KB each, Poppins 400/500/600 ~8KB each, latin subset) — under the 150KB budget; @fontsource also emits 108KB of legacy .woff fallbacks, but any one browser downloads a single format.
+- **CSS build targets pinned in astro.config.mjs** — verification caught the CSS minifier stripping `-webkit-backdrop-filter` (default targets assume Safari 18+); Safari ≤17 would have silently lost the glass blur. Targets now include safari15 so the locked prefix survives.
+- **prefers-contrast: more also gets the solid card** — prefers-reduced-transparency is Chromium-only today, so the contrast preference doubles as a fallback trigger.
+- **Inner-glow values chosen** (spec said "subtle", no numbers): white hairline top inset + faint lime bloom, both under 10% opacity.
+- **Href-less Buttons render type="button"** — prevents accidental form submits if the primitive is ever used inside a form.
+- **Styleguide swatch rows wrap** — verification caught horizontal overflow at ≤375px widths (WCAG reflow); rows now flex-wrap and token values can break.
+- **Favicon replaced** — the scaffold shipped the Astro logo; now a neutral, name-agnostic brick mark in brand colours (no lettering, so a future rename costs nothing).
+- **Phase 1 marked Done in ROADMAP.md** — gate passes: live URL 200, tokens render per CLAUDE.md, build clean.
+
 ## 2026-08-30 — Sprint S1.2: Rulebook & roadmap files
 
 - **CLAUDE.md symlink replaced** — the scaffold shipped CLAUDE.md as a symlink to Astro's default AGENTS.md; the rulebook is now the real CLAUDE.md and AGENTS.md symlinks to it, so any agent tooling reads the same rules from one file.

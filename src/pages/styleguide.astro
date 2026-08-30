@@ -1,0 +1,145 @@
+---
+import Base from '../layouts/Base.astro';
+import GlassCard from '../components/GlassCard.astro';
+import Button from '../components/Button.astro';
+import SectionHeading from '../components/SectionHeading.astro';
+import { siteConfig } from '../site.config';
+
+// Hidden internal reference — noindex, not linked from anywhere.
+const swatches = [
+  { name: '--accent', value: '#dcff00' },
+  { name: '--accent-ink', value: '#070014' },
+  { name: '--bg-0', value: '#070014' },
+  { name: '--bg-1', value: '#1d022f' },
+  { name: '--bg-2', value: '#230138' },
+  { name: '--bg-3', value: '#050008' },
+  { name: '--text', value: '#ffffff' },
+  { name: '--text-dim', value: 'rgba(255,255,255,0.7)' },
+  { name: '--glass-bg', value: 'rgba(255,255,255,0.05)' },
+  { name: '--glass-border', value: 'rgba(220,255,0,0.4)' },
+];
+const typeScale = [
+  { token: '--text-xs', label: 'Extra small' },
+  { token: '--text-sm', label: 'Small' },
+  { token: '--text-base', label: 'Base' },
+  { token: '--text-lg', label: 'Large' },
+  { token: '--text-xl', label: 'Extra large' },
+  { token: '--text-2xl', label: '2XL' },
+  { token: '--text-3xl', label: '3XL' },
+];
+---
+
+<Base title={`Styleguide — ${siteConfig.siteName}`} noindex>
+  <main>
+    <SectionHeading as="h1">Styleguide</SectionHeading>
+    <p class="note">
+      Internal reference for the locked brand. Not linked, not indexed.
+    </p>
+
+    <SectionHeading>Colour tokens</SectionHeading>
+    <ul class="swatches">
+      {swatches.map((s) => (
+        <li>
+          <span class="chip" style={`background:${s.value}`}></span>
+          <code>{s.name}</code>
+          <code class="dim">{s.value}</code>
+        </li>
+      ))}
+    </ul>
+
+    <SectionHeading>Buttons</SectionHeading>
+    <div class="row">
+      <Button variant="primary">Primary button</Button>
+      <Button variant="secondary">Secondary button</Button>
+    </div>
+
+    <SectionHeading>Glass card</SectionHeading>
+    <GlassCard>
+      <SectionHeading as="h3">Card title</SectionHeading>
+      <p>
+        Glass tint over the gradient, 12px blur (6px on touch), 1px lime
+        border at 40%, 16px radius, subtle inner glow. Falls back to a solid
+        dark card when blur is unsupported or transparency is reduced.
+      </p>
+    </GlassCard>
+
+    <SectionHeading>Type scale</SectionHeading>
+    <ul class="typescale">
+      {typeScale.map((t) => (
+        <li style={`font-size: var(${t.token})`}>
+          <code>{t.token}</code> — {t.label}: The quick brown fox — £245,000
+        </li>
+      ))}
+    </ul>
+
+    <SectionHeading>Contrast</SectionHeading>
+    <p class="contrast-note">
+      Lime (#dcff00) is for text, borders, icons and button fills with
+      near-black text (#070014) — 18:1. Never put white text on a lime
+      background: at about 1.2:1 it fails WCAG. Body text is white or 70%
+      white on the dark gradient; both pass AA on every gradient stop.
+    </p>
+  </main>
+</Base>
+
+<style>
+  main {
+    max-width: 44rem;
+    margin: 0 auto;
+    padding: var(--space-7) var(--space-5);
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .note,
+  .contrast-note {
+    color: var(--text-dim);
+    margin: 0;
+  }
+
+  .swatches {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .swatches li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-2) var(--space-3);
+  }
+
+  .chip {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    flex: none;
+  }
+
+  .dim {
+    color: var(--text-dim);
+  }
+
+  .row {
+    display: flex;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .typescale {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  code {
+    font-size: 0.85em;
+    overflow-wrap: anywhere;
+  }
+</style>
