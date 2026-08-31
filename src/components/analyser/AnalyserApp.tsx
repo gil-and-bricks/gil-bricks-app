@@ -160,7 +160,13 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           )}
         </>
       )}
-      {!ready && <p class="hint start-hint">{showVerdict ? 'Enter a postcode, price and property type to begin.' : 'Enter a postcode to see what sold nearby.'}</p>}
+      {!ready && (
+        <p class="hint start-hint">
+          {showVerdict
+            ? 'Start with the postcode and the asking price, then pick the property type — everything else has sensible defaults you can change.'
+            : 'Start with a postcode to see what recently sold nearby.'}
+        </p>
+      )}
     </div>
   );
 }
