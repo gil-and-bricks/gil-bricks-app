@@ -11,6 +11,7 @@ import { fmtMoney, fmtPct, fmtRatio } from '../../lib/maths/format';
 import { initStrategyParams, state, strategyParams } from './state';
 import { StrategyInputs } from './StrategyInputs';
 import { Accordion, MathsAccordion } from './Accordion';
+import { Article4Flag } from './Article4Flag';
 
 function requireThresholds(config: StrategyConfig): { minCashflowGreen: number; minRoiGreen: number; icrBasic: number; icrHigher: number } {
   const t = config.thresholds;
@@ -104,6 +105,7 @@ export function HmoVerdict({ config, comps, valuation }: {
         It does not estimate a commercial HMO valuation — those need a surveyor.
       </p>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
+      {comps && <Article4Flag lat={comps.subject.lat} lng={comps.subject.lng} country={comps.subject.country} />}
       {isSuiGeneris && (
         <p class="field-error" role="alert">
           7 or more people is a large ‘sui generis’ HMO — outside what this tool covers.
@@ -189,10 +191,6 @@ export function HmoVerdict({ config, comps, valuation }: {
               ‘sui generis’ and needs permission everywhere.
             </p>
           </Accordion>
-          <div class="tile map-slot">
-            <p class="tile-label">Article 4 map</p>
-            <p class="field-hint">Article 4 map arrives with the map sprint.</p>
-          </div>
 
           <div class="tiles">
             <div class="tile tile-hero">

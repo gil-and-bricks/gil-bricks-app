@@ -18,6 +18,7 @@ import { sqmToSqft } from '../../lib/maths/area';
 import { fmtMoney } from '../../lib/maths/format';
 import { strategies } from '../../config/strategies';
 import { Accordion } from '../analyser/Accordion';
+import { CompMap } from '../analyser/CompMap';
 import { Tooltip } from '../analyser/Tooltip';
 
 type Ready = {
@@ -323,6 +324,10 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
         </div>
       )}
 
+      {mile !== null && mile !== 'failed' && mile.comps.length > 0 && (
+        <AreaMapCard subject={{ lat: subject.lat, lng: subject.lng }} mile={mile} />
+      )}
+
       <div class="glass card">
         <h3>
           Price trend — {countryName} <Tooltip text="The official UK House Price Index for the whole country." />
@@ -518,6 +523,29 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
         </span>
       </nav>
     </>
+  );
+}
+
+function AreaMapCard({ subject, mile }: { subject: { lat: number; lng: number }; mile: ComparablesResult }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div class="glass card">
+      <h3>
+        Where these sold <Tooltip text="Every sale within a mile, on the map. Click a dot for the sale." />
+      </h3>
+      <button
+        type="button"
+        class="btn-secondary"
+        aria-expanded={open}
+        aria-controls="area-map-body"
+        onClick={() => setOpen((o) => !o)}
+      >
+        {open ? 'Hide map' : 'Show map'}
+      </button>
+      <div id="area-map-body" hidden={!open}>
+        {open && <CompMap subject={subject} radiusMiles={1} comps={mile.comps} selectedId={null} variant="density" />}
+      </div>
+    </div>
   );
 }
 

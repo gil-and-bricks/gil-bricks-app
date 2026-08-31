@@ -10,15 +10,17 @@ import {
   Map as LibreMap,
   NavigationControl,
   Popup,
+  LngLatBounds,
   setWorkerUrl,
   type GeoJSONSource,
   type MapLayerMouseEvent,
 } from 'maplibre-gl';
 import type { Feature, FeatureCollection, Point } from 'geojson';
+import type { IControl } from 'maplibre-gl';
 import { PMTiles, Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Comp } from '../../lib/comparables/engine';
-import { circleRing, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
+import { circleRing, clusterForVariant, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
 import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
 import { fmtMoney } from '../../lib/maths/format';
 import { sqmToSqft } from '../../lib/maths/area';
@@ -80,6 +82,10 @@ export interface MapData {
   radiusMiles: number;
   comps: Comp[];
   selectedId: string | null;
+  /** Article 4 direction polygons to shade (HMO analyser only). */
+  article4?: GeoJSON.FeatureCollection | null;
+  /** 'density' = subtle small dots for the Area Data map; 'comps' = full pins. */
+  variant?: 'comps' | 'density';
 }
 
 export interface MapHandle {
@@ -202,6 +208,26 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
     'bottom-right',
   );
   if (interactive) map.addControl(new NavigationControl({ showCompass: false }), 'top-right');
+  if (interactive) {
+    // "Reset view" control — re-frames the radius/comps.
+    const reset: IControl = {
+      onAdd() {
+        const div = document.createElement('div');
+        div.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.title = 'Reset view';
+        btn.setAttribute('aria-label', 'Reset the map view');
+        btn.className = 'map-reset-btn';
+        btn.textContent = 'Reset';
+        btn.addEventListener('click', () => fitToData());
+        div.appendChild(btn);
+        return div;
+      },
+      onRemove() {},
+    };
+    map.addControl(reset, 'top-right');
+  }
 
   // test hook: live checks drive the real map through the container
   (container as HTMLElement & { _map?: unknown })._map = map;
@@ -209,9 +235,27 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
   let current = data;
   let popup: Popup | null = null;
   let pulseFrame = 0;
-  let clustered = shouldCluster(data.comps.length);
+  let clustered = clusterForVariant(data.variant, data.comps.length);
 
   const addDataLayers = () => {
+    // Article 4 shaded areas render UNDER the data layer (HMO analyser).
+    // The source is created ALWAYS (empty when none) so polygons that arrive
+    // from the planning API AFTER 'load' render via setData instead of being
+    // silently dropped — otherwise the map could contradict the verdict flag.
+    {
+      map.addSource('article4', {
+        type: 'geojson',
+        data: (current.article4 ?? { type: 'FeatureCollection', features: [] }) as never,
+      });
+      map.addLayer({ id: 'article4-fill', type: 'fill', source: 'article4', paint: { 'fill-color': 'rgba(220,255,0,0.10)' } });
+      map.addLayer({
+        id: 'article4-line',
+        type: 'line',
+        source: 'article4',
+        paint: { 'line-color': LIME, 'line-width': 1, 'line-dasharray': [3, 2], 'line-opacity': 0.7 },
+      });
+    }
+
     if (current.radiusMiles > 0) {
       map.addSource('radius', { type: 'geojson', data: circleGeoJson(current) });
       map.addLayer({
@@ -228,7 +272,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
       });
     }
 
-    clustered = shouldCluster(current.comps.length);
+    clustered = clusterForVariant(current.variant, current.comps.length);
     map.addSource('comps', {
       type: 'geojson',
       data: compsGeoJson(current),
@@ -256,19 +300,29 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
       layout: { 'text-field': ['get', 'point_count_abbreviated'], 'text-font': ['Noto Sans Medium'], 'text-size': 13 },
       paint: { 'text-color': INK },
     });
+    const density = current.variant === 'density';
     map.addLayer({
       id: 'comp-pins',
       type: 'circle',
       source: 'comps',
       filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-radius': ['get', 'radius'],
-        'circle-color': ['case', ['==', ['get', 'state'], 'selected'], '#ffffff', LIME],
-        'circle-opacity': ['case', ['==', ['get', 'state'], 'excluded'], 0.25, 1],
-        'circle-stroke-width': ['case', ['==', ['get', 'state'], 'selected'], 2.5, 1],
-        'circle-stroke-color': ['case', ['==', ['get', 'state'], 'selected'], LIME, INK],
-        'circle-stroke-opacity': ['case', ['==', ['get', 'state'], 'excluded'], 0.25, 1],
-      },
+      paint: density
+        ? {
+            // subtle density dots for the Area Data map
+            'circle-radius': 4,
+            'circle-color': LIME,
+            'circle-opacity': 0.55,
+            'circle-stroke-width': 0.5,
+            'circle-stroke-color': INK,
+          }
+        : {
+            'circle-radius': ['get', 'radius'],
+            'circle-color': ['case', ['==', ['get', 'state'], 'selected'], '#ffffff', LIME],
+            'circle-opacity': ['case', ['==', ['get', 'state'], 'excluded'], 0.25, 1],
+            'circle-stroke-width': ['case', ['==', ['get', 'state'], 'selected'], 2.5, 1],
+            'circle-stroke-color': ['case', ['==', ['get', 'state'], 'selected'], LIME, INK],
+            'circle-stroke-opacity': ['case', ['==', ['get', 'state'], 'excluded'], 0.25, 1],
+          },
     });
 
     map.addSource('subject', {
@@ -359,19 +413,22 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
 
   const refresh = () => {
     if (!map.isStyleLoaded()) return;
-    const needCluster = shouldCluster(current.comps.length);
+    const needCluster = clusterForVariant(current.variant, current.comps.length);
     if (needCluster !== clustered) {
       // cluster flag is source-level: rebuild the data layers
-      for (const id of ['subject-dot', 'subject-pulse', 'comp-pins', 'cluster-count', 'clusters', 'radius-line', 'radius-fill']) {
+      for (const id of ['subject-dot', 'subject-pulse', 'comp-pins', 'cluster-count', 'clusters', 'radius-line', 'radius-fill', 'article4-line', 'article4-fill']) {
         if (map.getLayer(id)) map.removeLayer(id);
       }
-      for (const id of ['subject', 'comps', 'radius']) if (map.getSource(id)) map.removeSource(id);
+      for (const id of ['subject', 'comps', 'radius', 'article4']) if (map.getSource(id)) map.removeSource(id);
       if (pulseFrame) cancelAnimationFrame(pulseFrame);
       addDataLayers();
       return;
     }
     (map.getSource('comps') as GeoJSONSource | undefined)?.setData(compsGeoJson(current));
     (map.getSource('radius') as GeoJSONSource | undefined)?.setData(circleGeoJson(current) as never);
+    (map.getSource('article4') as GeoJSONSource | undefined)?.setData(
+      (current.article4 ?? { type: 'FeatureCollection', features: [] }) as never,
+    );
     (map.getSource('subject') as GeoJSONSource | undefined)?.setData({
       type: 'Feature',
       geometry: { type: 'Point', coordinates: [current.subject.lng, current.subject.lat] },
@@ -379,12 +436,31 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
     } as never);
   };
 
+  /** Frame the radius ring (or the comps) — used by radius-change + Reset view. */
+  const fitToData = () => {
+    const anim = reduceMotion ? { duration: 0 } : { duration: 600 };
+    if (current.radiusMiles > 0) {
+      const ring = circleRing(current.subject.lat, current.subject.lng, current.radiusMiles);
+      const b = new LngLatBounds(ring[0] as [number, number], ring[0] as [number, number]);
+      for (const p of ring) b.extend(p as [number, number]);
+      map.fitBounds(b, { padding: 32, ...anim });
+    } else if (current.comps.length > 0) {
+      const b = new LngLatBounds([current.comps[0].lng, current.comps[0].lat], [current.comps[0].lng, current.comps[0].lat]);
+      for (const c of current.comps) b.extend([c.lng, c.lat]);
+      map.fitBounds(b, { padding: 40, maxZoom: 16, ...anim });
+    } else {
+      map.easeTo({ center: [current.subject.lng, current.subject.lat], zoom: interactive ? 14 : 15, ...anim });
+    }
+  };
+
   return {
     update(next: MapData) {
       const recentre = next.subject.lat !== current.subject.lat || next.subject.lng !== current.subject.lng;
+      const radiusChanged = next.radiusMiles !== current.radiusMiles;
       current = next;
       refresh();
-      if (recentre) map.easeTo({ center: [next.subject.lng, next.subject.lat] });
+      if (radiusChanged) fitToData();
+      else if (recentre) map.easeTo({ center: [next.subject.lng, next.subject.lat], duration: reduceMotion ? 0 : 600 });
     },
     setHovered(id: string | null) {
       if (!map.getLayer('comp-pins')) return;

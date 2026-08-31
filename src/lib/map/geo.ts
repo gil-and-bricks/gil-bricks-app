@@ -51,6 +51,13 @@ export function shouldCluster(compCount: number): boolean {
   return compCount > CLUSTER_THRESHOLD;
 }
 
+/** Clustering rule per variant: the 'density' area map shows every dot (no
+ * clustering); 'comps' clusters above the threshold. */
+export function clusterForVariant(variant: 'comps' | 'density' | undefined, compCount: number): boolean {
+  if (variant === 'density') return false;
+  return shouldCluster(compCount);
+}
+
 export interface PinState {
   /** 'normal' | 'excluded' | 'selected' */
   state: 'normal' | 'excluded' | 'selected';

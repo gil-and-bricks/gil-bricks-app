@@ -154,7 +154,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           ) : (
             <>
               <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} />
-              <CompsModule result={results.comps} />
+              <CompsModule result={results.comps} article4={config?.id === 'hmo'} />
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>
           )}

@@ -277,3 +277,15 @@
 .map-popup-link { margin: var(--space-2) 0 0; }
 .map-popup-link a { color: var(--accent); }
 .comps-table tbody tr:hover { background: rgba(220,255,0,0.05); }
+
+/* article 4 + map polish (S7.2) */
+.a4-card { border-radius: 12px; padding: var(--space-3) var(--space-4); margin: var(--space-3) 0; border: 1px solid rgba(255,255,255,0.15); }
+.a4-card.a4-warn { border-color: var(--accent); background: rgba(220,255,0,0.06); }
+.a4-card.a4-note { border-color: rgba(220,255,0,0.4); }
+.a4-card.a4-clear { border-color: rgba(255,255,255,0.12); }
+.a4-headline { margin: 0 0 var(--space-1); font-weight: 600; }
+.a4-card a { color: var(--accent); }
+.map-a4-note { margin: var(--space-2) 0 0; }
+.map-chip { display: inline-block; margin: var(--space-2) 0; padding: 0.2rem 0.7rem; border-radius: 999px; font-size: var(--text-xs); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.18); }
+.comp-map .maplibregl-ctrl button { font-size: 1rem; line-height: 1; }
+.comp-map .maplibregl-ctrl button.map-reset-btn { width: auto; padding: 0 0.5rem; font-size: var(--text-xs); }

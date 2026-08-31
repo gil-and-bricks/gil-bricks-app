@@ -12,20 +12,41 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Comp } from '../../lib/comparables/engine';
 import type { MapData, MapHandle } from './mapImpl';
 import { hoveredCompId } from './mapSync';
+import { fetchArticle4InBbox } from '../../lib/map/article4';
 
 export interface CompMapProps {
   subject: { lat: number; lng: number };
   radiusMiles: number;
   comps: Comp[];
   selectedId: string | null;
+  /** 'density' = subtle dots (Area Data map); 'comps' = full pins (default). */
+  variant?: 'comps' | 'density';
+  /** Load + shade Article 4 direction areas (HMO analyser only). */
+  article4?: boolean;
 }
 
-export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProps) {
+export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'comps', article4 = false }: CompMapProps) {
   const el = useRef<HTMLDivElement>(null);
   const handle = useRef<MapHandle | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'blank' | 'failed'>('loading');
   const [attempt, setAttempt] = useState(0);
+  const [a4, setA4] = useState<GeoJSON.FeatureCollection | null>(null);
+  const a4Ref = useRef<GeoJSON.FeatureCollection | null>(null);
+  a4Ref.current = a4; // always the latest, so a mount that finishes AFTER the
+  // async Article 4 fetch still seeds the map with the polygons (race fix)
   const autoRetried = useRef(false);
+
+  // Article 4 polygons for a ~2-mile box around the subject (England dataset).
+  useEffect(() => {
+    if (!article4) return;
+    let cancelled = false;
+    const dLat = 0.03, dLng = 0.045; // ~2mi
+    void fetchArticle4InBbox({ west: subject.lng - dLng, south: subject.lat - dLat, east: subject.lng + dLng, north: subject.lat + dLat })
+      .then((fc) => !cancelled && setA4(fc));
+    return () => {
+      cancelled = true;
+    };
+  }, [article4, subject.lat, subject.lng]);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +54,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
     void import('./mapImpl')
       .then((m) => {
         if (cancelled || !el.current) return;
-        handle.current = m.mountMap(el.current, { subject, radiusMiles, comps, selectedId }, {
+        handle.current = m.mountMap(el.current, { subject, radiusMiles, comps, selectedId, variant, article4: a4Ref.current }, {
           onRendered: () => !cancelled && setStatus('ok'),
           onBlank: (reason) => {
             if (cancelled) return;
@@ -60,12 +81,12 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
   }, [attempt]);
 
   useEffect(() => {
-    handle.current?.update({ subject, radiusMiles, comps, selectedId } satisfies MapData);
-  }, [subject.lat, subject.lng, radiusMiles, comps, selectedId]);
+    handle.current?.update({ subject, radiusMiles, comps, selectedId, variant, article4: a4 } satisfies MapData);
+  }, [subject.lat, subject.lng, radiusMiles, comps, selectedId, variant, a4]);
 
   useEffect(() => {
-    handle.current?.setHovered(hoveredCompId.value);
-  }, [hoveredCompId.value]);
+    if (variant === 'comps') handle.current?.setHovered(hoveredCompId.value);
+  }, [hoveredCompId.value, variant]);
 
   const broken = status === 'blank' || status === 'failed';
 
@@ -92,6 +113,12 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
         aria-label="Map of comparable sales — the table view carries the same data"
         role="application"
       />
+      {article4 && a4 && a4.features.length > 0 && !broken && (
+        <p class="hint map-a4-note">
+          Shaded areas have an Article 4 direction recorded in the national planning dataset (England). Coverage is
+          incomplete and councils change these — always confirm with the council before you buy.
+        </p>
+      )}
     </>
   );
 }

@@ -9,7 +9,7 @@ import { hoveredCompId } from './mapSync';
 
 const AGE_LABEL = (c: Comp) => (c.newBuild ? 'New' : 'Existing');
 
-export function CompsModule({ result }: { result: ComparablesResult | null }) {
+export function CompsModule({ result, article4 = false }: { result: ComparablesResult | null; article4?: boolean }) {
   const s = state.value;
   const [sortKey, setSortKey] = useState<SortKey>('distance');
   const [dir, setDir] = useState<'asc' | 'desc'>('asc');
@@ -21,6 +21,13 @@ export function CompsModule({ result }: { result: ComparablesResult | null }) {
     return sortComps(withFlags, sortKey, dir);
   }, [result, excluded, sortKey, dir]);
   const stats = useMemo(() => computeStats(comps), [comps]);
+
+  // retain scroll position across the list⇄map swap (heights differ)
+  const setView = (view: 'list' | 'map') => {
+    const y = typeof window !== 'undefined' ? window.scrollY : 0;
+    update({ view });
+    if (typeof window !== 'undefined') requestAnimationFrame(() => window.scrollTo({ top: y }));
+  };
 
   const toggle = (id: string) => {
     const next = new Set(excluded);
@@ -100,7 +107,7 @@ export function CompsModule({ result }: { result: ComparablesResult | null }) {
               type="button"
               class={s.view === 'list' ? 'pill pill-current' : 'pill'}
               aria-pressed={s.view === 'list'}
-              onClick={() => update({ view: 'list' })}
+              onClick={() => setView('list')}
             >
               List
             </button>
@@ -108,14 +115,18 @@ export function CompsModule({ result }: { result: ComparablesResult | null }) {
               type="button"
               class={s.view === 'map' ? 'pill pill-current' : 'pill'}
               aria-pressed={s.view === 'map'}
-              onClick={() => update({ view: 'map' })}
+              onClick={() => setView('map')}
             >
               Map
             </button>
             {s.view === 'map' && <span class="hint">The table view carries the same data for keyboard and screen-reader use.</span>}
           </div>
+          {s.view === 'map' && comps.some((c) => !c.included) && (
+            <span class="map-chip">{comps.filter((c) => !c.included).length} dimmed — excluded from the stats</span>
+          )}
           {s.view === 'map' && (
             <CompMap
+              article4={article4}
               subject={{ lat: result.subject.lat, lng: result.subject.lng }}
               radiusMiles={Number(s.radius)}
               comps={comps}
