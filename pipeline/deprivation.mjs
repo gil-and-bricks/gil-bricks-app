@@ -27,8 +27,17 @@ const IMD_URL =
 const WIMD_URL =
   'https://www.gov.wales/sites/default/files/statistics-and-research/2025-11/wimd-2025-index-and-domain-ranks-by-small-area.ods';
 
+// gov.wales fronts its files with a WAF that 403s "non-browser" requests
+// from datacenter IPs (seen live on GitHub-hosted runners); plain browser
+// headers are usually enough to pass.
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36',
+  Accept: '*/*',
+  'Accept-Language': 'en-GB,en;q=0.9',
+};
+
 async function download(url, dest) {
-  const res = await fetch(url, { redirect: 'follow' });
+  const res = await fetch(url, { redirect: 'follow', headers: BROWSER_HEADERS });
   if (!res.ok) throw new Error(`GET ${url} → HTTP ${res.status}`);
   const len = Number(res.headers.get('content-length') ?? 0);
   if (existsSync(dest) && len > 0 && statSync(dest).size === len) {
@@ -40,8 +49,22 @@ async function download(url, dest) {
   console.log(`downloaded ${dest} (${statSync(dest).size} bytes)`);
 }
 
-await download(IMD_URL, IMD_CSV);
-await download(WIMD_URL, WIMD_ODS);
+// Committed fallback: the parsed lookup lives in the repo too, because the
+// official hosts can block CI runners (gov.wales 403'd a GitHub runner on
+// 2026-08-31). Deprivation editions change every few years, so serving the
+// committed copy when a download fails keeps the monthly refresh honest —
+// with a loud warning so a stale fallback can't hide forever.
+const FALLBACK = 'pipeline/deprivation-fallback.json';
+try {
+  await download(IMD_URL, IMD_CSV);
+  await download(WIMD_URL, WIMD_ODS);
+} catch (err) {
+  if (!existsSync(FALLBACK)) throw err;
+  console.warn(`WARNING: download failed (${err.message}) — using the committed fallback ${FALLBACK}.`);
+  console.warn('The fallback carries its own edition labels, so the manifest stays honest; refresh it when the source unblocks.');
+  writeFileSync(OUT, readFileSync(FALLBACK));
+  process.exit(0);
+}
 
 // --- England: File 7 CSV. Minimal RFC4180 parse (LA names may hold commas). ---
 function parseCsv(text) {
