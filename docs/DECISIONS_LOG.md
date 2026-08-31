@@ -2,6 +2,19 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S4.4: Flip verdict
+
+- **Verdict thresholds (config)**: GREEN = after-tax ROI ≥ 20% ∧ profit before tax ≥ £15,000; AMBER = after-tax ROI ≥ 10% ∧ profit > £0; RED = profit ≤ £0 ∨ after-tax ROI < 10%. ROI (after tax, selected scenario) is the hero, before-tax shown small.
+- **Both tax scenarios always compute side by side** — personal (income tax at the chosen band + Class 4 NIC, via the lib's flipTax) vs company (corporation tax with marginal relief, plus the "taking it out is taxed again" note); the selected one feeds the verdict. Fixed lines: not-tax-advice + trading-income-not-CGT.
+- **Companies are forced onto the higher purchase-tax rates** regardless of the basis setting, with a visible note — encoded in the composition and tested.
+- **VAT joined rates.json** (standard 20%, sourced/dated) — agent selling fees are quoted ex-VAT and the engine adds it; no rate lives in code.
+- **Profit-on-GDV is genuinely detachable** — its own component (GdvModule) rendered from config.flags.showGdvModule at a single call site; the flag never enters the analysis inputs, so flipping it changes rendering only.
+- **No rental maths anywhere in Flip** — the module composes flipProfit/flipTax/stampDuty/roi and the bridging arithmetic only; rentalCore is untouched.
+- **Levers**: "Max offer for a Green flip" (price bisection, floor £250) and "Sale price needed" (GDV bisection, ceil £250) — the banner shows the smaller move; both tiles carry boundary-property tests (green AT the answer, not one step past).
+- **My hand-arithmetic slipped once again** (standard-rates SDLT on £100k is £0, not the £500 that belongs to the £150k example) — the code was right; test corrected.
+- **Verification caught a live outage and two dishonest accordions** — the 73KB analyser island chunk was intermittently returning HTTP 500 from the static-asset store (all analysers silently degraded to the empty shell for uncached visitors); the fixed build's fresh content hash sidestepped the corrupt object and the new chunk serves 5/5 in <150ms. The "Profit after tax" tile had the ROI accordion under a pounds figure, and the profit tile leaked the maths-lib's bridging-blind "cash employed" ROI that contradicted the page's hero — both now have their own honest breakdowns. Sale-price-needed joined max-offer as a tile (as the docs claimed), incomeBand gained its why-note, and the guide documents the flags mechanism.
+- **Commit message**: "feat(flip): ROI verdict, detachable profit-on-GDV module, personal-vs-company tax side by side" (as specified).
+
 ## 2026-08-31 — Sprint S4.3: BRRRR verdict
 
 - **Verdict thresholds (config)**: GREEN = money left in ≤ £2,500 ("effectively all out") ∧ after-tax end cashflow ≥ £100 ∧ ICR passes; AMBER = ICR passes ∧ cashflow ≥ £0 but a green test is missed (money stays in, or the cashflow is under the green line); RED = ICR fails ∨ cashflow negative ∨ the refinance can't repay the bridging.

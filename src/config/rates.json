@@ -221,5 +221,15 @@
       },
       "rate": 0.2
     }
+  ],
+  "vat": [
+    {
+      "effectiveFrom": "2011-01-04",
+      "source": {
+        "url": "https://www.gov.uk/vat-rates",
+        "accessed": "2026-08-31"
+      },
+      "standardRate": 0.2
+    }
   ]
 }

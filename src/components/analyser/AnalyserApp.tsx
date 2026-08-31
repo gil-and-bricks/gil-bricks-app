@@ -13,10 +13,11 @@ import { initFromUrl, isReady, state, type UrlState } from './state';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
 import { BrrrrVerdict } from './BrrrrVerdict';
+import { FlipVerdict } from './FlipVerdict';
 import type { StrategyConfig } from '../../config/strategies/types';
 
 // Verdict island registry — a strategy adds ONE entry here plus its config.
-const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict, BrrrrVerdict };
+const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict, BrrrrVerdict, FlipVerdict };
 import { ValuationCard } from './ValuationCard';
 import { CompsModule } from './CompsModule';
 import { ActionBar } from './ActionBar';

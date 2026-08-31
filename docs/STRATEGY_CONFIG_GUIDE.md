@@ -15,8 +15,14 @@ The analyser shell is generic. A strategy consists of exactly two things:
   thresholds: { … },       // every verdict cut-off lives HERE, never in code
   verdictSlot: 'FlipVerdict',
   copy: {},
+  flags: { showGdvModule: true },  // optional: loosely-coupled render-only modules
 }
 ```
+
+`flags` powers DETACHABLE modules: a flag is consumed at exactly one render
+call site in the verdict island (never inside the analysis maths), so turning
+it off — or deleting the module component — changes rendering only. Flip's
+profit-on-GDV tile is the reference example.
 
 Each field is a `StrategyField`: `{ key, label, kind: 'number'|'select', unit,
 default, options?, tip, whyDefault?, showWhen? }`. `showWhen: { key, value }`

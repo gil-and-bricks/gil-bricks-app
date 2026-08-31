@@ -39,4 +39,6 @@ export interface StrategyConfig {
   /** Island component name registered in AnalyserApp; null = placeholder. */
   verdictSlot: string | null;
   copy: Record<string, string>;
+  /** Feature flags for loosely-coupled modules (e.g. showGdvModule). */
+  flags?: Record<string, boolean>;
 }

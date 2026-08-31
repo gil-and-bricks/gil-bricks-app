@@ -129,3 +129,8 @@
 /* BRRRR hero tile */
 .tile-hero { border-color: var(--accent); background: rgba(220, 255, 0, 0.06); }
 .tile-hero .tile-value { color: var(--accent); }
+
+/* flip tax side-by-side */
+.tax-compare { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); margin-top: var(--space-1); }
+.tax-col { border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: var(--space-2); }
+.tax-col.tax-selected { border-color: var(--accent); }

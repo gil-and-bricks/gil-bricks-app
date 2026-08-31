@@ -68,11 +68,59 @@ export const strategies: StrategyConfig[] = [
     route: '/flip',
     tagline: 'Buy, refurbish, sell — is the margin really there?',
     heroLine: 'Stress-test a flip with real local sold prices and honest ranges.',
-    strategyInputs: [],
-    assumptions: [],
-    thresholds: {},
-    verdictSlot: null,
+    strategyInputs: [
+      { key: 'refurbCost', label: 'Refurb budget', kind: 'number', unit: '£', default: '', tip: 'Everything the works will cost.' },
+      { key: 'gdv', label: 'Sale price after works', kind: 'number', unit: '£', default: '', tip: 'What it will sell for once the works are done.' },
+      {
+        key: 'funding', label: 'Funding the purchase', kind: 'select', default: 'bridging',
+        options: [
+          { value: 'bridging', label: 'Bridging loan' },
+          { value: 'cash', label: 'Cash' },
+        ],
+        tip: 'Short-term money for the buy-and-refurb phase.',
+      },
+      { key: 'bridgeMonths', label: 'Months to sale', kind: 'number', unit: 'months', default: '6', tip: 'Most buyers’ lenders won’t mortgage a property resold within 6 months of purchase — plan the timeline around it.' },
+      { key: 'agentSalePct', label: 'Estate agent fee', kind: 'number', unit: '% + VAT', default: '1.2', tip: 'What the selling agent charges, before VAT.' },
+      { key: 'saleLegals', label: 'Selling legals', kind: 'number', unit: '£', default: '1200', tip: 'Conveyancing on the sale.' },
+      {
+        key: 'flipAs', label: 'Buying as', kind: 'select', default: 'personal',
+        options: [
+          { value: 'personal', label: 'Personally' },
+          { value: 'ltd', label: 'Through a company' },
+        ],
+        tip: 'Changes how the profit is taxed — both scenarios are shown either way.',
+      },
+    ],
+    assumptions: [
+      { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.', whyDefault: 'Bridging lenders commonly advance around 75% of the purchase price.' },
+      { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.', whyDefault: 'Around 0.85% a month is a typical bridging rate as of 2026.' },
+      { key: 'arrangementPct', label: 'Bridging arrangement fee', kind: 'number', unit: '%', default: '2', tip: 'Charged on the bridging loan.', whyDefault: '2% of the loan is the standard arrangement fee.' },
+      { key: 'exitPct', label: 'Bridging exit fee', kind: 'number', unit: '%', default: '0', tip: 'Some bridges charge on the way out.', whyDefault: 'Many bridges have no exit fee — check yours.' },
+      { key: 'legals', label: 'Purchase legals & survey', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey on purchase.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
+      { key: 'contingencyPct', label: 'Contingency', kind: 'number', unit: '% of refurb', default: '10', tip: 'Refurbs run over — budget for it.', whyDefault: '10% of the refurb budget is the standard buffer for surprises.' },
+      {
+        key: 'incomeBand', label: 'Your other income band', kind: 'select', default: 'higher',
+        options: [
+          { value: 'basic', label: 'Basic rate' },
+          { value: 'higher', label: 'Higher rate' },
+        ],
+        tip: 'Flip profit stacks on top of your other income.',
+        whyDefault: 'Most flippers already earn into the higher band, so their flip profit is taxed there too.',
+      },
+      {
+        key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
+        options: [
+          { value: 'additional', label: 'Additional property' },
+          { value: 'standard', label: 'Only property' },
+        ],
+        tip: 'A second property pays the higher rates. Companies always pay them.', whyDefault: 'Most flippers already own a home; buying through a company always pays the higher rates.',
+      },
+    ],
+    // Verdict thresholds (logged): after-tax ROI leads, before-tax profit floors it.
+    thresholds: { greenRoi: 20, greenProfit: 15000, amberRoi: 10 },
+    verdictSlot: 'FlipVerdict',
     copy: {},
+    flags: { showGdvModule: true },
   },
   {
     id: 'brrrr',

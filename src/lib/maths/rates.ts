@@ -83,3 +83,11 @@ export function getCorporationTax(onDate = today()): CorporationTaxEntry {
 export function getFinanceCostCredit(onDate = today()): FinanceCostCreditEntry {
   return pickEffective(ratesJson.financeCostCredit as FinanceCostCreditEntry[], onDate);
 }
+
+export interface VatEntry extends Dated {
+  standardRate: number;
+}
+
+export function getVat(onDate = today()): VatEntry {
+  return pickEffective(ratesJson.vat as VatEntry[], onDate);
+}
