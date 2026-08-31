@@ -1,43 +1,50 @@
 ---
 import AppShell from '../layouts/AppShell.astro';
-import GlassCard from '../components/GlassCard.astro';
-import Button from '../components/Button.astro';
 import { siteConfig } from '../site.config';
+import { strategies } from '../config/strategies';
+
+const cards = [
+  {
+    href: '/area-data',
+    title: 'Area Data',
+    blurb: 'Sold prices, trend, activity and deprivation for any postcode.',
+  },
+  ...strategies.map((s) => ({
+    href: `${s.route}/analyser`,
+    title: s.name,
+    blurb: s.tagline,
+  })),
+];
 ---
 
-<AppShell title={`${siteConfig.siteName} — coming soon`}>
-  <div class="holding-main">
-    <GlassCard class="holding-card">
-      <h1>{siteConfig.siteName}</h1>
-      <p class="tagline">{siteConfig.tagline}</p>
-      <Button variant="primary" href={siteConfig.socials.instagram}>Follow the build</Button>
-    </GlassCard>
-  </div>
+<AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={siteConfig.tagline}>
+  <section class="home-hero">
+    <h1>{siteConfig.siteName}</h1>
+    <p class="tagline">{siteConfig.tagline}</p>
+    <form class="home-search glass card" action="/area-data" method="get">
+      <label for="home-pc">Start with a postcode</label>
+      <div class="home-search-row">
+        <input id="home-pc" name="pc" placeholder="e.g. CF37 1DL" autocomplete="postal-code" />
+        <button type="submit" class="btn-primary">See area data</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="tool-cards home-cards" aria-label="Tools">
+    {cards.map((c) => (
+      <a class="glass card" href={c.href}>
+        <h2>{c.title}</h2>
+        <p class="hint">{c.blurb}</p>
+      </a>
+    ))}
+  </section>
+
+  <section class="glass card home-chooser">
+    <p><strong>Not sure which strategy?</strong> Take the 60-second chooser.</p>
+    <a class="btn-secondary" href="/start">Point me at the right tool</a>
+  </section>
+
+  <p class="home-trust">
+    England &amp; Wales · Sold prices from HM Land Registry · Floor areas from EPC · Index from UK HPI · No asking prices, no scraping
+  </p>
 </AppShell>
-
-<style>
-  .holding-main {
-    min-height: 70dvh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--space-5);
-  }
-
-  .holding-main :global(.holding-card) {
-    max-width: 34rem;
-    text-align: center;
-  }
-
-  h1 {
-    font-size: clamp(1.75rem, 5vw, var(--text-3xl));
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    overflow-wrap: break-word;
-  }
-
-  .tagline {
-    margin: var(--space-4) 0 var(--space-6);
-    color: var(--text-dim);
-  }
-</style>

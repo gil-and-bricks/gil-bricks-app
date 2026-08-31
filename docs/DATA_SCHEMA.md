@@ -102,6 +102,31 @@ manifest records them (`postcodeFiles`, `sectorsIndexAt`, `ukhpiMonth`).
 | UKHPI index | `ukhpi.json` (bucket root) | `{ source, ukhpiMonth, index: { E92000001: { "2019-03": 80.3, ... }, W92000004: { ... } } }` — the official UK House Price Index, all-property monthly values per country (1968 onwards). Powers last-sale indexation; `manifest.ukhpiMonth` mirrors its latest month. |
 | Sectors index | `sectors-index.json` (bucket root) | `[{ sectorId, lat, lng, country, salesCount, spanMiles }]` — centroid of each sector's live postcodes plus `spanMiles`, the farthest live postcode OR window sale from that centroid (rounded up), which bounds how far a radius search must widen its sector sweep — verified: every sale sits within its sector's span. Sectors whose postcodes have all terminated fall back to the centroid of their sales. |
 
+
+## Additive v1 companions (S5.1) — area stats + deprivation
+
+`area/{OUTCODE}.json` — one file per outcode, `{sectorId: AreaStats}` for that
+outcode's sectors (schema v1 untouched; `sectors-index.json` is deliberately
+UNCHANGED — r2.dev serves uncompressed and every comps search downloads the
+index, so fattening it measurably slowed every page: 2.3MB vs 0.9MB).
+
+| Field | Meaning |
+|---|---|
+| `typicalPriceByType` | `{D,S,T,F}` — IQM sold price per property type over the 12-month window; `null` when that type has fewer than 3 sales. Type `O` (other) is excluded. |
+| `newBuildShare` | Fraction (0–1, 3dp) of window sales that were new builds. |
+| `freeholdShare` | Fraction (0–1, 3dp) of window sales sold freehold. |
+| `salesByMonth` | 12 counts, oldest month first, ending at the manifest `ppdMonth`. |
+| `imdDecile` / `imdCoverage` | England sectors only. Modal decile (1 = most deprived tenth, 10 = least) of the sector's live postcodes under the **English Indices of Deprivation 2025** (MHCLG, published 30 Oct 2025, files updated 17 Nov 2025; File 7, LSOA 2021). Ties resolve to the more deprived decile. Coverage = scored live postcodes / all live postcodes in the sector. |
+| `wimdDecile` / `wimdCoverage` | Wales sectors only. Same construction under the **Welsh Index of Multiple Deprivation 2025** (Welsh Government, published 27 Nov 2025; index ranks ODS, LSOA 2021, official decile column). |
+
+The two indices each rank their own country only and are **never blended or
+compared across the border**. Postcode → LSOA (2021) comes from ONSPD `lsoa21cd`.
+The manifest gained `imdEdition` / `wimdEdition` labels.
+
+Sources (logged in DECISIONS_LOG S5.1):
+- England: `assets.publishing.service.gov.uk/.../File_7_IoD2025_All_Ranks_Scores_Deciles_Population_Denominators.csv`
+- Wales: `gov.wales/.../wimd-2025-index-and-domain-ranks-by-small-area.ods`
+
 ## Versioning policy
 
 - `schemaVersion` appears in **every** sector file and in the manifest.

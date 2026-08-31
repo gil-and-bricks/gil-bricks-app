@@ -36,3 +36,4 @@ gate demonstrably passes (see CLAUDE.md → Workflow).
 - **S4.4** — 2026-08-31 — Flip verdict: after-tax ROI hero, personal-vs-company tax side by side, VAT into rates.json, forced additional rates for companies, detachable profit-on-GDV module, max-offer/sale-price-needed levers: **complete**.
 - **S4.5** — 2026-08-31 — HMO verdict: room-income model, bricks-and-mortar only, statutory room-size checker, licensing + planning explainers, sui-generis stop: **complete**. Phase 4 gate passes.
 - **S4.6** — 2026-08-31 — Analyse-as switcher (shared state preserved, strategy params reset) + config-driven /start chooser scaffold (quiz.json + build-gate validation + operator guide; algorithm deliberately deferred to the operator): **complete**.
+- **S5.1** — 2026-08-31 — Area Data dashboard (/area-data: sold stats, by-type IQM table, country HPI trend, activity sparkline, IMD 2025/WIMD 2025 deprivation, strategy strip) + real homepage with postcode quick-search: **complete**.

@@ -107,7 +107,7 @@
 .hero { padding: var(--space-8) 0 var(--space-5); }
 .tool-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); gap: var(--space-4); }
 .tool-cards a.glass.card { display: block; color: var(--text); text-decoration: none; margin-bottom: 0; }
-.tool-cards h3 { margin: 0 0 var(--space-2); }
+.tool-cards h2, .tool-cards h3 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
 .tool-cards p { color: var(--text-dim); font-size: var(--text-sm); margin: 0; }
 .cross-links { margin-top: var(--space-5); font-size: var(--text-sm); }
 .cross-links a { color: var(--accent); }
@@ -168,3 +168,48 @@
 .quiz h2[tabindex="-1"]:focus { outline: none; }
 .quiz-skip { margin: var(--space-4) 0 0; font-size: var(--text-sm); }
 .quiz-skip a { color: var(--text-dim); }
+
+/* area data (S5.1) */
+/* full-height from first paint: the footer must never shift into and back
+   out of view while the dashboard streams in (CLS) */
+.area { max-width: 46rem; margin: 0 auto; min-height: 100dvh; }
+.area-search label, .home-search label { display: block; font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-2); }
+.area-search-row, .home-search-row { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.area-search-row input, .home-search-row input { flex: 1 1 10rem; min-width: 0; padding: 0.65rem 0.8rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: var(--text); font: inherit; }
+.area-error { border-color: rgba(255,255,255,0.35); }
+.area-thin { border-color: var(--accent); }
+.badge { display: inline-block; border: 1px solid var(--accent); border-radius: 999px; padding: 0.1rem 0.6rem; font-size: var(--text-xs); margin-right: var(--space-2); }
+.area-types { width: 100%; border-collapse: collapse; margin: var(--space-4) 0; font-size: var(--text-sm); }
+.area-types th { text-align: left; color: var(--text-dim); font-weight: 500; padding: 0 var(--space-3) var(--space-1) 0; }
+.area-types td { padding: 0 var(--space-3) 0 0; font-weight: 600; }
+.area-vs { margin: var(--space-3) 0; min-height: 2.6em; }
+/* same size as the final comparison sentence — dim, but NOT smaller: the
+   swap must never paint a larger block than the placeholder (LCP) */
+.area-vs-wait { color: var(--text-dim); }
+.trend { width: 100%; height: 120px; display: block; margin: var(--space-3) 0; }
+.spark { display: flex; align-items: flex-end; gap: 4px; height: 52px; margin: var(--space-3) 0; }
+.spark-bar { flex: 1; background: var(--accent); border-radius: 2px 2px 0 0; opacity: 0.85; }
+.area-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.area-strip-label { color: var(--text-dim); font-size: var(--text-sm); }
+.area-strip-links { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+@media (max-width: 640px) {
+  /* sticky bottom must clear the fixed .tabbar (z-index 10, ~3.2rem tall
+     + safe-area) or the lower pill row sits under it and taps mis-hit */
+  .area-strip { position: sticky; bottom: calc(3.4rem + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+}
+
+/* deprivation 1-10 scale */
+.dep-scale { display: flex; gap: 4px; margin: var(--space-3) 0; }
+.dep-cell { flex: 1; text-align: center; padding: 0.3rem 0; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; font-size: var(--text-sm); color: var(--text-dim); }
+.dep-on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.spark-zero { background: rgba(255,255,255,0.25); }
+
+/* homepage (S5.1) */
+.home-hero { text-align: center; padding: var(--space-8) 0 var(--space-5); }
+.home-hero h1 { font-size: clamp(2rem, 6vw, var(--text-3xl)); font-weight: 800; margin: 0; }
+.home-hero .tagline { color: var(--text-dim); margin: var(--space-3) 0 var(--space-6); }
+.home-search { max-width: 34rem; margin: 0 auto; text-align: left; }
+.home-cards { margin: var(--space-6) 0; }
+.home-chooser { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.home-chooser p { margin: 0; }
+.home-trust { text-align: center; color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-6) 0; }

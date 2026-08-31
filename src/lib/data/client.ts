@@ -4,7 +4,7 @@
  * Returned objects are the cached objects — treat them as frozen.
  */
 import { siteConfig } from '../../site.config';
-import { SCHEMA_VERSION, type Manifest, type PostcodeMap, type Sale, type SectorFile, type SectorsIndexEntry, type UkhpiFile } from './types';
+import { SCHEMA_VERSION, type AreaStatsFile, type Manifest, type PostcodeMap, type Sale, type SectorFile, type SectorsIndexEntry, type UkhpiFile } from './types';
 
 export type DataErrorKind = 'NotFound' | 'Network' | 'BadSchema';
 
@@ -171,6 +171,23 @@ export async function getOutcodePostcodes(outcode: string): Promise<PostcodeMap>
   }
   cache.set(path, body);
   return body as PostcodeMap;
+}
+
+/** area/{OUTCODE}.json — S5.1 additive companion: per-sector area stats. */
+export async function getAreaStats(outcode: string): Promise<AreaStatsFile> {
+  const oc = outcode.trim().toUpperCase();
+  if (!/^[A-Z]{1,2}\d[A-Z\d]?$/.test(oc)) {
+    throw new TypeError(`Not an outcode: "${outcode}"`);
+  }
+  const path = `area/${oc}.json`;
+  const hit = cache.get(path);
+  if (hit) return hit as AreaStatsFile;
+  const body = await fetchJson(path);
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+    throw new DataError('BadSchema', `Malformed area stats at ${path}`);
+  }
+  cache.set(path, body);
+  return body as AreaStatsFile;
 }
 
 /** ukhpi.json — additive v1 companion. */

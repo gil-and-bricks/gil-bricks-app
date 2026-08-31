@@ -11,7 +11,7 @@
 import { DuckDBInstance } from '@duckdb/node-api';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { sectorStats } from './stats.mjs';
+import { modalDecile, salesByMonth, saleShare, sectorStats, typicalPriceByType } from './stats.mjs';
 
 const DATA = 'pipeline/.data';
 const args = process.argv.slice(2);
@@ -47,6 +47,16 @@ await db.run(`
 `);
 
 // Window: 12 full months ending at the newest month in the data.
+if (!existsSync(`${DATA}/deprivation.json`)) {
+  console.error('missing pipeline/.data/deprivation.json — run `node pipeline/deprivation.mjs` first');
+  process.exit(1);
+}
+const deprivation = JSON.parse(readFileSync(`${DATA}/deprivation.json`, 'utf8'));
+console.log(
+  `deprivation: ${Object.keys(deprivation.england).length} England LSOAs (${deprivation.imdEdition}), ` +
+  `${Object.keys(deprivation.wales).length} Wales LSOAs (${deprivation.wimdEdition})`,
+);
+
 const maxRow = await db.runAndReadAll(`SELECT max(substr(date,1,7)) AS m FROM ppd`);
 const ppdMonth = maxRow.getRows()[0][0];
 const [my, mm] = ppdMonth.split('-').map(Number);
@@ -212,6 +222,10 @@ const flush = () => {
   sectorMeta.set(current, {
     country,
     salesCount: bucket.length,
+    typicalPriceByType: typicalPriceByType(file.sales),
+    newBuildShare: saleShare(file.sales, (x) => x.newBuild),
+    freeholdShare: saleShare(file.sales, (x) => x.tenure === 'F'),
+    salesByMonth: salesByMonth(file.sales, ppdMonth),
     salesLat: bucket.reduce((a, r) => a + Number(r.lat), 0) / bucket.length,
     salesLng: bucket.reduce((a, r) => a + Number(r.lng), 0) / bucket.length,
     // every sale's coords: the index span must cover sales at TERMINATED
@@ -237,9 +251,9 @@ flush();
 console.log('building postcode maps + sectors index...');
 const pcReader = await db.runAndReadAll(`
   SELECT upper(replace(trim(pcds), ' ', '')) AS key,
-         upper(trim(pcds)) AS pcds, lat, lng, ctry
+         upper(trim(pcds)) AS pcds, lat, lng, ctry, lsoa
   FROM (
-    SELECT pcds, lat, long AS lng, ctry25cd AS ctry, doterm
+    SELECT pcds, lat, long AS lng, ctry25cd AS ctry, doterm, lsoa21cd AS lsoa
     FROM read_csv('${DATA}/onspd/${onspdCsv}', header=true, all_varchar=false)
   )
   WHERE (doterm IS NULL OR trim(CAST(doterm AS VARCHAR)) = '')
@@ -264,11 +278,22 @@ for (const r of pcRows) {
     r.ctry,
     sectorId,
   ];
-  const g = sectorGeo.get(sectorId) ?? { sumLat: 0, sumLng: 0, n: 0, pts: [] };
+  const g = sectorGeo.get(sectorId) ?? { sumLat: 0, sumLng: 0, n: 0, pts: [], depE: {}, depW: {} };
   g.sumLat += Number(r.lat);
   g.sumLng += Number(r.lng);
   g.n += 1;
   g.pts.push([Number(r.lat), Number(r.lng)]);
+  g.ctryTally ??= {};
+  g.ctryTally[r.ctry] = (g.ctryTally[r.ctry] ?? 0) + 1;
+  // Deprivation tallies — England postcodes score against IMD 2025,
+  // Wales postcodes against WIMD 2025, never mixed.
+  if (r.ctry === 'E92000001') {
+    const d = deprivation.england[r.lsoa];
+    if (d) g.depE[d] = (g.depE[d] ?? 0) + 1;
+  } else if (r.ctry === 'W92000004') {
+    const d = deprivation.wales[r.lsoa]?.decile;
+    if (d) g.depW[d] = (g.depW[d] ?? 0) + 1;
+  }
   sectorGeo.set(sectorId, g);
 }
 
@@ -291,6 +316,7 @@ const havMiles = (aLat, aLng, bLat, bLng) => {
 };
 
 const index = [];
+const areaByOutcode = new Map();
 for (const [sectorId, meta] of sectorMeta) {
   const g = sectorGeo.get(sectorId);
   // centroid of live postcodes; sectors whose postcodes all terminated fall
@@ -312,6 +338,26 @@ for (const [sectorId, meta] of sectorMeta) {
     const d = havMiles(lat, lng, sLat, sLng);
     if (d > spanMiles) spanMiles = d;
   }
+  // Deprivation for the index matching the sector's country only; the modal
+  // decile across scored live postcodes, ties to the more deprived decile.
+  // coverage = scored postcodes / ALL live postcodes in the sector, so
+  // border sectors honestly report partial coverage.
+  const dep = {};
+  if (g) {
+    const tally = meta.country === 'E92000001' ? g.depE : g.depW;
+    const decile = modalDecile(tally);
+    if (decile !== null) {
+      const scored = Object.values(tally).reduce((a, b) => a + b, 0);
+      const coverage = Math.round((scored / g.n) * 100) / 100;
+      if (meta.country === 'E92000001') {
+        dep.imdDecile = decile;
+        dep.imdCoverage = coverage;
+      } else {
+        dep.wimdDecile = decile;
+        dep.wimdCoverage = coverage;
+      }
+    }
+  }
   index.push({
     sectorId,
     lat: Math.round(lat * 1e6) / 1e6,
@@ -320,10 +366,50 @@ for (const [sectorId, meta] of sectorMeta) {
     salesCount: meta.salesCount,
     spanMiles: Math.ceil(spanMiles * 100) / 100, // ceil: the bound must never understate
   });
+  // Area stats live in per-outcode companions (area/{OUTCODE}.json), NOT in
+  // the index: r2.dev serves uncompressed, and every comps search downloads
+  // the index — fattening it slowed every page (measured: 2.3MB vs 0.9MB).
+  const outcode = sectorId.split(' ')[0];
+  if (!areaByOutcode.has(outcode)) areaByOutcode.set(outcode, {});
+  areaByOutcode.get(outcode)[sectorId] = {
+    typicalPriceByType: meta.typicalPriceByType,
+    newBuildShare: meta.newBuildShare,
+    freeholdShare: meta.freeholdShare,
+    salesByMonth: meta.salesByMonth,
+    ...dep,
+  };
 }
 index.sort((a, b) => (a.sectorId < b.sectorId ? -1 : 1));
 writeFileSync(join(OUT, 'sectors-index.json'), JSON.stringify(index));
 console.log(`sectors index: ${index.length} entries`);
+
+// Sectors with live postcodes but no window sales still have a computed
+// decile — publish deprivation-only entries so /area-data never says
+// "not available" for data we hold. Country = majority of live postcodes.
+for (const [sectorId, g] of sectorGeo) {
+  if (sectorMeta.has(sectorId)) continue;
+  const country = Object.entries(g.ctryTally ?? {}).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]?.[0];
+  if (country !== 'E92000001' && country !== 'W92000004') continue;
+  const tally = country === 'E92000001' ? g.depE : g.depW;
+  const decile = modalDecile(tally);
+  if (decile === null) continue;
+  const scored = Object.values(tally).reduce((a, b) => a + b, 0);
+  const coverage = Math.round((scored / g.n) * 100) / 100;
+  const outcode = sectorId.split(' ')[0];
+  if (!areaByOutcode.has(outcode)) areaByOutcode.set(outcode, {});
+  areaByOutcode.get(outcode)[sectorId] =
+    country === 'E92000001'
+      ? { imdDecile: decile, imdCoverage: coverage }
+      : { wimdDecile: decile, wimdCoverage: coverage };
+}
+
+mkdirSync(join(OUT, 'area'), { recursive: true });
+let areaFiles = 0;
+for (const [outcode, sectors] of areaByOutcode) {
+  writeFileSync(join(OUT, 'area', `${outcode}.json`), JSON.stringify(sectors));
+  areaFiles += 1;
+}
+console.log(`area stats files: ${areaFiles}`);
 
 // copy the UKHPI companion into the published output
 writeFileSync(join(OUT, 'ukhpi.json'), readFileSync(UKHPI_JSON));
@@ -338,6 +424,8 @@ const manifest = {
   sectorsCount: sectorsWritten,
   postcodeFiles,
   sectorsIndexAt: new Date().toISOString(),
+  imdEdition: deprivation.imdEdition,
+  wimdEdition: deprivation.wimdEdition,
 };
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 

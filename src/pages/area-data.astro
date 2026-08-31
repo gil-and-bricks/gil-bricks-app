@@ -1,0 +1,20 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { AreaApp } from '../components/area/AreaApp';
+import { siteConfig } from '../site.config';
+import { siteConfig as sc } from '../site.config';
+const dataBase = sc.dataBaseUrl.replace(/\/+$/, '');
+---
+
+<AppShell title={`Area data — ${siteConfig.siteName}`} description="What the sold data says about any England & Wales postcode: prices, trend, activity and deprivation.">
+  {/* body-level preloads are honoured by browsers; the layouts expose no head slot */}
+  <link rel="preconnect" href={dataBase} crossorigin />
+  <link rel="preload" as="fetch" href={`${dataBase}/manifest.json`} crossorigin />
+  <link rel="preload" as="fetch" href={`${dataBase}/ukhpi.json`} crossorigin />
+  <h1 class="page-title">Area data</h1>
+  <p class="page-sub">
+    What actually sold, for any England &amp; Wales postcode — typical prices, the price trend, market activity and
+    deprivation, straight from HM Land Registry, EPC and official government indices. No asking prices, no guesswork.
+  </p>
+  <AreaApp client:load />
+</AppShell>

@@ -64,6 +64,9 @@ jobs:
       - name: Download UKHPI index
         run: node pipeline/ukhpi.mjs
 
+      - name: Download + parse deprivation indices (IMD 2025 / WIMD 2025)
+        run: node pipeline/deprivation.mjs
+
       - name: Build sector files (full England & Wales)
         run: npm run pipeline:build
 

@@ -84,6 +84,10 @@ export interface Manifest {
   postcodeFiles?: number;
   /** When sectors-index.json was generated. */
   sectorsIndexAt?: string;
+  /** S5.1 additive: edition label of the England deprivation index joined. */
+  imdEdition?: string;
+  /** S5.1 additive: edition label of the Wales deprivation index joined. */
+  wimdEdition?: string;
 }
 
 /** One row of sectors-index.json — additive v1 companion (DATA_SCHEMA.md). */
@@ -97,6 +101,33 @@ export interface SectorsIndexEntry {
   /** Farthest live postcode from the centroid, miles — search-widening bound. */
   spanMiles: number;
 }
+
+/**
+ * One sector's entry in area/{OUTCODE}.json — S5.1 additive companion,
+ * keyed by sectorId. Kept OUT of sectors-index.json so comps searches stay
+ * light (r2.dev serves uncompressed).
+ */
+export interface AreaStats {
+  /** IQM sold price per type over the window; null when <3 sales of that type. Absent on deprivation-only entries (sectors with no window sales). */
+  typicalPriceByType?: Record<'D' | 'S' | 'T' | 'F', number | null>;
+  /** Fraction of window sales that were new builds (0–1). Absent on deprivation-only entries. */
+  newBuildShare?: number;
+  /** Fraction of window sales sold freehold (0–1). Absent on deprivation-only entries. */
+  freeholdShare?: number;
+  /** Sales per window month, oldest first (12 numbers). Absent on deprivation-only entries. */
+  salesByMonth?: number[];
+  /** England sectors only: modal IMD 2025 decile of live postcodes (1 = most deprived tenth). */
+  imdDecile?: number;
+  /** Fraction of live postcodes scored against IMD 2025. */
+  imdCoverage?: number;
+  /** Wales sectors only: modal WIMD 2025 decile (1 = most deprived tenth). Never mixed with IMD. */
+  wimdDecile?: number;
+  /** Fraction of live postcodes scored against WIMD 2025. */
+  wimdCoverage?: number;
+}
+
+/** area/{OUTCODE}.json — sectorId → AreaStats. */
+export type AreaStatsFile = Record<string, AreaStats>;
 
 /** postcodes/{OUTCODE}.json: "CF371DL" → [lat, lng, country, sectorId]. */
 export type PostcodeMap = Record<string, [number, number, CountryCode, string]>;
