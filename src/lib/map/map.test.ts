@@ -95,13 +95,16 @@ describe('style sanity', () => {
 });
 
 describe('isRenderedTileEvent (blank-map health signal)', () => {
-  it('true only for a loaded source tile', () => {
-    expect(isRenderedTileEvent({ dataType: 'source', tile: {} })).toBe(true);
+  it('true only for a loaded tile from the BASEMAP source', () => {
+    expect(isRenderedTileEvent({ dataType: 'source', sourceId: 'protomaps', tile: {} }, 'protomaps')).toBe(true);
   });
-  it('false for style/metadata events and tile-less source events', () => {
-    expect(isRenderedTileEvent({ dataType: 'style' })).toBe(false);
-    expect(isRenderedTileEvent({ dataType: 'source' })).toBe(false);
-    expect(isRenderedTileEvent({})).toBe(false);
+  it('false for the GeoJSON pin source — pins loading must not mask an absent basemap', () => {
+    expect(isRenderedTileEvent({ dataType: 'source', sourceId: 'comps', tile: {} }, 'protomaps')).toBe(false);
+  });
+  it('false for style/metadata and tile-less events', () => {
+    expect(isRenderedTileEvent({ dataType: 'style' }, 'protomaps')).toBe(false);
+    expect(isRenderedTileEvent({ dataType: 'source', sourceId: 'protomaps' }, 'protomaps')).toBe(false);
+    expect(isRenderedTileEvent({}, 'protomaps')).toBe(false);
   });
 });
 

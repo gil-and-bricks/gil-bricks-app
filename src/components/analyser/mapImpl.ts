@@ -15,24 +15,62 @@ import {
   type MapLayerMouseEvent,
 } from 'maplibre-gl';
 import type { Feature, FeatureCollection, Point } from 'geojson';
-import { Protocol } from 'pmtiles';
+import { PMTiles, Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Comp } from '../../lib/comparables/engine';
 import { circleRing, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
-import { buildMapStyle } from '../../lib/map/style';
+import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
 import { fmtMoney } from '../../lib/maths/format';
 import { sqmToSqft } from '../../lib/maths/area';
 
-let protocolRegistered = false;
+let protocol: Protocol | null = null;
+
+/**
+ * Register the pmtiles protocol ONCE, backed by a PERSISTENT PMTiles archive.
+ * Why persistent: the pmtiles SharedPromiseCache never evicts a REJECTED
+ * header/directory promise, so a fetch aborted by an unmount (fast List⇄Map
+ * toggle) or a transient blip poisons the cache and the basemap never loads
+ * again — the "pins but no streets / works on the 3rd try" bug. The archive
+ * lives at module scope, independent of any map lifecycle, and is pre-warmed
+ * with retries so its header/root directory resolve SUCCESSFULLY before any
+ * map can abort them. resetTiles() rebuilds it to break a poisoned cycle.
+ */
 function ensureProtocol(): void {
-  if (protocolRegistered) return;
+  if (protocol) return;
   // v6 ships the worker as a separate module; under Vite its default URL
   // resolves into our hashed chunk and the worker dies silently — point it
   // at the self-hosted copy (scripts/copy-map-worker.mjs).
   setWorkerUrl('/map/vendor/maplibre-gl-worker.mjs');
-  addProtocol('pmtiles', new Protocol().tile);
-  protocolRegistered = true;
+  protocol = new Protocol();
+  addProtocol('pmtiles', protocol.tile);
+  addArchive();
 }
+
+function addArchive(): void {
+  const archive = new PMTiles(tilesHttpUrl());
+  protocol!.add(archive);
+  // pre-warm the header + root directory with a few retries, on our own
+  // (never a map's) fetch — so it lands cached-resolved, not poisoned.
+  let tries = 0;
+  const warm = () => {
+    archive.getHeader().catch(() => {
+      if (tries++ < 4) setTimeout(warm, 500 * 2 ** tries);
+    });
+  };
+  warm();
+}
+
+/** Rebuild the pmtiles archive to discard a poisoned cache (self-heal). */
+function resetTiles(): void {
+  if (!protocol) {
+    ensureProtocol();
+    return;
+  }
+  // Protocol keys instances by URL; re-adding a fresh PMTiles replaces the
+  // poisoned one so the next map fetches into a clean cache.
+  addArchive();
+}
+export { resetTiles };
 
 const LIME = '#dcff00';
 const INK = '#070014';
@@ -141,8 +179,9 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
   const watchdog = setTimeout(() => {
     if (!healthy) opts.onBlank?.('no tiles rendered');
   }, 12000);
-  map.on('data', (e: { dataType?: string; tile?: unknown }) => {
-    if (isRenderedTileEvent(e)) markHealthy();
+  map.on('data', (e: { dataType?: string; sourceId?: string; tile?: unknown }) => {
+    // ONLY the basemap counts — pins (GeoJSON) loading must not mask an absent basemap
+    if (isRenderedTileEvent(e, TILES_SOURCE_ID)) markHealthy();
   });
   // WebGL context loss → blank canvas that never recovers on its own.
   const canvasEl = map.getCanvas();

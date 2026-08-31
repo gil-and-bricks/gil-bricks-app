@@ -3,9 +3,10 @@
  * mapImpl (maplibre + style + pmtiles) on FIRST open only — Lighthouse never
  * pays for the map on page load. Data updates flow through the same handle.
  *
- * A render-health watchdog means a blank map (WebGL lost/unavailable on a
- * real device, or tiles that never paint) SELF-REPORTS to the honest table
- * fallback instead of showing an empty box.
+ * A render-health watchdog (keyed to the BASEMAP source) means a blank or
+ * basemap-less map self-reports: it auto-retries once (rebuilding a poisoned
+ * pmtiles cache), then falls back to the honest table pointer with a manual
+ * retry — a blank map can never ship silently.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Comp } from '../../lib/comparables/engine';
@@ -24,6 +25,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
   const handle = useRef<MapHandle | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'blank' | 'failed'>('loading');
   const [attempt, setAttempt] = useState(0);
+  const autoRetried = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +38,14 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
           onBlank: (reason) => {
             if (cancelled) return;
             console.error('map blank:', reason);
-            setStatus('blank');
+            // once: rebuild a poisoned pmtiles cache and remount automatically
+            if (!autoRetried.current) {
+              autoRetried.current = true;
+              m.resetTiles();
+              setAttempt((n) => n + 1);
+            } else {
+              setStatus('blank');
+            }
           },
         });
       })
@@ -46,7 +55,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
       handle.current?.destroy();
       handle.current = null;
     };
-    // remount on explicit retry (attempt) — mount once otherwise
+    // remount on retry (attempt); mount once otherwise
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt]);
 
@@ -60,12 +69,18 @@ export function CompMap({ subject, radiusMiles, comps, selectedId }: CompMapProp
 
   const broken = status === 'blank' || status === 'failed';
 
+  const manualRetry = () => {
+    autoRetried.current = false; // allow the auto-heal to fire again on this fresh attempt
+    setStatus('loading');
+    setAttempt((n) => n + 1);
+  };
+
   return (
     <>
       {broken && (
         <p class="hint map-fallback" role="alert">
           The map couldn't display here — the table below has every sale.{' '}
-          <button type="button" class="linklike" onClick={() => setAttempt((n) => n + 1)}>
+          <button type="button" class="linklike" onClick={manualRetry}>
             Try the map again
           </button>
         </p>

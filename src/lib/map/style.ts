@@ -10,8 +10,15 @@ import { siteConfig } from '../../site.config';
 /** R2 key of the England & Wales extract (docs/MAP_OPERATOR_NOTE.md). */
 export const TILES_KEY = 'map/ew.pmtiles';
 
+export const TILES_SOURCE_ID = 'protomaps';
+
+/** Plain HTTPS URL of the archive — used for the persistent PMTiles instance. */
+export function tilesHttpUrl(): string {
+  return `${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/${TILES_KEY}`;
+}
+
 export function tilesUrl(): string {
-  return `pmtiles://${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/${TILES_KEY}`;
+  return `pmtiles://${tilesHttpUrl()}`;
 }
 
 /**
