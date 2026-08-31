@@ -111,3 +111,17 @@
 .tool-cards p { color: var(--text-dim); font-size: var(--text-sm); margin: 0; }
 .cross-links { margin-top: var(--space-5); font-size: var(--text-sm); }
 .cross-links a { color: var(--accent); }
+
+/* verdict */
+.verdict-banner { border-radius: 12px; padding: var(--space-4); margin: var(--space-4) 0; border: 1px solid; }
+.verdict-green { border-color: #7ddf6a; background: rgba(125, 223, 106, 0.08); }
+.verdict-amber { border-color: #ffc861; background: rgba(255, 200, 97, 0.08); }
+.verdict-red { border-color: #ff9d9d; background: rgba(255, 157, 157, 0.08); }
+.verdict-line { margin: 0; font-weight: 600; font-size: var(--text-base); }
+.verdict-lever { margin: var(--space-2) 0 0; color: var(--text); }
+.verdict-crosscheck { margin: var(--space-2) 0 0; color: var(--text-dim); font-size: var(--text-sm); }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+.tile { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: var(--space-3); }
+.tile-label { margin: 0; color: var(--text-dim); font-size: var(--text-xs); }
+.tile-value { margin: var(--space-1) 0 0; font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); }
+.bands { margin-top: var(--space-1); }

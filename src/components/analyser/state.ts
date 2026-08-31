@@ -43,6 +43,10 @@ export const DEFAULTS: UrlState = {
 
 export const state = signal<UrlState>({ ...DEFAULTS });
 
+/** Strategy-specific params (keys defined by StrategyConfig fields). */
+export const strategyParams = signal<Record<string, string>>({});
+let strategyDefaults: Record<string, string> = {};
+
 const ALLOWED: Partial<Record<keyof UrlState, string[]>> = {
   type: ['', 'D', 'S', 'T', 'F'],
   refurb: ['', 'none', 'light', 'moderate', 'heavy'],
@@ -70,10 +74,13 @@ export function parseQuery(search: string): UrlState {
   return out as unknown as UrlState;
 }
 
-export function toQuery(s: UrlState): string {
+export function toQuery(s: UrlState, extra: Record<string, string> = {}): string {
   const q = new URLSearchParams();
   for (const [k, v] of Object.entries(s)) {
     if (v !== '' && v !== (DEFAULTS as unknown as Record<string, string>)[k]) q.set(k, v);
+  }
+  for (const [k, v] of Object.entries(extra)) {
+    if (v !== '' && v !== strategyDefaults[k]) q.set(k, v);
   }
   const str = q.toString();
   return str === '' ? '' : `?${str}`;
@@ -81,14 +88,51 @@ export function toQuery(s: UrlState): string {
 
 let writeTimer: ReturnType<typeof setTimeout> | undefined;
 
+function writeUrl(): void {
+  if (typeof window === 'undefined') return;
+  clearTimeout(writeTimer);
+  writeTimer = setTimeout(() => {
+    history.replaceState(null, '', `${location.pathname}${toQuery(state.value, strategyParams.value)}`);
+  }, 250);
+}
+
 export function update(patch: Partial<UrlState>): void {
   state.value = { ...state.value, ...patch };
-  if (typeof window !== 'undefined') {
-    clearTimeout(writeTimer);
-    writeTimer = setTimeout(() => {
-      history.replaceState(null, '', `${location.pathname}${toQuery(state.value)}`);
-    }, 250);
+  writeUrl();
+}
+
+export function updateStrategy(patch: Record<string, string>): void {
+  strategyParams.value = { ...strategyParams.value, ...patch };
+  writeUrl();
+}
+
+export interface StrategyFieldSpec {
+  key: string;
+  kind: 'number' | 'select';
+  default: string;
+  options?: { value: string }[];
+}
+
+/** Called by the verdict island: registers its fields and hydrates values
+ * from the URL. Hand-edited links CLAMP to the default (selects must match
+ * an option; numbers must parse) — the same contract as parseQuery. Field
+ * keys must never collide with UrlState keys (enforced by a test). */
+export function initStrategyParams(fields: StrategyFieldSpec[]): void {
+  const defaults: Record<string, string> = {};
+  for (const f of fields) defaults[f.key] = f.default;
+  strategyDefaults = defaults;
+  const q = typeof window !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+  const out: Record<string, string> = { ...defaults };
+  for (const f of fields) {
+    const v = q.get(f.key);
+    if (v === null) continue;
+    if (f.kind === 'select') {
+      if ((f.options ?? []).some((o) => o.value === v)) out[f.key] = v;
+    } else if (v === '' || (Number.isFinite(Number(v)) && Number(v) >= 0)) {
+      out[f.key] = v;
+    }
   }
+  strategyParams.value = out;
 }
 
 export function initFromUrl(): void {

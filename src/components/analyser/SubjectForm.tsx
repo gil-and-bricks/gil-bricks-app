@@ -2,7 +2,6 @@
 import { useState } from 'preact/hooks';
 import { state, update } from './state';
 import { Tooltip } from './Tooltip';
-import { Accordion } from './Accordion';
 import { lookupEpcArea } from './epcArea';
 
 const TIPS: Record<string, string> = {
@@ -131,11 +130,6 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
           <option value="1">1 space</option>
           <option value="2plus">2+</option>
         </select>
-      </div>
-      <div class="assumptions">
-        <Accordion label="Assumptions">
-          <p class="field-hint">Strategy assumptions arrive with each strategy's verdict (next sprints).</p>
-        </Accordion>
       </div>
     </form>
   );

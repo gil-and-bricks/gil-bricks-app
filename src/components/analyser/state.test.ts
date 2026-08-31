@@ -24,3 +24,26 @@ describe('URL state', () => {
     expect(isReady({ ...DEFAULTS, postcode: 'CF37 1HR', price: '150000', type: '' })).toBe(false);
   });
 });
+
+import { strategies } from '../../config/strategies';
+
+describe('strategy params in the URL', () => {
+  it('no strategy field key may collide with a shared UrlState key', () => {
+    const reserved = new Set(Object.keys(DEFAULTS));
+    for (const strat of strategies) {
+      for (const f of [...strat.strategyInputs, ...strat.assumptions]) {
+        expect(reserved.has(f.key), `${strat.id}.${f.key} collides with UrlState`).toBe(false);
+      }
+    }
+  });
+  it('visible strategy inputs never exceed six (simplicity law)', () => {
+    for (const strat of strategies) {
+      expect(strat.strategyInputs.length, strat.id).toBeLessThanOrEqual(6);
+    }
+  });
+  it('extra params serialise beside shared state; defaults omitted', () => {
+    const q = toQuery({ ...DEFAULTS, postcode: 'CF37 1HR' }, { rent: '750', deposit: '25' });
+    expect(q).toContain('rent=750');
+    expect(q).toContain('postcode=CF37+1HR');
+  });
+});

@@ -2,6 +2,17 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S4.2: BTL verdict
+
+- **Brief truncated again** (mid test-list; verify/commit steps missing) — tail reconstructed from the established sprint pattern; commit message chosen below.
+- **Verdict thresholds live in StrategyConfig** (minCashflowGreen £150, minRoiGreen 8%, ICR 1.25 basic/company vs 1.45 higher-rate) — tuning the verdict is a config edit. Rules as specified: GREEN = ICR pass ∧ after-tax cashflow ≥ £150 ∧ ROI ≥ 8; AMBER = ICR pass ∧ cashflow ≥ £0; RED = ICR fail ∨ negative cashflow.
+- **BTL maths is a composition module** (src/lib/strategies/btl.ts): it contains no new formulas — every figure comes from src/lib/maths calls with their breakdowns; the "what would turn this Green" lever binary-searches over those same lib functions (price affects stamp duty piecewise, so closed-form inversion would mean re-deriving maths — search over the canonical code can never drift from it).
+- **Tax treatment of voids (logged)**: taxable rental income = rent actually received (net of the void allowance); management/maintenance/insurance are the allowable costs. Gross yield uses full asking rent (the conventional headline); net yield uses running costs over all-in cost per definitions.md.
+- **Strategy params ride the same URL** as the shared state (keys from config; defaults omitted) — a shared link restores the full BTL scenario including assumptions.
+- **Hand-worked example**: £150k England terrace, £750 rent, 25%/5%, basic-rate → SDLT £8,000, cash-in £47,000, cashflow −£30.87/mo, S24 credit swallows the tax entirely, ICR 1.45 → verdict Red with a lever to Amber. Two of my own hand-computations were wrong on first pass (a coincidentally-scaling ICR and a voids slip) — the code was right; the test comments now carry the corrected arithmetic.
+- **Verification-driven fixes** — the BTL refurb-budget key collided with the shared subject "refurb" URL key (shared links silently lost the refurb condition — renamed refurbCost, and a test now bans collisions for every strategy); strategy select values hydrate with clamping like the shared state (a hand-edited taxBasis could silently compute the wrong stamp duty); verdict thresholds now fail LOUDLY if missing from config instead of reverting to code constants; input fallbacks derive from config defaults, not literals; net yield reuses the core cost derivation; lever bisection tightened so the £5/£250 rounding is the only slack. The pattern is documented in docs/STRATEGY_CONFIG_GUIDE.md.
+- **Commit message chosen**: "feat(btl): config-driven BTL verdict with ROI/yield headlines, Section 24 and ICR".
+
 ## 2026-08-31 — Sprint S4.1: Analyser shell
 
 - **Preact + @preact/signals chosen** over Svelte — ~5KB proven islands runtime, TSX fits the strict-TS codebase, and module-level signals share state naturally inside the single analyser island. One island per page (form + results together) keeps state wiring trivial.

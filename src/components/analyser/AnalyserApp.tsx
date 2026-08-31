@@ -11,6 +11,11 @@ import { fetchSaleHistory, type AddressCandidate } from '../../lib/landregistry/
 import { valueProperty, type Valuation } from '../../lib/valuation/engine';
 import { initFromUrl, isReady, state, type UrlState } from './state';
 import { SubjectForm } from './SubjectForm';
+import { BtlVerdict } from './BtlVerdict';
+import type { StrategyConfig } from '../../config/strategies/types';
+
+// Verdict island registry — a strategy adds ONE entry here plus its config.
+const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict };
 import { ValuationCard } from './ValuationCard';
 import { CompsModule } from './CompsModule';
 import { ActionBar } from './ActionBar';
@@ -22,7 +27,7 @@ interface Results {
   lrState: 'ok' | 'timeout' | null;
 }
 
-export function AnalyserApp({ strategyName, showVerdict = true }: { strategyName: string; showVerdict?: boolean }) {
+export function AnalyserApp({ strategyName, config = null, showVerdict = true }: { strategyName: string; config?: StrategyConfig | null; showVerdict?: boolean }) {
   const [results, setResults] = useState<Results>({ comps: null, valuation: null, candidates: null, lrState: null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,12 +128,18 @@ export function AnalyserApp({ strategyName, showVerdict = true }: { strategyName
 
       {ready && (
         <>
-          {showVerdict && (
-            <section class="glass card verdict-slot" aria-label="Strategy verdict">
-              <h2>{strategyName} verdict</h2>
-              <p class="hint">Strategy verdict arrives in the next sprint.</p>
-            </section>
-          )}
+          {showVerdict && (() => {
+            const Verdict = config?.verdictSlot ? VERDICTS[config.verdictSlot] : undefined;
+            if (Verdict && config) {
+              return <Verdict config={config} comps={results.comps} valuation={results.valuation} />;
+            }
+            return (
+              <section class="glass card verdict-slot" aria-label="Strategy verdict">
+                <h2>{strategyName} verdict</h2>
+                <p class="hint">Strategy verdict arrives in the next sprint.</p>
+              </section>
+            );
+          })()}
 
           {busy && results.comps === null ? (
             <SkeletonCards />

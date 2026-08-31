@@ -13,5 +13,5 @@ const { config } = Astro.props;
 <AppShell title={`${config.name} analyser — ${siteConfig.siteName}`} description={config.tagline}>
   <h1 class="page-title">{config.name} analyser</h1>
   <p class="page-sub">{config.tagline}</p>
-  <AnalyserApp client:load strategyName={config.name} />
+  <AnalyserApp client:load strategyName={config.name} config={config} />
 </AppShell>

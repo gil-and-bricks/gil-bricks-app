@@ -1,8 +1,25 @@
 /**
  * StrategyConfig — adding or tuning a strategy is a CONFIG edit, never an
- * engine change (CLAUDE.md golden rule 2). Routes and landing pages render
- * purely from these objects.
+ * engine change (CLAUDE.md golden rule 2). Routes, landing pages, strategy
+ * inputs, assumptions and verdict thresholds all render from these objects;
+ * the only per-strategy CODE is one verdict island named by `verdictSlot`
+ * (see docs/STRATEGY_CONFIG_GUIDE.md).
  */
+export interface StrategyField {
+  /** URL/query key — must be unique across shared + strategy fields. */
+  key: string;
+  label: string;
+  kind: 'number' | 'select';
+  /** Display unit, e.g. "£/month", "%", "weeks/yr". */
+  unit?: string;
+  default: string;
+  options?: { value: string; label: string }[];
+  /** Tooltip microcopy (placeholder until S8). */
+  tip: string;
+  /** One-line "why this default" note, shown in the assumptions accordion. */
+  whyDefault?: string;
+}
+
 export interface StrategyConfig {
   id: 'btl' | 'flip' | 'brrrr' | 'hmo';
   name: string;
@@ -10,16 +27,14 @@ export interface StrategyConfig {
   shortName?: string;
   route: string;
   tagline: string;
-  /** One-liner for the landing hero. */
   heroLine: string;
-  inputs: {
-    /** Shared subject inputs shown for this strategy (S4.1: same for all). */
-    visible: string[];
-    /** Assumption fields for the collapsed accordion (filled in S4.2–S4.5). */
-    assumptions: string[];
-  };
-  /** Island component name for the strategy verdict; null until S4.2–S4.5. */
+  /** Visible strategy inputs (max 6 before a result — simplicity law). */
+  strategyInputs: StrategyField[];
+  /** Editable assumptions (collapsed accordion), each with whyDefault. */
+  assumptions: StrategyField[];
+  /** Verdict thresholds — tune here, never in code. */
+  thresholds: Record<string, number>;
+  /** Island component name registered in AnalyserApp; null = placeholder. */
   verdictSlot: string | null;
-  /** Copy overrides keyed by slot (falls back to shared copy). */
   copy: Record<string, string>;
 }

@@ -25,6 +25,7 @@ src/pages/index.astro     the holding page
 src/pages/styleguide.astro  internal brand reference (noindex)
 src/config/strategies/   StrategyConfig objects — strategies are config, never code
 src/components/analyser/ the analyser island (Preact): form, valuation, comps table
+src/lib/strategies/      per-strategy maths compositions (BTL, … — see the guide)
 src/lib/data/            typed data layer: schema types + R2 client (+ tests)
 src/lib/comparables/     the ComparablesEngine: geocode, radius search, filters, sorting
 src/lib/valuation/       the ValuationEngine: indexed last sale + area £/sqm, plain confidence
@@ -37,6 +38,7 @@ wrangler.jsonc            Cloudflare Worker config — serves ./dist as static a
 docs/DECISIONS_LOG.md     why things are the way they are
 docs/DATA_SCHEMA.md       the locked R2 data contract (schema v1)
 docs/MATHS.md             every formula in plain English with worked examples
+docs/STRATEGY_CONFIG_GUIDE.md  how to add a strategy (config + one verdict island)
 ```
 
 Fonts are self-hosted via `@fontsource` packages (Montserrat 600/700/800,
