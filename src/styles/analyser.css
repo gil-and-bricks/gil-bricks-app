@@ -125,3 +125,7 @@
 .tile-label { margin: 0; color: var(--text-dim); font-size: var(--text-xs); }
 .tile-value { margin: var(--space-1) 0 0; font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); }
 .bands { margin-top: var(--space-1); }
+
+/* BRRRR hero tile */
+.tile-hero { border-color: var(--accent); background: rgba(220, 255, 0, 0.06); }
+.tile-hero .tile-value { color: var(--accent); }

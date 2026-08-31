@@ -2,6 +2,19 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S4.3: BRRRR verdict
+
+- **Verdict thresholds (config)**: GREEN = money left in ≤ £2,500 ("effectively all out") ∧ after-tax end cashflow ≥ £100 ∧ ICR passes; AMBER = ICR passes ∧ cashflow ≥ £0 but a green test is missed (money stays in, or the cashflow is under the green line); RED = ICR fails ∨ cashflow negative ∨ the refinance can't repay the bridging.
+- **Terminology comes from the lib** — brrrrOutcome(cashInvested, refinanceProceeds) was split out of maths/brrrr() (the one genuinely-missing function: real deals net bridging repayment + refinance legals off the proceeds); the three locked strings have exactly one home.
+- **Shared rentalCore extracted** — BTL and BRRRR now use ONE letting-cost/tax derivation (src/lib/strategies/rental.ts); BTL's 11 tests passed unchanged across the refactor. BRRRR bases maintenance on the END value (post-works) — that's the property being insured and maintained.
+- **Bridging model (logged)**: interest = loan × monthly rate × months, simple not compounded, treated as paid from cash during the term; loan size an editable assumption defaulting to 75% of price.
+- **Max-price and ARV-needed tiles bisect the same computation** (round down/up to £250 respectively so the claim is always safe), and tests assert the boundary property: all-out AT the answer, not one step beyond.
+- **ltvCustom is a config-driven companion field** — a generic showWhen condition on StrategyField renders it only when LTV = custom; the visible-inputs simplicity test counts logical inputs (companions excluded, ≤7).
+- **Honest economics beat my test sketches** — the spec's worked example (£100k/£25k/£160k ARV/75% LTV/£800 rent) is legitimately RED: the end-state deal cashflows −£31/mo, and neither a price cut nor an ARV rise can fix a cashflow-red, so the lever is honestly null. Test scenarios were corrected to reach each colour for real.
+- **ARV pre-fill** happens once from the valuation estimate and never overwrites a user value; the pre-fill hint only shows while the field still holds the pre-filled figure (a shared link's user value must never be mislabelled as ours).
+- **Verification-driven fixes** — negative refinance proceeds now flow through honestly (the hero tile had been clamping a can't-repay-the-bridge shortfall out of the money-left-in figure, contradicting its own show-the-maths; it now reads e.g. "£70,325 left in" including the shortfall); the amber copy gained its second honest branch (all-out but thin cashflow); gross-yield-on-cost gets a breakdown that names the real denominator; the guide now documents showWhen companions and the true key rules.
+- **Commit message**: "feat(brrrr): all-money-out verdict, refinance maths, max price and ARV-needed tiles" (as specified).
+
 ## 2026-08-31 — Sprint S4.2: BTL verdict
 
 - **Brief truncated again** (mid test-list; verify/commit steps missing) — tail reconstructed from the established sprint pattern; commit message chosen below.

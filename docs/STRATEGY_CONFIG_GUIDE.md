@@ -10,7 +10,7 @@ The analyser shell is generic. A strategy consists of exactly two things:
   name: 'Flip',            // shortName for compact nav if needed
   route: '/flip',          // landing page + /flip/analyser both derive from this
   tagline: '…', heroLine: '…',
-  strategyInputs: [ … ],   // VISIBLE inputs — keep to 6 or fewer (simplicity law)
+  strategyInputs: [ … ],   // VISIBLE inputs — 7 or fewer logical (companions excluded)
   assumptions: [ … ],      // editable defaults, each with a whyDefault note
   thresholds: { … },       // every verdict cut-off lives HERE, never in code
   verdictSlot: 'FlipVerdict',
@@ -19,10 +19,15 @@ The analyser shell is generic. A strategy consists of exactly two things:
 ```
 
 Each field is a `StrategyField`: `{ key, label, kind: 'number'|'select', unit,
-default, options?, tip, whyDefault? }`. Field keys become URL query params
-automatically (shareable links) — keys must be unique against the shared
-`UrlState` keys in `src/components/analyser/state.ts` (DEFAULTS) and across
-strategies; `state.test.ts` enforces this, so a collision fails CI.
+default, options?, tip, whyDefault?, showWhen? }`. `showWhen: { key, value }`
+makes a COMPANION field (e.g. a custom-% input beside a preset select) that
+only renders when the other field holds that value — companions don't count
+towards the visible-input limit. Field keys become URL query params
+automatically (shareable links) — keys must never collide with the shared
+`UrlState` keys in `src/components/analyser/state.ts` (DEFAULTS);
+`state.test.ts` enforces that and fails CI on a collision. REUSING a key
+across strategies (rent, legals, rate, buyingAs, taxBasis…) is deliberate
+when the meaning matches — a link moved between analysers keeps its values.
 
 ## 2. Its verdict island (src/components/analyser/&lt;Name&gt;Verdict.tsx)
 

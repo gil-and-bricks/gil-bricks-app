@@ -18,6 +18,8 @@ export interface StrategyField {
   tip: string;
   /** One-line "why this default" note, shown in the assumptions accordion. */
   whyDefault?: string;
+  /** Render only when another field holds a value (companion fields). */
+  showWhen?: { key: string; value: string };
 }
 
 export interface StrategyConfig {
@@ -28,7 +30,7 @@ export interface StrategyConfig {
   route: string;
   tagline: string;
   heroLine: string;
-  /** Visible strategy inputs (max 6 before a result — simplicity law). */
+  /** Visible strategy inputs (max 7 logical, companions excluded — simplicity law). */
   strategyInputs: StrategyField[];
   /** Editable assumptions (collapsed accordion), each with whyDefault. */
   assumptions: StrategyField[];

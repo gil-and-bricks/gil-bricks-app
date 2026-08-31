@@ -12,10 +12,11 @@ import { valueProperty, type Valuation } from '../../lib/valuation/engine';
 import { initFromUrl, isReady, state, type UrlState } from './state';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
+import { BrrrrVerdict } from './BrrrrVerdict';
 import type { StrategyConfig } from '../../config/strategies/types';
 
 // Verdict island registry — a strategy adds ONE entry here plus its config.
-const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict };
+const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict, BrrrrVerdict };
 import { ValuationCard } from './ValuationCard';
 import { CompsModule } from './CompsModule';
 import { ActionBar } from './ActionBar';

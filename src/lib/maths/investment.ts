@@ -59,15 +59,21 @@ export interface BrrrrResult {
   verdict: string;
 }
 
+export interface BrrrrOutcome {
+  moneyLeftIn: number;
+  surplus: number;
+  verdict: string;
+}
+
 /**
- * BRRRR money-left-in (docs/definitions.md): refinance proceeds ≥ cash
- * invested → "All money out" (a surplus of £1+ is shown), else "£X left in".
+ * The BRRRR outcome for a KNOWN refinance-proceeds figure (bridging
+ * repayments, refinance legals etc. already netted off by the caller).
+ * Terminology is locked: "All money out" / "All money out + £X" / "£X left in".
  */
-export function brrrr(inputs: BrrrrInputs): WithBreakdown<BrrrrResult> {
-  assertNonNegative({ cashInvested: inputs.cashInvested });
-  assertPositive({ refinanceLtv: inputs.refinanceLtv, arv: inputs.arv });
-  const refinanceProceeds = inputs.arv * inputs.refinanceLtv;
-  const rawDiff = refinanceProceeds - inputs.cashInvested;
+export function brrrrOutcome(cashInvested: number, refinanceProceeds: number): BrrrrOutcome {
+  assertNonNegative({ cashInvested });
+  assertFinite({ refinanceProceeds });
+  const rawDiff = refinanceProceeds - cashInvested;
   // Within £1 either way is float noise at deal scale: plain "All money out"
   // (never "+£0" or "£0 left in").
   const diff = Math.abs(rawDiff) < 1 ? 0 : rawDiff;
@@ -77,6 +83,18 @@ export function brrrr(inputs: BrrrrInputs): WithBreakdown<BrrrrResult> {
   if (diff < 0) verdict = `${fmtMoney(moneyLeftIn)} left in`;
   else if (diff > 0) verdict = `All money out + ${fmtMoney(surplus)}`;
   else verdict = 'All money out';
+  return { moneyLeftIn, surplus, verdict };
+}
+
+/**
+ * BRRRR money-left-in (docs/definitions.md): refinance proceeds ≥ cash
+ * invested → "All money out" (a surplus of £1+ is shown), else "£X left in".
+ */
+export function brrrr(inputs: BrrrrInputs): WithBreakdown<BrrrrResult> {
+  assertNonNegative({ cashInvested: inputs.cashInvested });
+  assertPositive({ refinanceLtv: inputs.refinanceLtv, arv: inputs.arv });
+  const refinanceProceeds = inputs.arv * inputs.refinanceLtv;
+  const { moneyLeftIn, surplus, verdict } = brrrrOutcome(inputs.cashInvested, refinanceProceeds);
   const breakdown: Breakdown = {
     label: 'BRRRR — money left in',
     formula: 'refinance proceeds (new value × the loan share) compared with cash invested',

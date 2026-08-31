@@ -80,10 +80,67 @@ export const strategies: StrategyConfig[] = [
     route: '/brrrr',
     tagline: 'Buy, refurbish, rent, refinance, repeat — how much stays in?',
     heroLine: 'See whether the refinance really pulls your money back out.',
-    strategyInputs: [],
-    assumptions: [],
-    thresholds: {},
-    verdictSlot: null,
+    strategyInputs: [
+      { key: 'refurbCost', label: 'Refurb budget', kind: 'number', unit: '£', default: '', tip: 'Everything the works will cost.' },
+      { key: 'arv', label: 'End value after works', kind: 'number', unit: '£', default: '', tip: 'What it will be worth once the works are done.' },
+      {
+        key: 'funding', label: 'Funding the purchase', kind: 'select', default: 'bridging',
+        options: [
+          { value: 'bridging', label: 'Bridging loan' },
+          { value: 'cash', label: 'Cash' },
+        ],
+        tip: 'Short-term money for the buy-and-refurb phase.',
+      },
+      { key: 'bridgeMonths', label: 'Months until refinance', kind: 'number', unit: 'months', default: '6', tip: 'Most lenders want you to have owned it about six months before refinancing.' },
+      { key: 'rent', label: 'Rent after works', kind: 'number', unit: '£/month', default: '', tip: 'What it will let for once refurbished.' },
+      {
+        key: 'ltv', label: 'Refinance loan-to-value', kind: 'select', default: '75',
+        options: [
+          { value: '75', label: '75%' },
+          { value: '70', label: '70%' },
+          { value: '65', label: '65%' },
+          { value: 'custom', label: 'Custom %' },
+        ],
+        tip: 'The share of the end value the new mortgage advances.',
+      },
+      { key: 'ltvCustom', label: 'Custom LTV', kind: 'number', unit: '%', default: '', tip: 'Your own loan-to-value, e.g. 78.9.', showWhen: { key: 'ltv', value: 'custom' } },
+      {
+        key: 'buyingAs', label: 'Buying as', kind: 'select', default: 'basic',
+        options: [
+          { value: 'basic', label: 'Personally — basic-rate' },
+          { value: 'higher', label: 'Personally — higher-rate' },
+          { value: 'ltd', label: 'Through a company' },
+        ],
+        tip: 'Changes how the rental profit is taxed.',
+      },
+    ],
+    assumptions: [
+      { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.', whyDefault: 'Bridging lenders commonly advance around 75% of the purchase price.' },
+      { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.', whyDefault: 'Around 0.85% a month is a typical bridging rate as of 2026.' },
+      { key: 'arrangementPct', label: 'Bridging arrangement fee', kind: 'number', unit: '%', default: '2', tip: 'Charged on the bridging loan.', whyDefault: '2% of the loan is the standard arrangement fee.' },
+      { key: 'exitPct', label: 'Bridging exit fee', kind: 'number', unit: '%', default: '0', tip: 'Some bridges charge on the way out.', whyDefault: 'Many bridges have no exit fee — check yours.' },
+      { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey on purchase.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
+      { key: 'refiLegals', label: 'Refinance legals', kind: 'number', unit: '£', default: '1000', tip: 'The remortgage has its own legal work.', whyDefault: 'A remortgage typically costs about £1,000 in legals and fees.' },
+      { key: 'voidWeeks', label: 'Void allowance', kind: 'number', unit: 'weeks/yr', default: '5', tip: 'Weeks a year with no tenant.', whyDefault: 'Around 5 weeks a year of empty periods is a common planning figure.' },
+      { key: 'agentPct', label: 'Agent management fee', kind: 'number', unit: '% of rent', default: '12', tip: 'What a letting agent charges.', whyDefault: 'Full management typically costs 10–15% of rent.' },
+      { key: 'maintPct', label: 'Maintenance', kind: 'number', unit: '% of value/yr', default: '1', tip: 'Yearly upkeep budget on the end value.', whyDefault: '1% of the property value a year is a standard upkeep rule of thumb.' },
+      { key: 'insurance', label: 'Landlord insurance', kind: 'number', unit: '£/yr', default: '300', tip: 'Buildings + landlord cover.', whyDefault: 'A typical single-let policy runs £250–£400 a year.' },
+      { key: 'rate', label: 'Refinance interest rate', kind: 'number', unit: '%', default: '5.0', tip: 'The rate on the new mortgage.', whyDefault: 'A mid-range buy-to-let remortgage rate as of 2026.' },
+      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The rate lenders test the rent against.', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
+      {
+        key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
+        options: [
+          { value: 'additional', label: 'Additional property' },
+          { value: 'standard', label: 'Only property' },
+          { value: 'firstTimeBuyer', label: 'First-time buyer' },
+        ],
+        tip: 'A second property pays the higher stamp-duty rates.', whyDefault: 'Most investors already own a home.',
+      },
+    ],
+    // Verdict thresholds (logged): green = effectively all out (≤ £2,500 in)
+    // + cashflows ≥ £100 after tax + ICR passes.
+    thresholds: { allOutMax: 2500, minCashflowGreen: 100, icrBasic: 1.25, icrHigher: 1.45 },
+    verdictSlot: 'BrrrrVerdict',
     copy: {},
   },
   {

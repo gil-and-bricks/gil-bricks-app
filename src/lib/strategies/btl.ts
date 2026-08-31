@@ -7,13 +7,11 @@
 import type { Breakdown, WithBreakdown } from '../maths/breakdown';
 import { cashIn as libCashIn, roi as libRoi } from '../maths/investment';
 import { grossYield, netYield } from '../maths/yields';
-import { monthlyCashflow } from '../maths/cashflow';
-import { icr as libIcr, mortgageInterestOnly } from '../maths/lending';
-import { ltdTaxOnRentalProfit, taxOnRentalProfit } from '../maths/tax';
 import { stampDuty, type BuyerType, type StampCountry } from '../maths/stampduty';
 import { fmtMoney } from '../maths/format';
+import { rentalCore, type BuyingAs } from './rental';
 
-export type BuyingAs = 'basic' | 'higher' | 'ltd';
+export type { BuyingAs };
 
 export interface BtlInputs {
   price: number;
@@ -64,27 +62,23 @@ function computeCore(i: BtlInputs) {
   const deposit = i.price * (i.depositPct / 100);
   const loan = i.price - deposit;
   const cash = libCashIn({ deposit, sdlt: sdlt.value.tax, legals: i.legals, refurb: i.refurb, fees: 0 });
-  const mortgage = mortgageInterestOnly(loan, i.ratePct / 100);
-  const management = i.selfManaged ? 0 : i.monthlyRent * (i.agentPct / 100);
-  const maintenance = (i.price * (i.maintPct / 100)) / 12;
-  const insurance = i.insurancePerYear / 12;
-  // void allowance: N weeks of lost rent a year, spread monthly
-  const voidsAnnual = (i.monthlyRent * 12 / 52) * i.voidWeeks;
-  const voids = voidsAnnual / 12;
-  const before = monthlyCashflow({ rent: i.monthlyRent, mortgage: mortgage.value, management, maintenance, insurance, voids });
-  const runningAnnual = (management + maintenance + insurance + voids) * 12;
-  // Tax treatment (logged): rent actually received (net of voids) is the
-  // taxable income; management/maintenance/insurance are allowable costs.
-  const receivedRent = i.monthlyRent * 12 - voidsAnnual;
-  const allowable = (management + maintenance + insurance) * 12;
-  const tax = i.buyingAs === 'ltd'
-    ? ltdTaxOnRentalProfit({ annualRent: receivedRent, allowableCosts: allowable, mortgageInterest: mortgage.value * 12 })
-    : taxOnRentalProfit({ annualRent: receivedRent, allowableCosts: allowable, mortgageInterest: mortgage.value * 12, taxBand: i.buyingAs });
-  const after = before.value - tax.value / 12;
   const threshold = i.buyingAs === 'higher' ? i.thresholds.icrHigher : i.thresholds.icrBasic;
-  const icrRes = libIcr(i.monthlyRent * 12, loan, i.stressRatePct / 100, threshold);
-  const roiRes = libRoi(after * 12, cash.value);
-  return { sdlt, deposit, loan, cash, mortgage, before, tax, after, icrRes, roiRes, threshold, runningAnnual };
+  const core = rentalCore({
+    upkeepBasisPrice: i.price,
+    monthlyRent: i.monthlyRent,
+    loan,
+    ratePct: i.ratePct,
+    buyingAs: i.buyingAs,
+    selfManaged: i.selfManaged,
+    voidWeeks: i.voidWeeks,
+    agentPct: i.agentPct,
+    maintPct: i.maintPct,
+    insurancePerYear: i.insurancePerYear,
+    stressRatePct: i.stressRatePct,
+    icrThreshold: threshold,
+  });
+  const roiRes = libRoi(core.after * 12, cash.value);
+  return { sdlt, deposit, loan, cash, mortgage: core.mortgage, before: core.before, tax: core.tax, after: core.after, icrRes: core.icrRes, roiRes, threshold, runningAnnual: core.runningAnnual };
 }
 
 function colourOf(core: ReturnType<typeof computeCore>, t: BtlInputs['thresholds']): VerdictColour {

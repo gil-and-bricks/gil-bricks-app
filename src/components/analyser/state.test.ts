@@ -36,9 +36,10 @@ describe('strategy params in the URL', () => {
       }
     }
   });
-  it('visible strategy inputs never exceed six (simplicity law)', () => {
+  it('visible strategy inputs never exceed seven (simplicity law; companions excluded)', () => {
     for (const strat of strategies) {
-      expect(strat.strategyInputs.length, strat.id).toBeLessThanOrEqual(6);
+      const logical = strat.strategyInputs.filter((f) => !f.showWhen);
+      expect(logical.length, strat.id).toBeLessThanOrEqual(7);
     }
   });
   it('extra params serialise beside shared state; defaults omitted', () => {

@@ -17,7 +17,8 @@ page doubles as the source for the 'i' tooltips. Definitions are LOCKED in
 | **ICR** (interest coverage ratio) | annual rent ÷ (loan × stress rate); meeting the threshold exactly passes | £8,400 ÷ (£75,000 × 5.5%) = **2.04** — passes 125% and 145% |
 | **Total cash in** | deposit + stamp duty + legals + refurb + fees — stamp duty is always included | £25,000 + £5,000 + £1,500 + £15,000 + £2,000 = **£48,500** |
 | **ROI** | annual net profit ÷ total cash in × 100 | £5,820 ÷ £48,500 = **12.0%** |
-| **BRRRR money left in** (buy, refurbish, rent, refinance, repeat) | refinance proceeds (the share of the new value the lender advances) vs cash invested | £100,000 × 75% = £75,000 vs £60,000 in → **"All money out + £15,000"** |
+| **BRRRR money left in** (buy, refurbish, rent, refinance, repeat) | refinance loan minus repaying the bridging and the refinance legals, compared with every pound you put in | £100,000 × 75% = £75,000 vs £60,000 in → **"All money out + £15,000"** |
+| **Bridging cost** | loan × monthly rate × months, plus arrangement/exit fees | £75,000 × 0.85%/mo × 6 + £1,500 = **£5,325** |
 | **Flip profit** | sale price − purchase − refurb − buying costs − finance costs − selling costs | £250,000 − £211,000 = **£39,000** (15.6% of the sale price, 18.9% on cash) |
 | **Typical price** | average of the sold prices after setting aside the lowest and highest quarter (rounded down), with the 80% range (p10–p90) | 12 Pontypridd sales → **£137,575** (range £98,650–£206,300) |
 | **Estimated value** | the average of two evidence lines: your last sale price moved with the official house price index, and typical £/sqm nearby × your floor area — never adjusted for beds/baths/garden/parking | £120,000 (2019) indexed + £/sqm × 90sqm, averaged |

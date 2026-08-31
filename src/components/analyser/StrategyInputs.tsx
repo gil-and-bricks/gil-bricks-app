@@ -29,7 +29,9 @@ export function StrategyInputs({ visible, assumptions }: { visible: StrategyFiel
   return (
     <>
       <div class="subject-form">
-        {visible.map((f) => <Field f={f} />)}
+        {visible
+          .filter((f) => !f.showWhen || (strategyParams.value[f.showWhen.key] ?? '') === f.showWhen.value)
+          .map((f) => <Field f={f} />)}
       </div>
       {assumptions.length > 0 && (
         <div class="assumptions">
