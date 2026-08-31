@@ -1,10 +1,15 @@
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
+import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { fmtMoney } from '../../lib/maths/format';
 import type { ComparablesResult } from '../../lib/comparables/engine';
 import type { Valuation } from '../../lib/valuation/engine';
 
 export function ActionBar({ valuation, comps }: { valuation: Valuation | null; comps: ComparablesResult | null }) {
   const [copied, setCopied] = useState(false);
+  const [saveNote, setSaveNote] = useState('');
+  useEffect(() => {
+    void loadMe();
+  }, []);
 
   const summary = () => {
     const bits: string[] = [];
@@ -34,9 +39,21 @@ export function ActionBar({ valuation, comps }: { valuation: Valuation | null; c
     <div class="action-bar">
       <button type="button" class="btn-primary" onClick={share}>Share on WhatsApp</button>
       <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
-      <button type="button" class="btn-secondary" disabled aria-describedby="save-soon">Save</button>
-      <button type="button" class="btn-secondary" disabled aria-describedby="save-soon">PDF</button>
-      <span id="save-soon" class="hint">Save and PDF arrive with sign-in — coming soon.</span>
+      <button
+        type="button"
+        class="btn-secondary"
+        onClick={() => {
+          // me may still be loading on a fast click — resolve it, then act
+          void loadMe().then((v) => {
+            if (v === null) openLoginWall();
+            else setSaveNote('Saving arrives in the next sprint — your analysis is safe in this link.');
+          });
+        }}
+      >
+        Save
+      </button>
+      <button type="button" class="btn-secondary" disabled aria-describedby="pdf-soon">PDF</button>
+      <span id="pdf-soon" class="hint" role="status">{saveNote !== '' ? saveNote : 'PDF export — coming soon.'}</span>
     </div>
   );
 }

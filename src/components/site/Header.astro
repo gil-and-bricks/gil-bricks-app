@@ -1,14 +1,16 @@
 ---
 import { siteConfig } from '../../site.config';
 import { strategies } from '../../config/strategies';
+import { AuthHeader } from '../auth/AuthHeader';
 ---
 
 <header class="site-header">
   <a class="brand" href="/">{siteConfig.siteName}</a>
   <nav aria-label="Main">
-    <a href="/comparables">Area Data</a>
+    <a href="/area-data">Area Data</a>
     {strategies.map((s) => <a href={`${s.route}/analyser`}>{s.shortName ?? s.name}</a>)}
   </nav>
+  <AuthHeader client:idle />
 </header>
 
 <style>

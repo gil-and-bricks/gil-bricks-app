@@ -4,6 +4,8 @@ import { AnalyserApp } from '../../components/analyser/AnalyserApp';
 import { strategies } from '../../config/strategies';
 import { siteConfig } from '../../site.config';
 
+const dataBase = () => siteConfig.dataBaseUrl.replace(/\/+$/, '');
+
 export function getStaticPaths() {
   return strategies.map((s) => ({ params: { strategy: s.route.slice(1) }, props: { config: s } }));
 }
@@ -11,7 +13,10 @@ const { config } = Astro.props;
 ---
 
 <AppShell title={`${config.name} analyser — ${siteConfig.siteName}`} description={config.tagline}>
+  {/* the comps engine needs these on every analysis — start them at HTML parse */}
+  <link rel="preload" as="fetch" href={`${dataBase()}/manifest.json`} crossorigin />
+  <link rel="preload" as="fetch" href={`${dataBase()}/sectors-index.json`} crossorigin />
   <h1 class="page-title">{config.name} analyser</h1>
-  <p class="page-sub">{config.tagline}</p>
+  <p class="page-sub">{config.tagline} {config.heroLine}</p>
   <AnalyserApp client:load strategyName={config.name} config={config} />
 </AppShell>

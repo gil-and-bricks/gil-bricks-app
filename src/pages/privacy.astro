@@ -1,0 +1,9 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { Content } from '../content/legal/privacy.md';
+import { siteConfig } from '../site.config';
+---
+
+<AppShell title={`Privacy — ${siteConfig.siteName}`} description="What we store and why." noindex>
+  <div class="legal-wrap glass card"><Content /></div>
+</AppShell>

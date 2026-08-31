@@ -3,7 +3,7 @@ import { strategies } from '../../config/strategies';
 ---
 
 <nav class="tabbar" aria-label="Sections">
-  <a href="/comparables">Area</a>
+  <a href="/area-data">Area</a>
   {strategies.map((s) => <a href={`${s.route}/analyser`}>{s.shortName ?? s.name}</a>)}
 </nav>
 

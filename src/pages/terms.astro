@@ -1,0 +1,9 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { Content } from '../content/legal/terms.md';
+import { siteConfig } from '../site.config';
+---
+
+<AppShell title={`Terms — ${siteConfig.siteName}`} description="Terms and disclaimer." noindex>
+  <div class="legal-wrap glass card"><Content /></div>
+</AppShell>

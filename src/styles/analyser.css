@@ -222,3 +222,23 @@
 .checks-list li { margin-bottom: var(--space-2); }
 .layer-card a, .checks-list a, .crime-list a { color: var(--accent); }
 .page-note { max-width: 46rem; margin: var(--space-5) auto; color: var(--text-dim); font-size: var(--text-xs); }
+
+/* auth (S6.1) */
+.auth-slot { min-width: 4.5rem; display: inline-block; }
+.auth-login { padding: 0.4rem 1rem; }
+.auth-me { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--text); text-decoration: none; font-size: var(--text-sm); }
+.auth-avatar { border-radius: 50%; border: 1px solid var(--accent); vertical-align: middle; }
+.wall-overlay { position: fixed; inset: 0; background: rgba(5,0,8,0.7); display: grid; place-items: center; z-index: 50; padding: var(--space-4); overflow-y: auto; }
+.wall { max-width: 26rem; width: 100%; position: relative; }
+.wall-close { position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none; color: var(--text-dim); font-size: 1.4rem; cursor: pointer; }
+.wall h2[tabindex="-1"]:focus { outline: none; }
+.wall-terms { max-height: 9rem; overflow-y: auto; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: var(--space-3); font-size: var(--text-xs); color: var(--text-dim); margin: var(--space-3) 0; }
+.wall-terms h1 { font-size: var(--text-sm); color: var(--text); }
+.wall-check { display: flex; gap: var(--space-2); align-items: flex-start; margin: var(--space-3) 0; font-size: var(--text-sm); cursor: pointer; }
+.wall-check input { accent-color: var(--accent); margin-top: 0.2rem; }
+.wall-turnstile { margin: var(--space-3) 0; min-height: 0; }
+.gsi-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 0.65rem 1rem; border-radius: 10px; border: 1px solid #dadce0; background: #fff; color: #1f1f1f; font: 500 0.95rem/1 Roboto, Arial, sans-serif; cursor: pointer; }
+.gsi-button:disabled { opacity: 0.5; cursor: default; }
+.account-wrap { max-width: 34rem; margin: 0 auto; }
+.legal-wrap { max-width: 42rem; margin: var(--space-5) auto; }
+.wall-guard { position: fixed; width: 1px; height: 1px; opacity: 0; }

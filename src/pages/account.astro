@@ -1,0 +1,12 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { AccountApp } from '../components/auth/AccountApp';
+import { siteConfig } from '../site.config';
+---
+
+<AppShell title={`My account — ${siteConfig.siteName}`} description="Your account and saved deals." noindex>
+  <h1 class="page-title">My account</h1>
+  <div class="account-wrap">
+    <AccountApp client:load />
+  </div>
+</AppShell>

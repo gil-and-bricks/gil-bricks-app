@@ -16,7 +16,9 @@
     "pipeline:upload": "node pipeline/upload.mjs",
     "typecheck": "tsc --noEmit",
     "smoke:comps": "tsx scripts/smoke-comps.ts",
-    "smoke:valuation": "tsx scripts/smoke-valuation.ts"
+    "smoke:valuation": "tsx scripts/smoke-valuation.ts",
+    "db:migrate:local": "wrangler d1 migrations apply gil-bricks-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply gil-bricks-db --remote"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.4",

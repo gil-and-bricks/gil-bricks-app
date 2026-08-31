@@ -20,6 +20,12 @@ export interface SiteConfig {
   dataBaseUrl: string;
   /** NEVER hand-set: manifest.json is the single as-of source (DATA_SCHEMA.md); display fallback only. */
   dataAsOf: string;
+  /** Google OAuth client ID — PUBLIC by design (visible in every auth redirect). */
+  googleClientId: string;
+  /** Turnstile site key — PUBLIC by design (rendered into the login wall). */
+  turnstileSiteKey: string;
+  /** Current version of the T&C/consent text; bump when legal copy changes (S9). */
+  consentVersion: string;
 }
 
 export const siteConfig: SiteConfig = {
@@ -33,4 +39,7 @@ export const siteConfig: SiteConfig = {
   },
   dataBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
   dataAsOf: '',
+  googleClientId: '548405055261-7h7g1bsbc6ouoa04470ohr3ifigjbbfp.apps.googleusercontent.com',
+  turnstileSiteKey: '0x4AAAAAAEjDnwgtyAya8hyqYjaA0wFy7XU',
+  consentVersion: '2026-08-31-placeholder',
 };

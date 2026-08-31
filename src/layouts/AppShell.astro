@@ -3,6 +3,8 @@ import Base from './Base.astro';
 import Header from '../components/site/Header.astro';
 import Footer from '../components/site/Footer.astro';
 import TabBar from '../components/site/TabBar.astro';
+import { LoginWall } from '../components/auth/LoginWall';
+import { Content as TermsContent } from '../content/legal/terms.md';
 import '../styles/analyser.css';
 
 interface Props {
@@ -20,4 +22,7 @@ const { title, description, noindex = false } = Astro.props;
   </main>
   <Footer />
   <TabBar />
+  {/* Terms text for the login wall — server-rendered once, cloned by the modal. */}
+  <template id="legal-terms"><TermsContent /></template>
+  <LoginWall client:idle />
 </Base>
