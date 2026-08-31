@@ -122,7 +122,8 @@ function core(i: HmoInputs) {
   const threshold = i.buyingAs === 'higher' ? i.thresholds.icrHigher : i.thresholds.icrBasic;
   const icrRes = libIcr(grossIncome, loan, i.stressRatePct / 100, threshold);
   const totalCost = i.price + sdlt.value.tax + i.legals + i.refurb;
-  const gy = grossYield(grossIncome, totalCost);
+  // gross yield is rent ÷ PRICE (docs/definitions.md); net yield below uses the all-in cost
+  const gy = grossYield(grossIncome, i.price);
   const ny = netYield(grossIncome, allowable, totalCost);
   const roiRes = libRoi(after * 12, cash.value);
   return { sdlt, deposit, loan, cash, mortgage, grossIncome, opCosts, licenceAnnual, otherAnnual, noi, before, tax, after, threshold, icrRes, totalCost, gy, ny, roiRes };

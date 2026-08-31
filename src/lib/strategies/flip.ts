@@ -217,7 +217,7 @@ export function analyseFlip(i: FlipStrategyInputs): FlipAnalysis {
     formula: `profit before tax − ${i.flipAs === 'ltd' ? 'corporation tax' : 'income tax and National Insurance'}`,
     substituted: `${fmtMoney(c.profit)} − ${fmtMoney(c.selectedTax)}`,
     result: fmtMoney(c.profitAfterTax),
-    note: 'what you keep, in the scenario you selected',
+    note: i.flipAs === 'ltd' ? 'what the company keeps, before you draw it out to yourself' : 'what you keep after income tax on the profit',
   };
   const NO_CASH: Breakdown = {
     label: 'Return on investment',
@@ -232,7 +232,7 @@ export function analyseFlip(i: FlipStrategyInputs): FlipAnalysis {
         formula: 'profit before tax ÷ cash invested × 100',
         substituted: `${fmtMoney(c.profit)} ÷ ${fmtMoney(c.cashInvested)} × 100`,
         result: fmtPct(c.roiBT.value),
-        note: 'a project return, not a yearly rate — cash invested includes the deposit, bridging costs, tax, legals, refurb and contingency',
+        note: 'a project return over the whole flip, not a yearly rate — measured against all the cash you put in',
       }
     : NO_CASH;
   const roiATBreakdown: Breakdown = c.roiAT === null ? NO_CASH : {

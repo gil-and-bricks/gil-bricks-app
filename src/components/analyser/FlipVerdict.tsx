@@ -127,6 +127,7 @@ export function FlipVerdict({ config, comps, valuation }: {
               <p class="tile-value">{fmtPct(analysis.roiAfterTax.value)}</p>
               <p class="field-hint">before tax: {fmtPct(analysis.roiBeforeTax.value)}</p>
               <MathsAccordion breakdown={analysis.roiAfterTax.breakdown} />
+              <MathsAccordion breakdown={analysis.roiBeforeTax.breakdown} />
             </div>
             <Tile label="Profit before tax" value={fmtMoney(analysis.profitBeforeTax.value)} breakdown={analysis.profitBeforeTax.breakdown} />
             <div class="tile">

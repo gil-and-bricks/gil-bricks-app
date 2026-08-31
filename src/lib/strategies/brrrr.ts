@@ -256,7 +256,16 @@ export function analyseBrrrr(i: BrrrrStrategyInputs): BrrrrAnalysis {
   if (c.outcome.moneyLeftIn > 1) {
     const r = libRoi(c.rental.after * 12, c.outcome.moneyLeftIn);
     roiValue = r.value;
-    roiBreakdown = r.breakdown;
+    // the lib breakdown calls the denominator "total cash in"; here it is the
+    // money you could NOT pull back out — a much smaller number — so give it
+    // its own honest wording (mirrors the else-branch)
+    roiBreakdown = {
+      label: 'Return on money left in',
+      formula: 'your after-tax profit for the year ÷ the cash you couldn’t pull back out × 100',
+      substituted: `${fmtMoney(c.rental.after * 12)} ÷ ${fmtMoney(c.outcome.moneyLeftIn)} × 100`,
+      result: fmtPct(r.value),
+      note: 'measured on the cash the refinance left stuck in the deal — not your whole cash in',
+    };
   } else {
     roiBreakdown = {
       label: 'Return on money left in',

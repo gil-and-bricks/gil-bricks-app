@@ -108,7 +108,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
         <p class="hint">
           {p.ltv === 'custom' && num('ltvCustom') <= 0
             ? 'Enter your custom loan-to-value % to get a verdict.'
-            : 'Add the refurb budget, end value and rent after works to get a verdict.'}
+            : 'Add the end value after works and the rent after works to get a verdict — the refurb budget and price help too.'}
         </p>
       )}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
@@ -156,7 +156,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
               value={analysis.roiOnLeftIn.value !== null ? fmtPct(analysis.roiOnLeftIn.value) : 'Effectively infinite'}
               breakdown={analysis.roiOnLeftIn.breakdown} />
             <Tile label="Gross yield on total cost" value={fmtPct(analysis.grossYieldOnCost.value)} breakdown={analysis.grossYieldOnCost.breakdown} />
-            <Tile label={`ICR (${Math.round(analysis.icr.threshold * 100)}% test)`}
+            <Tile label={`Rent-covers-mortgage test (ICR ${Math.round(analysis.icr.threshold * 100)}%)`}
               value={`${fmtRatio(analysis.icr.value)} — ${analysis.icr.passes ? 'passes' : 'fails'}`}
               breakdown={analysis.icr.breakdown} />
           </div>

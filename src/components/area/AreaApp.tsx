@@ -278,13 +278,13 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
             )}
             {perSqft !== null && (
               <>
-                {' '}· typical <strong>£{perSqft}/sqft</strong>
+                {' '}· typical <strong>£{perSqft}/sqft</strong> <Tooltip text={tip('comps.persqft')} />
               </>
             )}
           </p>
           {entry?.typicalPriceByType && (
             <table class="area-types">
-              <caption class="sr-only">Typical sold price by property type</caption>
+              <caption class="area-types-caption">Typical price by property type</caption>
               <thead>
                 <tr><th scope="col">Detached</th><th scope="col">Semi</th><th scope="col">Terraced</th><th scope="col">Flat</th></tr>
               </thead>
@@ -345,7 +345,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
               {chg1 !== null && chg5 !== null && ' · '}
               {chg5 !== null && (
                 <>
-                  5 years: <strong>{chg5 > 0 ? '+' : ''}{chg5}%</strong>
+                  5 years (total): <strong>{chg5 > 0 ? '+' : ''}{chg5}%</strong>
                 </>
               )}
               {' '}· UK HPI to {monthLabel(ukhpi.ukhpiMonth)}
@@ -356,7 +356,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
             </p>
           </>
         ) : (
-          <p class="hint">Index data not available.</p>
+          <p class="hint">The house-price trend isn’t available right now — the sold prices above are the better local guide anyway.</p>
         )}
       </div>
 
@@ -402,7 +402,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
             </p>
           </>
         ) : (
-          <p class="hint">Not available for this sector.</p>
+          <p class="hint">We don’t have a deprivation score matched to this postcode sector — everything else on this page still holds.</p>
         )}
       </div>
 

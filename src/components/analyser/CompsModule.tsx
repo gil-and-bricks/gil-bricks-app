@@ -5,11 +5,16 @@ import { computeStats, sortComps } from '../../lib/comparables/engine';
 import { useMemo, useState } from 'preact/hooks';
 import { state, update } from './state';
 import { Tooltip } from './Tooltip';
+import { MathsAccordion } from './Accordion';
 import { tip } from '../../content/microcopy';
+import { monthLabel } from '../../lib/area/area';
+import { typicalPrice } from '../../lib/maths/stats';
 import { CompMap } from './CompMap';
 import { hoveredCompId } from './mapSync';
 
 const AGE_LABEL = (c: Comp) => (c.newBuild ? 'New' : 'Existing');
+const TYPE_LABEL: Record<string, string> = { D: 'Detached', S: 'Semi-detached', T: 'Terraced', F: 'Flat', O: 'Other' };
+const TENURE_LABEL: Record<string, string> = { F: 'Freehold', L: 'Leasehold' };
 
 export function CompsModule({ result, article4 = false }: { result: ComparablesResult | null; article4?: boolean }) {
   const s = state.value;
@@ -90,9 +95,17 @@ export function CompsModule({ result, article4 = false }: { result: ComparablesR
       {result === null ? (
         <p class="hint">Waiting for a postcode…</p>
       ) : result.comps.length === 0 ? (
-        <p class="hint" role="status">{result.suggestion ?? 'No sales found.'}</p>
+        <div role="status">
+          <h3 class="state-h">No matching sales</h3>
+          <p class="hint">{result.suggestion ?? 'No sold prices matched this search near this postcode.'}</p>
+        </div>
       ) : (
         <>
+          {stats.count > 0 && stats.count < 3 && (
+            <p class="hint thin-note" role="status">
+              <strong>Thin evidence:</strong> only {stats.count} matching {stats.count === 1 ? 'sale' : 'sales'} nearby — treat the typical figures below with caution.
+            </p>
+          )}
           <p class="count-line" role="status">
             <strong>{stats.count}</strong> of {result.comps.length} sales included · typical{' '}
             <strong>{stats.typicalPrice !== null ? fmtMoney(stats.typicalPrice) : '—'}</strong>
@@ -100,10 +113,16 @@ export function CompsModule({ result, article4 = false }: { result: ComparablesR
               <> · typical <strong>£{Math.round(stats.typicalPpsqm / sqmToSqft(1))}/sqft</strong> <Tooltip text={tip('comps.persqft')} /></>
             )}
             {stats.rangeP10P90 && (
-              <> · 80% between {fmtMoney(stats.rangeP10P90.p10)} and {fmtMoney(stats.rangeP10P90.p90)}</>
+              <>
+                {' '}· 80% between {fmtMoney(stats.rangeP10P90.p10)} and {fmtMoney(stats.rangeP10P90.p90)}{' '}
+                <Tooltip text={tip('comps.range80')} />
+              </>
             )}
-            {' '}· as of {result.asOf}
+            {' '}· as of {monthLabel(result.asOf)}
           </p>
+          {stats.typicalPrice !== null && stats.count >= 1 && (
+            <MathsAccordion breakdown={typicalPrice(comps.filter((c) => c.included).map((c) => c.price)).breakdown} />
+          )}
           <div class="view-toggle" role="group" aria-label="Comparables view">
             <button
               type="button"
@@ -168,8 +187,8 @@ export function CompsModule({ result, article4 = false }: { result: ComparablesR
                     <td>{c.date}</td>
                     <td><a href={`/transaction?id=${encodeURIComponent(c.id.replace(/[{}]/g, ''))}`}>{[c.saon, c.paon, c.street].filter(Boolean).join(' ')}</a></td>
                     <td>{c.postcode}</td>
-                    <td>{c.type}</td>
-                    <td>{c.tenure}</td>
+                    <td>{TYPE_LABEL[c.type] ?? c.type}</td>
+                    <td>{TENURE_LABEL[c.tenure] ?? c.tenure}</td>
                     <td>{AGE_LABEL(c)}</td>
                     <td>{fmtMoney(c.price)}</td>
                     <td>{c.floorAreaSqm !== null ? Math.round(sqmToSqft(c.floorAreaSqm)) : '—'}</td>

@@ -146,11 +146,12 @@ export function LoginWall() {
       <div class="glass card wall" role="dialog" aria-modal="true" aria-labelledby="wall-title">
         <button type="button" class="wall-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
         <h2 id="wall-title" ref={headingRef} tabindex={-1}>Sign in to {siteConfig.siteName}</h2>
-        <p class="hint">Free forever — sign in now; saving and PDF export land in the next update.</p>
+        <p class="hint">Free forever — sign in to save deals to My deals and share them. (PDF export is coming soon.)</p>
 
         {blocked ? (
           <>
-            <p>Saving needs cookies on — your analysis is safe in this link.</p>
+            <h3 class="state-h">Turn on cookies to sign in</h3>
+            <p>Signing in and saving need cookies switched on in your browser. Your analysis is safe in this link — copy it so you don’t lose it.</p>
             <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
           </>
         ) : (

@@ -207,7 +207,7 @@ export const strategies: StrategyConfig[] = [
           { value: '6', label: '6 rooms' },
           { value: '7plus', label: '7 or more' },
         ],
-        tip: 'Small HMOs house 3–6 people (planning class C4).',
+        tip: 'A small HMO (House in Multiple Occupation) is a shared home for 3–6 unrelated people (planning class C4).',
       },
       { key: 'roomRent', label: 'Average rent per room', kind: 'number', unit: '£/month', default: '', tip: 'Find local room rates yourself: ask letting agents what rooms actually let for, and check what similar rooms advertise at.' },
       {
@@ -243,7 +243,7 @@ export const strategies: StrategyConfig[] = [
       { key: 'opCostPctSelf', label: 'Operating costs (self-managed)', kind: 'number', unit: '% of income', default: '23', tip: 'Everything it costs to run the rooms.', whyDefault: 'Bills, broadband, cleaning, voids, maintenance and insurance typically absorb ~23% when you manage it yourself.' },
       { key: 'opCostPctAgent', label: 'Operating costs (agent + bills)', kind: 'number', unit: '% of income', default: '40', tip: 'Everything including agent management.', whyDefault: 'Add full management to bills, broadband, cleaning, voids, maintenance and insurance and ~40% of room income is a realistic planning figure.' },
       { key: 'licenceFee', label: 'HMO licence fee', kind: 'number', unit: '£ / 5 years', default: '1200', tip: 'Licences run five years and are budgeted yearly here.', whyDefault: 'Councils typically charge £1,000–£1,500 for a five-year licence.' },
-      { key: 'compliancePerYear', label: 'Compliance costs', kind: 'number', unit: '£/yr', default: '600', tip: 'Fire alarm servicing, electrical (EICR), gas safety, fire risk assessment.', whyDefault: 'Annual servicing and certificates for a small HMO usually total ~£600.' },
+      { key: 'compliancePerYear', label: 'Compliance costs', kind: 'number', unit: '£/yr', default: '600', tip: 'Fire-alarm servicing, an electrical safety certificate (EICR), a gas-safety check and a fire-risk assessment.', whyDefault: 'Annual servicing and certificates for a small HMO usually total ~£600.' },
       { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
       { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the room income against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
       {

@@ -18,7 +18,7 @@ export function cashIn(inputs: CashInInputs): WithBreakdown {
     value,
     breakdown: {
       label: 'Total cash in',
-      formula: 'deposit + stamp duty + legals + refurb + fees',
+      formula: 'deposit + stamp duty + solicitor (legal) fees + refurbishment + other fees',
       substituted: `${fmtMoney(deposit)} + ${fmtMoney(sdlt)} + ${fmtMoney(legals)} + ${fmtMoney(refurb)} + ${fmtMoney(fees)}`,
       result: fmtMoney(value),
       note: 'cash in includes stamp duty — never quote a return that leaves it out',
@@ -35,7 +35,7 @@ export function roi(annualNetProfit: number, totalCashIn: number): WithBreakdown
     value,
     breakdown: {
       label: 'Return on investment (ROI)',
-      formula: 'annual net profit ÷ total cash in × 100',
+      formula: 'your profit for the year ÷ all the cash you put in (deposit, stamp duty, fees, refurb), as a %',
       substituted: `${fmtMoney(annualNetProfit)} ÷ ${fmtMoney(totalCashIn)} × 100`,
       result: fmtPct(value),
       note: 'cash in includes stamp duty, legals, refurb and fees',

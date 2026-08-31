@@ -289,3 +289,9 @@
 .map-chip { display: inline-block; margin: var(--space-2) 0; padding: 0.2rem 0.7rem; border-radius: 999px; font-size: var(--text-xs); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.18); }
 .comp-map .maplibregl-ctrl button { font-size: 1rem; line-height: 1; }
 .comp-map .maplibregl-ctrl button.map-reset-btn { width: auto; padding: 0 0.5rem; font-size: var(--text-xs); }
+
+/* plain-English state headings (S8.1) — legibility only, not a design change */
+.state-h { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-1); }
+.state-block { margin: var(--space-3) 0; }
+.thin-note { margin: 0 0 var(--space-2); }
+.area-types-caption { text-align: left; caption-side: top; font-size: var(--text-sm); color: var(--text-dim); padding-bottom: var(--space-1); }

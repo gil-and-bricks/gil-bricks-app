@@ -58,7 +58,7 @@ export function icr(annualRent: number, loan: number, stressRate: number, thresh
   const passes = value >= threshold;
   const breakdown: Breakdown = {
     label: 'Interest coverage ratio (ICR)',
-    formula: 'annual rent ÷ (loan × stress rate)',
+    formula: 'rent for a year ÷ (loan × the higher ‘stress’ rate the lender tests with, not your real rate)',
     substituted: `${fmtMoney(annualRent)} ÷ (${fmtMoney(loan)} × ${fmtPct(stressRate * 100)})`,
     result: `${fmtRatio(value)} (${fmtPct(value * 100)}) — ${passes ? 'passes' : 'fails'} the ${fmtPct(threshold * 100)} test`,
     note: 'lenders stress-test whether rent comfortably covers the interest',

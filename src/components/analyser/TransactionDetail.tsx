@@ -42,11 +42,22 @@ export function TransactionDetail() {
 
   useEffect(() => {
     const id = new URLSearchParams(location.search).get('id');
-    if (!id) { setErr('No transaction id given.'); return; }
-    getTransaction(id).then(setTx).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+    if (!id) { setErr('missing'); return; }
+    getTransaction(id).then(setTx).catch(() => setErr('failed'));
   }, []);
 
-  if (err) return <section class="glass card"><p class="field-error" role="alert">{err}</p></section>;
+  if (err) {
+    const msg =
+      err === 'missing'
+        ? 'This link doesn’t point to a specific sale — go back to the comparables list and pick a row.'
+        : 'We couldn’t load this sold record just now — it’s usually temporary. Please try again in a moment.';
+    return (
+      <section class="glass card">
+        <h3 class="state-h">We couldn’t show this sale</h3>
+        <p class="field-error" role="alert">{msg}</p>
+      </section>
+    );
+  }
   if (!tx) {
     return (
       <section class="glass card" aria-hidden="true">

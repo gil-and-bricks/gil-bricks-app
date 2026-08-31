@@ -2,7 +2,7 @@ import { fmtMoney } from '../../lib/maths/format';
 import type { Valuation } from '../../lib/valuation/engine';
 import type { AddressCandidate } from '../../lib/landregistry/history';
 import { MathsAccordion } from './Accordion';
-import { update } from './state';
+import { state, update } from './state';
 
 export function ValuationCard({ valuation, lrState, candidates }: {
   valuation: Valuation | null;
@@ -25,7 +25,22 @@ export function ValuationCard({ valuation, lrState, candidates }: {
         </div>
       )}
       {lrState === 'timeout' && (
-        <p class="hint">Sale history is unavailable right now — you can enter the last sale manually once that arrives in assumptions (next sprint), or just rely on the £/sqm evidence below.</p>
+        <div role="status" class="state-block">
+          <h3 class="state-h">Sale history unavailable</h3>
+          <p class="hint">
+            We couldn’t reach HM Land Registry just now, so we can’t use this exact property’s own past sale. The
+            estimate below still leans on nearby sold prices.
+          </p>
+        </div>
+      )}
+      {state.value.area === '' && (
+        <div role="status" class="state-block">
+          <h3 class="state-h">Add the floor area for £/sqft</h3>
+          <p class="hint">
+            Without the internal area we can’t show a price per square foot for this property. Type the size in square
+            metres (it’s on the EPC) in the form above to unlock it.
+          </p>
+        </div>
       )}
       {valuation === null ? (
         <p class="hint">Not enough evidence yet — add the internal area, or a house number so we can find its sale history.</p>

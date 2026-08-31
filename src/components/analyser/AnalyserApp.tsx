@@ -104,11 +104,11 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
         } catch (err) {
           if (mySeq !== seq) return;
           if (err instanceof ComparablesError && err.kind === 'OutsideEnglandWales') {
-            setPostcodeError('Sorry — this covers England & Wales only.');
+            setPostcodeError('This tool only has sold-price data for England & Wales, so we can’t analyse Scottish or Northern Irish postcodes.');
           } else if (err instanceof ComparablesError && err.kind === 'UnknownPostcode') {
             setPostcodeError(err.message);
           } else {
-            setError(err instanceof Error ? err.message : String(err));
+            setError('Something went wrong fetching sold prices for this search — it’s usually temporary. Please try again in a moment.');
           }
           setResults({ comps: null, valuation: null, candidates: null, lrState: null });
         } finally {
@@ -128,7 +128,12 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
         <SubjectForm postcodeError={postcodeError} />
       </section>
 
-      {error && <section class="glass card"><p class="field-error" role="alert">{error}</p></section>}
+      {error && (
+        <section class="glass card">
+          <h3 class="state-h">Couldn’t load the sales data</h3>
+          <p class="field-error" role="alert">{error}</p>
+        </section>
+      )}
 
       {ready && (
         <>
@@ -144,7 +149,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             return (
               <section class="glass card verdict-slot" aria-label="Strategy verdict">
                 <h2>{strategyName} verdict</h2>
-                <p class="hint">Strategy verdict arrives in the next sprint.</p>
+                <p class="hint">We haven’t built the verdict for this strategy yet — the sold comparables and valuation below still work.</p>
               </section>
             );
           })()}

@@ -22,8 +22,9 @@ Edit the wording in `src/content/microcopy.ts` (this doc mirrors it). Max ~20 wo
 | `area.crime` | Crimes the police recorded near this postcode in one month, from the official police.uk data. |
 | `area.flood` | Flood warnings in force right now only. It says nothing about the long-term flood risk of the property. |
 | `area.whereSold` | Every sale within a mile shown on the map. Tap a dot to see that sale. |
-| `comps.typical` | The typical sold price, worked out with the interquartile mean (IQM): we drop the cheapest and dearest quarter, then average the rest. |
+| `comps.typical` | The typical sold price: we drop the cheapest and dearest quarter of sales, then average the rest (the interquartile mean, IQM). |
+| `comps.range80` | 8 in 10 nearby sales fell in this range — the cheapest tenth and dearest tenth are left out. |
 | `comps.persqft` | Price per square foot of floor space — a fair way to compare homes of different sizes. Needs a known floor area. |
 | `account.marketing` | Tick to get property tips and updates by email. Untick any time — we tell our email provider to stop. |
 
-Strategy input tooltips live in `src/config/strategies/index.ts` (per-strategy, golden rule 2); acronyms there (ICR, LTV, GDV, ARV) are expanded on first use.
+Strategy input tooltips live in `src/config/strategies/index.ts` (per-strategy, golden rule 2); acronyms there (ICR, LTV, GDV, ARV, C4, EICR, HMO) are expanded on first use.

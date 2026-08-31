@@ -30,7 +30,7 @@ export function netYield(annualRent: number, runningCosts: number, allInCost: nu
       formula: '(annual rent − running costs) ÷ all-in cost × 100',
       substituted: `(${fmtMoney(annualRent)} − ${fmtMoney(runningCosts)}) ÷ ${fmtMoney(allInCost)} × 100`,
       result: fmtPct(value),
-      note: 'all-in cost means purchase price plus buying and refurb costs',
+      note: 'running costs are letting costs only — management, maintenance, insurance and voids, not the mortgage; all-in cost = price + buying + refurb',
     },
   };
 }

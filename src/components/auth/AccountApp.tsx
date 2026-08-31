@@ -84,7 +84,8 @@ export function AccountApp() {
   if (v === null) {
     return (
       <div class="glass card">
-        <p>You're not signed in.</p>
+        <h3 class="state-h">Sign in to see your deals</h3>
+        <p class="hint">Your saved deals live here once you’re signed in — it’s free and takes one tap with Google.</p>
         <button type="button" class="btn-primary" onClick={openLoginWall}>Log in</button>
       </div>
     );
@@ -100,7 +101,7 @@ export function AccountApp() {
       });
       if (res.ok) {
         me.value = { ...v, marketingConsent: !v.marketingConsent };
-        setNote(!v.marketingConsent ? 'You are on the list — emails start with the next sprint of the build.' : 'Marketing emails off.');
+        setNote(!v.marketingConsent ? 'You’re on the list — we’ll email you when there’s something worth sending. Untick any time.' : 'Marketing emails off.');
       } else setNote('That did not save — please try again.');
     } catch {
       setNote('That did not save — please try again.');

@@ -20,7 +20,8 @@ describe('HMO worked example — £180k, 5 rooms × £550, bills incl., agent 40
   //     S24 credit 20%×min(8,100 interest, 18,960) = 1,620 → £2,172/yr = £181/mo
   //   after-tax = £724/mo; cash in = 45,000+10,100+1,500 = £56,600
   //   ROI = 724×12 ÷ 56,600 = 15.35%; ICR = 33,000 ÷ 7,425 = 4.44
-  //   gross yield = 33,000/191,600 = 17.22%; net = 18,960/191,600 = 9.90%
+  //   gross yield = annual room income ÷ PRICE = 33,000/180,000 = 18.33% (docs/definitions.md);
+  //   net yield uses the all-in cost = 18,960/191,600 = 9.90%
   const a = analyseHmo(base);
   it('income, costs, NOI', () => {
     expect(a.stampDutyTax).toBe(10100);
@@ -33,12 +34,12 @@ describe('HMO worked example — £180k, 5 rooms × £550, bills incl., agent 40
     expect(a.taxPerYear.value).toBeCloseTo(2172, 1);
     expect(a.cashflowAfterTax.value).toBeCloseTo(724, 1);
   });
-  it('ROI 15.35%, ICR 4.44, yields 17.2/9.9', () => {
+  it('ROI 15.35%, ICR 4.44, yields 18.3/9.9', () => {
     expect(a.cashIn.value).toBe(56600);
     expect(a.roi.value).toBeCloseTo(15.35, 1);
     expect(a.icr.value).toBeCloseTo(4.444, 2);
     expect(a.icr.passes).toBe(true);
-    expect(a.grossYield.value).toBeCloseTo(17.22, 1);
+    expect(a.grossYield.value).toBeCloseTo(18.33, 1);
     expect(a.netYield.value).toBeCloseTo(9.90, 1);
   });
   it('GREEN with the mandatory-licence flag at 5 rooms', () => {

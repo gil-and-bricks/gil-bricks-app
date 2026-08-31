@@ -39,7 +39,9 @@ export const microcopy: Record<string, string> = {
 
   // --- Comparables ---
   'comps.typical':
-    'The typical sold price, worked out with the interquartile mean (IQM): we drop the cheapest and dearest quarter, then average the rest.',
+    'The typical sold price: we drop the cheapest and dearest quarter of sales, then average the rest (the interquartile mean, IQM).',
+  'comps.range80':
+    '8 in 10 nearby sales fell in this range — the cheapest tenth and dearest tenth are left out.',
   'comps.persqft':
     'Price per square foot of floor space — a fair way to compare homes of different sizes. Needs a known floor area.',
 

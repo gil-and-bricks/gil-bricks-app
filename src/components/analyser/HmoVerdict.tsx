@@ -205,7 +205,7 @@ export function HmoVerdict({ config, comps, valuation }: {
             <Tile label="Gross yield" value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
             <Tile label="Net yield" value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />
             <Tile label="Cash in" value={fmtMoney(analysis.cashIn.value)} breakdown={analysis.cashIn.breakdown} />
-            <Tile label={`ICR (${Math.round(analysis.icr.threshold * 100)}% test)`}
+            <Tile label={`Rent-covers-mortgage test (ICR ${Math.round(analysis.icr.threshold * 100)}%)`}
               value={`${fmtRatio(analysis.icr.value)} — ${analysis.icr.passes ? 'passes' : 'fails'}`}
               breakdown={analysis.icr.breakdown} />
             <Tile label="Tax on the rooms" value={`${fmtMoney(analysis.taxPerYear.value)}/yr`} breakdown={analysis.taxPerYear.breakdown} />

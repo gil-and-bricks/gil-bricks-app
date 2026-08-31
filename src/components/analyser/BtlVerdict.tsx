@@ -116,11 +116,11 @@ export function BtlVerdict({ config, comps, valuation }: {
               </div>
             </Tile>
             <Tile
-              label={`ICR (${Math.round(analysis.icr.threshold * 100)}% test)`}
+              label={`Rent-covers-mortgage test (ICR ${Math.round(analysis.icr.threshold * 100)}%)`}
               value={`${fmtRatio(analysis.icr.value)} — ${analysis.icr.passes ? 'passes' : 'fails'}`}
               breakdown={analysis.icr.breakdown}
             />
-            <Tile label="Tax on rent" value={`${fmtMoney(analysis.taxPerYear.value)}/yr`} breakdown={analysis.taxPerYear.breakdown} />
+            <Tile label="Tax on rental profit" value={`${fmtMoney(analysis.taxPerYear.value)}/yr`} breakdown={analysis.taxPerYear.breakdown} />
             <Tile label="Cashflow before tax" value={`${fmtMoney(analysis.cashflowBeforeTax.value)}/mo`} breakdown={analysis.cashflowBeforeTax.breakdown} />
           </div>
         </>
