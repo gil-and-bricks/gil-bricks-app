@@ -18,6 +18,7 @@ import { sqmToSqft } from '../../lib/maths/area';
 import { fmtMoney } from '../../lib/maths/format';
 import { strategies } from '../../config/strategies';
 import { Accordion } from '../analyser/Accordion';
+import { tip } from '../../content/microcopy';
 import { CompMap } from '../analyser/CompMap';
 import { Tooltip } from '../analyser/Tooltip';
 
@@ -265,7 +266,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
       {stats && (
         <div class="glass card">
           <h3>
-            Sold prices in {subject.sectorId} <Tooltip text="The middle of what actually sold — not asking prices." />
+            Sold prices in {subject.sectorId} <Tooltip text={tip('area.soldPrices')} />
           </h3>
           <p class="big-figure">{fmtMoney(stats.typicalPrice)}</p>
           <p class="count-line">
@@ -330,7 +331,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card">
         <h3>
-          Price trend — {countryName} <Tooltip text="The official UK House Price Index for the whole country." />
+          Price trend — {countryName} <Tooltip text={tip('area.priceTrend')} />
         </h3>
         {series.length >= 2 ? (
           <>
@@ -362,7 +363,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
       {entry?.salesByMonth && (
         <div class="glass card">
           <h3>
-            Market activity <Tooltip text="How many homes actually completed each month, from HM Land Registry." />
+            Market activity <Tooltip text={tip('area.marketActivity')} />
           </h3>
           <Sparkline counts={entry.salesByMonth} asOf={manifest.ppdMonth} />
           <p class="count-line">
@@ -377,7 +378,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card">
         <h3>
-          Deprivation <Tooltip text="Official government ranking of areas by income, employment, health, education and more." />
+          Deprivation <Tooltip text={tip('area.deprivation')} />
         </h3>
         {decile !== undefined && decile !== null ? (
           <>
@@ -407,7 +408,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card layer-card">
         <h3>
-          Crime <Tooltip text="Incidents recorded via police.uk near this postcode, for one month." />
+          Crime <Tooltip text={tip('area.crime')} />
         </h3>
         <span class="sr-only" role="status">{crime === 'loading' ? 'Loading crime data…' : ''}</span>
         {crime === 'loading' ? (
@@ -446,7 +447,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card layer-card">
         <h3>
-          Flood <Tooltip text="Live alerts only — they say nothing about long-term flood risk." />
+          Flood <Tooltip text={tip('area.flood')} />
         </h3>
         <span class="sr-only" role="status">{flood === 'loading' ? 'Loading flood data…' : ''}</span>
         {flood === 'loading' ? (
@@ -531,7 +532,7 @@ function AreaMapCard({ subject, mile }: { subject: { lat: number; lng: number };
   return (
     <div class="glass card">
       <h3>
-        Where these sold <Tooltip text="Every sale within a mile, on the map. Click a dot for the sale." />
+        Where these sold <Tooltip text={tip('area.whereSold')} />
       </h3>
       <button
         type="button"

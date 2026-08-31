@@ -4,6 +4,8 @@ import type { Comp, ComparablesResult, SortKey } from '../../lib/comparables/eng
 import { computeStats, sortComps } from '../../lib/comparables/engine';
 import { useMemo, useState } from 'preact/hooks';
 import { state, update } from './state';
+import { Tooltip } from './Tooltip';
+import { tip } from '../../content/microcopy';
 import { CompMap } from './CompMap';
 import { hoveredCompId } from './mapSync';
 
@@ -42,7 +44,7 @@ export function CompsModule({ result, article4 = false }: { result: ComparablesR
 
   return (
     <section class="glass card" aria-labelledby="comps-h">
-      <h2 id="comps-h">Sold nearby</h2>
+      <h2 id="comps-h">Sold nearby <Tooltip text={tip('comps.typical')} /></h2>
       <div class="filter-strip" role="group" aria-label="Comparable filters">
         <label>Radius
           <select value={s.radius} onChange={(e) => update({ radius: (e.target as HTMLSelectElement).value as never })}>
@@ -95,7 +97,7 @@ export function CompsModule({ result, article4 = false }: { result: ComparablesR
             <strong>{stats.count}</strong> of {result.comps.length} sales included · typical{' '}
             <strong>{stats.typicalPrice !== null ? fmtMoney(stats.typicalPrice) : '—'}</strong>
             {stats.typicalPpsqm !== null && (
-              <> · typical <strong>£{Math.round(stats.typicalPpsqm / sqmToSqft(1))}/sqft</strong></>
+              <> · typical <strong>£{Math.round(stats.typicalPpsqm / sqmToSqft(1))}/sqft</strong> <Tooltip text={tip('comps.persqft')} /></>
             )}
             {stats.rangeP10P90 && (
               <> · 80% between {fmtMoney(stats.rangeP10P90.p10)} and {fmtMoney(stats.rangeP10P90.p90)}</>

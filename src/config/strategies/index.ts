@@ -35,7 +35,7 @@ const btlAssumptions: StrategyField[] = [
     options: [{ value: 'io', label: 'Interest-only' }],
     tip: 'Interest-only keeps payments low; the loan is not paid down.', whyDefault: 'Most landlords use interest-only; repayment modelling arrives later.',
   },
-  { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The rate lenders test the rent against.', whyDefault: 'Lenders commonly stress-test at around 5.5% even when your pay rate is lower.' },
+  { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the rent against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5% even when your pay rate is lower.' },
   {
     key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
     options: [
@@ -70,7 +70,7 @@ export const strategies: StrategyConfig[] = [
     heroLine: 'Stress-test a flip with real local sold prices and honest ranges.',
     strategyInputs: [
       { key: 'refurbCost', label: 'Refurb budget', kind: 'number', unit: '£', default: '', tip: 'Everything the works will cost.' },
-      { key: 'gdv', label: 'Sale price after works', kind: 'number', unit: '£', default: '', tip: 'What it will sell for once the works are done.' },
+      { key: 'gdv', label: 'Sale price after works', kind: 'number', unit: '£', default: '', tip: 'What it should sell for once the works are done — the gross development value (GDV).' },
       {
         key: 'funding', label: 'Funding the purchase', kind: 'select', default: 'bridging',
         options: [
@@ -130,7 +130,7 @@ export const strategies: StrategyConfig[] = [
     heroLine: 'See whether the refinance really pulls your money back out.',
     strategyInputs: [
       { key: 'refurbCost', label: 'Refurb budget', kind: 'number', unit: '£', default: '', tip: 'Everything the works will cost.' },
-      { key: 'arv', label: 'End value after works', kind: 'number', unit: '£', default: '', tip: 'What it will be worth once the works are done.' },
+      { key: 'arv', label: 'End value after works', kind: 'number', unit: '£', default: '', tip: 'What it should be worth once the works are done — the after-repair value (ARV).' },
       {
         key: 'funding', label: 'Funding the purchase', kind: 'select', default: 'bridging',
         options: [
@@ -151,7 +151,7 @@ export const strategies: StrategyConfig[] = [
         ],
         tip: 'The share of the end value the new mortgage advances.',
       },
-      { key: 'ltvCustom', label: 'Custom LTV', kind: 'number', unit: '%', default: '', tip: 'Your own loan-to-value, e.g. 78.9.', showWhen: { key: 'ltv', value: 'custom' } },
+      { key: 'ltvCustom', label: 'Custom LTV', kind: 'number', unit: '%', default: '', tip: 'Your own loan-to-value (LTV): the loan as a % of the property value. E.g. 78.9.', showWhen: { key: 'ltv', value: 'custom' } },
       {
         key: 'buyingAs', label: 'Buying as', kind: 'select', default: 'basic',
         options: [
@@ -174,7 +174,7 @@ export const strategies: StrategyConfig[] = [
       { key: 'maintPct', label: 'Maintenance', kind: 'number', unit: '% of value/yr', default: '1', tip: 'Yearly upkeep budget on the end value.', whyDefault: '1% of the property value a year is a standard upkeep rule of thumb.' },
       { key: 'insurance', label: 'Landlord insurance', kind: 'number', unit: '£/yr', default: '300', tip: 'Buildings + landlord cover.', whyDefault: 'A typical single-let policy runs £250–£400 a year.' },
       { key: 'rate', label: 'Refinance interest rate', kind: 'number', unit: '%', default: '5.0', tip: 'The rate on the new mortgage.', whyDefault: 'A mid-range buy-to-let remortgage rate as of 2026.' },
-      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The rate lenders test the rent against.', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
+      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the rent against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
       {
         key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
         options: [
@@ -245,7 +245,7 @@ export const strategies: StrategyConfig[] = [
       { key: 'licenceFee', label: 'HMO licence fee', kind: 'number', unit: '£ / 5 years', default: '1200', tip: 'Licences run five years and are budgeted yearly here.', whyDefault: 'Councils typically charge £1,000–£1,500 for a five-year licence.' },
       { key: 'compliancePerYear', label: 'Compliance costs', kind: 'number', unit: '£/yr', default: '600', tip: 'Fire alarm servicing, electrical (EICR), gas safety, fire risk assessment.', whyDefault: 'Annual servicing and certificates for a small HMO usually total ~£600.' },
       { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
-      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The rate lenders test the room income against.', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
+      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the room income against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
       {
         key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
         options: [

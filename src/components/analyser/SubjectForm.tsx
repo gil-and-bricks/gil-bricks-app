@@ -1,21 +1,23 @@
-/** Shared subject-property inputs. Placeholder microcopy — S8 replaces it. */
+/** Shared subject-property inputs. Tooltip copy lives in src/content/microcopy.ts. */
 import { useState } from 'preact/hooks';
 import { state, update } from './state';
 import { Tooltip } from './Tooltip';
 import { lookupEpcArea } from './epcArea';
+import { tip } from '../../content/microcopy';
 
+// Tooltip copy lives in src/content/microcopy.ts (edit words there, not here).
 const TIPS: Record<string, string> = {
-  postcode: 'The full postcode of the property, e.g. CF37 1HR.',
-  price: 'The asking or agreed price in pounds.',
-  paon: 'House number or name — lets us find its sale history automatically.',
-  type: 'Detached, semi, terraced or flat.',
-  area: 'Internal floor area in square metres — on the EPC certificate.',
-  beds: 'Bedrooms — context only, never used to adjust the valuation.',
-  baths: 'Bathrooms — context only.',
-  refurb: 'How much work it needs before letting or selling.',
-  age: 'Rough construction era.',
-  garden: 'Context only.',
-  parking: 'Off-street spaces — context only.',
+  postcode: tip('subject.postcode'),
+  price: tip('subject.price'),
+  paon: tip('subject.paon'),
+  type: tip('subject.type'),
+  area: tip('subject.area'),
+  beds: tip('subject.beds'),
+  baths: tip('subject.baths'),
+  refurb: tip('subject.refurb'),
+  age: tip('subject.age'),
+  garden: tip('subject.garden'),
+  parking: tip('subject.parking'),
 };
 
 export function SubjectForm({ postcodeError }: { postcodeError: string | null }) {
