@@ -1,0 +1,58 @@
+{
+  "_note": "PLACEHOLDER — questions and weights to be set by the operator. Edit this file only; see docs/QUIZ_OPERATOR_GUIDE.md. No code changes needed.",
+  "version": 1,
+  "intro": {
+    "title": "Which strategy fits you?",
+    "body": "Four quick questions — or skip straight to the tools. Nothing is saved."
+  },
+  "questions": [
+    {
+      "id": "goal",
+      "prompt": "What's your main goal? (PLACEHOLDER)",
+      "tooltip": "There is no wrong answer — this just points you at a starting tool.",
+      "type": "single",
+      "options": [
+        { "id": "income", "label": "Steady monthly income", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 1 } },
+        { "id": "lump", "label": "A lump-sum profit", "weights": { "btl": 0, "flip": 1, "brrrr": 0, "hmo": 0 } },
+        { "id": "recycle", "label": "Recycling my capital into more deals", "weights": { "btl": 0, "flip": 0, "brrrr": 1, "hmo": 0 } },
+        { "id": "maxincome", "label": "Higher income and I don't mind more work", "weights": { "btl": 0, "flip": 0, "brrrr": 0, "hmo": 1 } }
+      ]
+    },
+    {
+      "id": "time",
+      "prompt": "How hands-on do you want to be? (PLACEHOLDER)",
+      "type": "single",
+      "options": [
+        { "id": "handsoff", "label": "As hands-off as possible", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 0 } },
+        { "id": "some", "label": "A project now and then", "weights": { "btl": 0, "flip": 1, "brrrr": 1, "hmo": 0 } },
+        { "id": "very", "label": "This is my main focus", "weights": { "btl": 0, "flip": 0, "brrrr": 1, "hmo": 1 } }
+      ]
+    },
+    {
+      "id": "refurb",
+      "prompt": "How do you feel about refurbs? (PLACEHOLDER)",
+      "type": "single",
+      "options": [
+        { "id": "avoid", "label": "Rather avoid them", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 0 } },
+        { "id": "light", "label": "Light works are fine", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 1 } },
+        { "id": "love", "label": "Bring on the skips", "weights": { "btl": 0, "flip": 1, "brrrr": 1, "hmo": 0 } }
+      ]
+    },
+    {
+      "id": "capital",
+      "prompt": "How long can your money stay in a deal? (PLACEHOLDER)",
+      "type": "single",
+      "options": [
+        { "id": "years", "label": "Years — it's an investment", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 1 } },
+        { "id": "months", "label": "Months — I want it back out", "weights": { "btl": 0, "flip": 1, "brrrr": 1, "hmo": 0 } }
+      ]
+    }
+  ],
+  "scoring": { "method": "sum", "tieBreak": ["btl", "brrrr", "flip", "hmo"] },
+  "results": {
+    "btl": { "headline": "Start with Buy to Let (PLACEHOLDER)", "body": "Steady, well-understood, and our analyser checks the numbers against real sold prices." },
+    "flip": { "headline": "Start with Flips (PLACEHOLDER)", "body": "Buy, refurbish, sell — the analyser stress-tests your margin before you offer." },
+    "brrrr": { "headline": "Start with BRRRR (PLACEHOLDER)", "body": "Refinance-led investing — see whether your money really comes back out." },
+    "hmo": { "headline": "Start with a small HMO (PLACEHOLDER)", "body": "Room-by-room income — with the legal size and licensing checks built in." }
+  }
+}

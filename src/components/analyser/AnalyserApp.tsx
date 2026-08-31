@@ -12,6 +12,7 @@ import { valueProperty, type Valuation } from '../../lib/valuation/engine';
 import { initFromUrl, isReady, state, type UrlState } from './state';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
+import { StrategySwitcher } from './StrategySwitcher';
 import { BrrrrVerdict } from './BrrrrVerdict';
 import { FlipVerdict } from './FlipVerdict';
 import { HmoVerdict } from './HmoVerdict';
@@ -131,6 +132,10 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
 
       {ready && (
         <>
+          <StrategySwitcher
+            currentId={config?.id ?? null}
+            label={config ? 'Analyse this as…' : 'Analyse this property as…'}
+          />
           {showVerdict && (() => {
             const Verdict = config?.verdictSlot ? VERDICTS[config.verdictSlot] : undefined;
             if (Verdict && config) {

@@ -2,6 +2,16 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S4.6: Strategy switcher + /start chooser scaffold
+
+- **The switch URL is just toQuery(state, {})** — shared subject + comps state serialises, strategy params drop to the target's config defaults by construction; a round-trip test asserts the parsed state is bit-identical, which is what makes the valuation and comparables render the same on the other side.
+- **Skip lands on /comparables** — "take me to the tools" needs a neutral, genuinely useful destination; the home page is still a holding card and any one analyser would presume a strategy.
+- **Budget maps to the price field** in the result deep-link — the closest honest interpretation of "budget" for an analyser that starts from an asking price.
+- **The chooser algorithm is deliberately unbuilt** — quiz.json ships with visibly-PLACEHOLDER questions and neutral-ish weights; the mechanism (validation with plain field-naming errors as a build gate + sum scoring + tieBreak) is what this sprint delivers. The operator edits one JSON file (docs/QUIZ_OPERATOR_GUIDE.md); a broken edit fails tests AND the build with a plain field-naming message, so the page can't publish broken. Tests exercise the validator/scorer against an inline fixture — never the shipped content — so any valid content edit passes untouched (proven: renaming a question id and retuning weights, 9/9 green).
+- **Quiz answers stay in component state, not the URL** — a half-finished personality quiz is not a shareable artefact; the result deep-link carries only postcode/budget.
+- **Commit message**: "feat(nav): analyse-as strategy switcher and config-driven /start chooser scaffold" (as specified).
+- **Verification workflow (12 agents) found 3 must-fixes, all fixed pre-commit**: tests were coupled to placeholder quiz content (now fixture-based); no focus management on quiz step changes (now focuses each step's heading, WCAG 4.1.3/2.4.3); chosen answer was colour-only with no aria state (now aria-pressed + ✓ tick + tinted background). Nits also fixed: hardcoded route fallback dropped, progress label moved off a bare <p> aria-label to sr-only text, inputs no longer transform per keystroke (caret jump), skip link carries a typed postcode, operator guide wording tightened.
+
 ## 2026-08-31 — Sprint S4.5: HMO verdict
 
 - **Verdict thresholds (config)**: GREEN = ICR passes ∧ after-tax cashflow ≥ £400/mo ∧ ROI ≥ 12% ∧ no room-size failures; AMBER = ICR passes ∧ cashflow ≥ £0 (or any room fails the size minimums — an illegal room caps the verdict whatever the money says, and levers refuse to pretend rent can fix it); RED = ICR fails ∨ cashflow negative.

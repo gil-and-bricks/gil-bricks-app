@@ -1,0 +1,15 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { QuizApp } from '../components/quiz/QuizApp';
+import { siteConfig } from '../site.config';
+import quizJson from '../config/quiz.json';
+import { validateQuiz } from '../lib/quiz/quiz';
+
+// Build-time gate: a broken quiz.json fails the build with a plain message.
+validateQuiz(quizJson);
+---
+
+<AppShell title={`Where should I start? — ${siteConfig.siteName}`} description="A quick, skippable pointer at the right tool." noindex>
+  <h1 class="page-title">Where should I start?</h1>
+  <QuizApp client:load />
+</AppShell>

@@ -48,3 +48,29 @@ describe('strategy params in the URL', () => {
     expect(q).toContain('postcode=CF37+1HR');
   });
 });
+
+describe('strategy switcher round-trip', () => {
+  it('toQuery(state, {}) preserves every shared field and drops strategy params', () => {
+    const full: UrlState = {
+      ...DEFAULTS,
+      postcode: 'CF37 1HR', price: '150000', type: 'T', area: '90', beds: '3',
+      baths: '1', refurb: 'light', age: 'pre1900', garden: 'yes', parking: '1',
+      paon: '6', saon: '', radius: '1', period: '6', ctype: 'houses',
+      tenure: 'F', cage: 'old', minArea: '50', maxArea: '120',
+      minPrice: '100000', maxPrice: '200000', excluded: '{ABC-1},{DEF-2}',
+    };
+    // the switch URL carries shared state only — strategy params are gone
+    const q = toQuery(full, {});
+    for (const [k, v] of Object.entries(full)) {
+      if (v !== (DEFAULTS as unknown as Record<string, string>)[k]) {
+        expect(q, k).toContain(`${k}=`);
+      }
+    }
+    expect(q).not.toContain('rent=');
+    expect(q).not.toContain('gdv=');
+    expect(q).not.toContain('arv=');
+    // and the other side parses back to the identical shared state,
+    // so valuation + comparables inputs are bit-identical after a switch
+    expect(parseQuery(q)).toEqual(full);
+  });
+});

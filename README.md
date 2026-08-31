@@ -39,6 +39,8 @@ docs/DECISIONS_LOG.md     why things are the way they are
 docs/DATA_SCHEMA.md       the locked R2 data contract (schema v1)
 docs/MATHS.md             every formula in plain English with worked examples
 docs/STRATEGY_CONFIG_GUIDE.md  how to add a strategy (config + one verdict island)
+docs/QUIZ_OPERATOR_GUIDE.md    how to edit the /start chooser (one JSON file)
+src/config/quiz.json      the /start chooser content — edit here, no code
 ```
 
 Fonts are self-hosted via `@fontsource` packages (Montserrat 600/700/800,
