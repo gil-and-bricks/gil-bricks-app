@@ -9,7 +9,7 @@ import { findComparables, type ComparablesResult } from '../../lib/comparables/e
 import { ComparablesError } from '../../lib/comparables/errors';
 import { fetchSaleHistory, type AddressCandidate } from '../../lib/landregistry/history';
 import { valueProperty, type Valuation } from '../../lib/valuation/engine';
-import { initFromUrl, isReady, state, type UrlState } from './state';
+import { initFromUrl, isCompsReady, isReady, state, type UrlState } from './state';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
 import { StrategySwitcher } from './StrategySwitcher';
@@ -44,7 +44,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
     const dispose = effect(() => {
       const s = state.value;
       bump((n) => n + 1);
-      if (!isReady(s)) return;
+      if (!(showVerdict ? isReady(s) : isCompsReady(s))) return;
       const mySeq = ++seq;
       const run = async () => {
         setBusy(true);
@@ -120,7 +120,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
     return dispose;
   }, []);
 
-  const ready = isReady(state.value) && postcodeError === null;
+  const ready = (showVerdict ? isReady(state.value) : isCompsReady(state.value)) && postcodeError === null;
   return (
     <div class="analyser">
       <section class="glass card">
@@ -155,16 +155,12 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             <>
               <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} />
               <CompsModule result={results.comps} />
-              <section class="glass card map-slot" aria-label="Map">
-                <h2>Map</h2>
-                <p class="hint">The map arrives with Phase 7.</p>
-              </section>
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>
           )}
         </>
       )}
-      {!ready && <p class="hint start-hint">Enter a postcode, price and property type to begin.</p>}
+      {!ready && <p class="hint start-hint">{showVerdict ? 'Enter a postcode, price and property type to begin.' : 'Enter a postcode to see what sold nearby.'}</p>}
     </div>
   );
 }

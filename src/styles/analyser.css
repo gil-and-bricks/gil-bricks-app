@@ -252,3 +252,22 @@
 .deal-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .deal-actions .btn-secondary { padding: 0.35rem 0.8rem; font-size: var(--text-sm); text-decoration: none; }
 .save-done { text-decoration: none; }
+
+/* map (S7.1) */
+.view-toggle { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0; flex-wrap: wrap; }
+.view-toggle .pill { cursor: pointer; background: transparent; font: inherit; }
+.comp-map { height: 60vh; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0; }
+.mini-map { height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0 var(--space-4); }
+@media (max-width: 640px) { .comp-map { height: 55vh; } }
+.maplibregl-popup.map-popup .maplibregl-popup-content {
+  background: rgba(20,10,40,0.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  border: 1px solid rgba(220,255,0,0.4); border-radius: 12px; color: var(--text);
+  font-family: var(--font-body); padding: var(--space-3) var(--space-4); box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.maplibregl-popup.map-popup .maplibregl-popup-tip { border-top-color: rgba(220,255,0,0.4); }
+.maplibregl-popup.map-popup .maplibregl-popup-close-button { color: var(--text-dim); font-size: 1.1rem; }
+.map-popup-price { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); }
+.map-popup-line { margin: 0.2rem 0 0; font-size: var(--text-xs); color: var(--text-dim); }
+.map-popup-link { margin: var(--space-2) 0 0; }
+.map-popup-link a { color: var(--accent); }
+.comps-table tbody tr:hover { background: rgba(220,255,0,0.05); }

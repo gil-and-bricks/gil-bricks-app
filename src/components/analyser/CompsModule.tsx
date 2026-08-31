@@ -4,6 +4,8 @@ import type { Comp, ComparablesResult, SortKey } from '../../lib/comparables/eng
 import { computeStats, sortComps } from '../../lib/comparables/engine';
 import { useMemo, useState } from 'preact/hooks';
 import { state, update } from './state';
+import { CompMap } from './CompMap';
+import { hoveredCompId } from './mapSync';
 
 const AGE_LABEL = (c: Comp) => (c.newBuild ? 'New' : 'Existing');
 
@@ -93,8 +95,35 @@ export function CompsModule({ result }: { result: ComparablesResult | null }) {
             )}
             {' '}· as of {result.asOf}
           </p>
-          <p class="hint">Untick a row to leave it out — the stats recalculate instantly.</p>
-          <div class="table-wrap">
+          <div class="view-toggle" role="group" aria-label="Comparables view">
+            <button
+              type="button"
+              class={s.view === 'list' ? 'pill pill-current' : 'pill'}
+              aria-pressed={s.view === 'list'}
+              onClick={() => update({ view: 'list' })}
+            >
+              List
+            </button>
+            <button
+              type="button"
+              class={s.view === 'map' ? 'pill pill-current' : 'pill'}
+              aria-pressed={s.view === 'map'}
+              onClick={() => update({ view: 'map' })}
+            >
+              Map
+            </button>
+            {s.view === 'map' && <span class="hint">The table view carries the same data for keyboard and screen-reader use.</span>}
+          </div>
+          {s.view === 'map' && (
+            <CompMap
+              subject={{ lat: result.subject.lat, lng: result.subject.lng }}
+              radiusMiles={Number(s.radius)}
+              comps={comps}
+              selectedId={null}
+            />
+          )}
+          {s.view === 'list' && <p class="hint">Untick a row to leave it out — the stats recalculate instantly.</p>}
+          <div class="table-wrap" hidden={s.view === 'map'}>
             <table class="comps-table">
               <thead>
                 <tr>
@@ -113,7 +142,12 @@ export function CompsModule({ result }: { result: ComparablesResult | null }) {
               </thead>
               <tbody>
                 {comps.map((c) => (
-                  <tr class={c.included ? '' : 'excluded'} key={c.id}>
+                  <tr
+                    class={c.included ? '' : 'excluded'}
+                    key={c.id}
+                    onMouseEnter={() => (hoveredCompId.value = c.id)}
+                    onMouseLeave={() => (hoveredCompId.value = null)}
+                  >
                     <td>
                       <input type="checkbox" checked={c.included} onChange={() => toggle(c.id)}
                         aria-label={`Include ${[c.saon, c.paon, c.street].filter(Boolean).join(' ')}`} />

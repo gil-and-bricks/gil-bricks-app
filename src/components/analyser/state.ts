@@ -30,6 +30,8 @@ export interface CompsFilterState {
   minPrice: string;
   maxPrice: string;
   excluded: string; // comma-joined ids
+  /** Comps presentation: list (accessible default) or map (S7.1). */
+  view: 'list' | 'map';
 }
 
 export type UrlState = SubjectState & CompsFilterState;
@@ -38,7 +40,7 @@ export const DEFAULTS: UrlState = {
   postcode: '', price: '', type: '', area: '', beds: '', baths: '',
   refurb: '', age: '', garden: '', parking: '', paon: '', saon: '',
   radius: '0.5', period: '12', ctype: 'all', tenure: 'any', cage: 'all',
-  minArea: '', maxArea: '', minPrice: '', maxPrice: '', excluded: '',
+  minArea: '', maxArea: '', minPrice: '', maxPrice: '', excluded: '', view: 'list',
 };
 
 export const state = signal<UrlState>({ ...DEFAULTS });
@@ -58,6 +60,7 @@ const ALLOWED: Partial<Record<keyof UrlState, string[]>> = {
   ctype: ['all', 'D', 'S', 'DS', 'T', 'houses', 'F'],
   tenure: ['any', 'F', 'L'],
   cage: ['all', 'new', 'old'],
+  view: ['list', 'map'],
 };
 
 export function parseQuery(search: string): UrlState {
@@ -141,8 +144,14 @@ export function initFromUrl(): void {
   }
 }
 
+const POSTCODE_RE = /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$/;
+
 /** The form is valid enough to compute when these hold. */
 export function isReady(s: UrlState): boolean {
-  return /^[A-Za-z]{1,2}\d[A-Za-z\d]?\s*\d[A-Za-z]{2}$/.test(s.postcode.trim()) &&
-    Number(s.price) > 0 && s.type !== '';
+  return POSTCODE_RE.test(s.postcode.trim()) && Number(s.price) > 0 && s.type !== '';
+}
+
+/** The comparables-only page needs just a postcode (S7.1). */
+export function isCompsReady(s: UrlState): boolean {
+  return POSTCODE_RE.test(s.postcode.trim());
 }

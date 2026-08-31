@@ -26,3 +26,4 @@ pnpm-debug.log*
 
 # pipeline downloads and build output (multi-GB — never committed)
 pipeline/.data/
+public/map/vendor/

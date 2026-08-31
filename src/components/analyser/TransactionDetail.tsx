@@ -1,9 +1,38 @@
 /** Render-on-demand transaction detail. Compliant links only:
  * Land Registry primary; portal LANDING pages, never internal URLs. */
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { fmtMoney } from '../../lib/maths/format';
 import { getTransaction, type TransactionDetail as Tx, OGL_ATTRIBUTION } from '../../lib/landregistry/history';
 import { compLinks } from '../../lib/comparables/links';
+import { geocodePostcode } from '../../lib/comparables/geocode';
+import type { MapHandle } from './mapImpl';
+
+/** Small non-interactive locator map — one lime pin, no gestures (S7.1). */
+function MiniMap({ postcode }: { postcode: string }) {
+  const el = useRef<HTMLDivElement>(null);
+  const handle = useRef<MapHandle | null>(null);
+  const [gone, setGone] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.all([geocodePostcode(postcode), import('./mapImpl')])
+      .then(([geo, m]) => {
+        if (cancelled || !el.current) return;
+        handle.current = m.mountMap(
+          el.current,
+          { subject: { lat: geo.lat, lng: geo.lng }, radiusMiles: 0, comps: [], selectedId: null },
+          { interactive: false },
+        );
+      })
+      .catch(() => setGone(true));
+    return () => {
+      cancelled = true;
+      handle.current?.destroy();
+      handle.current = null;
+    };
+  }, [postcode]);
+  if (gone) return null;
+  return <div class="mini-map" ref={el} aria-hidden="true" />;
+}
 
 const TYPE_LABEL: Record<string, string> = { D: 'Detached', S: 'Semi-detached', T: 'Terraced', F: 'Flat', O: 'Other' };
 
@@ -31,6 +60,7 @@ export function TransactionDetail() {
     <section class="glass card">
       <h2>{addr}</h2>
       <p class="page-sub">{tx.address.town} {tx.address.postcode}</p>
+      <MiniMap postcode={tx.address.postcode} />
       <p class="big-figure">{fmtMoney(tx.price)}</p>
       <p>
         Sold {tx.date} · {TYPE_LABEL[tx.propertyType] ?? tx.propertyType} · {tx.estateType || '—'} ·{' '}
