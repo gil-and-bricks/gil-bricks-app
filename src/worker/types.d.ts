@@ -5,11 +5,13 @@
  */
 interface D1Result {
   success: boolean;
+  meta?: { changes?: number };
 }
 
 interface D1PreparedStatement {
   bind(...values: unknown[]): D1PreparedStatement;
   first<T = unknown>(): Promise<T | null>;
+  all<T = unknown>(): Promise<{ results: T[] }>;
   run(): Promise<D1Result>;
 }
 

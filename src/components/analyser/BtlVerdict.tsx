@@ -1,6 +1,7 @@
 /** The BTL verdict island — the ONLY BTL-specific code (the pattern for
  * S4.3–S4.5, see docs/STRATEGY_CONFIG_GUIDE.md). All maths comes from
  * src/lib/strategies/btl.ts, which composes the canonical maths lib. */
+import { keyFigure } from './keyFigure';
 import { useEffect } from 'preact/hooks';
 import type { StrategyConfig } from '../../config/strategies/types';
 import type { ComparablesResult } from '../../lib/comparables/engine';
@@ -75,6 +76,12 @@ export function BtlVerdict({ config, comps, valuation }: {
 
   const price = Number(s.price);
   const taxName = comps?.subject.country === 'W92000004' ? 'Land Transaction Tax' : 'Stamp Duty';
+
+  // publish the headline for Save (S6.2)
+  const headlineForSave = analysis ? `ROI ${fmtPct(analysis.roi.value)}` : '';
+  useEffect(() => {
+    keyFigure.value = headlineForSave;
+  }, [headlineForSave]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">

@@ -1,5 +1,6 @@
 /** The Flip verdict island — config + src/lib/strategies/flip.ts only.
  * NO rental maths. ROI (after tax, selected scenario) leads. */
+import { keyFigure } from './keyFigure';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '../../config/strategies/types';
 import type { ComparablesResult } from '../../lib/comparables/engine';
@@ -88,6 +89,12 @@ export function FlipVerdict({ config, comps, valuation }: {
   }
 
   const gdv = num('gdv');
+  // publish the headline for Save (S6.2)
+  const headlineForSave = analysis ? `${fmtMoney(analysis.profitAfterTax.value)} profit after tax` : '';
+  useEffect(() => {
+    keyFigure.value = headlineForSave;
+  }, [headlineForSave]);
+
   return (
     <section class="glass card" aria-labelledby="verdict-h">
       <h2 id="verdict-h">{config.name} verdict</h2>

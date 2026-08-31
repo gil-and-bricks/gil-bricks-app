@@ -20,6 +20,8 @@ import {
 import { decodeAuthState, encodeAuthState, pkceChallenge, randomToken, safeNextPath } from './lib/oauth';
 import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './lib/jwt';
 import { verifyGoogleIdToken } from './lib/googleIdToken';
+import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
+import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -164,11 +166,7 @@ async function handleCallback(request: Request, env: Env, url: URL): Promise<Res
     // recorded (0→1 with a fresh ts/version). An unticked box never revokes —
     // the account page is the only place consent switches off.
     if (stored.marketing === '1') {
-      await env.DB.prepare(
-        'UPDATE users SET marketing_consent = 1, consent_ts = ?, consent_version = ? WHERE id = ? AND marketing_consent = 0',
-      )
-        .bind(new Date().toISOString(), siteConfig.consentVersion, userId)
-        .run();
+      await recordConsentOn(env, userId, email, firstNameOf(google.name ?? ''));
     }
   } else {
     // New account: this is the one moment Turnstile is verified (bot gate on
@@ -189,12 +187,82 @@ async function handleCallback(request: Request, env: Env, url: URL): Promise<Res
       .run();
     const row = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first<{ id: string }>();
     if (!row) return errorPage('Something went wrong creating the account. Please try again.', [clearAuthStateCookie()]);
+    const won = row.id === userId;
     userId = row.id;
+    if (marketing) {
+      // winner: our INSERT already recorded consent — just queue Kit.
+      // loser: the winner's row governs; escalate 0→1 only (never assume).
+      if (won) await enqueueKit(env, userId, email, firstNameOf(google.name ?? ''), 'subscribe');
+      else await recordConsentOn(env, userId, email, firstNameOf(google.name ?? ''));
+    }
   }
 
   const jwt = await signSession({ sub: userId, email, name: google.name ?? '', avatar: google.picture ?? '' }, env.JWT_SECRET);
   return redirect(stored.next, [sessionCookie(jwt, SESSION_DAYS * 86400), clearAuthStateCookie()]);
 }
+
+/**
+ * Queue a Kit action and try it INLINE once so the common case is instant;
+ * the 15-minute cron is the safety net for failures. Only ever called for
+ * consent events — non-consented users never reach the outbox.
+ */
+async function enqueueKit(env: Env, userId: string | null, email: string, firstName: string, action: 'subscribe' | 'unsubscribe'): Promise<void> {
+  const id = crypto.randomUUID();
+  const now = new Date().toISOString();
+  // LATEST INTENT WINS: any still-pending row for this email is superseded in
+  // the same transaction, so a stalled older subscribe can never be replayed
+  // by the cron after a newer unsubscribe (and vice versa).
+  await env.DB.batch([
+    env.DB.prepare("UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending'").bind(email),
+    env.DB.prepare(
+      "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+    ).bind(id, userId, email, firstName, action, now),
+  ]);
+  await attemptKitRow(env, { id, email, first_name: firstName, action, attempts: 0 });
+}
+
+/** One push attempt for a queued row; updates its status. Never throws. */
+async function attemptKitRow(
+  env: Env,
+  row: { id: string; email: string; first_name: string; action: string; attempts: number },
+  nowMs = Date.now(),
+): Promise<void> {
+  const attemptTs = new Date(nowMs).toISOString();
+  const result = await pushToKit(row, env.KIT_API_KEY);
+  if (result.ok) {
+    // deletion-origin unsubscribes (no user row left) redact their email once
+    // Kit has honoured it — "delete everything" then holds in our DB too
+    await env.DB.prepare(
+      "UPDATE kit_outbox SET status = 'sent', sent_at = ?, attempts = ?, last_attempt = ?, last_error = ?, email = CASE WHEN action = 'unsubscribe' AND user_id IS NULL THEN '' ELSE email END WHERE id = ?",
+    )
+      .bind(new Date().toISOString(), row.attempts + 1, attemptTs, result.note ?? null, row.id)
+      .run();
+  } else {
+    const attempts = row.attempts + 1;
+    const terminal = attempts >= MAX_ATTEMPTS && row.action !== 'unsubscribe';
+    if (terminal) console.error(`kit outbox row permanently failed: action=${row.action} error=${result.error}`);
+    await env.DB.prepare("UPDATE kit_outbox SET attempts = ?, last_attempt = ?, last_error = ?, status = ? WHERE id = ?")
+      .bind(attempts, attemptTs, result.error, terminal ? 'failed' : 'pending', row.id)
+      .run();
+  }
+}
+
+/**
+ * Consent switch-ON that is safe under races: the conditional UPDATE only
+ * fires 0→1, and only the request that actually flipped it queues Kit.
+ */
+async function recordConsentOn(env: Env, userId: string, email: string, firstName: string): Promise<boolean> {
+  const res = await env.DB.prepare(
+    'UPDATE users SET marketing_consent = 1, consent_ts = ?, consent_version = ? WHERE id = ? AND marketing_consent = 0',
+  )
+    .bind(new Date().toISOString(), siteConfig.consentVersion, userId)
+    .run();
+  if (res.meta?.changes !== 1) return false;
+  await enqueueKit(env, userId, email, firstName, 'subscribe');
+  return true;
+}
+
+const firstNameOf = (name: string): string => name.split(' ')[0] ?? '';
 
 async function handleMe(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env);
@@ -218,9 +286,17 @@ async function handleConsent(request: Request, env: Env): Promise<Response> {
   } catch {
     return json({ error: 'bad request' }, 400);
   }
-  await env.DB.prepare('UPDATE users SET marketing_consent = ?, consent_ts = ?, consent_version = ? WHERE id = ?')
-    .bind(marketing ? 1 : 0, new Date().toISOString(), siteConfig.consentVersion, user.sub)
-    .run();
+  if (marketing) {
+    await recordConsentOn(env, user.sub, user.email, firstNameOf(user.name));
+  } else {
+    // conditional 1→0: only the request that actually flipped it queues Kit
+    const res = await env.DB.prepare(
+      'UPDATE users SET marketing_consent = 0, consent_ts = ?, consent_version = ? WHERE id = ? AND marketing_consent = 1',
+    )
+      .bind(new Date().toISOString(), siteConfig.consentVersion, user.sub)
+      .run();
+    if (res.meta?.changes === 1) await enqueueKit(env, user.sub, user.email, firstNameOf(user.name), 'unsubscribe');
+  }
   return json({ ok: true, marketingConsent: marketing });
 }
 
@@ -228,24 +304,135 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
   const now = new Date().toISOString();
-  // Cascade delete; queue a Kit unsubscribe ONLY for users who had consented —
-  // privacy.md promises Kit sees data only when the marketing box was ticked.
+  // Everything in ONE transactional batch: purge the account's outbox history
+  // ("delete everything" includes our own queue), supersede any pending rows
+  // for the email, and — ONLY for consented users (privacy.md's promise) —
+  // queue the unsubscribe BEFORE the user row disappears. A crash can never
+  // lose the withdrawal: either the whole batch landed or none of it did.
   const consent = await env.DB.prepare('SELECT marketing_consent FROM users WHERE id = ?')
     .bind(user.sub)
     .first<{ marketing_consent: number }>();
+  const unsubId = consent?.marketing_consent === 1 ? crypto.randomUUID() : null;
   const stmts = [
-    env.DB.prepare('DELETE FROM saved_deals WHERE user_id = ?').bind(user.sub),
-    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.sub),
+    env.DB.prepare('DELETE FROM kit_outbox WHERE user_id = ?').bind(user.sub),
+    env.DB.prepare("UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending'").bind(user.email),
   ];
-  if (consent?.marketing_consent === 1) {
-    stmts.unshift(
+  if (unsubId) {
+    // user_id NULL + empty first name: the row keeps ONLY what the
+    // unsubscribe needs (the email), and that is redacted once sent.
+    stmts.push(
       env.DB.prepare(
-        "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, 'unsubscribe', 'pending', ?)",
-      ).bind(crypto.randomUUID(), user.sub, user.email, user.name.split(' ')[0] ?? '', now),
+        "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, NULL, ?, '', 'unsubscribe', 'pending', ?)",
+      ).bind(unsubId, user.email, now),
     );
   }
+  stmts.push(
+    env.DB.prepare('DELETE FROM saved_deals WHERE user_id = ?').bind(user.sub),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.sub),
+  );
   await env.DB.batch(stmts);
+  if (unsubId) await attemptKitRow(env, { id: unsubId, email: user.email, first_name: '', action: 'unsubscribe', attempts: 0 });
   return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
+}
+
+interface DealBody {
+  strategy: string;
+  title: string;
+  url_params: string;
+  key_figure: string;
+}
+
+async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: DealBody;
+  try {
+    body = (await request.json()) as DealBody;
+    if (typeof body !== 'object' || body === null) throw new Error('not an object');
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const strategy = String(body.strategy ?? '');
+  const title = String(body.title ?? '').slice(0, 120).trim();
+  const urlParams = String(body.url_params ?? '').slice(0, 2000);
+  const keyFigure = String(body.key_figure ?? '').slice(0, 80).trim();
+  if (!isDealStrategy(strategy) || title === '' || urlParams === '') return json({ error: 'bad request' }, 400);
+
+  const now = new Date().toISOString();
+  // Idempotent per (strategy, url_params): re-saving the SAME analysis
+  // updates; the same property under a DIFFERENT strategy is a separate deal.
+  const existing = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
+    .bind(user.sub, strategy, urlParams)
+    .first<{ id: string }>();
+  if (existing) {
+    await env.DB.prepare('UPDATE saved_deals SET title = ?, key_figure = ? WHERE id = ?')
+      .bind(title, keyFigure, existing.id)
+      .run();
+    return json({ ok: true, id: existing.id, updated: true });
+  }
+  const countRow = await env.DB.prepare('SELECT COUNT(*) AS n FROM saved_deals WHERE user_id = ?')
+    .bind(user.sub)
+    .first<{ n: number }>();
+  if (!canSaveAnotherDeal(countRow?.n ?? 0)) {
+    return json(
+      { error: `You've hit the ${MAX_DEALS_PER_USER}-deal limit — delete a few old ones on My deals to make room.` },
+      409,
+    );
+  }
+  await env.DB.prepare(
+    'INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, strategy, url_params) DO UPDATE SET title = excluded.title, key_figure = excluded.key_figure',
+  )
+    .bind(crypto.randomUUID(), user.sub, strategy, title, urlParams, keyFigure, now)
+    .run();
+  // the row that actually exists (ours, or a raced winner's) carries the id
+  const saved = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
+    .bind(user.sub, strategy, urlParams)
+    .first<{ id: string }>();
+  return json({ ok: true, id: saved?.id ?? null, updated: false });
+}
+
+async function handleListDeals(request: Request, env: Env): Promise<Response> {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const rows = await env.DB.prepare(
+    'SELECT id, strategy, title, url_params, key_figure, created_at FROM saved_deals WHERE user_id = ? ORDER BY created_at DESC',
+  )
+    .bind(user.sub)
+    .all<{ id: string; strategy: string; title: string; url_params: string; key_figure: string; created_at: string }>();
+  return json({ deals: rows.results, max: MAX_DEALS_PER_USER });
+}
+
+async function handleDeleteDeal(request: Request, env: Env, dealId: string): Promise<Response> {
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  // Ownership enforced in the WHERE — deleting someone else's id is a no-op 404.
+  const owned = await env.DB.prepare('SELECT id FROM saved_deals WHERE id = ? AND user_id = ?')
+    .bind(dealId, user.sub)
+    .first<{ id: string }>();
+  if (!owned) return json({ error: 'not found' }, 404);
+  await env.DB.prepare('DELETE FROM saved_deals WHERE id = ? AND user_id = ?').bind(dealId, user.sub).run();
+  return json({ ok: true });
+}
+
+/**
+ * Cron: retry pending Kit pushes with backoff. Subscribes fail-terminal after
+ * MAX_ATTEMPTS (logged for wrangler tail; an ops surface is logged future
+ * work); unsubscribes retry forever. LIMIT 100 so rows inside their backoff
+ * window can't starve ready ones (volume is one row per consent event).
+ */
+async function processOutbox(env: Env, nowMs = Date.now()): Promise<void> {
+  const pending = await env.DB.prepare(
+    "SELECT id, email, first_name, action, attempts, last_attempt, created_at FROM kit_outbox WHERE status = 'pending' ORDER BY created_at LIMIT 100",
+  ).all<OutboxRow>();
+  for (const row of pending.results) {
+    if (row.attempts >= MAX_ATTEMPTS && row.action !== 'unsubscribe') {
+      console.error(`kit outbox row permanently failed: action=${row.action}`);
+      await env.DB.prepare("UPDATE kit_outbox SET status = 'failed' WHERE id = ?").bind(row.id).run();
+      continue;
+    }
+    if (!shouldAttempt(row, nowMs)) continue;
+    await attemptKitRow(env, row, nowMs);
+  }
 }
 
 export default {
@@ -271,10 +458,20 @@ export default {
     if (pathname === '/api/me' && method === 'GET') return handleMe(request, env);
     if (pathname === '/api/consent' && method === 'POST') return handleConsent(request, env);
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);
+    if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
+    if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
+    {
+      const m = /^\/api\/deals\/([0-9a-f-]{36})$/.exec(pathname);
+      if (m && method === 'DELETE') return handleDeleteDeal(request, env, m[1]);
+    }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {
       return json({ error: 'not found' }, 404);
     }
     return env.ASSETS.fetch(request);
+  },
+
+  async scheduled(_event: unknown, env: Env): Promise<void> {
+    await processOutbox(env);
   },
 };

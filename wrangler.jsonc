@@ -9,6 +9,10 @@
     // Only auth/API paths hit the Worker — every page stays a static asset.
     "run_worker_first": ["/auth/*", "/api/*"]
   },
+  "triggers": {
+    // Kit outbox safety net — the inline push handles the common case.
+    "crons": ["*/15 * * * *"]
+  },
   "d1_databases": [
     {
       "binding": "DB",

@@ -1,4 +1,5 @@
 /** The BRRRR verdict island — config + src/lib/strategies/brrrr.ts only. */
+import { keyFigure } from './keyFigure';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '../../config/strategies/types';
 import type { ComparablesResult } from '../../lib/comparables/engine';
@@ -87,6 +88,12 @@ export function BrrrrVerdict({ config, comps, valuation }: {
   }
 
   const arv = num('arv');
+  // publish the headline for Save (S6.2)
+  const headlineForSave = analysis ? analysis.outcomeVerdict : '';
+  useEffect(() => {
+    keyFigure.value = headlineForSave;
+  }, [headlineForSave]);
+
   return (
     <section class="glass card" aria-labelledby="verdict-h">
       <h2 id="verdict-h">{config.name} verdict</h2>

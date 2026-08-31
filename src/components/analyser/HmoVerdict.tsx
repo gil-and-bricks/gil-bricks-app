@@ -1,5 +1,6 @@
 /** The small-HMO verdict island — config + src/lib/strategies/hmo.ts only.
  * BRICKS-AND-MORTAR valuation only; no commercial valuation anywhere. */
+import { keyFigure } from './keyFigure';
 import { useEffect, useState } from 'preact/hooks';
 import type { StrategyConfig } from '../../config/strategies/types';
 import type { ComparablesResult } from '../../lib/comparables/engine';
@@ -89,6 +90,12 @@ export function HmoVerdict({ config, comps, valuation }: {
   }
 
   const price = Number(s.price);
+  // publish the headline for Save (S6.2)
+  const headlineForSave = analysis ? `ROI ${fmtPct(analysis.roi.value)}` : '';
+  useEffect(() => {
+    keyFigure.value = headlineForSave;
+  }, [headlineForSave]);
+
   return (
     <section class="glass card" aria-labelledby="verdict-h">
       <h2 id="verdict-h">{config.name} verdict</h2>

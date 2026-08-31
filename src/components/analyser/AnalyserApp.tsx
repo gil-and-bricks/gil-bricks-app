@@ -159,7 +159,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                 <h2>Map</h2>
                 <p class="hint">The map arrives with Phase 7.</p>
               </section>
-              <ActionBar valuation={results.valuation} comps={results.comps} />
+              <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>
           )}
         </>

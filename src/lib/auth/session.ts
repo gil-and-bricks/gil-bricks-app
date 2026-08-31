@@ -26,6 +26,12 @@ export function loadMe(): Promise<Me | null> {
   return fetched;
 }
 
+/** Forget the cached session (e.g. after a 401 mid-page) so the next loadMe refetches. */
+export function resetMe(): void {
+  fetched = null;
+  me.value = undefined;
+}
+
 /** Open the login wall from anywhere (the modal island listens). */
 export function openLoginWall(): void {
   document.dispatchEvent(new CustomEvent('open-login-wall'));

@@ -242,3 +242,13 @@
 .account-wrap { max-width: 34rem; margin: 0 auto; }
 .legal-wrap { max-width: 42rem; margin: var(--space-5) auto; }
 .wall-guard { position: fixed; width: 1px; height: 1px; opacity: 0; }
+
+/* saved deals (S6.2) */
+.deals-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; }
+.deal-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid rgba(255,255,255,0.1); }
+.deal-main { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.deal-main p { margin: 0.15rem 0 0; }
+.deal-badge { flex-shrink: 0; }
+.deal-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.deal-actions .btn-secondary { padding: 0.35rem 0.8rem; font-size: var(--text-sm); text-decoration: none; }
+.save-done { text-decoration: none; }
