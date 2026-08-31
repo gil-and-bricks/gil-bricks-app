@@ -2,6 +2,18 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S4.1: Analyser shell
+
+- **Preact + @preact/signals chosen** over Svelte — ~5KB proven islands runtime, TSX fits the strict-TS codebase, and module-level signals share state naturally inside the single analyser island. One island per page (form + results together) keeps state wiring trivial.
+- **No Land Registry proxy Worker needed** — probed live: landregistry.data.gov.uk sends `Access-Control-Allow-Origin: *`, so the browser calls it directly and the site stays pure static assets. The proxy plan stays in the back pocket if their CORS policy ever changes.
+- **/transaction uses a query param, not a path segment** — static-first hosting can't serve unknown /transaction/{id} paths without server rendering; ?id= achieves the same shareable detail page.
+- **All analyser state lives in the URL** (subject inputs, filters, excluded comp ids) — shareable, restorable, nothing personal; defaults are omitted so links stay short.
+- **EPC area helper reads our own sector data** (address-matched floorAreaSqm) rather than calling the EPC API from the browser — zero extra credentials client-side; the user's typed value always wins and the UI names the source in use.
+- **Verdict slot placeholder is rendered by the shell** — StrategyConfig.verdictSlot stays null and unconsumed until S4.2 wires real verdict components from config; the four configs share the same subject inputs.
+- **Lighthouse-driven fixes**: the first run scored performance 76 (LCP 7.7s) because the Land Registry history round-trip ran after the comparables fetch; warming it in parallel plus preconnect hints to the data host and Land Registry took the analyser to 100/100/100/100 with LCP 0.8s. A missing <main> landmark was the only a11y fail — fixed in the shell layout.
+- **Verification round two (live browser audit) forced real fixes** — the tooltip failed its own tap contract (first tap closed it) and WCAG 1.4.13 dismissal, now rebuilt with document-level Esc + tap-outside; the ambiguity picker couldn't actually pick (no saon in the URL state — now threaded through); typing a house number fired one Land Registry request per keystroke (now a per-postcode cache with 30s failure memory); 'BTL' was hardcoded in the nav (now config shortName); min/max filters and flat checkboxes lacked accessible names; the homepage had nested <main> landmarks.
+- **390px verified by measurement**, not eyeballing: document.scrollWidth == 390 on every new page (the comps table scrolls inside its own wrapper).
+
 ## 2026-08-31 — Sprint S3.5: Automatic sale-history lookup
 
 - **Working query form (probed live)**: `GET landregistry.data.gov.uk/data/ppi/transaction-record.json?propertyAddress.postcode={PC}&_sort=-transactionDate&_pageSize=200` — the linked-data filter works server-side, so no SPARQL fallback was needed. We filter by POSTCODE only and match the address locally with the pipeline's own normalisation: the server's paon filter is exact-string (would miss punctuation variants) and local matching lets ambiguity be detected instead of guessed.

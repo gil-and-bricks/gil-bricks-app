@@ -3,8 +3,9 @@
 Static-first [Astro](https://astro.build) site deployed to
 [Cloudflare Workers static assets](https://developers.cloudflare.com/workers/static-assets/).
 
-Currently a holding page built from the locked design system, plus an internal
-`/styleguide` reference (noindex, unlinked).
+Live: strategy landing pages, four deal analysers (BTL / flip / BRRRR / HMO)
+with real valuation + comparables, /comparables, /transaction — plus an
+internal `/styleguide` reference (noindex, unlinked).
 
 ## Live URL
 
@@ -22,6 +23,8 @@ src/components/           UI primitives: GlassCard, Button, SectionHeading
 src/layouts/Base.astro    shared page shell — fonts, tokens, head defaults
 src/pages/index.astro     the holding page
 src/pages/styleguide.astro  internal brand reference (noindex)
+src/config/strategies/   StrategyConfig objects — strategies are config, never code
+src/components/analyser/ the analyser island (Preact): form, valuation, comps table
 src/lib/data/            typed data layer: schema types + R2 client (+ tests)
 src/lib/comparables/     the ComparablesEngine: geocode, radius search, filters, sorting
 src/lib/valuation/       the ValuationEngine: indexed last sale + area £/sqm, plain confidence

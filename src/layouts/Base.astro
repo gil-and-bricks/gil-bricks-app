@@ -28,6 +28,8 @@ const {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex, nofollow" />}
+    <link rel="preconnect" href={siteConfig.dataBaseUrl} crossorigin />
+    <link rel="preconnect" href="https://landregistry.data.gov.uk" crossorigin />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>{title}</title>
   </head>

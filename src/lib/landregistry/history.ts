@@ -147,10 +147,17 @@ async function fetchLrJson(url: string): Promise<unknown> {
 }
 
 const historyCache = new Map<string, SaleHistoryResult>();
+// The HTTP fetch depends only on the postcode — cache the raw items per
+// postcode so per-address matching (each keystroke of a house number) never
+// refires the network. Failures are remembered briefly so an outage can't
+// trigger a 6s-timeout storm on every filter change.
+const postcodeCache = new Map<string, RawItem[] | { failedAt: number; error: LandRegistryError }>();
+const FAILURE_MEMORY_MS = 30_000;
 
 /** Test hook. */
 export function clearLandRegistryCache(): void {
   historyCache.clear();
+  postcodeCache.clear();
   txCache.clear();
 }
 
@@ -175,15 +182,35 @@ export async function fetchSaleHistory(query: SaleHistoryQuery): Promise<SaleHis
   const hit = historyCache.get(cacheKey);
   if (hit) return hit.kind === 'ok' ? { ...hit, sales: [...hit.sales] } : { ...hit, candidates: [...hit.candidates] };
 
-  const items: RawItem[] = [];
+  let items: RawItem[];
   let truncated = false;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const url = `${API}/transaction-record.json?propertyAddress.postcode=${encodeURIComponent(pc)}&_sort=-transactionDate&_pageSize=200&_page=${page}`;
-    const body = (await fetchLrJson(url)) as { result?: { items?: RawItem[] } };
-    const batch = body.result?.items ?? [];
-    items.push(...batch);
-    if (batch.length < 200) break;
-    if (page === MAX_PAGES - 1) truncated = true; // newest 600 kept (globally sorted) — flag, never pretend complete
+  const cached = postcodeCache.get(pc);
+  if (cached && !Array.isArray(cached)) {
+    if (Date.now() - cached.failedAt < FAILURE_MEMORY_MS) throw cached.error;
+    postcodeCache.delete(pc);
+  }
+  const cachedNow = postcodeCache.get(pc);
+  if (cachedNow && Array.isArray(cachedNow)) {
+    items = cachedNow;
+    truncated = items.length >= MAX_PAGES * 200;
+  } else {
+    items = [];
+    try {
+      for (let page = 0; page < MAX_PAGES; page += 1) {
+        const url = `${API}/transaction-record.json?propertyAddress.postcode=${encodeURIComponent(pc)}&_sort=-transactionDate&_pageSize=200&_page=${page}`;
+        const body = (await fetchLrJson(url)) as { result?: { items?: RawItem[] } };
+        const batch = body.result?.items ?? [];
+        items.push(...batch);
+        if (batch.length < 200) break;
+        if (page === MAX_PAGES - 1) truncated = true; // newest 600 kept (globally sorted) — flag, never pretend complete
+      }
+    } catch (err) {
+      if (err instanceof LandRegistryError && (err.kind === 'Timeout' || err.kind === 'Network')) {
+        postcodeCache.set(pc, { failedAt: Date.now(), error: err });
+      }
+      throw err;
+    }
+    postcodeCache.set(pc, items);
   }
 
   // exact-key local matching on the pipeline's normalisation — never guess

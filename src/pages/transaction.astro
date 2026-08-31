@@ -1,0 +1,12 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { TransactionDetail } from '../components/analyser/TransactionDetail';
+import { siteConfig } from '../site.config';
+// Static-first: the id travels as ?id= (a path segment would need server
+// rendering); the record is fetched on demand from Land Registry open data.
+---
+
+<AppShell title={`Sold record — ${siteConfig.siteName}`} description="One Land Registry sold record.">
+  <h1 class="page-title">Sold record</h1>
+  <TransactionDetail client:load />
+</AppShell>

@@ -1,0 +1,17 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import { AnalyserApp } from '../../components/analyser/AnalyserApp';
+import { strategies } from '../../config/strategies';
+import { siteConfig } from '../../site.config';
+
+export function getStaticPaths() {
+  return strategies.map((s) => ({ params: { strategy: s.route.slice(1) }, props: { config: s } }));
+}
+const { config } = Astro.props;
+---
+
+<AppShell title={`${config.name} analyser — ${siteConfig.siteName}`} description={config.tagline}>
+  <h1 class="page-title">{config.name} analyser</h1>
+  <p class="page-sub">{config.tagline}</p>
+  <AnalyserApp client:load strategyName={config.name} />
+</AppShell>

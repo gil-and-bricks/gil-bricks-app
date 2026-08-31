@@ -1,0 +1,11 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { AnalyserApp } from '../components/analyser/AnalyserApp';
+import { siteConfig } from '../site.config';
+---
+
+<AppShell title={`Sold comparables — ${siteConfig.siteName}`} description="Every sale near a postcode, with honest £/sqft evidence.">
+  <h1 class="page-title">Sold comparables</h1>
+  <p class="page-sub">Real Land Registry sales near any England &amp; Wales postcode.</p>
+  <AnalyserApp client:load strategyName="Comparables" showVerdict={false} />
+</AppShell>

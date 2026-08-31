@@ -1,30 +1,30 @@
 ---
-import Base from '../layouts/Base.astro';
+import AppShell from '../layouts/AppShell.astro';
 import GlassCard from '../components/GlassCard.astro';
 import Button from '../components/Button.astro';
 import { siteConfig } from '../site.config';
 ---
 
-<Base title={`${siteConfig.siteName} — coming soon`}>
-  <main>
+<AppShell title={`${siteConfig.siteName} — coming soon`}>
+  <div class="holding-main">
     <GlassCard class="holding-card">
       <h1>{siteConfig.siteName}</h1>
       <p class="tagline">{siteConfig.tagline}</p>
       <Button variant="primary" href={siteConfig.socials.instagram}>Follow the build</Button>
     </GlassCard>
-  </main>
-</Base>
+  </div>
+</AppShell>
 
 <style>
-  main {
-    min-height: 100dvh;
+  .holding-main {
+    min-height: 70dvh;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: var(--space-5);
   }
 
-  main :global(.holding-card) {
+  .holding-main :global(.holding-card) {
     max-width: 34rem;
     text-align: center;
   }

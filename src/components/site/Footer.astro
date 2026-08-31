@@ -1,0 +1,32 @@
+---
+import { OGL_ATTRIBUTION } from '../../lib/landregistry/history';
+---
+
+<footer class="site-footer">
+  <p>{OGL_ATTRIBUTION}</p>
+  <p>
+    Contains OS, Royal Mail and National Statistics data per the ONSPD licence.
+    Sold-price data as of <span data-asof>—</span>.
+  </p>
+</footer>
+
+<script>
+  import { getManifest } from '../../lib/data/client';
+  getManifest()
+    .then((m) => {
+      const el = document.querySelector('[data-asof]');
+      if (el) el.textContent = m.ppdMonth;
+    })
+    .catch(() => {});
+</script>
+
+<style>
+  .site-footer {
+    max-width: 72rem;
+    margin: var(--space-8) auto 0;
+    padding: var(--space-5) var(--space-5) calc(var(--space-8) + 3rem);
+    color: var(--text-dim);
+    font-size: var(--text-xs);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+</style>
