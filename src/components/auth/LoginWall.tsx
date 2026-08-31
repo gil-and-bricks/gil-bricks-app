@@ -34,6 +34,7 @@ export function LoginWall() {
   const [accepted, setAccepted] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [tsToken, setTsToken] = useState('');
+  const [tsError, setTsError] = useState(false);
   const [copied, setCopied] = useState(false);
   const termsRef = useRef<HTMLDivElement>(null);
   const widgetRef = useRef<HTMLDivElement>(null);
@@ -67,7 +68,14 @@ export function LoginWall() {
         window.turnstile.render(widgetRef.current, {
           sitekey: siteConfig.turnstileSiteKey,
           theme: 'dark',
-          callback: (token: string) => setTsToken(token),
+          callback: (token: string) => {
+            setTsToken(token);
+            setTsError(false);
+          },
+          'error-callback': () => {
+            setTsError(true);
+            return true; // we handled it — no console spam
+          },
         });
       });
     }
@@ -157,6 +165,12 @@ export function LoginWall() {
               <span>Send me property deals &amp; updates by email</span>
             </label>
             <div class="wall-turnstile" ref={widgetRef} />
+            {tsError && (
+              <p class="hint" role="alert">
+                The quick human check couldn't load. Existing users can sign in as normal; creating a NEW account needs
+                it — reload the page to retry.
+              </p>
+            )}
             <button type="button" class="gsi-button" disabled={!accepted} onClick={startLogin} aria-describedby={accepted ? undefined : 'wall-accept-first'}>
               <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />

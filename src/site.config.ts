@@ -40,6 +40,6 @@ export const siteConfig: SiteConfig = {
   dataBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
   dataAsOf: '',
   googleClientId: '548405055261-7h7g1bsbc6ouoa04470ohr3ifigjbbfp.apps.googleusercontent.com',
-  turnstileSiteKey: '0x4AAAAAAEjDnwgtyAya8hyqYjaA0wFy7XU',
+  turnstileSiteKey: '0x4AAAAAAEjDnxbmFpl9_C_M',
   consentVersion: '2026-08-31-placeholder',
 };

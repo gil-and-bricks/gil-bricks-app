@@ -93,9 +93,19 @@ async function verifyTurnstile(token: string, secret: string, ip: string | null)
   if (ip) form.set('remoteip', ip);
   try {
     const res = await fetch(TURNSTILE_VERIFY, { method: 'POST', body: form });
-    if (!res.ok) return false;
-    return ((await res.json()) as { success: boolean }).success === true;
-  } catch {
+    if (!res.ok) {
+      console.error(`turnstile siteverify HTTP ${res.status}`);
+      return false;
+    }
+    const body = (await res.json()) as { success: boolean; 'error-codes'?: string[] };
+    if (body.success !== true) {
+      // codes only — never the token or secret (visible via wrangler tail)
+      console.error(`turnstile siteverify failed: ${(body['error-codes'] ?? []).join(',') || 'no-code'}`);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error('turnstile siteverify unreachable');
     return false;
   }
 }

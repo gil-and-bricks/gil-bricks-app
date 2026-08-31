@@ -2,6 +2,13 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — S6.1 hotfix: Turnstile "human check did not pass"
+
+- **Root cause**: the value configured as the Turnstile SITE key was actually the widget's SECRET key (35 chars; real site keys are 24–25). The challenge endpoint 400'd (widget error 400020, the broken white "Troubleshoot" box), no token was ever issued, and new-account creation then failed its server-side check. Hostname config was fine and irrelevant.
+- **Diagnosis was end-to-end**: reproduced live; a control render with Cloudflare's dummy always-passes site key issued a token in the same modal (proving script/render/modal correct); the real site key (0x4AAAAAAEjDnxbmFpl9_C_M) was read from the account's widget config via the API; after the fix the challenge endpoint answers 200 and the widget runs. Headless AND automated-headed Chrome are refused tokens — that is the bot gate working; only a human run completes.
+- **Also shipped**: the widget's error state now shows an honest in-modal message instead of a dead white box, and server-side siteverify failures log their error CODES (visible via `wrangler tail`, never tokens or secrets).
+- **Security note**: the secret key value appeared in the S6.1 sprint-brief text (as the mislabelled "site key") and is confirmed live. OPERATOR: Turnstile → widget → Settings → **Rotate secret key**, then send the new one via the clipboard flow and it gets re-stored in one command. Sign-in keeps working through rotation (Cloudflare grace-periods the old secret).
+
 ## 2026-08-31 — Sprint S6.1: Google sign-in, JWT sessions, D1 accounts
 
 - **D1**: `npx wrangler d1 create gil-bricks-db --jurisdiction eu` → id `d309be4b-5c14-4814-be70-82c62de75713`, region EEUR. Wording is LAW: **EU jurisdiction + UK adequacy**, never "UK-only" (privacy.md placeholder says exactly this). Migration 0001 applied remotely (users / saved_deals / kit_outbox).
