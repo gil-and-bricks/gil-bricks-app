@@ -100,3 +100,11 @@ export interface SectorsIndexEntry {
 
 /** postcodes/{OUTCODE}.json: "CF371DL" → [lat, lng, country, sectorId]. */
 export type PostcodeMap = Record<string, [number, number, CountryCode, string]>;
+
+/** ukhpi.json — additive v1 companion: monthly all-property index per country. */
+export interface UkhpiFile {
+  source: string;
+  /** Latest month present in the index, yyyy-mm. */
+  ukhpiMonth: string;
+  index: Record<CountryCode, Record<string, number>>;
+}

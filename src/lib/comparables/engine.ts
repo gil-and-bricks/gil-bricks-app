@@ -49,6 +49,8 @@ export interface CompStats {
   typicalPrice: number | null;
   /** null when fewer than 3 included comps carry a ppsqm. */
   typicalPpsqm: number | null;
+  /** How many included comps actually carry a ppsqm — the evidence behind typicalPpsqm. */
+  ppsqmCount: number;
   rangeP10P90: { p10: number; p90: number } | null;
   /** % of included comps with a known floor area (so £/sqft is meaningful). */
   sqftCoveragePct: number | null;
@@ -61,6 +63,8 @@ export interface ComparablesResult {
   sectorsSearched: string[];
   /** Data as-of month (manifest ppdMonth) — the period counts back from here. */
   asOf: string;
+  /** The radius this search actually used (echoed for downstream wording). */
+  radiusMiles: RadiusMiles;
   /** Present only when there are zero matching comps. */
   suggestion?: string;
 }
@@ -103,7 +107,7 @@ function matchesFilters(sale: Sale, input: ComparablesInput): boolean {
 export function computeStats(comps: Comp[]): CompStats {
   const included = comps.filter((c) => c.included);
   if (included.length === 0) {
-    return { count: 0, typicalPrice: null, typicalPpsqm: null, rangeP10P90: null, sqftCoveragePct: null };
+    return { count: 0, typicalPrice: null, typicalPpsqm: null, ppsqmCount: 0, rangeP10P90: null, sqftCoveragePct: null };
   }
   const prices = included.map((c) => c.price);
   const ppsqms = included.filter((c) => c.ppsqm !== null).map((c) => c.ppsqm as number);
@@ -111,6 +115,7 @@ export function computeStats(comps: Comp[]): CompStats {
     count: included.length,
     typicalPrice: iqm(prices),
     typicalPpsqm: ppsqms.length >= 3 ? iqm(ppsqms) : null,
+    ppsqmCount: ppsqms.length,
     rangeP10P90: { p10: percentile(prices, 0.1), p90: percentile(prices, 0.9) },
     sqftCoveragePct: Math.round((ppsqms.length / included.length) * 100),
   };
@@ -182,6 +187,7 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
     stats: computeStats(comps),
     sectorsSearched: candidates.map((c) => c.sectorId).sort(),
     asOf: manifest.ppdMonth,
+    radiusMiles: input.radiusMiles,
   };
   if (comps.length === 0) {
     const widenables: string[] = [];

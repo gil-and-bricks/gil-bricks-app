@@ -4,7 +4,7 @@
  * Returned objects are the cached objects — treat them as frozen.
  */
 import { siteConfig } from '../../site.config';
-import { SCHEMA_VERSION, type Manifest, type PostcodeMap, type Sale, type SectorFile, type SectorsIndexEntry } from './types';
+import { SCHEMA_VERSION, type Manifest, type PostcodeMap, type Sale, type SectorFile, type SectorsIndexEntry, type UkhpiFile } from './types';
 
 export type DataErrorKind = 'NotFound' | 'Network' | 'BadSchema';
 
@@ -171,4 +171,25 @@ export async function getOutcodePostcodes(outcode: string): Promise<PostcodeMap>
   }
   cache.set(path, body);
   return body as PostcodeMap;
+}
+
+/** ukhpi.json — additive v1 companion. */
+export async function getUkhpi(): Promise<UkhpiFile> {
+  const path = 'ukhpi.json';
+  const hit = cache.get(path);
+  if (hit) return hit as UkhpiFile;
+  const body = await fetchJson(path);
+  const u = body as Partial<UkhpiFile>;
+  const isTable = (t: unknown): boolean =>
+    typeof t === 'object' && t !== null && !Array.isArray(t) && Object.keys(t).length > 0;
+  if (
+    typeof u.source !== 'string' ||
+    typeof u.ukhpiMonth !== 'string' ||
+    typeof u.index !== 'object' || u.index === null ||
+    !isTable(u.index.E92000001) || !isTable(u.index.W92000004)
+  ) {
+    throw new DataError('BadSchema', `Malformed UKHPI file at ${path}`);
+  }
+  cache.set(path, body);
+  return body as UkhpiFile;
 }

@@ -68,6 +68,15 @@ if (!existsSync(EPC_SLIM) || !existsSync(EPC_META)) {
 const epcExtractDate = JSON.parse(readFileSync(EPC_META, "utf8")).lastUpdated.slice(0, 10);
 console.log(`epcExtractDate=${epcExtractDate}`);
 
+// UKHPI companion (from pipeline/ukhpi.mjs) — required since S3.4.
+const UKHPI_JSON = `${DATA}/ukhpi.json`;
+const UKHPI_META = `${DATA}/ukhpi-meta.json`;
+if (!existsSync(UKHPI_JSON) || !existsSync(UKHPI_META)) {
+  throw new Error('UKHPI extract missing — run `node pipeline/ukhpi.mjs` first');
+}
+const ukhpiMonth = JSON.parse(readFileSync(UKHPI_META, 'utf8')).latestDataMonth;
+console.log(`ukhpiMonth=${ukhpiMonth}`);
+
 // Normalise both sides the same way: uppercase, strip punctuation,
 // collapse whitespace. Conservative address matching (see cand/uniq CTEs):
 // exact key or key-plus-street prefix, unambiguous single candidate only.
@@ -316,10 +325,13 @@ index.sort((a, b) => (a.sectorId < b.sectorId ? -1 : 1));
 writeFileSync(join(OUT, 'sectors-index.json'), JSON.stringify(index));
 console.log(`sectors index: ${index.length} entries`);
 
+// copy the UKHPI companion into the published output
+writeFileSync(join(OUT, 'ukhpi.json'), readFileSync(UKHPI_JSON));
+
 const manifest = {
   schemaVersion: 1,
   ppdMonth,
-  ukhpiMonth: '',
+  ukhpiMonth,
   epcExtractDate,
   onspdEdition,
   generatedAt: new Date().toISOString(),

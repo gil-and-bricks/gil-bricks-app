@@ -80,25 +80,26 @@ reads `dataAsOf` from it and never invents dates.
   "schemaVersion": 1,
   "fixture": true,              // OPTIONAL — only on hand-authored test data
   "ppdMonth": "2026-07",        // Land Registry Price Paid Data month included
-  "ukhpiMonth": "2026-06",      // UK House Price Index month used for indexation; "" until UKHPI is ingested
-  "epcExtractDate": "2026-08-01", // "" until the EPC join lands (fields are strings; "" is the none-value)
+  "ukhpiMonth": "2026-06",      // latest month in ukhpi.json (was "" before S3.4 ingested UKHPI)
+  "epcExtractDate": "2026-08-01", // EPC bulk extract date (fields are strings; "" was the pre-join none-value)
   "onspdEdition": "2026-08",    // ONS Postcode Directory edition
   "generatedAt": "2026-08-30T00:00:00Z",
   "sectorsCount": 1,
-  "postcodeFiles": 2414,          // OPTIONAL — additive v1 companions (S3.3)
+  "postcodeFiles": 2414,          // OPTIONAL — additive v1 companions (S3.3–S3.4)
   "sectorsIndexAt": "2026-08-31T00:00:00Z"
 }
 ```
 
-## Additive v1 companions (S3.3)
+## Additive v1 companions (S3.3–S3.4)
 
-Two additional file families sit beside the sector files. They are ADDITIVE —
+These additional file families sit beside the sector files. They are ADDITIVE —
 sector schema v1 is untouched — and carry no schemaVersion of their own; the
-manifest records them (`postcodeFiles`, `sectorsIndexAt`).
+manifest records them (`postcodeFiles`, `sectorsIndexAt`, `ukhpiMonth`).
 
 | Object | Path | Shape |
 | --- | --- | --- |
 | Postcode geocode map | `postcodes/{OUTCODE}.json` | `{ "CF371DL": [lat, lng, country, "CF37 1"], ... }` — every LIVE England & Wales postcode in the outcode (keys uppercase, no space). Lets the app geocode a subject postcode with zero third-party calls. |
+| UKHPI index | `ukhpi.json` (bucket root) | `{ source, ukhpiMonth, index: { E92000001: { "2019-03": 80.3, ... }, W92000004: { ... } } }` — the official UK House Price Index, all-property monthly values per country (1968 onwards). Powers last-sale indexation; `manifest.ukhpiMonth` mirrors its latest month. |
 | Sectors index | `sectors-index.json` (bucket root) | `[{ sectorId, lat, lng, country, salesCount, spanMiles }]` — centroid of each sector's live postcodes plus `spanMiles`, the farthest live postcode OR window sale from that centroid (rounded up), which bounds how far a radius search must widen its sector sweep — verified: every sale sits within its sector's span. Sectors whose postcodes have all terminated fall back to the centroid of their sales. |
 
 ## Versioning policy

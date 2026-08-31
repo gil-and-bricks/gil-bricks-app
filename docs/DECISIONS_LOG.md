@@ -2,6 +2,19 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S3.4: ValuationEngine
+
+- **Brief truncated a third time** (cut off inside Part A) — reconstructed from CLAUDE.md's locked valuation rule (last-sold × UKHPI blended with area £/sqm; ±5/10/20% plain ranges; NO per-attribute adjustments) and the objective line; commit message chosen in-pattern and logged below.
+- **UKHPI at country level** (England/Wales monthly all-property index, official Land Registry full file, 1968→latest): the blend's local signal comes from line B's £/sqm; HPI carries market drift only. Region/local-authority indexation is a logged future upgrade — it would need a region code in the postcode maps.
+- **manifest.ukhpiMonth now real** (2026-06) — the "" none-value era ends; ukhpi.json is an additive v1 companion at the bucket root.
+- **Line inputs are the user's** — the subject's last sale is almost never inside the 12-month data window, so price+date come from the caller (they know what they paid); floor area likewise (EPC bounds 10–500 enforced).
+- **Blend = straight mean of the available lines** — plainest reading; weighting invents precision the evidence doesn't have.
+- **Confidence ladder (logged verbatim)**: two lines agreeing within 10% AND ≥5 comps behind the £/sqm → high (±5%); two lines within 25% → medium (±10%); wider disagreement → low (±20%); a single line → medium, dropped to low when the £/sqm rests on <5 comps. Always words + range, never a bare %.
+- **Valuation reuses the ComparablesEngine result** (accepts one, or runs its own 1mi/12mo/all search) — one engine feeding another, no forked search logic.
+- **£/sqm implements CLAUDE.md's "£/sqft" line** — identical maths, metric units (EPC areas are m²); noted rather than editing the locked rulebook text.
+- **Verification-driven fixes before commit** — the confidence ladder now counts the comps that actually carry a £/sqm (not the whole list — 12 comps with 3 carriers could have claimed "high"); a floor area that can't be used says so instead of being silently dropped; a too-recent sale date gets "use the price you paid" instead of a 1968 lecture; impossible months rejected outright; reused comparables must match the subject postcode; stats recomputed from the comps array so stale caller stats can't leak in; ukhpi as-of month must exist in BOTH country tables.
+- **Commit message chosen**: "feat(valuation): ValuationEngine blending indexed last sale with area £/sqm".
+
 ## 2026-08-31 — Sprint S3.3: ComparablesEngine
 
 - **Sector-search margin is per-sector, not a global constant** — sectors-index carries `spanMiles` (farthest live postcode from each sector's centroid); a sector is fetched when centroid distance ≤ radius + its own span. Real geometry justified it: spans run p50 1.3mi / p90 4.6mi / max 36mi, so any fixed margin either misses rural comps or over-fetches cities.
