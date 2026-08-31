@@ -4,6 +4,7 @@
  * UK HPI (country level), IMD 2025 / WIMD 2025 deprivation (never blended).
  * The 1-mile comparison reuses the ONE ComparablesEngine.
  */
+import type * as preact from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { computeStats, findComparables, type ComparablesResult } from '../../lib/comparables/engine';
 import { geocodePostcode, type GeocodedPostcode } from '../../lib/comparables/geocode';
@@ -11,6 +12,8 @@ import { ComparablesError } from '../../lib/comparables/errors';
 import { DataError, getAreaStats, getManifest, getSector, getUkhpi } from '../../lib/data/client';
 import type { AreaStats, Manifest, SectorFile, UkhpiFile } from '../../lib/data/types';
 import { decileWords, hpiChangePct, hpiSeries, modalTown, monthLabel } from '../../lib/area/area';
+import { fetchCrimeSummary, type CrimeSummary } from '../../lib/area/crime';
+import { fetchFloodAlerts, OFFICIAL_LINKS, type FloodAlert } from '../../lib/area/flood';
 import { sqmToSqft } from '../../lib/maths/area';
 import { fmtMoney } from '../../lib/maths/format';
 import { strategies } from '../../config/strategies';
@@ -25,7 +28,14 @@ type Ready = {
   manifest: Manifest;
   /** Streams in after first paint — the 1-mile sweep needs the big sectors index. 'failed' = sweep errored. */
   mile: ComparablesResult | null | 'failed';
+  /** Live layers load after the sold-data cards; failures never block them. */
+  crime: CrimeSummary | 'loading' | 'failed';
+  /** 'wales' = live alerts come from NRW (link-out), not the EA API. */
+  flood: FloodAlert[] | 'loading' | 'failed' | 'wales';
 };
+
+/** Per-postcode session cache so tab-hopping doesn't rehit the official APIs. */
+const layerCache = new Map<string, { crime?: CrimeSummary; flood?: FloodAlert[] }>();
 type View =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -33,6 +43,17 @@ type View =
   | ({ kind: 'ready' } & Ready);
 
 const titleCase = (s: string) => s.toLowerCase().replace(/(^|[\s-])\w/g, (c) => c.toUpperCase());
+
+/** External official-service link: new tab, noopener, with a visible + screen-reader new-tab cue. */
+function ExtLink({ href, children }: { href: string; children: preact.ComponentChildren }) {
+  return (
+    <a href={href} target="_blank" rel="noopener">
+      {children}
+      <span aria-hidden="true"> ↗</span>
+      <span class="sr-only"> (opens in a new tab)</span>
+    </a>
+  );
+}
 
 export function AreaApp() {
   const [pc, setPc] = useState('');
@@ -72,7 +93,43 @@ export function AreaApp() {
       ]);
       if (seq.current !== mySeq) return;
       const entry = areaStats?.[subject.sectorId] ?? null;
-      setView({ kind: 'ready', subject, sector, entry, ukhpi, manifest, mile: null });
+      const cached = layerCache.get(subject.postcode) ?? {};
+      const isWales = subject.country === 'W92000004';
+      setView({
+        kind: 'ready',
+        subject,
+        sector,
+        entry,
+        ukhpi,
+        manifest,
+        mile: null,
+        crime: cached.crime ?? 'loading',
+        flood: isWales ? 'wales' : cached.flood ?? 'loading',
+      });
+      if (!cached.crime) {
+        fetchCrimeSummary(subject.lat, subject.lng)
+          .then((crime) => {
+            layerCache.set(subject.postcode, { ...layerCache.get(subject.postcode), crime });
+            if (seq.current !== mySeq) return;
+            setView((v) => (v.kind === 'ready' ? { ...v, crime } : v));
+          })
+          .catch(() => {
+            if (seq.current !== mySeq) return;
+            setView((v) => (v.kind === 'ready' ? { ...v, crime: 'failed' } : v));
+          });
+      }
+      if (!isWales && !cached.flood) {
+        fetchFloodAlerts(subject.lat, subject.lng)
+          .then((flood) => {
+            layerCache.set(subject.postcode, { ...layerCache.get(subject.postcode), flood });
+            if (seq.current !== mySeq) return;
+            setView((v) => (v.kind === 'ready' ? { ...v, flood } : v));
+          })
+          .catch(() => {
+            if (seq.current !== mySeq) return;
+            setView((v) => (v.kind === 'ready' ? { ...v, flood: 'failed' } : v));
+          });
+      }
       milePromise
         .then((mile) => {
           if (seq.current !== mySeq) return;
@@ -140,7 +197,7 @@ export function AreaApp() {
   );
 }
 
-function Dashboard({ subject, sector, entry, ukhpi, manifest, mile }: Ready) {
+function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood }: Ready) {
   const countryName = subject.country === 'W92000004' ? 'Wales' : 'England';
   const town = sector ? modalTown(sector.sales) : null;
   const asOf = monthLabel(manifest.ppdMonth);
@@ -341,6 +398,114 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile }: Ready) {
         ) : (
           <p class="hint">Not available for this sector.</p>
         )}
+      </div>
+
+      <div class="glass card layer-card">
+        <h3>
+          Crime <Tooltip text="Incidents recorded via police.uk near this postcode, for one month." />
+        </h3>
+        <span class="sr-only" role="status">{crime === 'loading' ? 'Loading crime data…' : ''}</span>
+        {crime === 'loading' ? (
+          <div aria-hidden="true">
+            <div class="skeleton sk-line" />
+            <div class="skeleton sk-line short" />
+          </div>
+        ) : crime === 'failed' ? (
+          <p class="hint">Crime data unavailable right now (police.uk).</p>
+        ) : (
+          <>
+            <p class="count-line">
+              <strong>{crime.total}</strong> incidents recorded in {monthLabel(crime.month)} within{' '}
+              {crime.radiusMiles === 1 ? '1 mile' : 'roughly half a mile'} of this postcode
+            </p>
+            {crime.radiusMiles === 0.5 && (
+              <p class="hint">The full 1-mile list was too large to fetch, so these numbers cover roughly half a mile.</p>
+            )}
+            {crime.top.length > 0 && (
+              <ul class="crime-list">
+                {crime.top.map((t) => (
+                  <li>
+                    {t.label} <strong>{t.count}</strong>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <p class="hint">
+              Raw counts carry no judgement about any street or person — compare areas by using the same radius. Totals
+              reflect what each police force publishes to police.uk; some forces publish incomplete street-level data.
+              Crime data: data.police.uk (OGL v3).
+            </p>
+          </>
+        )}
+      </div>
+
+      <div class="glass card layer-card">
+        <h3>
+          Flood <Tooltip text="Live alerts only — they say nothing about long-term flood risk." />
+        </h3>
+        <span class="sr-only" role="status">{flood === 'loading' ? 'Loading flood data…' : ''}</span>
+        {flood === 'loading' ? (
+          <div aria-hidden="true">
+            <div class="skeleton sk-line" />
+            <div class="skeleton sk-line short" />
+          </div>
+        ) : flood === 'failed' ? (
+          <p class="hint">Live flood data unavailable right now (Environment Agency).</p>
+        ) : flood === 'wales' ? (
+          <p>
+            Live flood alerts for Wales are published by Natural Resources Wales —{' '}
+            <ExtLink href={OFFICIAL_LINKS.floodAlertsWales}>see live alerts (NRW)</ExtLink>
+            .
+          </p>
+        ) : flood.length === 0 ? (
+          <>
+            <p>No current flood alerts in this area.</p>
+            <p class="hint">Uses Environment Agency flood and river level data from the real-time data API (Beta).</p>
+          </>
+        ) : (
+          <>
+            <p>
+              <strong>{flood.length}</strong> current flood {flood.length === 1 ? 'alert' : 'alerts'} in or near this
+              area (within about 3 miles):
+            </p>
+            <ul class="crime-list">
+              {flood.map((a) => (
+                <li>
+                  {a.name} <span class="hint">({a.severity})</span>
+                </li>
+              ))}
+            </ul>
+            <p class="hint">Uses Environment Agency flood and river level data from the real-time data API (Beta).</p>
+          </>
+        )}
+        <p class="hint">
+          Long-term risk is a different question —{' '}
+          <ExtLink href={subject.country === 'W92000004' ? OFFICIAL_LINKS.floodRiskWales : OFFICIAL_LINKS.floodRiskEngland}>
+            check long-term flood risk for this postcode ({subject.country === 'W92000004' ? 'NRW' : 'GOV.UK'})
+          </ExtLink>
+          .
+        </p>
+      </div>
+
+      <div class="glass card">
+        <h3>Official checks</h3>
+        <ul class="checks-list">
+          <li>
+            <ExtLink href={subject.country === 'W92000004' ? OFFICIAL_LINKS.floodRiskWales : OFFICIAL_LINKS.floodRiskEngland}>
+              Long-term flood risk checker ({subject.country === 'W92000004' ? 'NRW' : 'GOV.UK'})
+            </ExtLink>
+          </li>
+          <li>
+            <ExtLink href={OFFICIAL_LINKS.councilTaxBands}>Council tax band checker (GOV.UK)</ExtLink>
+          </li>
+          <li>
+            <ExtLink href={OFFICIAL_LINKS.findLocalCouncil}>Find your local council — HMO and licensing questions (GOV.UK)</ExtLink>
+          </li>
+          <li>
+            <ExtLink href={OFFICIAL_LINKS.landRegistrySoldPrices}>Sold prices (HM Land Registry)</ExtLink>
+          </li>
+        </ul>
+        <p class="hint">These are official services — we link, we don't copy.</p>
       </div>
 
       <nav class="glass card area-strip" aria-label="Analyse a property here">

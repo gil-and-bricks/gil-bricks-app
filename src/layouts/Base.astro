@@ -8,6 +8,11 @@ import '@fontsource/poppins/latin-600.css';
 import '../styles/tokens.css';
 import '../styles/global.css';
 import { siteConfig } from '../site.config';
+// Above-the-fold faces, preloaded so the font-display:swap repaint happens
+// early instead of re-anchoring LCP seconds later on slow connections.
+import poppins400 from '@fontsource/poppins/files/poppins-latin-400-normal.woff2?url';
+import montserrat700 from '@fontsource/montserrat/files/montserrat-latin-700-normal.woff2?url';
+import montserrat800 from '@fontsource/montserrat/files/montserrat-latin-800-normal.woff2?url';
 
 interface Props {
   title?: string;
@@ -31,6 +36,9 @@ const {
     <link rel="preconnect" href={siteConfig.dataBaseUrl} crossorigin />
     <link rel="preconnect" href="https://landregistry.data.gov.uk" crossorigin />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" as="font" type="font/woff2" href={poppins400} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={montserrat700} crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href={montserrat800} crossorigin />
     <title>{title}</title>
   </head>
   <body>

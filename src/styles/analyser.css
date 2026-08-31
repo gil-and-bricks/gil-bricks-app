@@ -213,3 +213,12 @@
 .home-chooser { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-chooser p { margin: 0; }
 .home-trust { text-align: center; color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-6) 0; }
+
+/* live layers (S5.2) */
+.layer-card { min-height: 8rem; }
+.crime-list { margin: var(--space-3) 0; padding-left: 1.2rem; }
+.crime-list li { margin-bottom: var(--space-1); }
+.checks-list { margin: var(--space-3) 0; padding-left: 1.2rem; }
+.checks-list li { margin-bottom: var(--space-2); }
+.layer-card a, .checks-list a, .crime-list a { color: var(--accent); }
+.page-note { max-width: 46rem; margin: var(--space-5) auto; color: var(--text-dim); font-size: var(--text-xs); }
