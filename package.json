@@ -15,7 +15,8 @@
     "pipeline:build": "node pipeline/build.mjs",
     "pipeline:upload": "node pipeline/upload.mjs",
     "typecheck": "tsc --noEmit",
-    "smoke:comps": "tsx scripts/smoke-comps.ts"
+    "smoke:comps": "tsx scripts/smoke-comps.ts",
+    "smoke:valuation": "tsx scripts/smoke-valuation.ts"
   },
   "dependencies": {
     "@fontsource/montserrat": "^5.3.0",

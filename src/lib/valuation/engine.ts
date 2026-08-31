@@ -16,13 +16,20 @@ import type { Breakdown } from '../maths/breakdown';
 import { fmtMoney } from '../maths/format';
 import { valuationRange, type Confidence, type ValuationRange } from '../maths/valuation';
 import { computeStats, findComparables, type ComparablesResult } from '../comparables/engine';
+import { fetchSaleHistory } from '../landregistry/history';
 import { ComparablesError } from '../comparables/errors';
 
 export interface ValuationInput {
   postcode: string;
+  /** House number/name — lets the engine auto-fill the last sale from
+   * Land Registry when the user hasn't supplied one. */
+  paon?: string;
+  /** Flat number, when applicable. */
+  saon?: string;
   /** Internal floor area, sqm — enables evidence line B. */
   floorAreaSqm?: number;
-  /** What the subject last sold for — enables evidence line A. */
+  /** What the subject last sold for — enables evidence line A; always wins
+   * over the automatic Land Registry lookup. */
   lastSalePrice?: number;
   /** Completion date of that sale, yyyy-mm-dd or yyyy-mm. */
   lastSaleDate?: string;
@@ -48,6 +55,8 @@ export interface Valuation {
   /** As-of month of the evidence: the HPI month when the last sale was
    * indexed, otherwise the sales-data month. */
   asOf: string;
+  /** Where line A's last sale came from. */
+  lastSaleSource: 'landregistry' | 'user' | 'none';
 }
 
 /** Strict yyyy-mm(-dd) with a real month; returns the yyyy-mm. */
@@ -62,18 +71,47 @@ function monthOf(date: string): string {
 const compact = (pc: string): string => pc.trim().toUpperCase().replace(/\s+/g, '');
 
 export async function valueProperty(input: ValuationInput): Promise<Valuation> {
-  const hasA = input.lastSalePrice !== undefined || input.lastSaleDate !== undefined;
-  if (hasA && (input.lastSalePrice === undefined || input.lastSaleDate === undefined)) {
+  const userGaveSale = input.lastSalePrice !== undefined || input.lastSaleDate !== undefined;
+  if (userGaveSale && (input.lastSalePrice === undefined || input.lastSaleDate === undefined)) {
     throw new ComparablesError('BadInput', 'A last sale needs both its price and its date');
   }
   if (input.lastSalePrice !== undefined && (!Number.isFinite(input.lastSalePrice) || input.lastSalePrice <= 0)) {
     throw new ComparablesError('BadInput', `lastSalePrice must be a positive number (got ${String(input.lastSalePrice)})`);
   }
   // fail fast on a malformed date — before any network work
-  const saleMonth = hasA ? monthOf(input.lastSaleDate as string) : null;
+  let saleMonth = userGaveSale ? monthOf(input.lastSaleDate as string) : null;
+  let salePrice = input.lastSalePrice ?? null;
+  let lastSaleSource: 'landregistry' | 'user' | 'none' = userGaveSale ? 'user' : 'none';
   if (input.floorAreaSqm !== undefined && (!Number.isFinite(input.floorAreaSqm) || input.floorAreaSqm < 10 || input.floorAreaSqm > 500)) {
     throw new ComparablesError('BadInput', 'floorAreaSqm must be between 10 and 500 (the honest EPC bounds)');
   }
+
+  // Auto-fill line A from Land Registry when the user gave an address but no
+  // sale. Best-effort: lookup failures or ambiguity degrade to no line A —
+  // the automatic enhancement must never break the core valuation.
+  if (!userGaveSale && input.paon !== undefined && input.paon.trim() !== '') {
+    try {
+      const history = await fetchSaleHistory({ postcode: input.postcode, paon: input.paon, saon: input.saon });
+      if (history.kind === 'ok') {
+        // only a sale the HPI can actually index: UKHPI lags PPD by a month
+        // or two, so a very recent auto-found sale must not break line A —
+        // fall back to the next-newest category-A sale that is indexable
+        const [ukhpi, manifest] = await Promise.all([getUkhpi(), getManifest()]);
+        const hpiEnd = manifest.ukhpiMonth || ukhpi.ukhpiMonth;
+        const newest = history.sales.find((s) => s.category === 'A' && s.date.slice(0, 7) <= hpiEnd);
+        if (newest) {
+          saleMonth = newest.date.slice(0, 7);
+          salePrice = newest.price;
+          lastSaleSource = 'landregistry';
+        }
+      }
+      // ambiguous → the UI should call fetchSaleHistory itself and ask the user
+    } catch {
+      // timeout/network — carry on without line A
+    }
+  }
+  const hasA = salePrice !== null && saleMonth !== null;
+
   if (!hasA && input.floorAreaSqm === undefined) {
     throw new ComparablesError('BadInput', 'Nothing to value with — provide the last sale (price + date), the floor area, or both');
   }
@@ -122,7 +160,7 @@ export async function valueProperty(input: ValuationInput): Promise<Valuation> {
       }
       throw new ComparablesError('BadInput', `No HPI data for ${saleMonth} — the index covers ${months[0]} onwards`);
     }
-    const estimate = (input.lastSalePrice as number) * (nowIdx / saleIdx);
+    const estimate = (salePrice as number) * (nowIdx / saleIdx);
     indexedAsOf = asOfMonth;
     lines.push({
       label: 'Indexed last sale',
@@ -130,9 +168,9 @@ export async function valueProperty(input: ValuationInput): Promise<Valuation> {
       breakdown: {
         label: 'Indexed last sale',
         formula: 'last sale price × (house price index now ÷ index at the sale date)',
-        substituted: `${fmtMoney(input.lastSalePrice as number)} × (${nowIdx} ÷ ${saleIdx})`,
+        substituted: `${fmtMoney(salePrice as number)} × (${nowIdx} ÷ ${saleIdx})`,
         result: fmtMoney(estimate),
-        note: `${country === 'W92000004' ? 'Wales' : 'England'} house price index, ${saleMonth} → ${asOfMonth}`,
+        note: `${country === 'W92000004' ? 'Wales' : 'England'} house price index, ${saleMonth} → ${asOfMonth}${lastSaleSource === 'landregistry' ? ' — sale found automatically at Land Registry (you can override it)' : ''}`,
       },
     });
   }
@@ -213,5 +251,6 @@ export async function valueProperty(input: ValuationInput): Promise<Valuation> {
       note: 'no adjustments for beds, baths, garden or parking — those are context, never multipliers',
     },
     asOf: indexedAsOf ?? comps.asOf,
+    lastSaleSource: hasA ? lastSaleSource : 'none',
   };
 }

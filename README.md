@@ -25,6 +25,7 @@ src/pages/styleguide.astro  internal brand reference (noindex)
 src/lib/data/            typed data layer: schema types + R2 client (+ tests)
 src/lib/comparables/     the ComparablesEngine: geocode, radius search, filters, sorting
 src/lib/valuation/       the ValuationEngine: indexed last sale + area £/sqm, plain confidence
+src/lib/landregistry/    official Land Registry sale-history + transaction lookups
 data/fixtures/           fixture JSON used by the tests (schema v1 examples)
 pipeline/                data pipeline: PPD+ONSPD+EPC ingest, sector JSON build, R2 upload
 public/                   static files copied verbatim into the build
@@ -48,7 +49,8 @@ Requires Node 22.12+ (this machine runs Node 24 via nvm). Install dependencies o
 | Build | `npm run build` |
 | Preview the build locally | `npm run preview` |
 | Run tests | `npm test` |
-| Live comparables + valuation smoke test | `npm run smoke:comps` |
+| Live comparables smoke test | `npm run smoke:comps` |
+| Live valuation + sale-history smoke test | `npm run smoke:valuation` |
 | Refresh the data (download → build → upload) | `npm run pipeline:download && npm run pipeline:build && npm run pipeline:upload` |
 | Deploy | `npx wrangler deploy` |
 

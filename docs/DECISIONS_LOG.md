@@ -2,6 +2,17 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S3.5: Automatic sale-history lookup
+
+- **Working query form (probed live)**: `GET landregistry.data.gov.uk/data/ppi/transaction-record.json?propertyAddress.postcode={PC}&_sort=-transactionDate&_pageSize=200` — the linked-data filter works server-side, so no SPARQL fallback was needed. We filter by POSTCODE only and match the address locally with the pipeline's own normalisation: the server's paon filter is exact-string (would miss punctuation variants) and local matching lets ambiguity be detected instead of guessed.
+- **Ambiguity = ask, never guess** — a paon with only flat records and no saon supplied returns the candidate list for the UI to present; the engine's auto-fill skips ambiguous cases entirely.
+- **Auto-lookup is best-effort by design** — timeout (6s), network failure or ambiguity degrade to "no line A" (lastSaleSource: none); an enhancement must never break the core valuation. User-supplied sales always win and skip the lookup.
+- **Only Category A sales auto-fill line A** — repossessions/portfolio transfers (B) are not market evidence for indexation.
+- **Timezone-safe date parsing** — Land Registry returns "Fri, 01 Aug 2025"; Date.parse + toISOString shifts that a day backwards during BST, so the date is parsed by hand (a test caught this before it shipped).
+- **Verification-driven fixes** — the 6s timeout now covers the response BODY too (a stalling server after headers could hang forever); an auto-found sale newer than the HPI's end falls back to the next indexable sale instead of erroring at the user (reachable today: PPD runs a month ahead of UKHPI); truncation past 600 postcode records is flagged, cached results are returned as copies, compact postcodes are re-spaced, GUIDs uppercased (the service is case-sensitive).
+- **Commit message**: "feat(valuation): automatic Land Registry sale-history lookup and transaction fetch" (as specified).
+- **CF37 1DL has no PPI transactions** (probed live) — the smoke shows that honest none and demonstrates auto-fill on 6 Vaughan Street CF37 1HR instead (sold 2025-08-01 £139,500, found automatically).
+
 ## 2026-08-31 — Sprint S3.4: ValuationEngine
 
 - **Brief truncated a third time** (cut off inside Part A) — reconstructed from CLAUDE.md's locked valuation rule (last-sold × UKHPI blended with area £/sqm; ±5/10/20% plain ranges; NO per-attribute adjustments) and the objective line; commit message chosen in-pattern and logged below.
