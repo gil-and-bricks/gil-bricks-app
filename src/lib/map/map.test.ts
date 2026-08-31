@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { circleRing, CLUSTER_THRESHOLD, escapeHtml, METRES_PER_MILE, milesToMetres, pinState, shouldCluster } from './geo';
+import { circleRing, CLUSTER_THRESHOLD, escapeHtml, isRenderedTileEvent, METRES_PER_MILE, milesToMetres, pinState, shouldCluster } from './geo';
 import { brandFlavor, buildMapStyle, tilesUrl } from './style';
 
 describe('milesToMetres', () => {
@@ -91,6 +91,17 @@ describe('style sanity', () => {
     const f = brandFlavor();
     expect(f.city_label).toContain('0.72');
     expect(f.background).toBe('#0b0318');
+  });
+});
+
+describe('isRenderedTileEvent (blank-map health signal)', () => {
+  it('true only for a loaded source tile', () => {
+    expect(isRenderedTileEvent({ dataType: 'source', tile: {} })).toBe(true);
+  });
+  it('false for style/metadata events and tile-less source events', () => {
+    expect(isRenderedTileEvent({ dataType: 'style' })).toBe(false);
+    expect(isRenderedTileEvent({ dataType: 'source' })).toBe(false);
+    expect(isRenderedTileEvent({})).toBe(false);
   });
 });
 

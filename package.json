@@ -18,7 +18,8 @@
     "smoke:comps": "tsx scripts/smoke-comps.ts",
     "smoke:valuation": "tsx scripts/smoke-valuation.ts",
     "db:migrate:local": "wrangler d1 migrations apply gil-bricks-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply gil-bricks-db --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply gil-bricks-db --remote",
+    "verify:map": "node scripts/verify-map-render.mjs"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.4",
@@ -40,6 +41,7 @@
     "@duckdb/node-api": "^1.5.5-r.4",
     "@types/node": "^26.4.0",
     "playwright-core": "^1.62.1",
+    "pngjs": "^7.0.0",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11",

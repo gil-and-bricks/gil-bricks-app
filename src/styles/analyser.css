@@ -258,7 +258,13 @@
 .view-toggle .pill { cursor: pointer; background: transparent; font: inherit; }
 .comp-map { height: 60vh; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0; }
 .mini-map { height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0 var(--space-4); }
-@media (max-width: 640px) { .comp-map { height: 55vh; } }
+@media (max-width: 640px) {
+  /* full-width on mobile: break out of the glass card's 24px inner padding
+     so the map gets the whole card width (more render area, per spec) */
+  .comp-map { height: 55vh; margin-left: calc(var(--space-5) * -1); margin-right: calc(var(--space-5) * -1); border-radius: 0; border-left: none; border-right: none; }
+}
+.map-fallback { border: 1px solid rgba(220,255,0,0.4); border-radius: 12px; padding: var(--space-3) var(--space-4); }
+.linklike { background: none; border: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
 .maplibregl-popup.map-popup .maplibregl-popup-content {
   background: rgba(20,10,40,0.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
   border: 1px solid rgba(220,255,0,0.4); border-radius: 12px; color: var(--text);

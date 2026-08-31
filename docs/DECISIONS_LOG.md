@@ -2,6 +2,14 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — S7.1 hotfix: blank map on real mobile (Samsung S25 Ultra)
+
+- **Root cause**: the symptom — map frame + zoom control + ⓘ visible but the GL canvas fully blank, on a real device only — is **WebGL context loss/failure**, which headless Chrome (SwiftShader software GL) cannot reproduce, so the S7.1 checks (and even mobile-emulated playwright, which renders fine) all missed it. Real mobile GPUs drop the WebGL context under memory pressure and MapLibre does NOT auto-recover: the HTML controls stay while the canvas is dead. Diagnosis ruled OUT the usual suspects with live evidence: PMTiles range requests return 206, the self-hosted worker loads 200, and the container is non-zero (MapLibre v6 ships its own ResizeObserver, so the classic zero-height race is already handled).
+- **Fix (defensive + honest)**: (1) a render-health watchdog — the map must paint a tile within 12s (proof of a live context) or it calls back `onBlank`; (2) `webglcontextlost` + WebGL-creation-failure + fatal style/glyph errors all route to `onBlank`; (3) CompMap and the transaction MiniMap now show an honest fallback ("the table below has every sale" + a "Try the map again" remount button) instead of a silent blank box — **a blank map can no longer ship silently**; (4) a belt-and-braces `map.resize()` on load covers any late-layout size race.
+- **Also**: the mobile map is now genuinely full-width (breaks out of the glass card's 24px padding — 292px → 340px, per the sprint's "full-width" line and more render area).
+- **Regression guard**: `npm run verify:map` (scripts/verify-map-render.mjs) loads the map at a 390px mobile viewport, screenshots it and asserts pixel-luminance variance (blank ≈ uniform; rendered ≈ 73), checks pins render, and forces a WebGL context loss to assert the fallback appears. Plus a unit test for the tile-render health predicate. Proven at 390px: full-width tiles + lime radius circle + clustered/single pins + subject dot; transaction mini-map and analyser map both render.
+- Never printed any secret during diagnosis.
+
 ## 2026-08-31 — Sprint S7.1: self-hosted dark map with lime data layer
 
 - **Tile extract**: Protomaps daily build **2026-08-30**, bbox −6.5,49.8 → 1.8,55.9 (England & Wales + a safety margin), zooms 0–14, **1.14 GB** at R2 key `map/ew.pmtiles`. z15 was tried first and abandoned at >2.3 GB mid-download — z14 overzooms to street detail at a third of the weight. Refresh = the manual **map-tiles** GitHub Action (docs/MAP_OPERATOR_NOTE.md); yearly is plenty.

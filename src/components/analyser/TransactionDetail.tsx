@@ -20,7 +20,7 @@ function MiniMap({ postcode }: { postcode: string }) {
         handle.current = m.mountMap(
           el.current,
           { subject: { lat: geo.lat, lng: geo.lng }, radiusMiles: 0, comps: [], selectedId: null },
-          { interactive: false },
+          { interactive: false, onBlank: () => !cancelled && setGone(true) },
         );
       })
       .catch(() => setGone(true));

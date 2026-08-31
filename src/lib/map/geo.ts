@@ -37,6 +37,12 @@ export function circleRing(lat: number, lng: number, miles: number, points = 64)
 }
 
 /** Clustering kicks in only when the pin count gets noisy. */
+/** True when a MapLibre 'data' event means a vector tile actually finished
+ * loading — the health signal that proves the GL context is live (S7.1). */
+export function isRenderedTileEvent(e: { dataType?: string; tile?: unknown }): boolean {
+  return e.dataType === 'source' && e.tile != null;
+}
+
 export const CLUSTER_THRESHOLD = 25;
 
 export function shouldCluster(compCount: number): boolean {

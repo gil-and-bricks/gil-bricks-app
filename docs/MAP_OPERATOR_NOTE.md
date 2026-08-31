@@ -23,3 +23,13 @@ That's it — no code changes, nothing else to touch.
 - File: `map/ew.pmtiles` in the gil-bricks-data bucket, ~1.1 GB.
 - Source: the Protomaps daily build of OpenStreetMap (© OpenStreetMap
   contributors, ODbL) — attribution shows on the map's ⓘ.
+
+
+## If the map ever shows blank
+
+If someone reports a blank map (the frame and the +/− buttons show but no
+streets or pins), the page now notices that itself and shows a "the map
+couldn't display here — the table below has every sale" message with a
+"Try the map again" button, so no one is ever left staring at an empty box.
+It's almost always a phone running low on graphics memory; reloading or the
+retry button fixes it. Nothing for you to do.

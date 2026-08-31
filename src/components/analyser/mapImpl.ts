@@ -18,7 +18,7 @@ import type { Feature, FeatureCollection, Point } from 'geojson';
 import { Protocol } from 'pmtiles';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Comp } from '../../lib/comparables/engine';
-import { circleRing, escapeHtml as esc, pinState, shouldCluster } from '../../lib/map/geo';
+import { circleRing, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
 import { buildMapStyle } from '../../lib/map/style';
 import { fmtMoney } from '../../lib/maths/format';
 import { sqmToSqft } from '../../lib/maths/area';
@@ -48,6 +48,15 @@ export interface MapHandle {
   update(data: MapData): void;
   setHovered(id: string | null): void;
   destroy(): void;
+}
+
+export interface MapCallbacks {
+  interactive?: boolean;
+  /** Fired once the basemap has actually painted a tile (proof of a live GL context). */
+  onRendered?: () => void;
+  /** Fired if the map can't render — WebGL context lost, a fatal style/tile error,
+   * or no tile painted within the watchdog window. Lets the UI fall back honestly. */
+  onBlank?: (reason: string) => void;
 }
 
 const monthName = (d: string): string => {
@@ -92,23 +101,60 @@ function circleGeoJson(data: MapData): Feature {
 
 const TYPE_WORDS: Record<string, string> = { D: 'Detached', S: 'Semi', T: 'Terraced', F: 'Flat', O: 'Other' };
 
-export function mountMap(container: HTMLElement, data: MapData, opts: { interactive?: boolean } = {}): MapHandle {
+export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbacks = {}): MapHandle {
   ensureProtocol();
   const interactive = opts.interactive !== false;
   const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const map = new LibreMap({
-    container,
-    style: buildMapStyle() as never,
-    center: [data.subject.lng, data.subject.lat],
-    zoom: interactive ? 14 : 15,
-    minZoom: 6,
-    maxZoom: 18,
-    attributionControl: false,
-    cooperativeGestures: interactive, // never hijack page scroll on mobile
-    interactive,
-    fadeDuration: 100,
+  let map: LibreMap;
+  try {
+    map = new LibreMap({
+      container,
+      style: buildMapStyle() as never,
+      center: [data.subject.lng, data.subject.lat],
+      zoom: interactive ? 14 : 15,
+      minZoom: 6,
+      maxZoom: 18,
+      attributionControl: false,
+      cooperativeGestures: interactive, // never hijack page scroll on mobile
+      interactive,
+      fadeDuration: 100,
+    });
+  } catch (err) {
+    // WebGL unavailable / blocked on this device — fail visibly, not blank.
+    opts.onBlank?.(err instanceof Error ? err.message : 'webgl unavailable');
+    return { update() {}, setHovered() {}, destroy() {} };
+  }
+
+  // --- render-health watchdog (the S7.1 mobile blank-map fix) ---------------
+  // A live GL context that has painted a tile fires 'data' with a loaded tile.
+  // If nothing paints within the window, or the WebGL context is lost (common
+  // on real mobile GPUs under memory pressure — MapLibre does NOT auto-recover,
+  // leaving the HTML controls visible over a blank canvas), we tell the UI.
+  let healthy = false;
+  const markHealthy = () => {
+    if (healthy) return;
+    healthy = true;
+    clearTimeout(watchdog);
+    opts.onRendered?.();
+  };
+  const watchdog = setTimeout(() => {
+    if (!healthy) opts.onBlank?.('no tiles rendered');
+  }, 12000);
+  map.on('data', (e: { dataType?: string; tile?: unknown }) => {
+    if (isRenderedTileEvent(e)) markHealthy();
   });
+  // WebGL context loss → blank canvas that never recovers on its own.
+  const canvasEl = map.getCanvas();
+  canvasEl.addEventListener(
+    'webglcontextlost',
+    (e) => {
+      e.preventDefault(); // allow a potential restore, but treat as blank now
+      clearTimeout(watchdog);
+      opts.onBlank?.('webgl context lost');
+    },
+    { once: true },
+  );
   map.addControl(
     new AttributionControl({
       compact: true,
@@ -219,10 +265,20 @@ export function mountMap(container: HTMLElement, data: MapData, opts: { interact
     }
   };
 
-  map.on('load', addDataLayers);
+  map.on('load', () => {
+    // one resize after first layout: if the container was 0-sized at
+    // construction (a late-layout race on slow devices), this recovers it.
+    map.resize();
+    addDataLayers();
+  });
   // MapLibre reports tile/style failures as events, not exceptions — surface
   // them so a broken basemap is never a silent black box.
-  map.on('error', (e) => console.error('map error:', e.error?.message ?? 'unknown'));
+  map.on('error', (e) => {
+    const msg = e.error?.message ?? 'unknown';
+    console.error('map error:', msg);
+    // a failure to load the style/glyphs/sprite is fatal to rendering
+    if (!healthy && /style|glyph|sprite|sourcemap|worker/i.test(msg)) opts.onBlank?.(msg);
+  });
 
   if (interactive) {
     const expandCluster = async (e: MapLayerMouseEvent) => {
@@ -307,6 +363,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: { interact
       ]);
     },
     destroy() {
+      clearTimeout(watchdog);
       if (pulseFrame) cancelAnimationFrame(pulseFrame);
       popup?.remove();
       map.remove();
