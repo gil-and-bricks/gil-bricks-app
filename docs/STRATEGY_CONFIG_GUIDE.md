@@ -45,9 +45,11 @@ when the meaning matches — a link moved between analysers keeps its values.
   (it clamps URL values to each field's options/number shape); read live values
   from the `strategyParams` signal; render inputs with the generic
   `<StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />`.
-- Compute via a composition module in `src/lib/strategies/<id>.ts` that ONLY
-  calls `src/lib/maths` functions — every figure keeps its breakdown so every
-  tile gets a "How is this calculated?" accordion (`<MathsAccordion>`).
+- Compute via a composition module in `src/lib/strategies/<id>.ts` built on
+  `src/lib/maths` functions; strategy-specific arithmetic (e.g. HMO's
+  operating-% model, bridging costs) may live there when the lib has no such
+  function — but every figure MUST carry an honest breakdown so every tile
+  gets a "How is this calculated?" accordion (`<MathsAccordion>`).
 - Verdict colours and copy: Green/Amber/Red with plain-English sentences and
   a single most-useful lever where the verdict isn't green.
 - Take thresholds from `config.thresholds` — tuning a strategy must never

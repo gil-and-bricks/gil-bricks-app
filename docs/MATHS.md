@@ -27,6 +27,8 @@ page doubles as the source for the 'i' tooltips. Definitions are LOCKED in
 | **Stamp duty (England, SDLT)** | each slice of the price taxed at its band rate; +5% every band for an additional property; first-time buyers pay nothing to £300,000 (no relief above £500,000) | £295,000 standard → **£4,750** (the gov.uk example) |
 | **Land transaction tax (Wales, LTT)** | same slice-by-slice idea with Wales's own bands; a second home uses Wales's separate higher-rates table (from the first pound — not a surcharge); no first-time-buyer relief in Wales | £260,000 second home → **£15,950** (the gov.wales example) |
 | **Tax on a flip (personal)** | flip profit × your tax band + Class 4 National Insurance (flips are trading income) | £39,000 at higher rate → **£17,186** |
+| **Gross room income (HMO)** | rooms × rent per room × 12 | 5 × £550 × 12 = **£33,000/yr** |
+| **HMO running costs & NOI** | operating % of room income (bills, broadband, cleaning, voids, maintenance, insurance, management) + compliance + the licence fee spread over its 5 years; NOI = income minus all of that | £33,000 × 40% + £600 + £240 → NOI **£18,960/yr** |
 | **Tax — personal (Section 24)** | (rent − allowable costs) × your band, minus a 20% credit on mortgage interest (capped at the profit) | £10,000 × 40% − £800 = **£3,200/yr** |
 | **Tax — limited company** | (rent − allowable costs − mortgage interest) × corporation tax, with marginal relief £50k–£250k | £6,000 × 19% = **£1,140/yr** |
 

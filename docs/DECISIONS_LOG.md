@@ -2,6 +2,17 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-08-31 — Sprint S4.5: HMO verdict
+
+- **Verdict thresholds (config)**: GREEN = ICR passes ∧ after-tax cashflow ≥ £400/mo ∧ ROI ≥ 12% ∧ no room-size failures; AMBER = ICR passes ∧ cashflow ≥ £0 (or any room fails the size minimums — an illegal room caps the verdict whatever the money says, and levers refuse to pretend rent can fix it); RED = ICR fails ∨ cashflow negative.
+- **Bricks-and-mortar only, enforced by absence** — no commercial-valuation code exists; the honesty banner and the cross-check label say exactly what the estimate is. Hard exclusions honoured: no LHA, SpareRoom, student/employment data, per-council links (the register explainer routes through gov.uk/find-local-council), no named lenders.
+- **Operating-% cost model instead of rentalCore's itemised fields** — HMO costs (bills, broadband, cleaning, voids, maintenance, insurance, management) don't fit the single-let breakdown, so the composition uses the same lib tax/ICR/mortgage/yield functions directly with a % model; TWO config assumptions (23% self-managed / 40% agent+bills) so both defaults stay operator-editable — the island picks by management choice.
+- **Statutory room minimums live as named constants in the composition** (6.51 / 10.22 / 4.64 sqm, Mandatory Conditions Regulations 2018, cited in code) — they're law, not tunable rates; the checker rows are local UI state, not URL state (nothing shareable-personal about draft measurements).
+- **Licensing simplification (logged)**: occupants ≈ one per lettable room, so 5–6 rooms → mandatory-licence flag, 3–4 → additional-licensing note. Doubles from the size checker don't feed the count — a per-room occupancy census is more input than a deal screen deserves.
+- **Dual lever kept** ("£X more rent per room, or a £Y lower price") — a monthly rent rise and a capital price cut aren't honestly comparable as "the smaller move", so both are shown, as BTL does.
+- **Verification round** — maths recomputed independently (all exact, statutory floors and boundaries confirmed against SI 2018/616); it caught hidden room-checker rows still capping the verdict after the room count was reduced (now sliced), a bills toggle whose tip promised maths it didn't do (now honest, with a lower-the-op-% hint), and copy that blamed running costs when the tax bill was the culprit. Lighthouse on the live HMO analyser: 99/100/100/100. MATHS.md gained the room-income and NOI rows; the Phase 4 gate wording was nuanced (config-only holds for a registered verdict island; a new verdict = one component + one registry line).
+- **Commit message**: "feat(hmo): room-income verdict, bricks-and-mortar only, room-size and licensing checks" (as specified).
+
 ## 2026-08-31 — Sprint S4.4: Flip verdict
 
 - **Verdict thresholds (config)**: GREEN = after-tax ROI ≥ 20% ∧ profit before tax ≥ £15,000; AMBER = after-tax ROI ≥ 10% ∧ profit > £0; RED = profit ≤ £0 ∨ after-tax ROI < 10%. ROI (after tax, selected scenario) is the hero, before-tax shown small.
