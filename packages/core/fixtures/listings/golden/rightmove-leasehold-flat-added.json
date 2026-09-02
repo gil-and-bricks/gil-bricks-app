@@ -1,0 +1,80 @@
+{
+  "portal": "rightmove",
+  "extractorVersion": "rm-1.0.0",
+  "configVersion": "2026-09-02",
+  "source": "embedded",
+  "listingId": {
+    "value": "89106294",
+    "status": "found"
+  },
+  "url": {
+    "value": "https://www.rightmove.co.uk/properties/159999001",
+    "status": "found"
+  },
+  "postcode": {
+    "value": "SA1 8AJ",
+    "status": "found"
+  },
+  "outcode": {
+    "value": "SA1",
+    "status": "found"
+  },
+  "address": {
+    "value": {
+      "street": "Kings Road",
+      "town": "Swansea"
+    },
+    "status": "found"
+  },
+  "askingPrice": {
+    "value": 170000,
+    "status": "found"
+  },
+  "propertyType": {
+    "value": "Apartment",
+    "status": "found"
+  },
+  "tenure": {
+    "value": "LEASEHOLD",
+    "status": "found"
+  },
+  "bedrooms": {
+    "value": 2,
+    "status": "found"
+  },
+  "bathrooms": {
+    "value": 2,
+    "status": "found"
+  },
+  "floorAreaSqm": {
+    "value": null,
+    "status": "missing"
+  },
+  "floorPlanImageUrls": {
+    "value": null,
+    "status": "missing"
+  },
+  "newBuild": {
+    "value": false,
+    "status": "found"
+  },
+  "listingUpdate": {
+    "value": {
+      "reason": "added",
+      "date": "2026-05-30"
+    },
+    "status": "found"
+  },
+  "firstVisibleDate": {
+    "value": "2026-05-30",
+    "status": "found"
+  },
+  "description": {
+    "value": "<br /><b>SUMMARY</b><br />Positioned on an upper floor, this appealing two-bedroom apartment at 93 South Quay on Kings Road provides well-arranged living space in a popular residential location. The property is ideally suited to professionals or couples seeking convenient, low-maintenance living.<br /><br /><br /><b>DESCRIPTION</b><br />Positioned on an upper floor, this attractive two-bedroom apartment at 93 South Quay on Kings Road offers well-proportioned and thoughtfully arranged living space within a highly sought-after residential development. The property is ideally suited to professionals, couples or those seeking a convenient, low-maintenance lifestyle in a desirable waterfront setting.<br />The apartment benefits from a bright and welcoming living area, designed to maximise natural light and provide a comfortable space for both relaxing and entertaining. The layout flows effortlessly, creating a practical yet modern feel throughout. The kitchen is well-appointed, offering ample storage and workspace to cater to day-to-day living.<br />Both bedrooms are well-sized, providing comfortable accommodation, while the bathroom is fitted to serve the needs of a modern household. The overall condition of the property allows buyers to move in with ease while enjoying a well-maintained and functional home.<br />Situated in a popular and well-connected location, South Quay offers close proximity to a range of local amenities, waterfront walks, restaurants and leisure facilities. Excellent transport links and access to Swansea city centre make this an ideal base for those looking to balance convenience with scenic surroundings.<br /><br /><br />Lease details are currently being compiled.  For further information please contact the branch.  Please note additional fees could be incurred for items such as leasehold packs.<br /><br /><br /><br />1. MONEY LAUNDERING REGULATIONS: Intending purchasers will be asked to produce identification documentation at a later stage and we would ask for your co-operation in order that there will be no delay in agreeing the sale.\r<br />2. General: While we endeavour to make our sales particulars fair, accurate and reliable, they are only a general guide to the property and, accordingly, if there is any point which is of particular importance to you, please contact the office and we will be pleased to check the position for you, especially if you are contemplating travelling some distance to view the property.\r<br />3. The measurements indicated are supplied for guidance only and as such must be considered incorrect.\r<br />4. Services: Please note we have not tested the services or any of the equipment or appliances in this property, accordingly we strongly advise prospective buyers to commission their own survey or service reports before finalising their offer to purchase.\r<br />5. THESE PARTICULARS ARE ISSUED IN GOOD FAITH BUT DO NOT CONSTITUTE REPRESENTATIONS OF FACT OR FORM PART OF ANY OFFER OR CONTRACT. THE MATTERS REFERRED TO IN THESE PARTICULARS SHOULD BE INDEPENDENTLY VERIFIED BY PROSPECTIVE BUYERS OR TENANTS. NEITHER PETER ALAN NOR ANY OF ITS EMPLOYEES OR AGENTS HAS ANY AUTHORITY TO MAKE OR GIVE ANY REPRESENTATION OR WARRANTY WHATEVER IN RELATION TO THIS PROPERTY.",
+    "status": "found"
+  },
+  "isAuction": {
+    "value": null,
+    "status": "unavailable-on-this-portal"
+  }
+}

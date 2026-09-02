@@ -1,0 +1,82 @@
+{
+  "portal": "rightmove",
+  "extractorVersion": "rm-1.0.0",
+  "configVersion": "2026-09-02",
+  "source": "embedded",
+  "listingId": {
+    "value": "167112923",
+    "status": "found"
+  },
+  "url": {
+    "value": "https://www.rightmove.co.uk/properties/167112923",
+    "status": "found"
+  },
+  "postcode": {
+    "value": "SA5 8BD",
+    "status": "found"
+  },
+  "outcode": {
+    "value": "SA5",
+    "status": "found"
+  },
+  "address": {
+    "value": {
+      "street": "Stepney Street",
+      "town": "SA5"
+    },
+    "status": "found"
+  },
+  "askingPrice": {
+    "value": 110000,
+    "status": "found"
+  },
+  "propertyType": {
+    "value": "Terraced",
+    "status": "found"
+  },
+  "tenure": {
+    "value": "LEASEHOLD",
+    "status": "found"
+  },
+  "bedrooms": {
+    "value": 3,
+    "status": "found"
+  },
+  "bathrooms": {
+    "value": 1,
+    "status": "found"
+  },
+  "floorAreaSqm": {
+    "value": null,
+    "status": "missing"
+  },
+  "floorPlanImageUrls": {
+    "value": [
+      "https://media.rightmove.co.uk/property-floorplan/8e99f7bee/167112923/8e99f7beec773432abe81c6ebc989845.jpeg"
+    ],
+    "status": "found"
+  },
+  "newBuild": {
+    "value": false,
+    "status": "found"
+  },
+  "listingUpdate": {
+    "value": {
+      "reason": "reduced",
+      "date": "2026-06-09"
+    },
+    "status": "found"
+  },
+  "firstVisibleDate": {
+    "value": null,
+    "status": "missing"
+  },
+  "description": {
+    "value": "This well-presented three-bedroom home is a fantastic opportunity for first-time buyers, offering comfortable living spaces and a low-maintenance garden.<br /><br />Located just a 5-minute drive from Cwmdu Retail Parc, the property benefits from excellent local amenities, shops, and transport links, while still being set within a popular and convenient residential area. Families will also appreciate the close proximity to local schools.<br /><br />Inside, the home has been well maintained and is ready to move into, featuring a spacious living area, a practical kitchen/dining space, and three good-sized bedrooms. The bathroom is finished in a clean, neutral style.<br /><br />Outside, the low-maintenance garden provides a great space to enjoy with family and friends.<br /><br />Offered to the market chain free, this property combines convenience, and peace of mind for buyers. With its excellent location, good condition, and appealing features, it is an ideal choice for first-time buyers or young families looking to step onto the property ladder.<br /><br />Key Features<br /><br />5 minutes to Cwmdu Retail Parc<br /><br />Close proximity to local schools<br /><br />Well-maintained throughout<br /><br />Low-maintenance garden<br /><br />Chain free<br /><br />Ideal first-time buyer home<br /><br />This property is for sale by the Modern Method of Auction, meaning the buyer and seller are to Complete within 56 days (the \"Reservation Period\"). Interested parties personal data will be shared with the Auctioneer (iamsold).<br /><br />If considering buying with a mortgage, inspect and consider the property carefully with your lender before bidding.<br /><br />The buyer signs a Reservation Agreement and makes payment of a non-refundable Reservation Fee of 4.5% of the purchase price including VAT, subject to a minimum of £6,600.00 including VAT. This is paid to reserve the property to the buyer during the Reservation Period and is paid in addition to the purchase price. This is considered within calculations for Stamp Duty Land Tax.<br /><br />Services may be recommended by the Agent or Auctioneer in which they will receive payment from the service provider if the service is taken. Any payment that will be received by the Agent or Auctioneer will be confirmed to you in writing before services are taken. Services are optional.<br /><br />",
+    "status": "found"
+  },
+  "isAuction": {
+    "value": null,
+    "status": "unavailable-on-this-portal"
+  }
+}

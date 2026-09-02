@@ -1,0 +1,68 @@
+{
+  "configVersion": "2026-09-02",
+  "rightmove": {
+    "paths": {
+      "listingId": "id",
+      "price": "prices.primaryPrice",
+      "propertyType": "propertySubType",
+      "tenure": "tenure.tenureType",
+      "bedrooms": "bedrooms",
+      "bathrooms": "bathrooms",
+      "sizings": "sizings",
+      "floorplans": "floorplans",
+      "description": "text.description",
+      "listingUpdateReason": "listingHistory.listingUpdateReason",
+      "tags": "tags",
+      "channel": "channel",
+      "outcode": "address.outcode",
+      "incode": "address.incode",
+      "displayAddress": "address.displayAddress",
+      "auction": "auction"
+    },
+    "fallback": {
+      "meta": {
+        "title": "og:title",
+        "url": "og:url",
+        "description": "og:description",
+        "image": "og:image"
+      }
+    }
+  },
+  "zoopla": {
+    "paths": {
+      "listingId": "listingId",
+      "pricing": "pricing",
+      "tenure": "tenure",
+      "counts": "counts",
+      "floorArea": "floorArea",
+      "floorPlan": "floorPlan",
+      "propertyType": "propertyType",
+      "postalCode": "postalCode",
+      "outcode": "outcode",
+      "incode": "incode",
+      "publishedOn": "publishedOn",
+      "listingCondition": "listingCondition",
+      "priceHistory": "priceHistory",
+      "displayAddress": "displayAddress",
+      "propertyNumberOrName": "propertyNumberOrName",
+      "postTownName": "postTownName"
+    },
+    "fallback": {
+      "meta": {
+        "title": "og:title",
+        "url": "og:url",
+        "description": "og:description",
+        "image": "og:image"
+      },
+      "ldType": "RealEstateListing"
+    }
+  },
+  "flags": {
+    "rightmoveEnabled": true,
+    "zooplaEnabled": true,
+    "domFallbackEnabled": true
+  },
+  "thresholds": {
+    "remoteTimeoutMs": 2500
+  }
+}

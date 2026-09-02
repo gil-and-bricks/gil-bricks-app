@@ -43,3 +43,6 @@ export { coreConfig } from './config';
 export * from './score/scoreDeal';
 export { scoreCopy } from './score/copy';
 export type { Verdict } from './score/copy';
+
+// Listing extractors + remote config (E5) — portal page -> normalised listing.
+export * from './listing';

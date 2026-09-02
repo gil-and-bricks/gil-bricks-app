@@ -1,0 +1,77 @@
+{
+  "portal": "zoopla",
+  "extractorVersion": "zpl-1.0.0",
+  "configVersion": "2026-09-02",
+  "source": "embedded",
+  "listingId": {
+    "value": "73981776",
+    "status": "found"
+  },
+  "url": {
+    "value": "https://www.zoopla.co.uk/for-sale/details/73981776/",
+    "status": "found"
+  },
+  "postcode": {
+    "value": "SA1 6AB",
+    "status": "found"
+  },
+  "outcode": {
+    "value": "SA1",
+    "status": "found"
+  },
+  "address": {
+    "value": {
+      "street": "Carlton Terrace",
+      "town": "Swansea"
+    },
+    "status": "found"
+  },
+  "askingPrice": {
+    "value": 290000,
+    "status": "found"
+  },
+  "propertyType": {
+    "value": "terraced",
+    "status": "found"
+  },
+  "tenure": {
+    "value": "freehold",
+    "status": "found"
+  },
+  "bedrooms": {
+    "value": 6,
+    "status": "found"
+  },
+  "bathrooms": {
+    "value": 5,
+    "status": "found"
+  },
+  "floorAreaSqm": {
+    "value": 195,
+    "status": "found"
+  },
+  "floorPlanImageUrls": {
+    "value": null,
+    "status": "missing"
+  },
+  "newBuild": {
+    "value": true,
+    "status": "found"
+  },
+  "listingUpdate": {
+    "value": null,
+    "status": "missing"
+  },
+  "firstVisibleDate": {
+    "value": "2026-08-14",
+    "status": "found"
+  },
+  "description": {
+    "value": "6-Bedroom Home For Sale in Carlton Terrace, Swansea<br><br>A spacious and recently renovated 6 bedroom home situated in the sought-after Carlton Terrace area of Swansea, offering a fantastic combination of period character, modern finishes and versatile accommodation across multiple floors.<br><br>Arranged over basement, ground, first and second floors, the property provides generous living space and would make an excellent family home or investment opportunity as it has a HMO licence.<br><br>The ground floor offers flexible living and entertaining space, together with an open-plan kitchen and dining area ideal for family meals and social gatherings.",
+    "status": "found"
+  },
+  "isAuction": {
+    "value": false,
+    "status": "found"
+  }
+}

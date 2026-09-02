@@ -1,0 +1,82 @@
+{
+  "portal": "rightmove",
+  "extractorVersion": "rm-1.0.0",
+  "configVersion": "2026-09-02",
+  "source": "embedded",
+  "listingId": {
+    "value": "88376352",
+    "status": "found"
+  },
+  "url": {
+    "value": "https://www.rightmove.co.uk/properties/88376352",
+    "status": "found"
+  },
+  "postcode": {
+    "value": "SA2 7DX",
+    "status": "found"
+  },
+  "outcode": {
+    "value": "SA2",
+    "status": "found"
+  },
+  "address": {
+    "value": {
+      "street": "6 The Dell",
+      "town": "Sa2 7dx"
+    },
+    "status": "found"
+  },
+  "askingPrice": {
+    "value": 510000,
+    "status": "found"
+  },
+  "propertyType": {
+    "value": "Detached",
+    "status": "found"
+  },
+  "tenure": {
+    "value": "FREEHOLD",
+    "status": "found"
+  },
+  "bedrooms": {
+    "value": 4,
+    "status": "found"
+  },
+  "bathrooms": {
+    "value": 1,
+    "status": "found"
+  },
+  "floorAreaSqm": {
+    "value": null,
+    "status": "missing"
+  },
+  "floorPlanImageUrls": {
+    "value": [
+      "https://media.rightmove.co.uk/property-floorplan/4d6f1fb41/88376352/4d6f1fb4156d8a5afeaea77f5afee9a0.jpeg"
+    ],
+    "status": "found"
+  },
+  "newBuild": {
+    "value": false,
+    "status": "found"
+  },
+  "listingUpdate": {
+    "value": {
+      "reason": "reduced",
+      "date": "2025-09-02"
+    },
+    "status": "found"
+  },
+  "firstVisibleDate": {
+    "value": null,
+    "status": "missing"
+  },
+  "description": {
+    "value": "<p>An individually designed spacious detached four bedroom family home situated in a very convenient location, being a short walk to the busy Killay shopping centre and the cycle route to Black Pill and Mumbles. This property was built in the 1960s offers very spacious living accommodation comprising a reception hall with cloaks off formal lounge, separate TV lounge/living area, well fitted kitchen and large formal dinning room. The property enjoys lovely open views over Dunvant Valley and Clyne. It has the considerable benefit of good off-road parking and a double garage/workshop and is in the catchment area for Olchfa comprehensive school. The diverse and interesting gardens are private and south facing with varied level lawn and terraced area with connecting rockery and pathways.</p> <p>FREEHOLD </p> <p>Council Tax Band: G</p> <p> </p> <p>ACCOMMODATION COMPRISES:</p> <p>GROUND FLOOR</p> <p>ENTRANCE  -  Open pillared storm porch with outside lighting. Double glazed uPVC door and side panels with leaded glass to hall</p> <p>HALL  -  Reception hall with mahogany floor. Dog leg staircase to first floor. Radiator in cabinet. Understairs cupboard.</p> <p>FORMAL LOUNGE  -  20 X 14 A light and spacious room with large double glazed uPVC bay windows to front and double glazed uPVC window to side both with limestone sills. Two radiators. Limestone minster style fireplace. Coved ceiling. Stainless steel power points and light switches.</p> <p>CLOAK  -  Cloaks off hallway fitted with heritage suite in white comprising w/c and wash hand basin set into oak cabinet. Limestone floor and wall tiling. Limestone dado. Chrome heated towel radiator. Double glazed uPVC to front.</p> <p>DINNING ROOM  -  21 X 13’2 An elegant room with mahogany floor, part panelled walls, built in cupboards, papered and coved ceiling. Double glazed uPVC window to side. Two Panelled sets of doors to TV lounge and kitchen.</p> <p>TV LOUNGE  -  22 X 12’9 Mahogany floor throughout. Double glazed uPVC patio door to side garden. Spotlights to ceiling. Home cinema system. Two feature radiators. Concealed wall mounted gas central heating boiler.</p> <p>KITCHEN  -  17’9 X 13’9 Well-appointed with stylish range of ‘stone’ oak door and drawers fronted with stainless steel furniture. Retractable pantry unit. Built in dish washer and washing machine. Neff electric oven and gas hob with Neff extractor hood oven. Twin ceramic sink unit with chrome mixer tap over. Cream granite work surface with light grey subway style ceramic wall tiling over. Limestone effect porcelain floor tiling. Double glazed uPVC windows to side. Spotlights to ceiling. Stainless steel power points and light switches. </p> <p> </p> <p>FIRST FLOOR</p> <p>LANDING  -  Spacious landing. Radiator. Access to storage in eaves. Double glazed uPVC window to front with lovely open aspect.</p> <p>BEDROOM ONE  -  14’4 X 12’6 Stained floorboards. Radiator. Double glazed uPVC window to side with pleasant open aspect. Glass panelled door to dressing room (possible space for en-suite) Stained floorboards. Double glazed uPVC window to front</p> <p>BEDROOM TWO  -  14’4 X 10’2 Built in wardrobes. Radiator. Double glazed uPVC window to side.</p> <p>BEDROOM THREE  -  12 X 10 Oak laminated floor. Pull down ladder to part boarded loft. Double glazed uPVC patio door and window to rear.</p> <p>BEDROOM FOUR  -  20 X 7’6 Part reduced headroom. Radiator. Laminate floor. Double glazed uPVC windows to front and side. Glass brick wall to landing.</p> <p>BATHROOM  -  Comprising oval bath set into limestone effect porcelain tiling. Integrated ceramic sink unit with chrome mixer tap over. W/C. Shower cubicle with dual head chrome shower. Spotlights to ceiling. Double glazed uPVC window to side. Chrome headed towel radiator.</p> <p>EXTERNAL  -  Off road parking for three vehicles. Double garage/workshop 20 x 20. Power/light twin vehicle doors. Personal door to side. Storage loft area. </p> <p>                        Steps up to varied garden areas being in the most South facing and private. Laid to level paving terrace, neat level lawn and rockery.</p> <p> </p> <p>Note: All room sizes are approximate. Electrical, plumbing, central heating and drainage installations are noted in particulars on the basis of a visual inspection only. They have not been tested and no warranty of condition of fitness for purpose is implied by their inclusion. Potential purchasers are warned that they must make their own enquiries as to the condition of the appliances, installations or of any element of the structure of fabric of the property.</p> <p> </p>",
+    "status": "found"
+  },
+  "isAuction": {
+    "value": null,
+    "status": "unavailable-on-this-portal"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "portal": "zoopla",
+  "extractorVersion": "zpl-1.0.0",
+  "configVersion": "2026-09-02",
+  "source": "embedded",
+  "listingId": {
+    "value": "73379642",
+    "status": "found"
+  },
+  "url": {
+    "value": "https://www.zoopla.co.uk/for-sale/details/73379642/",
+    "status": "found"
+  },
+  "postcode": {
+    "value": "SA2 8NW",
+    "status": "found"
+  },
+  "outcode": {
+    "value": "SA2",
+    "status": "found"
+  },
+  "address": {
+    "value": {
+      "street": "The Usk - The Willows",
+      "town": "Swansea"
+    },
+    "status": "found"
+  },
+  "askingPrice": {
+    "value": 412000,
+    "status": "found"
+  },
+  "propertyType": {
+    "value": "semi_detached",
+    "status": "found"
+  },
+  "tenure": {
+    "value": "freehold",
+    "status": "found"
+  },
+  "bedrooms": {
+    "value": 4,
+    "status": "found"
+  },
+  "bathrooms": {
+    "value": 3,
+    "status": "found"
+  },
+  "floorAreaSqm": {
+    "value": 137,
+    "status": "found"
+  },
+  "floorPlanImageUrls": {
+    "value": [
+      "a203aff2acd061b4a5157a6b28a9409fbba66b57.jpg",
+      "be996b41f00cd358069453e95a0dec217c696a9e.jpg",
+      "a362cec9725db46fac01b14e3ae743044a263748.jpg"
+    ],
+    "status": "found"
+  },
+  "newBuild": {
+    "value": true,
+    "status": "found"
+  },
+  "listingUpdate": {
+    "value": null,
+    "status": "missing"
+  },
+  "firstVisibleDate": {
+    "value": "2026-06-04",
+    "status": "found"
+  },
+  "description": {
+    "value": "Coming soon - Finished to an incredible standard.",
+    "status": "found"
+  },
+  "isAuction": {
+    "value": false,
+    "status": "found"
+  }
+}

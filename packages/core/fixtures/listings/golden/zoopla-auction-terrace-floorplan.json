@@ -1,0 +1,80 @@
+{
+  "portal": "zoopla",
+  "extractorVersion": "zpl-1.0.0",
+  "configVersion": "2026-09-02",
+  "source": "embedded",
+  "listingId": {
+    "value": "73975876",
+    "status": "found"
+  },
+  "url": {
+    "value": "https://www.zoopla.co.uk/for-sale/details/73975876/",
+    "status": "found"
+  },
+  "postcode": {
+    "value": "SA2 0PX",
+    "status": "found"
+  },
+  "outcode": {
+    "value": "SA2",
+    "status": "found"
+  },
+  "address": {
+    "value": {
+      "paon": "31",
+      "street": "Glanmor Road",
+      "town": "Swansea"
+    },
+    "status": "found"
+  },
+  "askingPrice": {
+    "value": 150000,
+    "status": "found"
+  },
+  "propertyType": {
+    "value": "terraced",
+    "status": "found"
+  },
+  "tenure": {
+    "value": "freehold",
+    "status": "found"
+  },
+  "bedrooms": {
+    "value": 3,
+    "status": "found"
+  },
+  "bathrooms": {
+    "value": 1,
+    "status": "found"
+  },
+  "floorAreaSqm": {
+    "value": null,
+    "status": "missing"
+  },
+  "floorPlanImageUrls": {
+    "value": [
+      "f0fc15a57a54093f7eac2ada9e51c05501595fa3.jpg"
+    ],
+    "status": "found"
+  },
+  "newBuild": {
+    "value": false,
+    "status": "found"
+  },
+  "listingUpdate": {
+    "value": null,
+    "status": "missing"
+  },
+  "firstVisibleDate": {
+    "value": "2026-08-13",
+    "status": "found"
+  },
+  "description": {
+    "value": "Situated in a highly sought-after residential area, this traditional mid-terrace property is offered for sale by auction, presenting an excellent opportunity for investors, developers, or buyers looking to create a spacious family home.<br><br>Arranged over three floors, the accommodation comprises three reception rooms, offering versatile living space, together with a kitchen to the ground floor.",
+    "status": "found"
+  },
+  "isAuction": {
+    "value": true,
+    "status": "found"
+  }
+}

@@ -99,17 +99,27 @@ describe('no CDN / font / network loads in the built output', () => {
     for (const u of urls) expect(u.startsWith('/fonts/'), `font url ${u}`).toBe(true);
   });
 
-  it('any external URL strings are inert reference links only (no font/CDN)', () => {
-    // core carries gov.uk / gov.wales reference links as data; the scaffold never
-    // fetches them. Assert every external host is a benign reference host, so a
-    // real CDN/tracker/font host slipping in would fail here.
-    const ALLOWED = new Set(['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales']);
+  it('the only external hosts are inert reference links + our own R2 data bucket', () => {
+    // core carries gov.uk / gov.wales reference links as data; the extractor
+    // config is fetched from OUR public R2 bucket (not a portal, not a CDN). Any
+    // other host — a portal, a tracker, a web-font CDN — would fail here.
+    const isAllowed = (h: string) =>
+      ['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales'].includes(h) || /\.r2\.dev$/.test(h);
     const hosts = new Set<string>();
     for (const p of walk(OUT)) {
       if (!/\.(js|css|html)$/.test(p)) continue;
       for (const mm of readFileSync(p, 'utf8').matchAll(/https?:\/\/([a-z0-9._-]+)/gi)) hosts.add(mm[1].toLowerCase());
     }
-    const unexpected = [...hosts].filter((h) => !ALLOWED.has(h));
+    const unexpected = [...hosts].filter((h) => !isAllowed(h));
     expect(unexpected, `unexpected external hosts: ${unexpected.join(', ')}`).toEqual([]);
+  });
+
+  it('makes no request to a portal host (no rightmove/zoopla URL literals)', () => {
+    for (const p of walk(OUT)) {
+      if (!/\.(js)$/.test(p)) continue;
+      const txt = readFileSync(p, 'utf8');
+      expect(/https?:\/\/[^"'`]*rightmove\.co\.uk/i.test(txt), `portal URL literal in ${p}`).toBe(false);
+      expect(/https?:\/\/[^"'`]*zoopla\.co\.uk/i.test(txt), `portal URL literal in ${p}`).toBe(false);
+    }
   });
 });
