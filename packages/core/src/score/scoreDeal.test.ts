@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { scoreDeal, explainFailure, type StrategyId } from './scoreDeal';
+import { scoreCopy } from './copy';
 import { analyseBtl } from '../strategy-calc/btl';
 import { analyseBrrrr } from '../strategy-calc/brrrr';
 import { analyseFlip } from '../strategy-calc/flip';
@@ -128,5 +129,71 @@ describe('evidence component', () => {
     const evComp2 = withEv.components.find((c) => c.name.includes('sold'))!;
     expect(evComp2.status).toBe('red');
     expect(evComp2.points).toBe(0);
+  });
+});
+
+describe('deal-specific headlines (E2.1)', () => {
+  // A "figure" = a £ amount, a %, an ICR ratio (×) or a room count.
+  const FIGURE = /£[\d,]+|\d+(?:\.\d+)?%|\d+(?:\.\d+)?×|\d+ rooms?/;
+
+  // A curated set engineered to fail (or pass) for DIFFERENT reasons, spread
+  // across all four strategies. Each should surface a different binding number.
+  const deals: { id: StrategyId; label: string; inputs: Record<string, unknown>; ev?: { estimate: number; high: number } }[] = [
+    { id: 'btl', label: 'btl-roi', inputs: { ...BTL, price: 150000, monthlyRent: 1100 } },
+    { id: 'btl', label: 'btl-icr', inputs: { ...BTL, price: 400000, monthlyRent: 600 } },
+    { id: 'btl', label: 'btl-evidence', inputs: { ...BTL, price: 200000, monthlyRent: 1100 }, ev: { estimate: 150000, high: 160000 } },
+    { id: 'btl', label: 'btl-good', inputs: { ...BTL, price: 90000, monthlyRent: 900 } },
+    { id: 'flip', label: 'flip-fail', inputs: { ...FLIP, price: 200000, gdv: 240000 } },
+    { id: 'flip', label: 'flip-good', inputs: { ...FLIP, price: 110000, gdv: 240000 } },
+    { id: 'brrrr', label: 'brrrr-moneyleftin', inputs: { ...BRRRR, price: 250000, arv: 300000, monthlyRent: 900 } },
+    { id: 'brrrr', label: 'brrrr-good', inputs: { ...BRRRR, price: 100000, arv: 220000, monthlyRent: 1300 } },
+    { id: 'hmo', label: 'hmo-roi', inputs: { ...HMO, price: 250000, roomRent: 500 } },
+    { id: 'hmo', label: 'hmo-roomsize', inputs: { ...HMO, price: 180000, roomRent: 650, roomSizeFailures: 2 } },
+    { id: 'hmo', label: 'hmo-good', inputs: { ...HMO, price: 170000, roomRent: 650 } },
+  ];
+
+  it('every headline names at least one real figure from the deal (never a tier platitude)', () => {
+    const tierLines = Object.values(scoreCopy.headline);
+    for (const d of deals) {
+      const ds = scoreDeal(d.id, d.inputs as never, d.ev);
+      expect(ds.headline, `${d.label} headline: "${ds.headline}"`).toMatch(FIGURE);
+      expect(ds.headline).not.toMatch(/\{value\}|\{needed\}|\{cashflow\}|\{roi\}|\{profit\}|undefined|NaN/);
+      // never one of the generic tier sentences
+      expect(tierLines, `${d.label} used a tier platitude`).not.toContain(ds.headline);
+    }
+  });
+
+  it('two deals failing for DIFFERENT reasons produce DIFFERENT headlines', () => {
+    const headlines = deals.map((d) => scoreDeal(d.id, d.inputs as never, d.ev).headline);
+    const unique = new Set(headlines);
+    expect(unique.size, `collisions among: ${JSON.stringify(headlines, null, 2)}`).toBe(headlines.length);
+  });
+
+  it('same binding, different numbers → different headlines', () => {
+    // Two BTL deals both bound on ROI but at different prices/rents.
+    const a = scoreDeal('btl', { ...BTL, price: 150000, monthlyRent: 1100 } as never).headline;
+    const b = scoreDeal('btl', { ...BTL, price: 175000, monthlyRent: 1050 } as never).headline;
+    expect(a).toMatch(FIGURE);
+    expect(b).toMatch(FIGURE);
+    expect(a).not.toBe(b);
+  });
+
+  it('a good all-money-out BRRRR names the real surplus, never "plus £0"', () => {
+    let sawGood = false;
+    for (const price of [60000, 70000, 80000, 90000]) {
+      const ds = scoreDeal('brrrr', { ...BRRRR, price, arv: 240000, monthlyRent: 1800 } as never);
+      if (ds.verdict !== 'good') continue;
+      sawGood = true;
+      expect(ds.headline, `price ${price}: "${ds.headline}"`).not.toMatch(/plus £0\b/);
+      expect(ds.headline).toMatch(FIGURE);
+    }
+    expect(sawGood, 'no good BRRRR produced across the sweep').toBe(true);
+  });
+
+  it('a genuinely good deal states its number, not praise', () => {
+    const ds = scoreDeal('btl', { ...BTL, price: 90000, monthlyRent: 900 } as never);
+    expect(ds.verdict).toBe('good');
+    expect(ds.headline).toMatch(FIGURE);
+    expect(ds.headline.toLowerCase()).not.toMatch(/\bsolid\b|\bgreat\b|\bexcellent\b|\bamazing\b/);
   });
 });

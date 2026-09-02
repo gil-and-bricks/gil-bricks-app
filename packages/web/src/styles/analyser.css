@@ -134,7 +134,7 @@
 .deal-score .ds-outof { color: var(--text-dim); font-size: var(--text-sm); }
 .deal-score .ds-light { font-size: var(--text-lg); line-height: 1; }
 .deal-score .ds-verdict { font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: var(--text-sm); }
-.deal-score .ds-headline { flex: 1 1 100%; color: var(--text-dim); font-size: var(--text-sm); }
+.deal-score .ds-headline { flex: 1 1 100%; color: var(--text); font-size: var(--text-base); font-weight: 600; }
 .deal-score.ds-good .ds-light { color: #7ddf6a; }
 .deal-score.ds-marginal .ds-light { color: #ffc861; }
 .deal-score.ds-walk .ds-light { color: #ff9d9d; }

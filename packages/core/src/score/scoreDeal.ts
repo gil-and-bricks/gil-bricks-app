@@ -169,48 +169,127 @@ function verdictOf(score: number): Verdict {
   return 'walk away';
 }
 
-/** Plain lever sentence for the binding component, reusing existing lever outputs. */
+/**
+ * Plain lever sentence for the binding component, reusing existing lever outputs.
+ * ALL wording lives in copy.ts (fixByKey / leverByKey / noLeverByKey); this only
+ * fills figures and picks the right template — the operator can reword freely.
+ */
 function leverFor(key: string, a: DealScore['analysis']): { needed: string | null; fixSentence: string } {
-  const copyFix = (scoreCopy.fixByKey as Record<string, string>)[key] ?? '';
-  const withNeeded = (n: string | null) => (n ? copyFix.replace('{needed}', n) : copyFix.replace(/\s*Aim for \{needed\}[^.]*\./, '').replace('{needed}', ''));
+  const fix = scoreCopy.fixByKey as Record<string, string>;
+  const lever = scoreCopy.leverByKey as Record<string, string>;
+  const noLever = scoreCopy.noLeverByKey as Record<string, string>;
   // Non-financial gate: room size can't be fixed by a price/rent lever — say so.
   if (key === 'roomSize') {
-    return { needed: null, fixSentence: (scoreCopy.fixByKey as Record<string, string>).roomSize };
+    return { needed: null, fixSentence: fix.roomSize };
   }
   if (key === 'moneyLeftIn') {
     const mp = (a as BrrrrAnalysis).maxPriceAllOut;
-    return mp !== null ? { needed: fmtMoney(mp), fixSentence: copyFix.replace('{needed}', fmtMoney(mp)) } : { needed: null, fixSentence: 'On these numbers no purchase price pulls all your cash back out.' };
+    return mp !== null ? { needed: fmtMoney(mp), fixSentence: fix.moneyLeftIn.replace('{needed}', fmtMoney(mp)) } : { needed: null, fixSentence: noLever.moneyLeftIn };
   }
   if (key === 'evidence' && 'arvNeededAllOut' in a) {
     const arv = (a as BrrrrAnalysis).arvNeededAllOut;
-    return { needed: arv !== null ? fmtMoney(arv) : null, fixSentence: withNeeded(arv !== null ? fmtMoney(arv) : null) };
+    return arv !== null ? { needed: fmtMoney(arv), fixSentence: fix.evidence.replace('{needed}', fmtMoney(arv)) } : { needed: null, fixSentence: noLever.evidenceEndValue };
   }
   if (key === 'evidence' && 'gdvNeededGreen' in a) {
     const gdv = (a as FlipAnalysis).gdvNeededGreen;
-    return { needed: gdv !== null ? fmtMoney(gdv) : null, fixSentence: withNeeded(gdv !== null ? fmtMoney(gdv) : null) };
+    return gdv !== null ? { needed: fmtMoney(gdv), fixSentence: fix.evidence.replace('{needed}', fmtMoney(gdv)) } : { needed: null, fixSentence: noLever.evidenceEndValue };
   }
   if (key === 'profit' && 'maxOfferGreen' in a) {
     const mo = (a as FlipAnalysis).maxOfferGreen;
-    return { needed: mo !== null ? fmtMoney(mo) : null, fixSentence: mo !== null ? `Pay no more than ${fmtMoney(mo)} to hit the profit you need.` : 'On these numbers no purchase price reaches the target profit.' };
+    return mo !== null ? { needed: fmtMoney(mo), fixSentence: lever.profit.replace('{needed}', fmtMoney(mo)) } : { needed: null, fixSentence: noLever.profit };
   }
   // Flip ROI: reuse the same max-offer solver rather than the (absent) greenLever.
   if (key === 'roi' && 'maxOfferGreen' in a) {
     const mo = (a as FlipAnalysis).maxOfferGreen;
-    return { needed: mo !== null ? fmtMoney(mo) : null, fixSentence: mo !== null ? `Pay no more than ${fmtMoney(mo)} to lift the return.` : 'On these numbers no purchase price reaches the return you need.' };
+    return mo !== null ? { needed: fmtMoney(mo), fixSentence: lever.roi.replace('{needed}', fmtMoney(mo)) } : { needed: null, fixSentence: noLever.roi };
   }
   // BTL/HMO price-vs-evidence: no single number to solve — point at the sold gap.
   if (key === 'evidence') {
-    return { needed: null, fixSentence: 'A lower price — closer to what’s actually sold nearby — is the fix.' };
+    return { needed: null, fixSentence: noLever.evidence };
   }
   // BTL/HMO gates: use the surfaced green lever (price down / rent up)
   const gl = (a as BtlAnalysis).greenLever;
   if (gl && (gl.priceDown !== null || gl.rentUp !== null)) {
     const parts: string[] = [];
-    if (gl.priceDown !== null) parts.push(`a ${fmtMoney(gl.priceDown)} lower price`);
-    if (gl.rentUp !== null) parts.push(`${fmtMoney(gl.rentUp)} more rent`);
-    return { needed: parts.join(' or '), fixSentence: `${parts.join(' or ')} would turn this Green.` };
+    if (gl.priceDown !== null) parts.push(lever.greenLeverPrice.replace('{needed}', fmtMoney(gl.priceDown)));
+    if (gl.rentUp !== null) parts.push(lever.greenLeverRent.replace('{needed}', fmtMoney(gl.rentUp)));
+    return { needed: parts.join(' or '), fixSentence: lever.greenLeverJoin.replace('{parts}', parts.join(' or ')) };
   }
-  return { needed: null, fixSentence: 'On these numbers there’s no single lever that fixes this — the shape of the deal has to change.' };
+  return { needed: null, fixSentence: noLever.default };
+}
+
+/** Capitalise the first letter so a fragment reads as its own sentence. */
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * GOOD-deal headline — states what makes the deal good with its own numbers
+ * (never praise). Templates live in copy.ts (goodByKey), editable.
+ */
+function goodHeadline(strategy: StrategyId, a: DealScore['analysis']): string {
+  const G = scoreCopy.goodByKey as Record<string, string>;
+  if (strategy === 'flip') {
+    const f = a as FlipAnalysis;
+    return G.flip.replace('{profit}', fmtMoney(f.profitBeforeTax.value)).replace('{roi}', fmtPct(f.roiAfterTax.value));
+  }
+  if (strategy === 'brrrr') {
+    const b = a as BrrrrAnalysis;
+    const cf = fmtMoney(b.cashflowAfterTax.value);
+    // moneyLeftIn is floored at 0 (never negative); the real cash pulled out
+    // ABOVE your input is `surplus`. Name it when there is one, else say it plainly.
+    if (b.moneyLeftIn > 0) return G.brrrrIn.replace('{value}', fmtMoney(b.moneyLeftIn)).replace('{cashflow}', cf);
+    return b.surplus > 0
+      ? G.brrrrOut.replace('{value}', fmtMoney(b.surplus)).replace('{cashflow}', cf)
+      : G.brrrrAllOut.replace('{cashflow}', cf);
+  }
+  const x = a as BtlAnalysis; // BTL and HMO share cashflowAfterTax + roi
+  return (strategy === 'hmo' ? G.hmo : G.btl)
+    .replace('{cashflow}', fmtMoney(x.cashflowAfterTax.value))
+    .replace('{roi}', fmtPct(x.roi.value));
+}
+
+/**
+ * DEAL-SPECIFIC headline built from the binding constraint's real figures.
+ * Templates live in copy.ts (headlineByKey), editable. Always names >=1 figure.
+ */
+function dealHeadline(
+  strategy: StrategyId,
+  key: string,
+  e: ComponentEval,
+  a: DealScore['analysis'],
+  t: Record<string, number>,
+): string {
+  const H = scoreCopy.headlineByKey as Record<string, string>;
+  const v = e.currentValue;
+  switch (key) {
+    case 'icr':
+      return H.icr.replace('{value}', v).replace('{needed}', `${(a as BtlAnalysis).icr.threshold.toFixed(2)}×`);
+    case 'cashflow': {
+      const cf = (a as BtlAnalysis).cashflowAfterTax.value;
+      return cf < 0 ? H.cashflowNegative.replace('{value}', fmtMoney(Math.abs(cf))) : H.cashflow.replace('{value}', v);
+    }
+    case 'roi': {
+      const roiVal = 'greenRoi' in t ? (a as FlipAnalysis).roiAfterTax.value : (a as BtlAnalysis).roi.value;
+      if (roiVal < 0) return H.roiNegative.replace('{value}', v);
+      const green = 'greenRoi' in t ? t.greenRoi : t.minRoiGreen;
+      return H.roi.replace('{value}', v).replace('{needed}', fmtPct(green));
+    }
+    case 'moneyLeftIn': {
+      const mp = (a as BrrrrAnalysis).maxPriceAllOut;
+      return mp !== null ? H.moneyLeftIn.replace('{value}', v).replace('{needed}', fmtMoney(mp)) : H.moneyLeftInNoLever.replace('{value}', v);
+    }
+    case 'profit':
+      return H.profit.replace('{value}', v).replace('{needed}', fmtMoney(t.greenProfit));
+    case 'evidence': {
+      const need = e.neededValue; // "≤ £high" or null
+      return need ? H.evidence.replace('{value}', v).replace('{needed}', need.replace(/^≤\s*/, '')) : H.evidenceNoData.replace('{value}', v);
+    }
+    case 'roomSize':
+      return H.roomSize.replace('{value}', v);
+    default:
+      return v;
+  }
 }
 
 /**
@@ -246,26 +325,30 @@ export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: De
   // meaningless on a green/good deal (that spurious note contradicted the card).
   const gaps = config.score.map((c, i) => ({ c, i, lost: c.weight - components[i].points, comp: components[i] }));
   const worst = gaps.filter((g) => g.lost > 0).sort((a, b) => b.lost - a.lost || Number(b.c.gate) - Number(a.c.gate) || a.i - b.i)[0];
+  const t = inputs.thresholds as Record<string, number>;
   let bindingConstraint: BindingConstraint | null = null;
-  if (worst && verdict !== 'good') {
+  // The chip headline: deal-specific, carries THIS deal's deciding number. Good
+  // deals name what makes them good; failing deals name the binding constraint.
+  let headline: string;
+  if (verdict === 'good' || !worst) {
+    headline = verdict === 'good' ? goodHeadline(strategy, analysis) : scoreCopy.headline[verdict];
+  } else {
     const e = evaluate(worst.c.key, analysis, inputs, evidence);
     const lever = leverFor(worst.c.key, analysis);
-    // Self-contained explanation: the teaching sentence (names the killing
-    // number) + the fix. Kept whole here so the web note reads grammatically.
+    // Self-contained explanation for the card note: the teaching sentence (names
+    // the killing number) + the fix. Kept whole here so it reads grammatically.
     const teach = (scoreCopy.failureByKey as Record<string, string>)[worst.c.key];
     const failSentence = teach ? teach.replace('{value}', e.currentValue) : '';
-    // Capitalise the fix so it reads as its own sentence after the teaching one
-    // (the green-lever copy starts lowercase, e.g. "a £22,500 lower price…").
-    const fix = lever.fixSentence.charAt(0).toUpperCase() + lever.fixSentence.slice(1);
     bindingConstraint = {
       metric: worst.c.name,
       currentValue: e.currentValue,
       neededValue: lever.needed ?? e.neededValue,
-      plainExplanation: `${failSentence} ${fix}`.trim(),
+      plainExplanation: `${failSentence} ${cap(lever.fixSentence)}`.trim(),
     };
+    headline = dealHeadline(strategy, worst.c.key, e, analysis, t);
   }
 
-  return { score, rawScore, verdict, headline: scoreCopy.headline[verdict], bindingConstraint, components, analysis };
+  return { score, rawScore, verdict, headline, bindingConstraint, components, analysis };
 }
 
 /**
