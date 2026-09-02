@@ -79,6 +79,8 @@ export interface HmoAnalysis {
   verdict: VerdictColour;
   verdictCopy: string;
   lever: string | null;
+  /** Raw green-target lever (surfaced for the Deal Score binding constraint). */
+  greenLever: { rentUp: number | null; priceDown: number | null };
   licence: { level: 'mandatory' | 'maybe'; copy: string };
   grossIncome: { value: number; breakdown: Breakdown };
   operatingCosts: { value: number; breakdown: Breakdown };
@@ -249,6 +251,7 @@ export function analyseHmo(i: HmoInputs): HmoAnalysis {
     verdict: colour,
     verdictCopy,
     lever,
+    greenLever: solveLever(i),
     licence,
     grossIncome: { value: c.grossIncome, breakdown: grossBreakdown },
     operatingCosts: { value: c.opCosts, breakdown: opBreakdown },

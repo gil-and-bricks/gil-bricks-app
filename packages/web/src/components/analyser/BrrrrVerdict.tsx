@@ -4,7 +4,9 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseBrrrr, type BrrrrAnalysis } from '@gil-bricks/core';
+import { analyseBrrrr, scoreDeal, type BrrrrAnalysis, type BrrrrStrategyInputs, type DealScore } from '@gil-bricks/core';
+import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { siteConfig } from '../../site.config';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, updateStrategy } from './state';
@@ -52,9 +54,10 @@ export function BrrrrVerdict({ config, comps, valuation }: {
 
   let analysis: BrrrrAnalysis | null = null;
   let analysisError: string | null = null;
+  let deal: DealScore | null = null;
   if (ready && comps) {
     try {
-      analysis = analyseBrrrr({
+      const inputs: BrrrrStrategyInputs = {
         price: Number(s.price),
         country: comps.subject.country,
         refurb: num('refurbCost'),
@@ -78,7 +81,11 @@ export function BrrrrVerdict({ config, comps, valuation }: {
         stressRatePct: num('stressRate'),
         taxBasis: (p.taxBasis as BuyerType) ?? 'additional',
         thresholds: requireThresholds(config),
-      });
+      };
+      analysis = analyseBrrrr(inputs);
+      if (siteConfig.features.dealScore) {
+        deal = scoreDeal('brrrr', inputs, valuation ? { estimate: valuation.estimate, high: valuation.range.high } : undefined);
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       analysisError = /must be|cannot be/.test(raw)
@@ -112,10 +119,12 @@ export function BrrrrVerdict({ config, comps, valuation }: {
         </p>
       )}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
+      {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
           <div class={`verdict-banner verdict-${analysis.verdict}`} role="status">
             <p class="verdict-line">{analysis.verdictCopy}</p>
+            <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && arv > 0 && (
               <p class="verdict-crosscheck">

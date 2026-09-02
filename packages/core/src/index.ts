@@ -38,3 +38,8 @@ export * from './strategies';
 
 // Shared config (the R2 data base URL).
 export { coreConfig } from './config';
+
+// Deal Score verdict engine (E2).
+export * from './score/scoreDeal';
+export { scoreCopy } from './score/copy';
+export type { Verdict } from './score/copy';

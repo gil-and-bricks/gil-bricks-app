@@ -6,7 +6,9 @@ import { useEffect } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseBtl, type BtlAnalysis } from '@gil-bricks/core';
+import { analyseBtl, scoreDeal, type BtlAnalysis, type BtlInputs, type DealScore } from '@gil-bricks/core';
+import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { siteConfig } from '../../site.config';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams } from './state';
@@ -45,9 +47,10 @@ export function BtlVerdict({ config, comps, valuation }: {
   const rentOk = num('rent') > 0;
   let analysis: BtlAnalysis | null = null;
   let analysisError: string | null = null;
+  let deal: DealScore | null = null;
   if (rentOk && comps && Number(s.price) > 0) {
     try {
-      analysis = analyseBtl({
+      const inputs: BtlInputs = {
         price: Number(s.price),
         country: comps.subject.country,
         monthlyRent: num('rent'),
@@ -64,7 +67,11 @@ export function BtlVerdict({ config, comps, valuation }: {
         stressRatePct: num('stressRate'),
         taxBasis: (p.taxBasis as BuyerType) ?? 'additional',
         thresholds: requireThresholds(config),
-      });
+      };
+      analysis = analyseBtl(inputs);
+      if (siteConfig.features.dealScore) {
+        deal = scoreDeal('btl', inputs, valuation ? { estimate: valuation.estimate, high: valuation.range.high } : undefined);
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       // internal guard messages are for developers; users get plain English
@@ -89,10 +96,12 @@ export function BtlVerdict({ config, comps, valuation }: {
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {!rentOk && <p class="hint">Add the monthly rent to get a verdict.</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
+      {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
           <div class={`verdict-banner verdict-${analysis.verdict}`} role="status">
             <p class="verdict-line">{analysis.verdictCopy}</p>
+            <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && price > 0 && (
               <p class="verdict-crosscheck">

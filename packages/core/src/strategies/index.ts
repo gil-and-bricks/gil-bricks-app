@@ -59,6 +59,12 @@ export const strategies: StrategyConfig[] = [
     assumptions: btlAssumptions,
     // Verdict thresholds (logged in DECISIONS_LOG): tune here, never in code.
     thresholds: { minCashflowGreen: 150, minRoiGreen: 8, icrBasic: 1.25, icrHigher: 1.45 },
+    score: [
+      { key: 'icr', name: 'Rent covers the mortgage (ICR)', weight: 2.5, gate: true },
+      { key: 'cashflow', name: 'Monthly cashflow after tax', weight: 2.5, gate: true },
+      { key: 'roi', name: 'Return on the cash you put in', weight: 2.5, gate: true },
+      { key: 'evidence', name: 'Price vs nearby sold prices', weight: 2.5, gate: false },
+    ],
     verdictSlot: 'BtlVerdict',
     copy: {},
   },
@@ -118,6 +124,11 @@ export const strategies: StrategyConfig[] = [
     ],
     // Verdict thresholds (logged): after-tax ROI leads, before-tax profit floors it.
     thresholds: { greenRoi: 20, greenProfit: 15000, amberRoi: 10 },
+    score: [
+      { key: 'roi', name: 'Return on the cash you put in', weight: 3.5, gate: true },
+      { key: 'profit', name: 'Profit after tax', weight: 3.5, gate: true },
+      { key: 'evidence', name: 'Sale price vs nearby sold prices', weight: 3.0, gate: false },
+    ],
     verdictSlot: 'FlipVerdict',
     copy: {},
     flags: { showGdvModule: true },
@@ -188,6 +199,12 @@ export const strategies: StrategyConfig[] = [
     // Verdict thresholds (logged): green = effectively all out (≤ £2,500 in)
     // + cashflows ≥ £100 after tax + ICR passes.
     thresholds: { allOutMax: 2500, minCashflowGreen: 100, icrBasic: 1.25, icrHigher: 1.45 },
+    score: [
+      { key: 'moneyLeftIn', name: 'Money left in after refinance', weight: 2.5, gate: true },
+      { key: 'cashflow', name: 'Monthly cashflow after tax', weight: 2.5, gate: true },
+      { key: 'icr', name: 'Rent covers the mortgage (ICR)', weight: 2.5, gate: true },
+      { key: 'evidence', name: 'End value vs nearby sold prices', weight: 2.5, gate: false },
+    ],
     verdictSlot: 'BrrrrVerdict',
     copy: {},
   },
@@ -257,6 +274,12 @@ export const strategies: StrategyConfig[] = [
     ],
     // Verdict thresholds (logged): HMOs must earn their extra work.
     thresholds: { minCashflowGreen: 400, minRoiGreen: 12, icrBasic: 1.25, icrHigher: 1.45 },
+    score: [
+      { key: 'icr', name: 'Room income covers the mortgage (ICR)', weight: 2.5, gate: true },
+      { key: 'cashflow', name: 'Monthly cashflow after tax', weight: 2.5, gate: true },
+      { key: 'roi', name: 'Return on the cash you put in', weight: 2.5, gate: true },
+      { key: 'roomSize', name: 'Rooms meet the legal minimum sizes', weight: 2.5, gate: true },
+    ],
     verdictSlot: 'HmoVerdict',
     copy: {},
   },

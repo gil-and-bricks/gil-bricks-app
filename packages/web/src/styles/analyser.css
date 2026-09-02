@@ -120,6 +120,27 @@
 .verdict-line { margin: 0; font-weight: 600; font-size: var(--text-base); }
 .verdict-lever { margin: var(--space-2) 0 0; color: var(--text); }
 .verdict-crosscheck { margin: var(--space-2) 0 0; color: var(--text-dim); font-size: var(--text-sm); }
+
+/* Deal Score chip (E2) — sits above the existing Green/Amber/Red verdict card.
+   Score in lime accent on dark glass; a coloured light dot mirrors the verdict. */
+.deal-score {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2) var(--space-3);
+  margin: var(--space-4) 0 0; padding: var(--space-3) var(--space-4);
+  border-radius: 12px; border: 1px solid var(--accent);
+  background: rgba(220, 255, 0, 0.06);
+}
+.deal-score .ds-score { display: inline-flex; align-items: baseline; gap: 2px; }
+.deal-score .ds-score strong { font-size: var(--text-2xl); font-weight: 800; color: var(--accent); line-height: 1; }
+.deal-score .ds-outof { color: var(--text-dim); font-size: var(--text-sm); }
+.deal-score .ds-light { font-size: var(--text-lg); line-height: 1; }
+.deal-score .ds-verdict { font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: var(--text-sm); }
+.deal-score .ds-headline { flex: 1 1 100%; color: var(--text-dim); font-size: var(--text-sm); }
+.deal-score.ds-good .ds-light { color: #7ddf6a; }
+.deal-score.ds-marginal .ds-light { color: #ffc861; }
+.deal-score.ds-walk .ds-light { color: #ff9d9d; }
+/* The single binding constraint, inside the verdict card. */
+.binding-note { margin: var(--space-2) 0 0; color: var(--text); font-size: var(--text-sm); }
+.binding-note .binding-label { font-weight: 700; }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
 .tile { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: var(--space-3); }
 .tile-label { margin: 0; color: var(--text-dim); font-size: var(--text-xs); }

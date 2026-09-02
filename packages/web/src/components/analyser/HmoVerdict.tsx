@@ -5,7 +5,9 @@ import { useEffect, useState } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseHmo, checkRoomSizes, type HmoAnalysis, type RoomOccupancy } from '@gil-bricks/core';
+import { analyseHmo, checkRoomSizes, scoreDeal, type HmoAnalysis, type HmoInputs, type RoomOccupancy, type DealScore } from '@gil-bricks/core';
+import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { siteConfig } from '../../site.config';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams } from './state';
@@ -59,9 +61,10 @@ export function HmoVerdict({ config, comps, valuation }: {
 
   let analysis: HmoAnalysis | null = null;
   let analysisError: string | null = null;
+  let deal: DealScore | null = null;
   if (ready && comps) {
     try {
-      analysis = analyseHmo({
+      const inputs: HmoInputs = {
         price: Number(s.price),
         country: comps.subject.country,
         rooms: roomCount,
@@ -81,7 +84,11 @@ export function HmoVerdict({ config, comps, valuation }: {
         taxBasis: (p.taxBasis as BuyerType) ?? 'additional',
         roomSizeFailures: failures,
         thresholds: requireThresholds(config),
-      });
+      };
+      analysis = analyseHmo(inputs);
+      if (siteConfig.features.dealScore) {
+        deal = scoreDeal('hmo', inputs, valuation ? { estimate: valuation.estimate, high: valuation.range.high } : undefined);
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       analysisError = /must be|cannot be/.test(raw)
@@ -162,10 +169,12 @@ export function HmoVerdict({ config, comps, valuation }: {
         </div>
       )}
 
+      {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
           <div class={`verdict-banner verdict-${analysis.verdict}`} role="status">
             <p class="verdict-line">{analysis.verdictCopy}</p>
+            <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && price > 0 && (
               <p class="verdict-crosscheck">

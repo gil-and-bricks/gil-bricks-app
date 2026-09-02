@@ -5,7 +5,9 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseFlip, type FlipAnalysis } from '@gil-bricks/core';
+import { analyseFlip, scoreDeal, type FlipAnalysis, type FlipStrategyInputs, type DealScore } from '@gil-bricks/core';
+import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { siteConfig } from '../../site.config';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, updateStrategy } from './state';
@@ -58,9 +60,10 @@ export function FlipVerdict({ config, comps, valuation }: {
 
   let analysis: FlipAnalysis | null = null;
   let analysisError: string | null = null;
+  let deal: DealScore | null = null;
   if (ready && comps) {
     try {
-      analysis = analyseFlip({
+      const inputs: FlipStrategyInputs = {
         price: Number(s.price),
         country: comps.subject.country,
         refurb: num('refurbCost'),
@@ -79,7 +82,11 @@ export function FlipVerdict({ config, comps, valuation }: {
         contingencyPct: num('contingencyPct'),
         taxBasis: (p.taxBasis as BuyerType) ?? 'additional',
         thresholds: requireThresholds(config),
-      });
+      };
+      analysis = analyseFlip(inputs);
+      if (siteConfig.features.dealScore) {
+        deal = scoreDeal('flip', inputs, valuation ? { estimate: valuation.estimate, high: valuation.range.high } : undefined);
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       analysisError = /must be|cannot be/.test(raw)
@@ -108,10 +115,12 @@ export function FlipVerdict({ config, comps, valuation }: {
       {isLtd && <p class="field-hint">Buying through a company always pays the higher purchase-tax rates — applied automatically.</p>}
       {!ready && <p class="hint">Add the refurb budget and the sale price after works to get a verdict.</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
+      {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
           <div class={`verdict-banner verdict-${analysis.verdict}`} role="status">
             <p class="verdict-line">{analysis.verdictCopy}</p>
+            <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && gdv > 0 && (
               <p class="verdict-crosscheck">

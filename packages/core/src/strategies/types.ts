@@ -22,6 +22,25 @@ export interface StrategyField {
   showWhen?: { key: string; value: string };
 }
 
+
+/**
+ * Deal Score component (S8/E2). Each maps to a metric the strategy already
+ * computes and is scored against the SAME Green/Amber/Red thresholds — the
+ * weights are tuned so a Green deal can never score < 6 and a Red can never
+ * reach 8 (asserted in tests). `gate` marks the components that gate the
+ * existing Green verdict (as opposed to the sold-evidence extra).
+ */
+export interface ScoreComponent {
+  /** Extractor key known to scoreDeal: icr | cashflow | roi | moneyLeftIn | profit | evidence | roomSize. */
+  key: string;
+  /** Plain-English component name shown in the breakdown. */
+  name: string;
+  /** Points this component is worth (all components sum to 10). */
+  weight: number;
+  /** True if this component must be green for the existing Green verdict. */
+  gate: boolean;
+}
+
 export interface StrategyConfig {
   id: 'btl' | 'flip' | 'brrrr' | 'hmo';
   name: string;
@@ -39,6 +58,8 @@ export interface StrategyConfig {
   /** Island component name registered in AnalyserApp; null = placeholder. */
   verdictSlot: string | null;
   copy: Record<string, string>;
+  /** Deal Score components (config-driven, not hardcoded). */
+  score: ScoreComponent[];
   /** Feature flags for loosely-coupled modules (e.g. showGdvModule). */
   flags?: Record<string, boolean>;
 }

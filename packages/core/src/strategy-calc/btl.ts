@@ -43,6 +43,8 @@ export interface BtlAnalysis {
   verdict: VerdictColour;
   verdictCopy: string;
   lever: string | null;
+  /** Raw green-target lever (surfaced for the Deal Score binding constraint). */
+  greenLever: { rentUp: number | null; priceDown: number | null };
   stampDuty: WithBreakdown<import('../maths/stampduty').StampDutyResult>;
   cashIn: BtlFigure;
   loan: number;
@@ -166,6 +168,7 @@ export function analyseBtl(i: BtlInputs): BtlAnalysis {
     verdict: colour,
     verdictCopy,
     lever,
+    greenLever: solveLever(i, 'green'),
     stampDuty: core.sdlt,
     cashIn: { value: core.cash.value, breakdown: core.cash.breakdown },
     loan: core.loan,
