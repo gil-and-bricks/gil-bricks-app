@@ -34,6 +34,8 @@ export interface ExtractorConfig {
   thresholds: {
     /** Give up on the remote config after this long and use the fallback. */
     remoteTimeoutMs: number;
+    /** Below this many sector sales, don't score price-vs-sold — say so instead. */
+    minSectorSales: number;
   };
 }
 
@@ -86,7 +88,7 @@ export const FALLBACK_CONFIG: ExtractorConfig = {
     fallback: { meta: { title: 'og:title', url: 'og:url', description: 'og:description', image: 'og:image' }, ldType: 'RealEstateListing' },
   },
   flags: { rightmoveEnabled: true, zooplaEnabled: true, domFallbackEnabled: true },
-  thresholds: { remoteTimeoutMs: 2500 },
+  thresholds: { remoteTimeoutMs: 2500, minSectorSales: 5 },
 };
 
 export interface ConfigStore {

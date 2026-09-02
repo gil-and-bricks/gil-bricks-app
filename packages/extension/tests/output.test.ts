@@ -104,7 +104,9 @@ describe('no CDN / font / network loads in the built output', () => {
     // config is fetched from OUR public R2 bucket (not a portal, not a CDN). Any
     // other host — a portal, a tracker, a web-font CDN — would fail here.
     const isAllowed = (h: string) =>
-      ['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales'].includes(h) || /\.r2\.dev$/.test(h);
+      ['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales'].includes(h) ||
+      /\.r2\.dev$/.test(h) || // our R2 data bucket (config + sector data)
+      /\.workers\.dev$/.test(h); // our own web app (Send-to-analyser handoff target)
     const hosts = new Set<string>();
     for (const p of walk(OUT)) {
       if (!/\.(js|css|html)$/.test(p)) continue;

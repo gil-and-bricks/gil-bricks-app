@@ -63,6 +63,7 @@
     "domFallbackEnabled": true
   },
   "thresholds": {
-    "remoteTimeoutMs": 2500
+    "remoteTimeoutMs": 2500,
+    "minSectorSales": 5
   }
 }
