@@ -14,7 +14,9 @@
     "icons": "node tools/make-icons.mjs"
   },
   "dependencies": {
-    "@gil-bricks/core": "*"
+    "@gil-bricks/core": "*",
+    "tesseract.js": "^7.0.0",
+    "tesseract.js-core": "^6.1.2"
   },
   "devDependencies": {
     "@types/chrome": "^0.2.8",

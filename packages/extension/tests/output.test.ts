@@ -82,13 +82,44 @@ describe('shared library is bundled, not fetched', () => {
 });
 
 describe('no CDN / font / network loads in the built output', () => {
-  const CDN_OR_FONT = /fonts\.googleapis\.com|fonts\.gstatic\.com|cdnjs|unpkg\.com|jsdelivr\.net|cdn\.jsdelivr|\bcdn\.[a-z]/i;
+  const FONT_HOST = /fonts\.googleapis\.com|fonts\.gstatic\.com/i;
+  const JS_CDN = /cdnjs|unpkg\.com|jsdelivr\.net|cdn\.jsdelivr|\bcdn\.[a-z]/i;
+  // Tesseract.js (bundled OFFLINE, E9) carries its own default CDN URLs as inert
+  // string literals; we override workerPath/corePath/langPath with local getURL
+  // paths (asserted below) so they are NEVER fetched. Those vendor/bundle files
+  // are exempt from the JS-CDN string ban — but a FONT CDN is banned everywhere.
+  // Exempt ONLY the offline tesseract bundle: the vendored public/tesseract/* files
+  // (by PATH) and the lazy tesseract LIBRARY chunk (by a marker — 'traineddata' /
+  // 'tesseract-core' — that our own hand-written code never contains, so our app
+  // chunks are NEVER exempted). E9 review: content 'tesseract' alone was too broad.
+  const LIB_MARKER = /tesseract\.js|LSTM_ONLY|projectnaptha/;
+  const isTesseract = (p: string, txt: string) => /(^|\/)tesseract\//i.test(p) || LIB_MARKER.test(txt);
 
-  it('references no CDN or web-font host anywhere', () => {
+  it('references no web-font CDN anywhere, and no JS CDN outside the offline tesseract bundle', () => {
     for (const p of walk(OUT)) {
       if (!/\.(js|css|html|json)$/.test(p)) continue;
       const txt = readFileSync(p, 'utf8');
-      expect(CDN_OR_FONT.test(txt), `CDN/font host in ${p}`).toBe(false);
+      expect(FONT_HOST.test(txt), `web-font CDN in ${p}`).toBe(false);
+      if (!isTesseract(p, txt)) expect(JS_CDN.test(txt), `JS CDN in ${p}`).toBe(false);
+    }
+  });
+
+  it('our OWN app chunks are NOT exempted (no CDN marker leaks the exemption)', () => {
+    // The panel/core chunk mentions tesseract paths but must contain NO JS-CDN host.
+    const chunks = readdirSync(join(OUT, 'chunks')).filter((f) => f.endsWith('.js'));
+    const appChunks = chunks.filter((f) => { const t = read(join('chunks', f)); return /floorPlanCard|ds-score/.test(t) && !LIB_MARKER.test(t); });
+    expect(appChunks.length, 'found the app chunk(s)').toBeGreaterThan(0);
+    for (const f of appChunks) expect(JS_CDN.test(read(join('chunks', f))), `JS CDN in app chunk ${f}`).toBe(false);
+  });
+
+  it('the offline OCR overrides every tesseract path with a LOCAL bundled file', () => {
+    // Proof the inert CDN defaults are never used: our code supplies all paths.
+    const ocr = readFileSync(join(PKG, 'src', 'ocr.ts'), 'utf8');
+    for (const key of ['workerPath', 'corePath', 'langPath']) expect(ocr, key).toContain(key);
+    expect(ocr).toContain("asset('tesseract/");
+    // and the files are actually shipped locally
+    for (const f of ['worker.min.js', 'tesseract-core-simd-lstm.wasm', 'eng.traineddata.gz']) {
+      expect(existsSync(join(OUT, 'tesseract', f)), `bundled ${f}`).toBe(true);
     }
   });
 
@@ -106,11 +137,14 @@ describe('no CDN / font / network loads in the built output', () => {
     const isAllowed = (h: string) =>
       ['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales'].includes(h) ||
       /\.r2\.dev$/.test(h) || // our R2 data bucket (config + sector data)
-      /\.workers\.dev$/.test(h); // our own web app (Send-to-analyser handoff target)
+      /\.workers\.dev$/.test(h) || // our own web app (Send-to-analyser handoff target)
+      h === 'rolldown.rs'; // the bundler's inert banner comment (never fetched)
     const hosts = new Set<string>();
     for (const p of walk(OUT)) {
       if (!/\.(js|css|html)$/.test(p)) continue;
-      for (const mm of readFileSync(p, 'utf8').matchAll(/https?:\/\/([a-z0-9._-]+)/gi)) hosts.add(mm[1].toLowerCase());
+      const txt = readFileSync(p, 'utf8');
+      if (isTesseract(p, txt)) continue; // inert offline-OCR defaults, overridden (asserted above)
+      for (const mm of txt.matchAll(/https?:\/\/([a-z0-9._-]+)/gi)) hosts.add(mm[1].toLowerCase());
     }
     const unexpected = [...hosts].filter((h) => !isAllowed(h));
     expect(unexpected, `unexpected external hosts: ${unexpected.join(', ')}`).toEqual([]);

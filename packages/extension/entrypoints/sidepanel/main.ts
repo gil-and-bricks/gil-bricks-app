@@ -26,15 +26,38 @@ import {
   type ExtractResult,
   type ScoreListingResult,
   type DealScore,
+  roomFitSummary,
+  roomFit,
+  editRoom,
+  summarise,
+  crossCheckArea,
+  metresPerPixel,
+  rectArea,
+  measureMetres,
   type StrategyId,
   type SectorFile,
   type Criteria,
   type SellerSignals,
   type SectorLoad,
   type CashNeeded,
+  type FloorPlanRead,
+  type RoomDim,
 } from '@gil-bricks/core';
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
+import { ocrFloorPlan, OcrError, type OcrProgress } from '../../src/ocr';
 import * as store from '../../src/store';
+
+/** Floor-plan OCR state, kept on the ctx and mirrored into the view (E9). */
+interface FloorPlanState {
+  available: boolean;
+  status: 'idle' | 'running' | 'done' | 'failed';
+  progress?: OcrProgress;
+  read?: FloorPlanRead;
+  error?: string;
+  open: boolean;
+  acceptedSqm: number | null;
+  imageUrl?: string;
+}
 
 const WEB_BASE = 'https://gil-bricks-app.gil-782.workers.dev';
 const STRATEGIES: { id: StrategyId; label: string }[] = [
@@ -95,7 +118,7 @@ function soldText(p: ScoreListingResult['priceVsSold']): { pill: string; label: 
 }
 
 export interface PanelView {
-  screen: 'triage' | 'settings';
+  screen: 'triage' | 'settings' | 'measure';
   listing: NormalisedListing;
   strategy: StrategyId;
   result: ScoreListingResult;
@@ -104,7 +127,7 @@ export interface PanelView {
   settings: Record<string, string>;
   criteria: Criteria;
   floorAreaSqm: number | null;
-  floorAreaSource: 'listing' | 'epc-sector' | 'manual' | 'none';
+  floorAreaSource: 'listing' | 'epc-sector' | 'manual' | 'floorplan' | 'none';
   floorAreaRange: { minSqm: number; maxSqm: number } | null;
   /** The user's raw manual floor-area entry (kept in the mounted input). */
   manualAreaInput: string;
@@ -122,6 +145,8 @@ export interface PanelView {
   lastChange?: string | null;
   /** Auction detected (flag OR wording) — one source of truth (E8.1). */
   isAuction?: boolean;
+  /** Floor-plan OCR state + results (E9). */
+  floorplan?: FloorPlanState;
   ewReject?: string | null;
 }
 export interface PanelHandlers {
@@ -135,6 +160,12 @@ export interface PanelHandlers {
   onCloseSettings?: () => void;
   onSend?: () => void;
   onToggleSignals?: (open: boolean) => void;
+  /** Floor plan (E9): expand+run OCR, retry, edit a room, accept the total as floor area, open the measure tool. */
+  onFloorPlanOpen?: () => void;
+  onFloorPlanRetry?: () => void;
+  onRoomEdit?: (index: number, widthM: number, lengthM: number) => void;
+  onAcceptFloorArea?: (sqm: number) => void;
+  onOpenMeasure?: () => void;
 }
 
 function chip(deal: DealScore | null, result: ScoreListingResult, strategy: StrategyId): HTMLElement {
@@ -434,8 +465,113 @@ function costsCard(view: PanelView): HTMLElement | null {
   return box;
 }
 
+const CONF_PILL: Record<string, string> = { high: 'st-green', medium: 'st-amber', low: 'st-unknown' };
+
+/**
+ * Floor-plan section (E9) — collapsed by default; expanding runs offline OCR.
+ * Loads AFTER the verdict, shows progress, then honestly-graded rooms (editable),
+ * a "sum of rooms we could read" total (never GIA), a cross-check, HMO room-fit,
+ * and buttons to accept the area or open the measure tool.
+ */
+function floorPlanCard(view: PanelView, h: PanelHandlers): HTMLElement | null {
+  const fp = view.floorplan;
+  if (!fp || !fp.available) return null;
+  const box = e('details', 'floorplan-card') as HTMLDetailsElement;
+  if (fp.open) box.open = true;
+  box.addEventListener('toggle', () => { if (box.open && fp.status === 'idle' && h.onFloorPlanOpen) h.onFloorPlanOpen(); });
+
+  const sum = e('summary', 'fp-summary');
+  sum.append(e('span', 'fp-title', 'Floor plan'));
+  const state = fp.status === 'done' && fp.read ? fp.read.totalLabel : fp.status === 'running' ? 'reading…' : fp.status === 'failed' ? 'couldn’t read — tap' : 'tap to read dimensions';
+  sum.append(e('span', 'fp-state', state));
+  box.append(sum);
+
+  const body = e('div', 'fp-body');
+  if (fp.status === 'running') {
+    const p = e('p', 'fp-progress', `Reading the floor plan… ${fp.progress?.pct ?? 0}%`);
+    p.setAttribute('role', 'status');
+    body.append(p);
+  } else if (fp.status === 'failed') {
+    body.append(e('p', 'read-fail', fp.error ?? 'We couldn’t read this floor plan.'));
+    const retry = e('button', 'settings-link', 'Try again') as HTMLButtonElement;
+    retry.type = 'button';
+    if (h.onFloorPlanRetry) retry.addEventListener('click', () => h.onFloorPlanRetry!());
+    body.append(retry, manualAreaRow(view, h));
+  } else if (fp.status === 'done' && fp.read) {
+    body.append(roomsTable(fp.read, h));
+    // total (sum of readable rooms) + cross-check against a known floor area
+    const total = e('p', 'fp-total');
+    total.append(e('span', 'fp-total-label', fp.read.totalLabel));
+    total.append(e('span', 'fp-total-val', `${fp.read.sumSqm} m² · ${fp.read.sumSqft} ft²`));
+    body.append(total);
+    body.append(e('p', 'fp-note', 'A floor for the true size — corridors, stairs and any rooms we couldn’t read are excluded, so the real area is larger.'));
+    const known = view.floorAreaSource === 'listing' || view.floorAreaSource === 'epc-sector' ? view.floorAreaSqm : null;
+    const cc = crossCheckArea(fp.read.sumSqm, known);
+    if (cc.status === 'reads-higher') body.append(e('p', 'fp-note cleared-note', `This reads higher than the ${view.floorAreaSqm} m² floor area — likely an OCR misread; check the rooms.`));
+    else if (cc.status === 'reads-much-lower') body.append(e('p', 'fp-note', `We only read part of the plan (the floor area is ~${view.floorAreaSqm} m²).`));
+    else if (cc.status === 'consistent') body.append(e('p', 'fp-note', `Consistent with the ${view.floorAreaSqm} m² floor area (rooms are a subset).`));
+    // HMO room-fit summary
+    body.append(roomFitBlock(fp.read));
+    // feed out
+    const use = e('button', 'send-btn', `Use ${fp.read.sumSqm} m² as floor area (from the floor plan)`) as HTMLButtonElement;
+    use.type = 'button';
+    if (h.onAcceptFloorArea) use.addEventListener('click', () => h.onAcceptFloorArea!(fp.read!.sumSqm));
+    body.append(use);
+    const measure = e('button', 'settings-link', 'Measure on the plan →') as HTMLButtonElement;
+    measure.type = 'button';
+    if (h.onOpenMeasure) measure.addEventListener('click', () => h.onOpenMeasure!());
+    body.append(measure);
+    body.append(e('p', 'fp-foot', 'Read locally from the plan image — never uploaded. Tap any value to correct it.'));
+  } else {
+    body.append(e('p', 'fp-foot', 'We can read the room dimensions off the floor-plan image, on your device. Tap to start.'));
+  }
+  box.append(body);
+  return box;
+}
+
+function roomsTable(read: FloorPlanRead, h: PanelHandlers): HTMLElement {
+  const ul = e('ul', 'fp-rooms');
+  read.rooms.forEach((r, i) => {
+    const li = e('li', 'fp-room');
+    li.append(e('span', 'fp-room-name', r.name ?? `Room ${i + 1}`));
+    li.append(e('span', 'fp-room-dim', `${r.raw}${r.edited ? ' (yours)' : ''}`));
+    li.append(e('span', 'fp-room-area', `${r.areaSqm} m²`));
+    const conf = e('span', `fp-room-conf ${CONF_PILL[r.confidence]}`, r.edited ? 'yours' : r.confidence);
+    li.append(conf);
+    // one-tap edit: prompt for corrected metres (pointer + keyboard accessible)
+    const edit = e('button', 'fp-room-edit', '✎') as HTMLButtonElement;
+    edit.type = 'button';
+    edit.setAttribute('aria-label', `Correct ${r.name ?? 'this room'}`);
+    if (h.onRoomEdit) edit.addEventListener('click', () => {
+      const w = Number(prompt('Width in metres', String(r.widthM)) ?? '');
+      const l = Number(prompt('Length in metres', String(r.lengthM)) ?? '');
+      if (w > 0 && l > 0) h.onRoomEdit!(i, w, l);
+    });
+    li.append(edit);
+    ul.append(li);
+  });
+  return ul;
+}
+
+function roomFitBlock(read: FloorPlanRead): HTMLElement {
+  const box = e('div', 'fp-fit');
+  const s = roomFitSummary(read.rooms);
+  box.append(e('h3', 'fp-fit-head', 'HMO room-fit (England minimums)'));
+  box.append(e('p', 'fp-fit-count', `${s.lettableAdultRooms} of ${s.total} read rooms meet the 6.51 m² single-adult minimum.`));
+  box.append(e('p', 'fp-fit-caveat', 'An indication from the plan, not a survey — floor under 1.5 m ceiling height is excluded (we can’t see heights), and councils (especially London boroughs) often require more.'));
+  return box;
+}
+
+function manualAreaRow(view: PanelView, h: PanelHandlers): HTMLElement {
+  const row = e('div', 'input-row');
+  const lab = e('label', 'input-label', 'Floor area (m²)');
+  lab.setAttribute('for', 'gb-area');
+  row.append(lab, numberField('gb-area', view.manualAreaInput, 'type the area', h.onArea));
+  return row;
+}
+
 function areaSourceLabel(source: PanelView['floorAreaSource']): string {
-  return source === 'listing' ? 'from the listing' : source === 'epc-sector' ? 'from our EPC data' : source === 'manual' ? 'you typed it' : 'unknown';
+  return source === 'listing' ? 'from the listing' : source === 'epc-sector' ? 'from our EPC data' : source === 'floorplan' ? 'from the floor plan' : source === 'manual' ? 'you typed it' : 'unknown';
 }
 
 /**
@@ -447,7 +583,7 @@ function floorAreaBlock(view: PanelView, h: PanelHandlers, prompt: boolean): HTM
   const wrap = e('div', 'floor-area-block');
   if (view.floorAreaRange) {
     wrap.append(e('p', 'floor-area', `Floor area: ${view.floorAreaRange.minSqm}–${view.floorAreaRange.maxSqm} m² (a range on the listing; using the ${view.floorAreaSqm} m² midpoint)`));
-  } else if (view.floorAreaSqm && (view.floorAreaSource === 'listing' || view.floorAreaSource === 'epc-sector')) {
+  } else if (view.floorAreaSqm && (view.floorAreaSource === 'listing' || view.floorAreaSource === 'epc-sector' || view.floorAreaSource === 'floorplan')) {
     wrap.append(e('p', 'floor-area', `Floor area: ${view.floorAreaSqm} m² (${areaSourceLabel(view.floorAreaSource)})`));
   } else {
     const row = e('div', 'input-row');
@@ -573,6 +709,10 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   const signals = sellerSignalsCard(view, h);
   if (signals) card.append(signals);
 
+  // 8b) Floor plan — offline OCR, loads AFTER the verdict (E9).
+  const floorplan = floorPlanCard(view, h);
+  if (floorplan) card.append(floorplan);
+
   // 9) "Using your settings ⚙" + Send
   const settingsLink = e('button', 'settings-link', 'More in settings ⚙') as HTMLButtonElement;
   settingsLink.type = 'button';
@@ -661,13 +801,127 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
   app.append(card);
 }
 
+// Measure-overlay transient state (kept across the measure screen's own redraws,
+// which only happen on explicit actions — the screen doesn't churn per keystroke).
+let measureMPerPx: number | null = null;
+let measureMode: 'scale' | 'measure' | 'rect' = 'scale';
+
+/**
+ * Measure / reconfigure screen (E9) — client-side canvas only, no AI. Drag along
+ * a known dimension to set the scale (pre-filled from a high-confidence OCR'd
+ * dimension), then measure a wall or drag a rectangle to test "would a bedroom
+ * fit?", flagged against the HMO minimum. Drawing is POINTER-only; a keyboard
+ * alternative (type W × L) sits beside it.
+ */
+export function renderMeasure(view: PanelView, h: PanelHandlers = {}): void {
+  const app = root();
+  const card = e('section', 'glass card');
+  const back = e('button', 'settings-link', '← Back to the listing') as HTMLButtonElement;
+  back.type = 'button';
+  if (h.onCloseSettings) back.addEventListener('click', () => h.onCloseSettings!());
+  card.append(back);
+  card.append(e('h2', 'settings-title', 'Measure on the floor plan'));
+
+  const suggestedMetres = view.floorplan?.read?.rooms.find((r) => r.confidence === 'high')?.widthM ?? null;
+  const readout = e('p', 'measure-readout', measureMPerPx ? 'Scale set. Drag to measure, or drag a rectangle to test a room.' : 'First drag along a wall you know the length of, then enter its length.');
+  readout.setAttribute('role', 'status');
+
+  const tools = e('div', 'measure-tools');
+  tools.setAttribute('role', 'group');
+  for (const m of [['scale', 'Set scale'], ['measure', 'Measure'], ['rect', 'Fit a room']] as const) {
+    const b = e('button', `strat-btn${measureMode === m[0] ? ' active' : ''}`, m[1]) as HTMLButtonElement;
+    b.type = 'button';
+    b.addEventListener('click', () => { measureMode = m[0]; renderMeasure(view, h); });
+    tools.append(b);
+  }
+  card.append(tools, readout);
+
+  const canvas = e('canvas', 'measure-canvas') as HTMLCanvasElement;
+  canvas.width = 360;
+  canvas.height = 300;
+  card.append(canvas);
+  wireMeasureCanvas(canvas, view, readout, suggestedMetres, h);
+
+  // Keyboard-accessible alternative: type width × length to test a room.
+  card.append(e('h3', 'fp-fit-head', 'Or type a room to test (keyboard)'));
+  const row = e('div', 'levers-grid');
+  const wIn = e('input', 'input-field lever-field') as HTMLInputElement; wIn.type = 'number'; wIn.step = '0.1'; wIn.placeholder = 'width m'; wIn.id = 'gb-measure-w'; wIn.setAttribute('aria-label', 'Room width in metres');
+  const lIn = e('input', 'input-field lever-field') as HTMLInputElement; lIn.type = 'number'; lIn.step = '0.1'; lIn.placeholder = 'length m'; lIn.id = 'gb-measure-l'; lIn.setAttribute('aria-label', 'Room length in metres');
+  row.append(wIn, lIn);
+  card.append(row);
+  const out = e('p', 'measure-readout', '');
+  const test = e('button', 'settings-link', 'Check this room') as HTMLButtonElement;
+  test.type = 'button';
+  test.addEventListener('click', () => {
+    const w = Number(wIn.value), l = Number(lIn.value);
+    if (!(w > 0) || !(l > 0)) { out.textContent = 'Enter a width and length in metres.'; return; }
+    const area = Math.round(w * l * 100) / 100;
+    const fit = roomFit(area);
+    out.textContent = `${area} m² — ${fit.meetsOneAdult ? 'meets' : 'below'} the 6.51 m² single-adult HMO minimum.`;
+  });
+  card.append(test, out);
+  card.append(e('p', 'fp-foot', 'Client-side only — the plan image never leaves your device. Canvas dragging is pointer-only; the width × length boxes above are the keyboard route.'));
+  app.append(card);
+}
+
+function wireMeasureCanvas(canvas: HTMLCanvasElement, view: PanelView, readout: HTMLElement, suggestedMetres: number | null, h: PanelHandlers): void {
+  const ctx2d = canvas.getContext('2d');
+  if (!ctx2d) return;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  let ready = false;
+  const drawBase = (): void => { ctx2d.clearRect(0, 0, canvas.width, canvas.height); if (ready) ctx2d.drawImage(img, 0, 0, canvas.width, canvas.height); };
+  img.onload = () => { ready = true; drawBase(); };
+  img.onerror = () => { readout.textContent = 'Couldn’t load the plan image to measure.'; };
+  if (view.floorplan?.imageUrl) img.src = view.floorplan.imageUrl;
+
+  let start: { x: number; y: number } | null = null;
+  let useBtn: HTMLButtonElement | null = null;
+  const pt = (ev: PointerEvent): { x: number; y: number } => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
+  canvas.addEventListener('pointerdown', (ev) => { start = pt(ev); canvas.setPointerCapture(ev.pointerId); });
+  canvas.addEventListener('pointermove', (ev) => {
+    if (!start) return;
+    const p = pt(ev);
+    drawBase();
+    ctx2d.strokeStyle = '#dcff00';
+    ctx2d.lineWidth = 2;
+    if (measureMode === 'rect') { ctx2d.strokeRect(start.x, start.y, p.x - start.x, p.y - start.y); }
+    else { ctx2d.beginPath(); ctx2d.moveTo(start.x, start.y); ctx2d.lineTo(p.x, p.y); ctx2d.stroke(); }
+  });
+  canvas.addEventListener('pointerup', (ev) => {
+    if (!start) return;
+    const p = pt(ev);
+    const dx = p.x - start.x, dy = p.y - start.y;
+    if (measureMode === 'scale') {
+      const dragPx = Math.hypot(dx, dy);
+      const known = Number(prompt('Length of that line in metres', suggestedMetres ? String(suggestedMetres) : '') ?? '');
+      const mpp = metresPerPixel(dragPx, known);
+      if (mpp) { measureMPerPx = mpp; readout.textContent = `Scale set: 1px = ${mpp.toFixed(3)} m. Now Measure or Fit a room.`; }
+      else readout.textContent = 'Enter the real length in metres to set the scale.';
+    } else if (!measureMPerPx) {
+      readout.textContent = 'Set the scale first (drag along a known wall).';
+    } else if (measureMode === 'measure') {
+      readout.textContent = `${measureMetres(Math.hypot(dx, dy), measureMPerPx)} m`;
+    } else {
+      const rect = rectArea(dx, dy, measureMPerPx);
+      readout.textContent = `${rect.widthM} × ${rect.lengthM} m = ${rect.areaSqm} m² — ${rect.fit.meetsOneAdult ? 'a bedroom fits (meets 6.51 m²)' : 'below the 6.51 m² single-adult minimum'}.`;
+      useBtn?.remove();
+      useBtn = e('button', 'send-btn', `Use ${rect.areaSqm} m² as floor area`) as HTMLButtonElement;
+      useBtn.type = 'button';
+      if (h.onAcceptFloorArea) useBtn.addEventListener('click', () => h.onAcceptFloorArea!(rect.areaSqm));
+      readout.after(useBtn);
+    }
+    start = null;
+  });
+}
+
 // ---------------- interactive controller ----------------
 
 interface Ctx {
   url: string;
   listing: NormalisedListing | null;
   failure: string | null;
-  screen: 'triage' | 'settings';
+  screen: 'triage' | 'settings' | 'measure';
   strategy: StrategyId;
   rent: string;
   listingUnknowns: Record<string, string>;
@@ -687,6 +941,8 @@ interface Ctx {
   sectorLoad: SectorLoad;
   /** The last front-lever change, shown briefly as a plain effect line (E8.1). */
   lastChange: { text: string; token: number } | null;
+  /** Floor-plan OCR state (E9). */
+  floorplan: FloorPlanState;
 }
 
 /** Change-signal token so a stale timer never clears a newer message. */
@@ -700,6 +956,8 @@ function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['fl
   if (l.floorAreaSqm.status === 'found' && l.floorAreaSqm.value) return { sqm: l.floorAreaSqm.value, source: 'listing', range };
   const epc = floorAreaFromSector(ctx.sector, l.address.value);
   if (epc) return { sqm: epc, source: 'epc-sector', range: null };
+  // A floor-plan total the user ACCEPTED becomes the floor area (E9).
+  if (ctx.floorplan.acceptedSqm && ctx.floorplan.acceptedSqm > 0) return { sqm: Math.round(ctx.floorplan.acceptedSqm), source: 'floorplan', range: null };
   if (ctx.manualArea && Number(ctx.manualArea) > 0) return { sqm: Math.round(Number(ctx.manualArea)), source: 'manual', range: null };
   return { sqm: null, source: 'none', range: null };
 }
@@ -726,13 +984,25 @@ const SANITY_OPTS = {
   sanityCashMaxFactor: FALLBACK_CONFIG.thresholds.sanityCashMaxFactor,
 };
 
+/**
+ * HMO room-size failures from a FLOOR PLAN — only when we can identify named
+ * bedrooms at good confidence; otherwise null so the component stays "check in
+ * the analyser" (E9). Counts named bedrooms below the 6.51 m² single-adult min.
+ */
+function hmoRoomSizeFailures(read: FloorPlanRead): number | null {
+  const beds = read.rooms.filter((r) => /bed(room)?|master/i.test(r.name ?? ''));
+  if (beds.length === 0 || beds.some((b) => b.confidence !== 'high')) return null;
+  return beds.filter((b) => !roomFit(b.areaSqm).meetsOneAdult).length;
+}
+
 /** Score one strategy end-to-end (used for the current tab and the all-four check). */
 function scoreStrategy(ctx: Ctx, strategy: StrategyId, faSqm: number | null, isAuction: boolean): { result: ScoreListingResult; unknowns: Record<string, string>; suggestedKeys: Set<string>; suggestions: Record<string, { value: string | null; label: string }> } {
   const suggestions = smartDefaults(strategy, ctx.listing!, ctx.sector, faSqm, SANITY_OPTS);
   const { unknowns, suggestedKeys } = effectiveUnknowns(ctx, strategy, suggestions);
+  const roomSizeFailures = ctx.floorplan.read ? hmoRoomSizeFailures(ctx.floorplan.read) : null;
   const result = scoreListing(ctx.listing!, {
     strategy, unknowns, settings: ctx.settings, criteria: ctx.criteria,
-    sector: ctx.sector, floorAreaSqm: faSqm, sectorLoad: ctx.sectorLoad, isAuction, ...SANITY_OPTS,
+    sector: ctx.sector, floorAreaSqm: faSqm, sectorLoad: ctx.sectorLoad, isAuction, roomSizeFailures, ...SANITY_OPTS,
   });
   return { result, unknowns, suggestedKeys, suggestions };
 }
@@ -764,7 +1034,7 @@ function draw(ctx: Ctx): void {
     settings: ctx.settings, criteria: ctx.criteria, floorAreaSqm: fa.sqm, floorAreaSource: fa.source, floorAreaRange: fa.range,
     manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal,
     rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, isAuction,
-    lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject,
+    floorplan: ctx.floorplan, lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject,
   };
   const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null; cashflowAfter: number | null; profit: number | null; moneyLeftIn: number | null } => {
     const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number }; cashflowAfterTax?: { value: number }; profitAfterTax?: { value: number }; moneyLeftIn?: number } | undefined;
@@ -838,6 +1108,17 @@ function draw(ctx: Ctx): void {
     onOpenSettings: () => { ctx.screen = 'settings'; draw(ctx); },
     onCloseSettings: () => { ctx.screen = 'triage'; draw(ctx); },
     onToggleSignals: (open) => { ctx.signalsOpen = open; },
+    onFloorPlanOpen: () => { ctx.floorplan.open = true; void startFloorPlanOcr(ctx); },
+    onFloorPlanRetry: () => { ctx.floorplan.status = 'idle'; void startFloorPlanOcr(ctx); },
+    onRoomEdit: (index, widthM, lengthM) => {
+      const read = ctx.floorplan.read;
+      if (!read || !read.rooms[index]) return;
+      const rooms = read.rooms.map((r, i) => (i === index ? editRoom(r, widthM, lengthM) : r));
+      ctx.floorplan.read = summarise(rooms);
+      redraw(ctx);
+    },
+    onAcceptFloorArea: (sqm) => { ctx.floorplan.acceptedSqm = sqm; redraw(ctx); },
+    onOpenMeasure: () => { ctx.screen = 'measure'; draw(ctx); },
     onSend: () => {
       const url = buildAnalyserUrl(WEB_BASE, ctx.listing!, {
         strategy: ctx.strategy, floorAreaSqm: fa.sqm,
@@ -847,7 +1128,33 @@ function draw(ctx: Ctx): void {
     },
   };
   if (ctx.screen === 'settings') renderSettings(view, handlers);
+  else if (ctx.screen === 'measure') renderMeasure(view, handlers);
   else renderTriage(view, handlers);
+}
+
+/**
+ * Run the offline OCR (E9). Kept OFF the first render (the verdict shows first);
+ * this starts only when the user expands the floor-plan section. Progress drives
+ * redraws; any failure falls back to an honest message + manual entry.
+ */
+async function startFloorPlanOcr(ctx: Ctx): Promise<void> {
+  if (ctx.floorplan.status === 'running' || ctx.floorplan.status === 'done') return;
+  const url = ctx.floorplan.imageUrl;
+  if (!url) { ctx.floorplan.status = 'failed'; ctx.floorplan.error = 'No floor-plan image on this listing.'; redraw(ctx); return; }
+  ctx.floorplan.status = 'running';
+  ctx.floorplan.progress = { stage: 'loading-image', pct: 0 };
+  redraw(ctx);
+  try {
+    const read = await ocrFloorPlan(url, (p) => { if (activeCtx === ctx) { ctx.floorplan.progress = p; redraw(ctx); } });
+    if (activeCtx !== ctx) return; // user navigated away
+    ctx.floorplan.read = read;
+    ctx.floorplan.status = 'done';
+  } catch (err) {
+    if (activeCtx !== ctx) return;
+    ctx.floorplan.status = 'failed';
+    ctx.floorplan.error = err instanceof OcrError ? err.message : 'We couldn’t read this floor plan — type the area instead.';
+  }
+  redraw(ctx);
 }
 
 function redraw(ctx: Ctx): void {
@@ -881,8 +1188,11 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
     sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
     sectorLoad: 'ok', lastChange: null,
+    floorplan: { available: false, status: 'idle', open: false, acceptedSqm: null },
   };
   activeCtx = ctx; // a stale change-signal timer must never redraw a since-navigated listing
+  measureMPerPx = null; // fresh scale per listing
+  measureMode = 'scale'; // start on the mandatory first tool
   let result: ExtractResult;
   try {
     result = (await chrome.tabs.sendMessage(tabId, { type: EXTRACT_MESSAGE })) as ExtractResult;
@@ -892,6 +1202,10 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   }
   if (!result.ok) { ctx.failure = result.message; return draw(ctx); }
   ctx.listing = result.listing;
+  // Floor-plan availability from the listing (OCR runs only when expanded — E9).
+  const fpUrl = ctx.listing.floorPlanImageUrls.status === 'found' ? ctx.listing.floorPlanImageUrls.value?.[0] : undefined;
+  ctx.floorplan.available = !!fpUrl;
+  ctx.floorplan.imageUrl = fpUrl ?? undefined;
   if (ctx.listing.listingId.value) ctx.listingUnknowns = await store.getUnknowns(ctx.listing.listingId.value);
   if (ctx.listing.postcode.value) {
     const pc = postcodeToSector(ctx.listing.postcode.value);
@@ -964,13 +1278,14 @@ if (runtime.chrome?.tabs?.query) init();
  */
 export function __mountForTest(
   listing: NormalisedListing,
-  opts: { sector?: SectorFile | null; strategy?: StrategyId; rent?: string; listingUnknowns?: Record<string, string>; settings?: Record<string, string>; criteria?: Criteria; sectorLoad?: SectorLoad } = {},
+  opts: { sector?: SectorFile | null; strategy?: StrategyId; rent?: string; listingUnknowns?: Record<string, string>; settings?: Record<string, string>; criteria?: Criteria; sectorLoad?: SectorLoad; floorplan?: Partial<FloorPlanState> } = {},
 ): void {
   const ctx: Ctx = {
     url: 'test', listing, failure: null, screen: 'triage', strategy: opts.strategy ?? 'btl',
     rent: opts.rent ?? '', listingUnknowns: opts.listingUnknowns ?? {}, settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
     sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, manualArea: '',
     cleared: new Set(), rentCleared: false, signalsOpen: false, sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
+    floorplan: { available: false, status: 'idle', open: false, acceptedSqm: null, ...opts.floorplan },
   };
   activeCtx = ctx;
   draw(ctx);

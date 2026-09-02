@@ -54,6 +54,18 @@ describe('company purchase forces additional-rate SDLT (item 3)', () => {
   });
 });
 
+describe('floor-plan feeds HMO room-size when confident (E9 item 3)', () => {
+  const roomStatus = (r: ReturnType<typeof scoreListing>) => r.deal!.components.find((c) => /room/i.test(c.name) && /size|legal|minimum/i.test(c.name))!.status;
+  const u = { roomRent: '600', rooms: '4' };
+  it('null failures ⇒ room-size stays "check in the analyser" (unknown)', () => {
+    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null }))).toBe('unknown');
+  });
+  it('0 failures from the plan ⇒ green; some failures ⇒ red', () => {
+    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 0 }))).toBe('green');
+    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 2 }))).toBe('red');
+  });
+});
+
 describe('sector-load reason is distinguished (item 2)', () => {
   it('not-found vs load-failed produce different statuses', () => {
     const notFound = scoreListing(listing(150000), { strategy: 'btl', unknowns: { rent: '900' }, sector: null, sectorLoad: 'not-found' });

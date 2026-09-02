@@ -41,6 +41,9 @@ export interface ScoreListingOptions {
   /** Whether this listing is an auction (structured flag OR wording) — one source
    * of truth for the auction card and the auction-fees costs line (E8.1). */
   isAuction?: boolean;
+  /** HMO room-size failures read from the FLOOR PLAN when confidence is high
+   * enough (E9). null keeps the room-size component as "check in the analyser". */
+  roomSizeFailures?: number | null;
 }
 
 /** One line in the "what you need to put in" costs card (E8.1). */
@@ -211,7 +214,7 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
       depositPct: num('deposit'), ratePct: num('rate'), opCostPct: selfManaged ? num('opCostPctSelf') : num('opCostPctAgent'),
       licenceFee: num('licenceFee'), licenceYears: 5, compliancePerYear: num('compliancePerYear'), legals: num('legals'),
       stressRatePct: num('stressRate'), taxBasis: sel('taxBasis', 'additional') as HmoInputs['taxBasis'],
-      roomSizeFailures: null, // rooms can't be checked from a sale listing (E7)
+      roomSizeFailures: opts.roomSizeFailures ?? null, // from the floor plan when confident (E9), else "check in analyser"
       thresholds,
     };
   }
