@@ -1,0 +1,83 @@
+/* Gil & Bricks side-panel brand styling. Self-hosted fonts (no CDN). Narrow
+   single-column layout (~360-400px), verdict first. Lime is only ever an accent
+   or a fill under near-black text — never a background under white text. */
+
+@font-face { font-family: 'Montserrat'; font-weight: 600; font-display: swap; src: url('/fonts/montserrat-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Montserrat'; font-weight: 700; font-display: swap; src: url('/fonts/montserrat-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Montserrat'; font-weight: 800; font-display: swap; src: url('/fonts/montserrat-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-weight: 400; font-display: swap; src: url('/fonts/poppins-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-weight: 500; font-display: swap; src: url('/fonts/poppins-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Poppins'; font-weight: 600; font-display: swap; src: url('/fonts/poppins-latin-600-normal.woff2') format('woff2'); }
+
+:root {
+  --accent: #dcff00;
+  --text: #ffffff;
+  --text-dim: rgba(255, 255, 255, 0.7);
+  --font-display: 'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-body: 'Poppins', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --green: #7ddf6a;
+  --amber: #ffc861;
+  --red: #ff9d9d;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  min-height: 100vh;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.45;
+  background: linear-gradient(180deg, #070014 0%, #1d022f 45%, #230138 75%, #050008 100%);
+  background-attachment: fixed;
+}
+.panel { padding: 14px; max-width: 420px; margin: 0 auto; }
+
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--accent);
+  border-radius: 16px;
+}
+@supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+  .glass { background: #140322; }
+}
+@media (prefers-reduced-transparency: reduce) { .glass { background: #140322; backdrop-filter: none; -webkit-backdrop-filter: none; } }
+@media (hover: none) { .glass { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); } }
+
+.card { padding: 16px; }
+.eyebrow { margin: 0 0 10px; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.75rem; color: var(--accent); }
+
+/* Verdict chip */
+.deal-score {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--accent);
+  background: rgba(220, 255, 0, 0.06);
+}
+.ds-score { display: inline-flex; align-items: baseline; gap: 2px; }
+.ds-score strong { font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: var(--accent); line-height: 1; }
+.ds-outof { color: var(--text-dim); font-size: 0.9rem; }
+.ds-light { font-size: 1.25rem; line-height: 1; }
+.ds-verdict { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.9rem; }
+.ds-headline { flex: 1 1 100%; color: var(--text); font-size: 1rem; font-weight: 600; }
+.deal-score.ds-good .ds-light { color: var(--green); }
+.deal-score.ds-marginal .ds-light { color: var(--amber); }
+.deal-score.ds-walk .ds-light { color: var(--red); }
+
+.binding-note { margin: 12px 0 0; color: var(--text); font-size: 0.9rem; }
+.binding-label { font-weight: 700; }
+
+.components { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; }
+.component { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.85rem; }
+.c-name { color: var(--text-dim); }
+.c-points { color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
+.c-status { justify-self: start; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
+.st-green { color: var(--green); }
+.st-amber { color: var(--amber); }
+.st-red { color: var(--red); }
+.st-unknown { color: var(--text-dim); }
+
+.sample-note { margin: 14px 0 0; color: var(--text-dim); font-size: 0.78rem; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 10px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

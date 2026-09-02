@@ -34,3 +34,7 @@ packages/web/public/map/vendor/
 packages/*/dist/
 **/.data/
 **/node_modules/
+
+# Extension (WXT) build output + generated types
+packages/extension/.output/
+packages/extension/.wxt/
