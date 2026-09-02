@@ -64,6 +64,7 @@
   },
   "thresholds": {
     "remoteTimeoutMs": 2500,
-    "minSectorSales": 5
+    "minSectorSales": 5,
+    "evidenceOutsideFactor": 2
   }
 }

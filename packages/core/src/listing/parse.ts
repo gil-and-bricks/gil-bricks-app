@@ -43,17 +43,46 @@ export function parseListingUpdate(v: unknown): ListingUpdate | null {
   return { reason: m[1].toLowerCase(), date };
 }
 
-/** Rightmove sizings array → sqm (prefers a sqft/sqm entry), or null. */
-export function rightmoveSizingsToSqm(sizings: unknown): number | null {
+export interface RightmoveFloorArea {
+  /** Midpoint in sqm (the stated convention when it's a range). */
+  midSqm: number;
+  minSqm: number;
+  maxSqm: number;
+  isRange: boolean;
+}
+
+/**
+ * Rightmove sizings → floor area in sqm. Rightmove can publish a RANGE
+ * (e.g. "4,216-4,910 sq ft / 392-456 sq m"); we parse both ends and NEVER
+ * present the top as fact. Prefers a sqm entry, else converts sqft. Returns the
+ * midpoint as the working value plus the full range. Null when no size given.
+ */
+export function rightmoveFloorArea(sizings: unknown): RightmoveFloorArea | null {
   if (!Array.isArray(sizings)) return null;
+  let lo: number | null = null;
+  let hi: number | null = null;
   for (const s of sizings) {
     const unit = String((s as any)?.unit ?? '').toLowerCase();
-    const val = Number((s as any)?.maximumSize ?? (s as any)?.minimumSize ?? 0);
-    if (!Number.isFinite(val) || val <= 0) continue;
-    if (unit.includes('sqm') || unit === 'm' || unit.includes('metre')) return Math.round(val);
-    if (unit.includes('sqft') || unit.includes('ft')) return sqftToSqm(val);
+    const toSqm =
+      unit.includes('sqm') || unit === 'm' || unit.includes('metre')
+        ? (x: number) => Math.round(x)
+        : unit.includes('sqft') || unit.includes('ft')
+          ? (x: number) => sqftToSqm(x)
+          : null;
+    if (!toSqm) continue;
+    const mn = Number((s as any)?.minimumSize);
+    const mx = Number((s as any)?.maximumSize);
+    const a = Number.isFinite(mn) && mn > 0 ? toSqm(mn) : null;
+    const b = Number.isFinite(mx) && mx > 0 ? toSqm(mx) : null;
+    if (a == null && b == null) continue;
+    lo = a ?? b;
+    hi = b ?? a;
+    if (unit.includes('sqm')) break; // a sqm entry is authoritative
   }
-  return null;
+  if (lo == null || hi == null) return null;
+  const min = Math.min(lo, hi);
+  const max = Math.max(lo, hi);
+  return { midSqm: Math.round((min + max) / 2), minSqm: min, maxSqm: max, isRange: min !== max };
 }
 
 /**

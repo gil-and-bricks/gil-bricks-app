@@ -6,7 +6,7 @@
 import type { ExtractorConfig } from './config';
 import { getMeta, getRightmovePageModel, scriptTexts } from './dom';
 import { getPath } from './path';
-import { parseListingUpdate, parseMoney, parseRightmoveOgTitle, rightmoveIdFromUrl, rightmoveSizingsToSqm } from './parse';
+import { parseListingUpdate, parseMoney, parseRightmoveOgTitle, rightmoveFloorArea, rightmoveIdFromUrl } from './parse';
 import {
   fieldOf,
   found,
@@ -38,6 +38,7 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
 
   const floorplans = getPath(pd, p.floorplans) as Array<{ url?: string }> | undefined;
   const fpUrls = Array.isArray(floorplans) ? floorplans.map((f) => f?.url).filter((u): u is string => !!u) : [];
+  const fa = rightmoveFloorArea(getPath(pd, p.sizings));
 
   const update = parseListingUpdate(getPath(pd, p.listingUpdateReason));
   const channelRaw = getPath(pd, p.channel);
@@ -62,7 +63,8 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
     tenure: fieldOf(getPath(pd, p.tenure) as string | undefined),
     bedrooms: fieldOf(typeof getPath(pd, p.bedrooms) === 'number' ? (getPath(pd, p.bedrooms) as number) : null),
     bathrooms: fieldOf(typeof getPath(pd, p.bathrooms) === 'number' ? (getPath(pd, p.bathrooms) as number) : null),
-    floorAreaSqm: fieldOf(rightmoveSizingsToSqm(getPath(pd, p.sizings))),
+    floorAreaSqm: fieldOf(fa?.midSqm ?? null),
+    floorAreaSqmRange: fa?.isRange ? found({ minSqm: fa.minSqm, maxSqm: fa.maxSqm }) : missing<{ minSqm: number; maxSqm: number }>(),
     floorPlanImageUrls: fieldOf(fpUrls),
     newBuild: newBuildSignal ? found(isNew) : missing<boolean>(),
     listingUpdate: fieldOf(update),
@@ -104,6 +106,7 @@ function fromFallback(doc: Document, config: ExtractorConfig, url?: string): Nor
     bedrooms: fieldOf(parsed.bedrooms),
     bathrooms: missing<number>(),
     floorAreaSqm: missing<number>(),
+    floorAreaSqmRange: missing<{ minSqm: number; maxSqm: number }>(),
     floorPlanImageUrls: missing<string[]>(),
     newBuild: missing<boolean>(),
     listingUpdate: missing(),

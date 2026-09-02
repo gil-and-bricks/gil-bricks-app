@@ -50,6 +50,10 @@
     "value": null,
     "status": "missing"
   },
+  "floorAreaSqmRange": {
+    "value": null,
+    "status": "missing"
+  },
   "floorPlanImageUrls": {
     "value": [
       "https://media.rightmove.co.uk/property-floorplan/8e99f7bee/167112923/8e99f7beec773432abe81c6ebc989845.jpeg"

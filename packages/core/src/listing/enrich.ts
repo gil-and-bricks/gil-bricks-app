@@ -26,7 +26,7 @@ export function floorAreaFromSector(sector: SectorFile | null | undefined, addre
   return null;
 }
 
-export type PriceVsSoldStatus = 'green' | 'amber' | 'red' | 'not-enough-sales' | 'no-data';
+export type PriceVsSoldStatus = 'green' | 'amber' | 'red' | 'not-enough-sales' | 'no-data' | 'outside-evidence';
 
 export interface PriceVsSold {
   status: PriceVsSoldStatus;
@@ -51,16 +51,21 @@ export function priceVsSector(
   sector: SectorFile | null | undefined,
   minSales: number,
   floorAreaSqm?: number | null,
+  outsideFactor = 2,
 ): PriceVsSold {
   if (!sector) return { status: 'no-data' };
   const { count, typicalPrice, p90Price, typicalPpsqm } = sector.stats;
   const subjectPpsqm = value && floorAreaSqm && floorAreaSqm > 0 ? Math.round(value / floorAreaSqm) : null;
-  if (count < minSales) {
-    return { status: 'not-enough-sales', salesCount: count, typicalPrice, p90Price, typicalPpsqm, subjectPpsqm };
+  const base = { salesCount: count, typicalPrice, p90Price, typicalPpsqm, subjectPpsqm };
+  if (count < minSales) return { status: 'not-enough-sales', ...base };
+  // Far above the local evidence (e.g. a £1.5m house in a £469k-ceiling sector):
+  // the comparison isn't meaningful, so say so and DON'T score it as a fail.
+  if (typeof value === 'number' && value > 0 && value > p90Price * outsideFactor) {
+    return { status: 'outside-evidence', ...base };
   }
   let status: PriceVsSoldStatus = 'no-data';
   if (typeof value === 'number' && value > 0) {
     status = value <= typicalPrice ? 'green' : value <= p90Price ? 'amber' : 'red';
   }
-  return { status, salesCount: count, typicalPrice, p90Price, typicalPpsqm, subjectPpsqm };
+  return { status, ...base };
 }

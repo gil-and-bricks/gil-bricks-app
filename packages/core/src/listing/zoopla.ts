@@ -109,6 +109,7 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
     bedrooms: fieldOf(typeof counts?.numBedrooms === 'number' ? counts.numBedrooms : null),
     bathrooms: fieldOf(typeof counts?.numBathrooms === 'number' ? counts.numBathrooms : null),
     floorAreaSqm: fieldOf(floorArea && typeof floorArea.value === 'number' ? sqftToSqm(floorArea.value) : null),
+    floorAreaSqmRange: missing<{ minSqm: number; maxSqm: number }>(),
     // Zoopla gives floor-plan image FILENAMES (not absolute URLs) in the flight.
     floorPlanImageUrls: fieldOf(fpFilenames),
     newBuild: typeof listingCondition === 'string' ? found(listingCondition === 'new') : missing<boolean>(),
@@ -154,6 +155,7 @@ function fromFallback(doc: Document, config: ExtractorConfig, url?: string): Nor
     bedrooms: fieldOf(Number.isFinite(beds) ? beds : null),
     bathrooms: fieldOf(Number.isFinite(baths) ? baths : null),
     floorAreaSqm: missing<number>(),
+    floorAreaSqmRange: missing<{ minSqm: number; maxSqm: number }>(),
     floorPlanImageUrls: missing<string[]>(),
     newBuild: missing<boolean>(),
     listingUpdate: missing(),

@@ -52,6 +52,20 @@ export const scoreCopy = {
     // Fallback if it ever binds with no sold data loaded (its trigger); honest.
     evidenceNoData: 'Your {value} hasn’t been checked against sold evidence — none is loaded for this area yet.',
     roomSize: '{value} — you couldn’t let every room legally, so the room income you’re counting on isn’t there.',
+    // The subject sits far outside the local sold evidence — not judged (bug E7/5b).
+    evidenceOutside: 'No nearby sales at this level — we can’t judge the price from sold evidence.',
+  },
+  /**
+   * Headline variants used when the bar being missed is one the USER set as a
+   * personal criterion (E7) — names their own number. Keyed by component.
+   */
+  customByKey: {
+    roi: 'Just {value} back on the cash you’d put in — short of the {needed} you set as your minimum.',
+    roiNegative: 'You’d lose money on this — {value} back on your cash, below the return you set as your minimum.',
+    cashflow: 'Only {value} a month after everything — under the {needed} cashflow you set as your minimum.',
+    cashflowNegative: 'You’d top up {value} a month — below the {needed} cashflow you set as your minimum.',
+    icr: 'Income stress-tests at just {value} — under the {needed} ICR you set as your minimum.',
+    profit: 'Only {value} profit before tax — under the {needed} profit you set as your minimum.',
   },
   /**
    * GOOD-deal headline — states what makes it good with THIS deal's numbers,

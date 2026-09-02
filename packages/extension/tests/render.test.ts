@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, beforeEach } from 'vitest';
-import { scoreListing, found, missing, type NormalisedListing, type SectorFile } from '@gil-bricks/core';
-import { renderEmpty, renderFailure, renderScored, type PanelView } from '../entrypoints/sidepanel/main.ts';
+import { scoreListing, smartDefaults, found, missing, unavailable, criteriaFields, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
+import { renderEmpty, renderFailure, renderTriage, renderSettings, type PanelView } from '../entrypoints/sidepanel/main.ts';
 
 const listing: NormalisedListing = {
   portal: 'rightmove', extractorVersion: 'rm-1.0.0', configVersion: 't', source: 'embedded',
@@ -9,8 +9,9 @@ const listing: NormalisedListing = {
   postcode: found('SA1 8AJ'), outcode: found('SA1'),
   address: found({ paon: '31', street: 'Kings Road', town: 'Swansea' }),
   askingPrice: found(170000), propertyType: found('Apartment'), tenure: found('LEASEHOLD'),
-  bedrooms: found(2), bathrooms: found(2), floorAreaSqm: missing(), floorPlanImageUrls: missing(),
-  newBuild: found(false), listingUpdate: missing(), firstVisibleDate: missing(), description: found('x'), isAuction: missing(),
+  bedrooms: found(2), bathrooms: found(2), floorAreaSqm: missing(), floorAreaSqmRange: missing(),
+  floorPlanImageUrls: missing(), newBuild: found(false), listingUpdate: missing(), firstVisibleDate: missing(),
+  description: found('x'), isAuction: missing(),
 };
 const sector = (over = {}): SectorFile => ({
   schemaVersion: 1, sector: 'SA1 8', country: 'W92000004', updatedAt: '2026-08-31T00:00:00Z', sales: [],
@@ -18,60 +19,80 @@ const sector = (over = {}): SectorFile => ({
 }) as SectorFile;
 
 function view(over: Partial<PanelView> = {}): PanelView {
-  const strategy = over.strategy ?? 'btl';
-  const rent = over.rent ?? '';
-  const result = over.result ?? scoreListing(listing, { strategy, rent: rent ? Number(rent) : null, sector: sector() });
-  return { listing, strategy, result, rent, assumptions: {}, floorAreaSqm: null, floorAreaSource: 'none', sectorId: 'SA1 8', ...over };
+  const strategy = (over.strategy ?? 'btl') as StrategyId;
+  const unknowns = over.unknowns ?? {};
+  const result = over.result ?? scoreListing(listing, { strategy, unknowns, sector: sector() });
+  return {
+    screen: 'triage', listing, strategy, result, unknowns,
+    suggestions: smartDefaults(strategy, listing, sector(), null),
+    settings: {}, criteria: {}, floorAreaSqm: null, floorAreaSource: 'none', floorAreaRange: null,
+    manualAreaInput: '', usingSuggested: false, ...over,
+  };
 }
 
 beforeEach(() => { document.body.innerHTML = '<main id="app"></main>'; });
 const txt = () => document.getElementById('app')!.textContent ?? '';
 
-describe('panel render states (E6)', () => {
-  it('empty state prompts to open a listing', () => {
-    renderEmpty();
-    expect(txt()).toContain('Open a Rightmove or Zoopla listing');
+describe('triage panel (E7)', () => {
+  it('empty + failure states', () => {
+    renderEmpty(); expect(txt()).toContain('Open a Rightmove or Zoopla listing');
+    document.body.innerHTML = '<main id="app"></main>';
+    renderFailure('the site may have changed'); expect(txt()).toContain('the site may have changed');
   });
 
-  it('failure state shows the honest message', () => {
-    renderFailure('We couldn’t read this Zoopla page — the site may have changed.');
-    expect(txt()).toContain('the site may have changed');
-  });
-
-  it('BTL with rent renders the property line, strategy switch, real score + Send', () => {
-    renderScored(view({ rent: '900' }));
+  it('BTL with rent: property line, switch, real score, ONE unknown, settings link + Send', () => {
+    renderTriage(view({ unknowns: { rent: '1200' } }));
     expect(txt()).toContain('Kings Road');
-    expect(txt()).toContain('£170,000');
     expect(document.querySelectorAll('.strat-btn').length).toBe(4);
-    expect(document.querySelector('.strat-btn.active')?.textContent).toBe('BTL');
     expect(document.querySelector('.deal-score .ds-score strong')).toBeTruthy();
-    // the price component is REAL (green — £170k under £180k typical), not "unknown"
-    const rows = [...document.querySelectorAll('.component')].map((r) => r.textContent ?? '');
-    expect(rows.some((r) => /sold/i.test(r) && /green/i.test(r))).toBe(true);
-    expect(document.getElementById('gb-rent')).toBeTruthy();
+    // exactly ONE triage UNKNOWN (rent) — everything else is in Settings
+    expect(document.querySelectorAll('[id^="gb-u-"]').length).toBe(1);
+    expect(document.getElementById('gb-u-rent')).toBeTruthy();
+    expect(document.querySelector('.settings-link')?.textContent).toContain('Using your settings');
     expect(document.querySelector('.send-btn')?.textContent).toContain('Send to my analyser');
   });
 
-  it('BTL without rent shows a pending chip, the REAL price read, and "needs rent"', () => {
-    renderScored(view({ rent: '' }));
-    expect(txt()).toContain('Not scored yet');
-    expect(txt()).toContain('Add the monthly rent below'); // the pending message (not just the label)
+  it.each(['flip', 'brrrr', 'hmo'] as const)('%s scores in-panel (no "needs analyser" dead end)', (strategy) => {
+    const unknowns = { rent: '1200', gdv: '260000', arv: '260000', refurbCost: '30000', rooms: '2', roomRent: '650' };
+    renderTriage(view({ strategy, unknowns }));
+    expect(document.querySelector('.deal-score .ds-score strong'), strategy).toBeTruthy();
+    expect(txt().toLowerCase()).not.toContain('needs analyser');
+  });
+
+  it('HMO room-size shows "check analyser", never a blank fail', () => {
+    renderTriage(view({ strategy: 'hmo', unknowns: { roomRent: '650', rooms: '2' } }));
     const rows = [...document.querySelectorAll('.component')].map((r) => r.textContent ?? '');
-    // the price row shows the REAL pre-rent read (£170k ≤ £180k typical), not just the name
-    expect(rows.some((r) => /sold/i.test(r) && /At or below the £180,000 typical/.test(r))).toBe(true);
-    expect(rows.some((r) => /needs rent/i.test(r))).toBe(true);
-    expect(document.querySelector('.deal-score .ds-score')).toBeNull(); // no numeric score
+    expect(rows.some((r) => /room/i.test(r) && /check analyser/i.test(r))).toBe(true);
   });
 
-  it('Flip defers honestly with a note, no numeric score', () => {
-    renderScored(view({ strategy: 'flip', rent: '900' }));
-    expect(txt().toLowerCase()).toContain('analyser');
-    expect(document.querySelector('.deal-score .ds-score')).toBeNull();
+  it('outside-evidence shows the honest "no nearby sales at this level" note', () => {
+    const big = { ...listing, askingPrice: found(1_500_000) };
+    const result = scoreListing(big, { strategy: 'btl', unknowns: { rent: '3000' }, sector: sector(), evidenceOutsideFactor: 2 });
+    renderTriage(view({ listing: big, result, unknowns: { rent: '3000' } }));
+    expect(txt()).toContain('No nearby sales at this level');
   });
 
-  it('a Scottish postcode shows the England-&-Wales message, no score', () => {
-    renderScored(view({ rent: '900', ewReject: 'Sorry — this covers England & Wales only' }));
+  it('a floor-area RANGE is shown with the midpoint convention (bug 5a)', () => {
+    const ranged = { ...listing, floorAreaSqm: found(424), floorAreaSqmRange: found({ minSqm: 392, maxSqm: 456 }) };
+    renderTriage(view({ listing: ranged, floorAreaSqm: 424, floorAreaSource: 'listing', floorAreaRange: { minSqm: 392, maxSqm: 456 }, unknowns: { rent: '1200' } }));
+    expect(txt()).toContain('392–456 m²');
+    expect(txt()).toContain('424 m² midpoint');
+  });
+
+  it('EW reject shows the message, no score', () => {
+    renderTriage(view({ unknowns: { rent: '1200' }, ewReject: 'Sorry — this covers England & Wales only' }));
     expect(txt()).toContain('England & Wales only');
     expect(document.querySelector('.deal-score')).toBeNull();
+  });
+});
+
+describe('settings screen (E7)', () => {
+  it('shows the personal-criteria fields and a back link', () => {
+    renderSettings(view({ screen: 'settings' }));
+    expect(txt()).toContain('What does a good deal look like to you?');
+    for (const f of criteriaFields()) expect(document.getElementById(`gb-c-${f.key}`), f.key).toBeTruthy();
+    expect(document.querySelector('.settings-link')?.textContent).toContain('Back to the listing');
+    // rent (a triage unknown) must NOT appear in settings
+    expect(document.getElementById('gb-s-rent')).toBeNull();
   });
 });

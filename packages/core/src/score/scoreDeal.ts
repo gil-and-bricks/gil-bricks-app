@@ -131,7 +131,10 @@ function evaluate(
       return { status: m <= max ? 'green' : m <= max + 15000 ? 'amber' : 'red', why: `${fmtMoney(m)} left in (all-money-out needs ≤ ${fmtMoney(max)}).`, currentValue: fmtMoney(m), neededValue: mp !== null ? `pay ≤ ${fmtMoney(mp)}` : null };
     }
     case 'roomSize': {
-      const fails = (a as HmoAnalysis) && (inputs as HmoInputs).roomSizeFailures;
+      const fails = (inputs as HmoInputs).roomSizeFailures;
+      // null ⇒ we couldn't verify room sizes (no dimensions on a sale listing):
+      // score it 'unknown' and say so — never guess compliance.
+      if (fails == null) return { status: 'unknown', why: 'Room sizes not checked — no dimensions on the listing.', currentValue: 'rooms not checked', neededValue: null };
       return { status: fails === 0 ? 'green' : 'red', why: fails === 0 ? 'All rooms meet the legal minimum.' : `${fails} room(s) below the legal minimum size.`, currentValue: `${fails} room${fails === 1 ? '' : 's'} below the minimum`, neededValue: null };
     }
     case 'evidence': {
@@ -259,28 +262,35 @@ function dealHeadline(
   e: ComponentEval,
   a: DealScore['analysis'],
   t: Record<string, number>,
+  customKeys: ReadonlySet<string> = new Set(),
 ): string {
   const H = scoreCopy.headlineByKey as Record<string, string>;
+  const C = scoreCopy.customByKey as Record<string, string>;
+  // When the missed bar is one the USER set as a personal criterion, name it as
+  // theirs ("… you set as your minimum.") — otherwise the generic template.
+  const custom = customKeys.has(key);
   const v = e.currentValue;
   switch (key) {
     case 'icr':
-      return H.icr.replace('{value}', v).replace('{needed}', `${(a as BtlAnalysis).icr.threshold.toFixed(2)}×`);
+      return (custom ? C.icr : H.icr).replace('{value}', v).replace('{needed}', `${(a as BtlAnalysis).icr.threshold.toFixed(2)}×`);
     case 'cashflow': {
       const cf = (a as BtlAnalysis).cashflowAfterTax.value;
-      return cf < 0 ? H.cashflowNegative.replace('{value}', fmtMoney(Math.abs(cf))) : H.cashflow.replace('{value}', v);
+      const min = fmtMoney((t as { minCashflowGreen?: number }).minCashflowGreen ?? 0);
+      if (cf < 0) return (custom ? C.cashflowNegative : H.cashflowNegative).replace('{value}', fmtMoney(Math.abs(cf))).replace('{needed}', min);
+      return (custom ? C.cashflow : H.cashflow).replace('{value}', v).replace('{needed}', min);
     }
     case 'roi': {
       const roiVal = 'greenRoi' in t ? (a as FlipAnalysis).roiAfterTax.value : (a as BtlAnalysis).roi.value;
-      if (roiVal < 0) return H.roiNegative.replace('{value}', v);
+      if (roiVal < 0) return (custom ? C.roiNegative : H.roiNegative).replace('{value}', v);
       const green = 'greenRoi' in t ? t.greenRoi : t.minRoiGreen;
-      return H.roi.replace('{value}', v).replace('{needed}', fmtPct(green));
+      return (custom ? C.roi : H.roi).replace('{value}', v).replace('{needed}', fmtPct(green));
     }
     case 'moneyLeftIn': {
       const mp = (a as BrrrrAnalysis).maxPriceAllOut;
       return mp !== null ? H.moneyLeftIn.replace('{value}', v).replace('{needed}', fmtMoney(mp)) : H.moneyLeftInNoLever.replace('{value}', v);
     }
     case 'profit':
-      return H.profit.replace('{value}', v).replace('{needed}', fmtMoney(t.greenProfit));
+      return (custom ? C.profit : H.profit).replace('{value}', v).replace('{needed}', fmtMoney(t.greenProfit));
     case 'evidence': {
       const need = e.neededValue; // "≤ £high" or null
       return need ? H.evidence.replace('{value}', v).replace('{needed}', need.replace(/^≤\s*/, '')) : H.evidenceNoData.replace('{value}', v);
@@ -296,7 +306,7 @@ function dealHeadline(
  * Score a deal end-to-end. `evidence` (from the valuation engine) is optional;
  * without it the price/end-value component scores neutral and says so.
  */
-export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: DealEvidence): DealScore {
+export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: DealEvidence, opts?: { customKeys?: ReadonlySet<string> }): DealScore {
   const config = strategyById(strategy);
   if (!config) throw new Error(`Unknown strategy: ${strategy}`);
   const analysis = runAnalysis(strategy, inputs);
@@ -345,7 +355,7 @@ export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: De
       neededValue: lever.needed ?? e.neededValue,
       plainExplanation: `${failSentence} ${cap(lever.fixSentence)}`.trim(),
     };
-    headline = dealHeadline(strategy, worst.c.key, e, analysis, t);
+    headline = dealHeadline(strategy, worst.c.key, e, analysis, t, opts?.customKeys);
   }
 
   return { score, rawScore, verdict, headline, bindingConstraint, components, analysis };

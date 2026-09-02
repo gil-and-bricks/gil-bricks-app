@@ -1,47 +1,59 @@
 /**
- * Score a read listing honestly (E6). BTL is fully scoreable from a sale
- * listing plus one number the user types (rent) and standard assumptions —
- * price/floor-area come from the page + our own data, and "price vs nearby
- * sold" is a REAL component from R2 sector data (or "not enough sales"). The
- * other strategies genuinely need inputs a sale listing never provides
- * (per-room rents + room sizes for HMO; an end value + refurb for Flip/BRRRR),
- * so we DON'T invent them — we say so and hand off to the analyser.
+ * Score a read listing for ANY strategy (E7). Triage supplies at most one or
+ * two UNKNOWNS per strategy (rent; end value + refurb; rooms + room rent); all
+ * other inputs come from the user's SETTINGS (or config defaults). Personal
+ * CRITERIA replace the config thresholds where the user has set them, and the
+ * headline names the user's own bar when it's theirs being missed. Price-vs-sold
+ * is a real read from our R2 sector data — and honestly excluded when the
+ * subject sits outside the local evidence.
  */
 import { strategyById } from '../strategies';
 import { scoreDeal, type DealScore, type StrategyId } from '../score/scoreDeal';
 import type { BtlInputs } from '../strategy-calc/btl';
+import type { FlipStrategyInputs } from '../strategy-calc/flip';
+import type { BrrrrStrategyInputs } from '../strategy-calc/brrrr';
+import type { HmoInputs } from '../strategy-calc/hmo';
 import type { CountryCode, SectorFile } from '../data/types';
 import { priceVsSector, type PriceVsSold } from './enrich';
+import { thresholdsFor, customKeysFor, type Criteria } from './criteria';
 import type { NormalisedListing } from './types';
 
 export interface ScoreListingOptions {
   strategy: StrategyId;
-  /** Monthly rent the user typed. */
-  rent?: number | null;
-  /** Overrides of the strategy field defaults (deposit, rate, …). */
-  assumptions?: Record<string, string>;
-  /** Our R2 sector data (typical prices + country). */
+  /** Triage unknowns keyed by strategy field key: rent, gdv, arv, refurbCost, rooms, roomRent. */
+  unknowns?: Record<string, string>;
+  /** Every other input, from the Settings screen (overrides config defaults). */
+  settings?: Record<string, string>;
+  /** The user's personal bars. */
+  criteria?: Criteria;
   sector?: SectorFile | null;
-  /** Resolved floor area (listing / EPC / manual). */
   floorAreaSqm?: number | null;
   minSectorSales?: number;
+  evidenceOutsideFactor?: number;
 }
 
 export interface ScoreListingResult {
   strategy: StrategyId;
-  /** Full Deal Score, or null when a required input is still missing. */
   deal: DealScore | null;
   /** Plain labels of what's still needed before a full score. */
   waitingOn: string[];
-  /** Real price-vs-nearby-sold read from our sector data (or honest gaps). */
   priceVsSold: PriceVsSold;
-  /** ONSPD country used for tax (from the sector data; England if unknown). */
   country: CountryCode;
-  /** Honest note for strategies we don't score in-panel; '' for BTL. */
   note: string;
 }
 
-function fieldDefaults(strategy: StrategyId): Record<string, string> {
+/** The one or two unknowns each strategy needs before it can score. */
+export const REQUIRED_UNKNOWNS: Record<StrategyId, { key: string; label: string }[]> = {
+  btl: [{ key: 'rent', label: 'monthly rent' }],
+  flip: [{ key: 'gdv', label: 'end value after works' }],
+  brrrr: [
+    { key: 'arv', label: 'end value after works' },
+    { key: 'rent', label: 'monthly rent' },
+  ],
+  hmo: [{ key: 'roomRent', label: 'rent per room' }],
+};
+
+function allDefaults(strategy: StrategyId): Record<string, string> {
   const cfg = strategyById(strategy);
   const out: Record<string, string> = {};
   for (const f of [...(cfg?.strategyInputs ?? []), ...(cfg?.assumptions ?? [])]) out[f.key] = f.default;
@@ -51,61 +63,134 @@ function fieldDefaults(strategy: StrategyId): Record<string, string> {
 export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptions): ScoreListingResult {
   const country: CountryCode = opts.sector?.country ?? 'E92000001';
   const minSales = opts.minSectorSales ?? 5;
+  const outsideFactor = opts.evidenceOutsideFactor ?? 2;
   const floorArea = opts.floorAreaSqm ?? listing.floorAreaSqm.value;
-  const priceVsSold = priceVsSector(listing.askingPrice.value, opts.sector, minSales, floorArea);
-
-  if (opts.strategy !== 'btl') {
-    const note =
-      opts.strategy === 'hmo'
-        ? 'HMO needs per-room rents and room sizes a sale listing can’t give — open it in the analyser.'
-        : 'This needs an end value and refurb budget a sale listing can’t give — open it in the analyser.';
-    return { strategy: opts.strategy, deal: null, waitingOn: ['open in analyser'], priceVsSold, country, note };
-  }
-
   const price = listing.askingPrice.value;
-  if (!price || price <= 0) {
-    return { strategy: 'btl', deal: null, waitingOn: ['a price'], priceVsSold, country, note: '' };
-  }
-  if (!opts.rent || opts.rent <= 0) {
-    return { strategy: 'btl', deal: null, waitingOn: ['monthly rent'], priceVsSold, country, note: '' };
-  }
+  const priceVsSold = priceVsSector(price, opts.sector, minSales, floorArea, outsideFactor);
 
-  const cfg = strategyById('btl');
-  const base = fieldDefaults('btl');
-  const d = { ...base, ...(opts.assumptions ?? {}) };
-  // Mirror the web's num(): a blank/cleared/non-numeric field falls back to the
-  // CONFIG DEFAULT — never a silent 0 (which would invent e.g. a 0% deposit).
+  const base = allDefaults(opts.strategy);
+  const d: Record<string, string> = { ...base, ...(opts.settings ?? {}), ...(opts.unknowns ?? {}) };
+  const criteria: Criteria = opts.criteria ?? {};
+  if (criteria.depositPct != null) d.deposit = String(criteria.depositPct);
+  if (criteria.ratePct != null) d.rate = String(criteria.ratePct);
+
+  const empty = { strategy: opts.strategy, deal: null as DealScore | null, priceVsSold, country, note: '' };
+  if (!price || price <= 0) return { ...empty, waitingOn: ['a price'] };
+
+  // Which unknowns are still missing?
+  const waitingOn = REQUIRED_UNKNOWNS[opts.strategy]
+    .filter((u) => !(Number(d[u.key]) > 0))
+    .map((u) => u.label);
+  if (waitingOn.length) return { ...empty, waitingOn };
+
+  // number reader mirroring the web: blank/invalid ⇒ config default (never 0).
   const num = (k: string): number => {
-    const raw = d[k];
-    const v = Number(raw);
-    if (raw !== '' && raw != null && Number.isFinite(v)) return v;
+    const v = Number(d[k]);
+    if (d[k] !== '' && d[k] != null && Number.isFinite(v)) return v;
     const bv = Number(base[k]);
     return Number.isFinite(bv) ? bv : 0;
   };
-  const sel = (k: string, fallback: string): string => (d[k] && d[k] !== '' ? d[k] : base[k] || fallback);
-  const inputs: BtlInputs = {
-    price,
-    country,
-    monthlyRent: opts.rent,
-    depositPct: num('deposit'),
-    ratePct: num('rate'),
-    buyingAs: sel('buyingAs', 'basic') as BtlInputs['buyingAs'],
-    selfManaged: sel('mgmt', 'agent') === 'self',
-    voidWeeks: num('voidWeeks'),
-    agentPct: num('agentPct'),
-    maintPct: num('maintPct'),
-    insurancePerYear: num('insurance'),
-    legals: num('legals'),
-    refurb: num('refurbCost'),
-    stressRatePct: num('stressRate'),
-    taxBasis: sel('taxBasis', 'additional') as BtlInputs['taxBasis'],
-    thresholds: cfg!.thresholds as BtlInputs['thresholds'],
-  };
-  // Real evidence from our sector data — replaces the UNKNOWN price component.
-  const evidence =
-    opts.sector && opts.sector.stats.count >= minSales
-      ? { estimate: opts.sector.stats.typicalPrice, high: opts.sector.stats.p90Price }
-      : undefined;
+  const sel = (k: string, fb: string): string => (d[k] && d[k] !== '' ? d[k] : base[k] || fb);
 
-  return { strategy: 'btl', deal: scoreDeal('btl', inputs, evidence), waitingOn: [], priceVsSold, country, note: '' };
+  // Strategy-specific gates the web enforces (mirror them so we never call the
+  // engine with an input it rejects, and never guess a value):
+  if (opts.strategy === 'brrrr') {
+    const ltvPct = sel('ltv', '75') === 'custom' ? num('ltvCustom') : Number(sel('ltv', '75'));
+    if (!(ltvPct > 0)) return { ...empty, waitingOn: ['your custom loan-to-value %'] };
+  }
+  if (opts.strategy === 'hmo' && num('rooms') >= 7) {
+    return { ...empty, note: '7 or more lettable rooms is a large (sui generis) HMO — outside what this tool covers. Check it in the analyser.', waitingOn: [] };
+  }
+
+  const thresholds = thresholdsFor(opts.strategy, criteria) as never;
+  const customKeys = customKeysFor(criteria, opts.strategy);
+
+  // Evidence for the scoreDeal price/end-value component uses the value that
+  // component judges (price for BTL/HMO, end value for Flip/BRRRR). Exclude it
+  // when the sector is thin OR the value sits outside the local evidence.
+  const endValue = opts.strategy === 'flip' ? num('gdv') : opts.strategy === 'brrrr' ? num('arv') : price;
+  const enoughSales = !!opts.sector && opts.sector.stats.count >= minSales;
+  const withinEvidence = enoughSales && endValue <= opts.sector!.stats.p90Price * outsideFactor;
+  const evidence = withinEvidence ? { estimate: opts.sector!.stats.typicalPrice, high: opts.sector!.stats.p90Price } : undefined;
+
+  let inputs:
+    | (BtlInputs & { thresholds: never })
+    | (FlipStrategyInputs & { thresholds: never })
+    | (BrrrrStrategyInputs & { thresholds: never })
+    | (HmoInputs & { thresholds: never });
+
+  if (opts.strategy === 'btl') {
+    inputs = {
+      price, country, monthlyRent: num('rent'), depositPct: num('deposit'), ratePct: num('rate'),
+      buyingAs: sel('buyingAs', 'basic') as BtlInputs['buyingAs'], selfManaged: sel('mgmt', 'agent') === 'self',
+      voidWeeks: num('voidWeeks'), agentPct: num('agentPct'), maintPct: num('maintPct'), insurancePerYear: num('insurance'),
+      legals: num('legals'), refurb: num('refurbCost'), stressRatePct: num('stressRate'),
+      taxBasis: sel('taxBasis', 'additional') as BtlInputs['taxBasis'], thresholds,
+    };
+  } else if (opts.strategy === 'flip') {
+    inputs = {
+      price, country, refurb: num('refurbCost'), gdv: num('gdv'),
+      funding: sel('funding', 'bridging') === 'cash' ? 'cash' : 'bridging', months: num('bridgeMonths'),
+      agentSalePctExVat: num('agentSalePct'), saleLegals: num('saleLegals'),
+      flipAs: sel('flipAs', 'personal') === 'ltd' ? 'ltd' : 'personal', incomeBand: sel('incomeBand', 'higher') === 'basic' ? 'basic' : 'higher',
+      bridgeLoanPct: num('bridgeLoanPct'), bridgeRatePctMonth: num('bridgeRate'), arrangementPct: num('arrangementPct'),
+      exitPct: num('exitPct'), legals: num('legals'), contingencyPct: num('contingencyPct'),
+      taxBasis: sel('taxBasis', 'additional') as FlipStrategyInputs['taxBasis'], thresholds,
+    };
+  } else if (opts.strategy === 'brrrr') {
+    const ltvPct = sel('ltv', '75') === 'custom' ? num('ltvCustom') : Number(sel('ltv', '75'));
+    inputs = {
+      price, country, refurb: num('refurbCost'), arv: num('arv'),
+      funding: sel('funding', 'bridging') === 'cash' ? 'cash' : 'bridging', bridgeMonths: num('bridgeMonths'),
+      monthlyRent: num('rent'), ltvPct, buyingAs: sel('buyingAs', 'basic') as BrrrrStrategyInputs['buyingAs'],
+      bridgeLoanPct: num('bridgeLoanPct'), bridgeRatePctMonth: num('bridgeRate'), arrangementPct: num('arrangementPct'),
+      exitPct: num('exitPct'), legals: num('legals'), refiLegals: num('refiLegals'), voidWeeks: num('voidWeeks'),
+      agentPct: num('agentPct'), maintPct: num('maintPct'), insurancePerYear: num('insurance'), refiRatePct: num('rate'),
+      stressRatePct: num('stressRate'), taxBasis: sel('taxBasis', 'additional') as BrrrrStrategyInputs['taxBasis'], thresholds,
+    };
+  } else {
+    const selfManaged = sel('mgmt', 'agent') === 'self';
+    inputs = {
+      price, country, rooms: num('rooms'), roomRent: num('roomRent'), billsIncluded: sel('bills', 'yes') !== 'no',
+      refurb: num('refurbCost'), buyingAs: sel('buyingAs', 'basic') as HmoInputs['buyingAs'], selfManaged,
+      depositPct: num('deposit'), ratePct: num('rate'), opCostPct: selfManaged ? num('opCostPctSelf') : num('opCostPctAgent'),
+      licenceFee: num('licenceFee'), licenceYears: 5, compliancePerYear: num('compliancePerYear'), legals: num('legals'),
+      stressRatePct: num('stressRate'), taxBasis: sel('taxBasis', 'additional') as HmoInputs['taxBasis'],
+      roomSizeFailures: null, // rooms can't be checked from a sale listing (E7)
+      thresholds,
+    };
+  }
+
+  // Safety net: if a strategy engine still rejects some combination, fail
+  // honestly rather than throwing out of the caller (freezing the panel).
+  try {
+    return { strategy: opts.strategy, deal: scoreDeal(opts.strategy, inputs, evidence, { customKeys }), waitingOn: [], priceVsSold, country, note: '' };
+  } catch {
+    return { ...empty, note: 'These numbers don’t work together — check your inputs or open it in the analyser.', waitingOn: [] };
+  }
+}
+
+/** Labelled smart-default suggestions for the triage unknowns (never facts). */
+export function smartDefaults(
+  strategy: StrategyId,
+  listing: NormalisedListing,
+  sector: SectorFile | null | undefined,
+  floorAreaSqm: number | null | undefined,
+): Record<string, { value: string; label: string } | { value: null; label: string }> {
+  const out: Record<string, { value: string; label: string } | { value: null; label: string }> = {};
+  if (strategy === 'hmo' && listing.bedrooms.status === 'found' && listing.bedrooms.value) {
+    out.rooms = { value: String(listing.bedrooms.value), label: 'suggested = bedrooms' };
+  }
+  if (strategy === 'flip' || strategy === 'brrrr') {
+    const key = strategy === 'flip' ? 'gdv' : 'arv';
+    if (!sector || sector.stats.count < 5) {
+      out[key] = { value: null, label: 'no suggestion — too few nearby sales' };
+    } else if (floorAreaSqm && floorAreaSqm > 0 && sector.stats.typicalPpsqm) {
+      const v = Math.round(sector.stats.typicalPpsqm * floorAreaSqm);
+      out[key] = { value: String(v), label: `suggested ≈ £${sector.stats.typicalPpsqm.toLocaleString('en-GB')}/m² × ${floorAreaSqm} m²` };
+    } else {
+      out[key] = { value: String(sector.stats.typicalPrice), label: `suggested ≈ sector typical £${sector.stats.typicalPrice.toLocaleString('en-GB')}` };
+    }
+  }
+  return out;
 }

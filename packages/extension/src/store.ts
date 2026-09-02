@@ -35,3 +35,18 @@ export const setStrategy = (s: string) => setLocal('gb:strategy', s);
 const areaKey = (id: string) => `gb:area:${id}`;
 export const getManualArea = (id: string) => getLocal<string>(areaKey(id), '');
 export const setManualArea = (id: string, v: string) => setLocal(areaKey(id), v);
+
+// Global settings (every input that's NOT a triage unknown), by field key.
+export const getSettings = () => getLocal<Record<string, string>>('gb:settings', {});
+export const setSettings = (s: Record<string, string>) => setLocal('gb:settings', s);
+
+// Personal criteria (the user's own bars) — stored as-is (numbers).
+import type { Criteria } from '@gil-bricks/core';
+export const getCriteria = () => getLocal<Criteria>('gb:criteria', {});
+export const setCriteria = (c: Criteria) => setLocal('gb:criteria', c);
+
+// Per-listing triage unknowns (end value, refurb, rooms, room rent). Rent is
+// kept per-sector (above) so it carries across listings in the same patch.
+const unkKey = (id: string) => `gb:unk:${id}`;
+export const getUnknowns = (id: string) => getLocal<Record<string, string>>(unkKey(id), {});
+export const setUnknowns = (id: string, u: Record<string, string>) => setLocal(unkKey(id), u);

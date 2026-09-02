@@ -69,7 +69,9 @@ export interface HmoInputs {
   legals: number;
   stressRatePct: number;
   taxBasis: BuyerType;
-  roomSizeFailures: number;
+  /** Number of rooms below the legal minimum size, or null when unverified
+   * (e.g. read from a sale listing with no room dimensions — E7). */
+  roomSizeFailures: number | null;
   thresholds: { minCashflowGreen: number; minRoiGreen: number; icrBasic: number; icrHigher: number };
 }
 
@@ -177,11 +179,12 @@ export function analyseHmo(i: HmoInputs): HmoAnalysis {
   if (colour === 'green') {
     verdictCopy = 'Green — the rooms cashflow well after tax, the lender stress test passes and the room sizes are legal.';
   } else if (colour === 'amber') {
-    const roomsPhrase = i.roomSizeFailures === 1 ? 'one room fails' : `${i.roomSizeFailures} rooms fail`;
+    const rf = i.roomSizeFailures ?? 0; // null (unverified) ⇒ no room-fail copy
+    const roomsPhrase = rf === 1 ? 'one room fails' : `${rf} rooms fail`;
     const moneyAloneGreen = c.after >= i.thresholds.minCashflowGreen && c.roiRes.value >= i.thresholds.minRoiGreen;
-    if (i.roomSizeFailures > 0 && moneyAloneGreen) {
+    if (rf > 0 && moneyAloneGreen) {
       verdictCopy = `Amber — the money works, but ${roomsPhrase} the legal size minimums.`;
-    } else if (i.roomSizeFailures > 0) {
+    } else if (rf > 0) {
       verdictCopy = `Amber — the returns are thin for an HMO’s extra work, and ${roomsPhrase} the legal size minimums.`;
     } else {
       verdictCopy = 'Amber — it covers its costs, but the returns are thin for an HMO’s extra work.';

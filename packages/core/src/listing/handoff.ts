@@ -21,12 +21,11 @@ export function propertyTypeToCode(t?: string | null): '' | 'D' | 'S' | 'T' | 'F
 
 export interface HandoffInputs {
   strategy: StrategyId;
-  /** Monthly rent the user typed (BTL). */
-  rent?: string;
   /** Resolved floor area in sqm (listing / EPC / manual). */
   floorAreaSqm?: number | null;
-  /** Effective strategy field values (deposit, rate, …) — defaults + overrides. */
-  assumptions?: Record<string, string>;
+  /** Effective strategy field values by field key (rent, gdv, arv, refurbCost,
+   * rooms, roomRent, deposit, rate, …) — the unknowns + settings the panel holds. */
+  fields?: Record<string, string>;
 }
 
 /** The analyser path (e.g. "/buy-to-let/analyser") + the params to carry. */
@@ -51,8 +50,7 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
   set('saon', listing.address.value?.saon);
 
   // Strategy fields (parsed by the web's initStrategyParams)
-  set('rent', h.rent);
-  for (const [k, v] of Object.entries(h.assumptions ?? {})) set(k, v);
+  for (const [k, v] of Object.entries(h.fields ?? {})) set(k, v);
 
   return { route, params };
 }

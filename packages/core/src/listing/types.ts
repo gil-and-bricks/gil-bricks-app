@@ -50,7 +50,11 @@ export interface NormalisedListing {
   tenure: Field<string>;
   bedrooms: Field<number>;
   bathrooms: Field<number>;
+  /** The LISTING's stated floor area in sqm; the MIDPOINT when it's a range. */
   floorAreaSqm: Field<number>;
+  /** Present (found) only when the listing gives a floor-area RANGE — so the UI
+   * shows the range instead of presenting the top as fact (E7 bug 5a). */
+  floorAreaSqmRange: Field<{ minSqm: number; maxSqm: number }>;
   floorPlanImageUrls: Field<string[]>;
   newBuild: Field<boolean>;
   listingUpdate: Field<ListingUpdate>;

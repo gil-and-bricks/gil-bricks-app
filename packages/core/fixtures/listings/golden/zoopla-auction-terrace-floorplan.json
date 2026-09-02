@@ -51,6 +51,10 @@
     "value": null,
     "status": "missing"
   },
+  "floorAreaSqmRange": {
+    "value": null,
+    "status": "missing"
+  },
   "floorPlanImageUrls": {
     "value": [
       "f0fc15a57a54093f7eac2ada9e51c05501595fa3.jpg"

@@ -35,6 +35,7 @@ const listing: NormalisedListing = {
   bedrooms: found(3),
   bathrooms: found(2),
   floorAreaSqm: missing(),
+  floorAreaSqmRange: missing(),
   floorPlanImageUrls: missing(),
   newBuild: found(false),
   listingUpdate: missing(),
@@ -47,9 +48,8 @@ describe('analyser handoff round-trips through the web parser', () => {
   it('reads back every param the extension writes', () => {
     const { route, params } = buildAnalyserHandoff(listing, {
       strategy: 'btl',
-      rent: '1100',
       floorAreaSqm: 68,
-      assumptions: { deposit: '30', rate: '4.5', buyingAs: 'higher', mgmt: 'self', taxBasis: 'standard' },
+      fields: { rent: '1100', deposit: '30', rate: '4.5', buyingAs: 'higher', mgmt: 'self', taxBasis: 'standard' },
     });
     expect(route).toBe('/buy-to-let/analyser');
 

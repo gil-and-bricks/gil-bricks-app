@@ -127,3 +127,8 @@ body {
 .c-status:empty { display: none; }
 .component-note { grid-template-columns: 1fr auto; }
 .component-note .c-note { grid-column: 1 / -1; color: var(--text-dim); font-size: 0.8rem; }
+
+/* E7: triage + settings */
+.settings-link { display: inline-block; margin: 14px 0 0; padding: 0; background: none; border: none; color: var(--accent); font-family: var(--font-body); font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: underline; }
+.settings-sub { margin-top: 16px; }
+.suggest-note { display: block; margin-top: 3px; color: var(--text-dim); font-size: 0.75rem; }

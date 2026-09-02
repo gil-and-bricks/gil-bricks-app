@@ -10,6 +10,7 @@ export * from './extract';
 export * from './enrich';
 export * from './handoff';
 export * from './scoreListing';
+export * from './criteria';
 export { RIGHTMOVE_EXTRACTOR_VERSION, extractRightmove } from './rightmove';
 export { ZOOPLA_EXTRACTOR_VERSION, extractZoopla } from './zoopla';
 // low-level helpers (useful for tests + advanced callers)
