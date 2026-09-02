@@ -33,17 +33,17 @@ describe('E8.2 — a lever moves the DISPLAYED score, verdict and headline (live
     expect(Number(after)).toBeLessThan(Number(before)); // a higher rate is worse
   });
 
-  it('changing a SELECT lever (buying as) has a VISIBLE effect (figures + change-signal)', () => {
-    // higher-rate personal vs company differs materially (Section 24) in cashflow; the
-    // banded 0-10 score may hold, so the visible proof is the change-signal figure.
+  it('changing a SELECT lever (buying as) NOW moves the displayed score too (E8.3)', () => {
+    // higher-rate personal vs company differs materially (Section 24); with the
+    // continuous in-tier score, the top number moves — not just the £ figure.
     __mountForTest(listing, { sector, strategy: 'btl', rent: '1000', settings: { buyingAs: 'higher' } });
+    const beforeScore = scoreText();
     const beforeAfterTax = document.querySelector('.c-cashflow-sub')?.textContent ?? '';
     const sel = document.getElementById('gb-l-buyingAs') as HTMLSelectElement;
     expect(sel).toBeTruthy();
     sel.value = 'ltd';
     sel.dispatchEvent(new Event('change', { bubbles: true }));
-    // buying-as is a TAX lever: the after-tax cashflow figure moves, and the
-    // change-signal names a real effect (never inert), even if the banded score holds
+    expect(scoreText()).not.toBe(beforeScore); // the top score visibly moved
     expect(document.querySelector('.c-cashflow-sub')?.textContent ?? '').not.toBe(beforeAfterTax);
     const sig = document.querySelector('.change-signal')?.textContent ?? '';
     expect(sig).toMatch(/cashflow [+−]£/);

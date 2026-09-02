@@ -9,8 +9,11 @@ import { SAMPLE_STRATEGY, SAMPLE_INPUTS } from '../src/sample';
  * (same scoreDeal, no valuation evidence loaded). If the extension's bundled
  * core ever drifts from the web, this fails loudly.
  */
+// Same @gil-bricks/core engine in both, so the extension and web render the same
+// number. Score is now placed CONTINUOUSLY within the marginal band (E8.3) — the
+// verdict tier is unchanged.
 const WEB_APP_RENDERS = {
-  score: 7.5,
+  score: 7.0,
   verdict: 'marginal' as const,
   headline: 'Just 5.0% back on the cash you’d tie up, short of the 8.0% that makes the risk worth it.',
 };

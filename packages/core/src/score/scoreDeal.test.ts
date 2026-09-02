@@ -54,14 +54,40 @@ describe('CONSISTENCY: score never contradicts the existing verdict', () => {
         // green→good, amber→marginal, red→walk away.
         const tier: Record<string, string> = { green: 'good', amber: 'marginal', red: 'walk away' };
         expect(ds.verdict, `${id} ${colour} card → ${ds.verdict} chip (contradiction) @${where}`).toBe(tier[colour]);
-        if (colour === 'green') { greens++; expect(ds.score, `${id} green scored ${ds.score} @${where}`).toBeGreaterThanOrEqual(6); }
-        if (colour === 'amber') { ambers++; expect(ds.score, `${id} amber scored ${ds.score} @${where}`).toBeLessThan(8); }
-        if (colour === 'red') { reds++; expect(ds.score, `${id} red scored ${ds.score} @${where}`).toBeLessThan(8); }
+        // The score must sit EXACTLY inside the card's own locked band (E8.3):
+        // green 8-10, amber 6-7.9, red 0-5.9 — the tier boundaries never move.
+        if (colour === 'green') { greens++; expect(ds.score, `${id} green @${where}`).toBeGreaterThanOrEqual(8); expect(ds.score).toBeLessThanOrEqual(10); }
+        if (colour === 'amber') { ambers++; expect(ds.score, `${id} amber @${where}`).toBeGreaterThanOrEqual(6); expect(ds.score).toBeLessThan(8); }
+        if (colour === 'red') { reds++; expect(ds.score, `${id} red @${where}`).toBeGreaterThanOrEqual(0); expect(ds.score).toBeLessThan(6); }
       }
     }
     expect(greens, `${id} produced no green cases`).toBeGreaterThan(0);
     expect(reds, `${id} produced no red cases`).toBeGreaterThan(0);
     expect(ambers, `${id} produced no amber cases`).toBeGreaterThan(0);
+  });
+});
+
+describe('CONTINUITY: the score moves with the money WITHIN a locked tier (E8.3)', () => {
+  it.each(cases)('$id: better income lifts the score without leaving the tier', ({ id, base, analyse }) => {
+    // find two income levels that stay in the SAME tier but should score differently
+    const incomeKey = id === 'flip' ? 'gdv' : id === 'brrrr' ? 'arv' : id === 'hmo' ? 'roomRent' : 'monthlyRent';
+    const scores = new Set<number>();
+    let sameTierPairFound = false;
+    let prev: { score: number; verdict: string; income: number } | null = null;
+    const lo = (base[incomeKey] as number) * 0.6;
+    const hi = (base[incomeKey] as number) * 1.4;
+    for (let inc = lo; inc <= hi; inc += (hi - lo) / 12) {
+      const inp = { ...base, [incomeKey]: Math.round(inc) };
+      const colour = analyse(inp as never).verdict;
+      const ds = scoreDeal(id, inp as never);
+      scores.add(ds.score);
+      if (prev && prev.verdict === ds.verdict && ds.score !== prev.score) sameTierPairFound = true;
+      prev = { score: ds.score, verdict: ds.verdict, income: inc };
+    }
+    // the score is NOT a coarse step: many distinct values, and at least one pair
+    // of neighbouring inputs moved the score while staying in the same tier.
+    expect(scores.size, `${id} produced only ${scores.size} distinct scores (looks banded)`).toBeGreaterThan(4);
+    expect(sameTierPairFound, `${id} score never moved within a tier (still coarse)`).toBe(true);
   });
 });
 

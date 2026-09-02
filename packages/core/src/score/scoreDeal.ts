@@ -61,6 +61,17 @@ export interface DealScore {
 type Status = 'green' | 'amber' | 'red' | 'unknown';
 const FRACTION: Record<Status, number> = { green: 1, amber: 0.5, red: 0, unknown: 0.5 };
 
+const clamp01 = (x: number): number => Math.min(1, Math.max(0, x));
+/**
+ * Continuous quality credit ∈ [0,1] for placing the score WITHIN the locked
+ * verdict band (E8.3). Saturating and monotonic so a real change in the figure
+ * always nudges the credit (never a flat step): a "higher-is-better" metric at
+ * its green threshold reads 0.5 and rises asymptotically to 1; below zero it's 0.
+ */
+const upCredit = (value: number, greenAt: number): number => (value <= 0 ? 0 : greenAt > 0 ? value / (value + greenAt) : 1);
+/** "lower-is-better" credit (money-left-in): 0 left → 1, at the target → 0.5. */
+const downCredit = (value: number, targetAt: number): number => (targetAt > 0 ? targetAt / (targetAt + Math.max(value, 0)) : value <= 0 ? 1 : 0);
+
 /** Score a metric with a green/amber floor: green ≥ greenAt, amber ≥ 0, red < 0. */
 function band(value: number, greenAt: number): Status {
   if (value >= greenAt) return 'green';
@@ -82,6 +93,11 @@ interface ComponentEval {
   /** For the binding constraint. */
   currentValue: string;
   neededValue: string | null;
+  /**
+   * Continuous quality ∈ [0,1] for the smooth in-band score (E8.3). null when the
+   * component can't be judged (unknown) — then it's excluded from the quality mix.
+   */
+  credit: number | null;
 }
 
 /** Evaluate one component by key against the analysis (reuses existing figures/thresholds). */
@@ -99,22 +115,23 @@ function evaluate(
         why: icr.passes ? `Passes at ${icr.value.toFixed(2)}× (needs ${icr.threshold.toFixed(2)}×).` : `Only ${icr.value.toFixed(2)}× — the lender needs ${icr.threshold.toFixed(2)}×.`,
         currentValue: `${icr.value.toFixed(2)}×`,
         neededValue: `${icr.threshold.toFixed(2)}×`,
+        credit: upCredit(icr.value, icr.threshold),
       };
     }
     case 'cashflow': {
       const cf = (a as BtlAnalysis).cashflowAfterTax.value;
       const min = (inputs.thresholds as { minCashflowGreen: number }).minCashflowGreen;
-      return { status: band(cf, min), why: `${fmtMoney(cf)}/month after tax (green needs ${fmtMoney(min)}).`, currentValue: fmtMoney(cf), neededValue: `${fmtMoney(min)}/mo` };
+      return { status: band(cf, min), why: `${fmtMoney(cf)}/month after tax (green needs ${fmtMoney(min)}).`, currentValue: fmtMoney(cf), neededValue: `${fmtMoney(min)}/mo`, credit: upCredit(cf, min) };
     }
     case 'roi': {
       const t = inputs.thresholds as Record<string, number>;
       if ('greenRoi' in t) {
         const roi = (a as FlipAnalysis).roiAfterTax.value;
         const status: Status = roi >= t.greenRoi ? 'green' : roi >= t.amberRoi ? 'amber' : 'red';
-        return { status, why: `${fmtPct(roi)} after tax (green needs ${fmtPct(t.greenRoi)}).`, currentValue: fmtPct(roi), neededValue: fmtPct(t.greenRoi) };
+        return { status, why: `${fmtPct(roi)} after tax (green needs ${fmtPct(t.greenRoi)}).`, currentValue: fmtPct(roi), neededValue: fmtPct(t.greenRoi), credit: upCredit(roi, t.greenRoi) };
       }
       const roi = (a as BtlAnalysis).roi.value;
-      return { status: band(roi, t.minRoiGreen), why: `${fmtPct(roi)} on cash in (green needs ${fmtPct(t.minRoiGreen)}).`, currentValue: fmtPct(roi), neededValue: fmtPct(t.minRoiGreen) };
+      return { status: band(roi, t.minRoiGreen), why: `${fmtPct(roi)} on cash in (green needs ${fmtPct(t.minRoiGreen)}).`, currentValue: fmtPct(roi), neededValue: fmtPct(t.minRoiGreen), credit: upCredit(roi, t.minRoiGreen) };
     }
     case 'profit': {
       // Score against profit BEFORE tax — the same basis the legacy Flip verdict
@@ -122,20 +139,20 @@ function evaluate(
       // a legacy-GREEN flip fall below the profit threshold and read "walk away".
       const p = (a as FlipAnalysis).profitBeforeTax.value;
       const min = (inputs.thresholds as { greenProfit: number }).greenProfit;
-      return { status: p <= 0 ? 'red' : p >= min ? 'green' : 'amber', why: `${fmtMoney(p)} profit (green needs ${fmtMoney(min)}).`, currentValue: fmtMoney(p), neededValue: fmtMoney(min) };
+      return { status: p <= 0 ? 'red' : p >= min ? 'green' : 'amber', why: `${fmtMoney(p)} profit (green needs ${fmtMoney(min)}).`, currentValue: fmtMoney(p), neededValue: fmtMoney(min), credit: upCredit(p, min) };
     }
     case 'moneyLeftIn': {
       const m = (a as BrrrrAnalysis).moneyLeftIn;
       const max = (inputs.thresholds as { allOutMax: number }).allOutMax;
       const mp = (a as BrrrrAnalysis).maxPriceAllOut;
-      return { status: m <= max ? 'green' : m <= max + 15000 ? 'amber' : 'red', why: `${fmtMoney(m)} left in (all-money-out needs ≤ ${fmtMoney(max)}).`, currentValue: fmtMoney(m), neededValue: mp !== null ? `pay ≤ ${fmtMoney(mp)}` : null };
+      return { status: m <= max ? 'green' : m <= max + 15000 ? 'amber' : 'red', why: `${fmtMoney(m)} left in (all-money-out needs ≤ ${fmtMoney(max)}).`, currentValue: fmtMoney(m), neededValue: mp !== null ? `pay ≤ ${fmtMoney(mp)}` : null, credit: downCredit(m, max) };
     }
     case 'roomSize': {
       const fails = (inputs as HmoInputs).roomSizeFailures;
       // null ⇒ we couldn't verify room sizes (no dimensions on a sale listing):
       // score it 'unknown' and say so — never guess compliance.
-      if (fails == null) return { status: 'unknown', why: 'Room sizes not checked — no dimensions on the listing.', currentValue: 'rooms not checked', neededValue: null };
-      return { status: fails === 0 ? 'green' : 'red', why: fails === 0 ? 'All rooms meet the legal minimum.' : `${fails} room(s) below the legal minimum size.`, currentValue: `${fails} room${fails === 1 ? '' : 's'} below the minimum`, neededValue: null };
+      if (fails == null) return { status: 'unknown', why: 'Room sizes not checked — no dimensions on the listing.', currentValue: 'rooms not checked', neededValue: null, credit: null };
+      return { status: fails === 0 ? 'green' : 'red', why: fails === 0 ? 'All rooms meet the legal minimum.' : `${fails} room(s) below the legal minimum size.`, currentValue: `${fails} room${fails === 1 ? '' : 's'} below the minimum`, neededValue: null, credit: fails === 0 ? 1 : clamp01(1 - fails / 3) };
     }
     case 'evidence': {
       // BTL scores purchase price; BRRRR/Flip score the end value they assume.
@@ -148,10 +165,13 @@ function evaluate(
       const status = evidenceStatus(value, ev);
       const why = !ev ? 'No sold-price evidence loaded to check against.' : status === 'green' ? `Your ${label} ${fmtMoney(value)} sits at or below the sold evidence.` : status === 'amber' ? `Your ${label} ${fmtMoney(value)} is within the estimate range but toward the top.` : `Your ${label} ${fmtMoney(value)} is above what’s been selling nearby (${fmtMoney(ev.high)}).`;
       void b;
-      return { status, why, currentValue: fmtMoney(value), neededValue: ev ? `≤ ${fmtMoney(ev.high)}` : null };
+      // Lower value vs the sold estimate is better; excluded from the mix when
+      // there's no evidence loaded (unknown).
+      const credit = ev ? clamp01(ev.estimate / Math.max(value, 1)) : null;
+      return { status, why, currentValue: fmtMoney(value), neededValue: ev ? `≤ ${fmtMoney(ev.high)}` : null, credit };
     }
     default:
-      return { status: 'unknown', why: '', currentValue: '', neededValue: null };
+      return { status: 'unknown', why: '', currentValue: '', neededValue: null, credit: null };
   }
 }
 
@@ -311,22 +331,25 @@ export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: De
   if (!config) throw new Error(`Unknown strategy: ${strategy}`);
   const analysis = runAnalysis(strategy, inputs);
 
-  const components: ScoreComponentResult[] = config.score.map((c: ScoreComponent) => {
-    const e = evaluate(c.key, analysis, inputs, evidence);
-    return { name: c.name, max: c.weight, points: Math.round(c.weight * FRACTION[e.status] * 100) / 100, status: e.status, why: e.why };
-  });
+  const evals = config.score.map((c: ScoreComponent) => ({ c, e: evaluate(c.key, analysis, inputs, evidence) }));
+  const components: ScoreComponentResult[] = evals.map(({ c, e }) => ({
+    name: c.name, max: c.weight, points: Math.round(c.weight * FRACTION[e.status] * 100) / 100, status: e.status, why: e.why,
+  }));
 
   const rawScore = Math.round(components.reduce((s, c) => s + c.points, 0) * 10) / 10;
-  // Reconcile with the existing Green/Amber/Red verdict so the chip can NEVER
-  // contradict the card in EITHER direction (the user-confusion CLAUDE.md
-  // forbids). A sum-to-score model with a non-gate evidence component can't do
-  // this structurally, so the displayed score is clamped into the card's own
-  // band — green 8-10 (good), amber 6-7.9 (marginal), red 0-5.9 (walk away) —
-  // which makes the chip's word, dot and headline always agree with the card.
-  // rawScore (the honest component sum) is kept for show-the-maths; the number
-  // still varies WITHIN the band, so it stays informative.
+  // The TIER is the locked Green/Amber/Red verdict from the strategy engine —
+  // green 8-10 (good), amber 6-7.9 (marginal), red 0-5.9 (walk away). We place
+  // the displayed score CONTINUOUSLY inside that tier's own band from the
+  // underlying figures (E8.3), so a real change in cashflow/ROI/money-left-in
+  // visibly moves the number while the tier boundaries stay exactly as they are
+  // and the chip can NEVER contradict the card. `q` ∈ [0,1] is the weighted
+  // quality of the components that CAN be judged (unknowns excluded); it's
+  // clamped so verdictOf(score) always equals the card's tier (asserted in tests).
   const [floor, ceiling] = analysis.verdict === 'green' ? [8, 10] : analysis.verdict === 'amber' ? [6, 7.9] : [0, 5.9];
-  const score = Math.min(Math.max(rawScore, floor), ceiling);
+  const scored = evals.filter(({ e }) => e.credit != null);
+  const totalW = scored.reduce((s, { c }) => s + c.weight, 0);
+  const q = totalW > 0 ? clamp01(scored.reduce((s, { c, e }) => s + c.weight * (e.credit as number), 0) / totalW) : 0.5;
+  const score = Math.min(Math.max(Math.round((floor + q * (ceiling - floor)) * 10) / 10, floor), ceiling);
   const verdict = verdictOf(score);
 
   // Binding constraint = the component that lost the most points (largest gap),
