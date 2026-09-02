@@ -84,13 +84,21 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
     : [];
 
   // Zoopla exposes a machine "publishedOn" (first live) but no update REASON
-  // unless priceHistory.priceChanges is populated.
+  // unless priceHistory.priceChanges is populated. A price change can be a rise
+  // OR a cut, so read the DIRECTION and never label a rise (or an unknown) as a
+  // reduction — otherwise a downstream reader would fabricate a false "Reduced".
   let update: ListingUpdate | null = null;
   const changes = priceHistory?.priceChanges;
   if (Array.isArray(changes) && changes.length > 0) {
     const latest = changes[changes.length - 1];
     const d = toIsoDate(latest?.date);
-    if (d) update = { reason: 'reduced', date: d };
+    if (d) {
+      const priceOf = (c: any): number | null => parseMoney(c?.price ?? c?.priceLabel ?? c?.value ?? c?.amount);
+      const curr = priceOf(latest);
+      const prev = changes.length > 1 ? priceOf(changes[changes.length - 2]) : null;
+      const reason = curr != null && prev != null ? (curr < prev ? 'reduced' : curr > prev ? 'increased' : 'changed') : 'changed';
+      update = { reason, date: d };
+    }
   }
 
   return {

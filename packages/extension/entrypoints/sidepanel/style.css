@@ -136,3 +136,63 @@ body {
 .settings-link { display: inline-block; margin: 14px 0 0; padding: 0; background: none; border: none; color: var(--accent); font-family: var(--font-body); font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: underline; }
 .settings-sub { margin-top: 16px; }
 .suggest-note { display: block; margin-top: 3px; color: var(--text-dim); font-size: 0.75rem; }
+
+/* ---- Seller Signals (E8) — negotiation context, separate from the score ---- */
+.seller-signals {
+  margin-top: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 0;
+}
+.ss-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+}
+.ss-summary::-webkit-details-marker { display: none; }
+.ss-summary::after {
+  content: '▾';
+  margin-left: auto;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+.seller-signals[open] .ss-summary::after { transform: rotate(180deg); }
+.ss-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  width: 100%;
+}
+.ss-band {
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+.ss-band.ss-strong { color: var(--accent); }
+.ss-band.ss-some { color: var(--amber); }
+.ss-band.ss-none { color: var(--text-dim); }
+.ss-band.ss-warn { color: var(--red); }
+.ss-band.ss-caution { color: var(--amber); }
+.ss-body { padding: 0 12px 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+.ss-time { margin: 10px 0 6px; color: var(--text-dim); font-size: 0.85rem; }
+.ss-read { margin-top: 10px; }
+.ss-read-head { margin: 0 0 4px; font-size: 0.9rem; font-weight: 700; color: var(--text); }
+.ss-evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ss-ev { font-size: 0.85rem; display: flex; flex-direction: column; }
+.ss-ev-label { font-weight: 600; }
+.ss-ev-phrase { color: var(--text-dim); font-style: italic; font-size: 0.8rem; }
+.ss-ev-src { color: var(--text-dim); font-size: 0.75rem; }
+.ss-empty { margin: 0; color: var(--text-dim); font-size: 0.85rem; }
+.ss-note { margin: 4px 0 0; color: var(--text-dim); font-size: 0.78rem; }
+.ss-worth { margin: 10px 0 0; padding-left: 10px; border-left: 2px solid var(--accent); font-size: 0.84rem; color: var(--text); }
+.ss-foot { margin: 12px 0 0; color: var(--text-dim); font-size: 0.75rem; }

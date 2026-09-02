@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, beforeEach } from 'vitest';
-import { scoreListing, smartDefaults, found, missing, unavailable, criteriaFields, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
+import { scoreListing, smartDefaults, readSellerSignals, found, missing, unavailable, criteriaFields, FALLBACK_CONFIG, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
 import { renderEmpty, renderFailure, renderTriage, renderSettings, type PanelView } from '../entrypoints/sidepanel/main.ts';
 
 const listing: NormalisedListing = {
@@ -115,6 +115,57 @@ describe('triage panel (E7)', () => {
     expect(txt().toLowerCase()).toContain('no nearby sales at this level');
     // and the end-value field is left empty (no fabricated suggestion applied)
     expect((document.getElementById('gb-u-gdv') as HTMLInputElement).value).toBe('');
+  });
+});
+
+describe('Seller Signals card (E8)', () => {
+  const NOW = new Date('2026-09-02T00:00:00Z');
+  const reduced = { ...listing, listingUpdate: found({ reason: 'reduced', date: '2026-07-15' }), description: found('Motivated seller. Offered chain free with no onward chain.') };
+
+  it('renders as a separate, collapsed card BELOW the components with two band lines', () => {
+    const signals = readSellerSignals(reduced, FALLBACK_CONFIG.signals, NOW);
+    renderTriage(view({ listing: reduced, unknowns: { rent: '1200' }, signals }));
+    const card = document.querySelector('details.seller-signals') as HTMLDetailsElement;
+    expect(card).toBeTruthy();
+    expect(card.open).toBe(false); // collapsed to its band lines
+    expect(document.querySelectorAll('.ss-summary .ss-band').length).toBe(2);
+    expect(txt()).toContain('Seller signals');
+    // sits AFTER the components in document order
+    const comps = document.querySelector('.components')!;
+    expect(comps.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // the score chip is present and independent of the signals
+    expect(document.querySelector('.deal-score')).toBeTruthy();
+  });
+
+  it('evidence is present (expandable) — chain-free only under "worth knowing", never flexibility', () => {
+    const signals = readSellerSignals(reduced, FALLBACK_CONFIG.signals, NOW);
+    renderTriage(view({ listing: reduced, unknowns: { rent: '1200' }, signals, signalsOpen: true }));
+    expect(txt()).toContain('Reduced on 15/07/2026');
+    expect(txt().toLowerCase()).toContain('motivated');
+    expect(txt()).toContain('Chain-free');
+    expect(txt()).toContain('never moves the Deal Score');
+    // chain-free is never a flexibility EVIDENCE LABEL (its context snippet may
+    // still show adjacent words — that's the point of showing the phrase)
+    const flexHead = [...document.querySelectorAll('.ss-read-head')].find((h) => /flexible/i.test(h.textContent ?? ''))!;
+    const flexSection = flexHead.parentElement!;
+    const flexLabels = [...flexSection.querySelectorAll('.ss-ev-label')].map((x) => x.textContent ?? '');
+    expect(flexLabels.some((l) => /chain/i.test(l))).toBe(false);
+  });
+
+  it('a strong impairment WARNING never uses the positive flexibility colour (E8 review)', () => {
+    const impaired = { ...listing, description: found('Cash buyers only. Some historic subsidence.') };
+    const signals = readSellerSignals(impaired, FALLBACK_CONFIG.signals, NOW);
+    expect(signals.impairment.band).toBe('strong');
+    renderTriage(view({ listing: impaired, unknowns: { rent: '1200' }, signals }));
+    const bands = [...document.querySelectorAll('.ss-summary .ss-band')];
+    const imp = bands.find((b) => /impaired/i.test(b.textContent ?? ''))!;
+    expect(imp.classList.contains('ss-warn')).toBe(true); // warning scale, not ss-strong
+    expect(imp.classList.contains('ss-strong')).toBe(false);
+  });
+
+  it('no card when there are no signals to show', () => {
+    renderTriage(view({ unknowns: { rent: '1200' } }));
+    expect(document.querySelector('details.seller-signals')).toBeNull();
   });
 });
 

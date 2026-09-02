@@ -68,5 +68,145 @@
     "evidenceOutsideFactor": 2,
     "rentSanityYieldMin": 0.02,
     "rentSanityYieldMax": 0.2
+  },
+  "signals": {
+    "longOnMarketDays": 90,
+    "flexibilityLanguage": [
+      {
+        "key": "probate",
+        "label": "Probate / deceased estate",
+        "patterns": [
+          "probate",
+          "deceased estate",
+          "executors sale",
+          "executor sale",
+          "sale of the estate"
+        ]
+      },
+      {
+        "key": "motivated",
+        "label": "Motivated / must sell",
+        "patterns": [
+          "motivated seller",
+          "motivated vendor",
+          "must sell",
+          "needs to sell",
+          "quick sale",
+          "quick completion",
+          "urgent sale",
+          "priced to sell"
+        ]
+      },
+      {
+        "key": "relocation",
+        "label": "Relocation",
+        "patterns": [
+          "relocat*",
+          "moving abroad",
+          "job relocation"
+        ]
+      },
+      {
+        "key": "downsizing",
+        "label": "Downsizing",
+        "patterns": [
+          "downsiz*"
+        ]
+      }
+    ],
+    "impairmentLanguage": [
+      {
+        "key": "cash-only",
+        "label": "Cash buyers only",
+        "patterns": [
+          "cash buyers only",
+          "cash buyer only",
+          "cash purchasers only",
+          "cash only",
+          "cash buyers required"
+        ]
+      },
+      {
+        "key": "unmortgageable",
+        "label": "May be hard to mortgage",
+        "patterns": [
+          "unmortgageable",
+          "not mortgageable",
+          "cannot be mortgaged",
+          "no mortgage available",
+          "unable to mortgage",
+          "not suitable for a mortgage",
+          "mortgage not possible"
+        ]
+      },
+      {
+        "key": "short-lease",
+        "label": "Short lease",
+        "patterns": [
+          "short lease",
+          "short leasehold",
+          "lease needs extending",
+          "lease requires extending",
+          "lease of 60",
+          "lease of 70",
+          "lease of 80",
+          "unexpired term of 60",
+          "unexpired term of 70",
+          "unexpired term of 80"
+        ]
+      },
+      {
+        "key": "condition",
+        "label": "Structural / damp / subsidence",
+        "patterns": [
+          "subsidence",
+          "structural movement",
+          "structural defect",
+          "structural crack",
+          "structural repair",
+          "rising damp",
+          "penetrating damp",
+          "damp proofing required",
+          "wet rot",
+          "dry rot",
+          "japanese knotweed",
+          "knotweed"
+        ]
+      },
+      {
+        "key": "non-standard",
+        "label": "Non-standard construction",
+        "patterns": [
+          "non-standard construction",
+          "non standard construction",
+          "concrete construction",
+          "steel frame",
+          "timber frame",
+          "prefab"
+        ]
+      },
+      {
+        "key": "auction-mechanism",
+        "label": "Auction sale",
+        "patterns": [
+          "for sale by auction",
+          "modern method of auction",
+          "sold by auction",
+          "auction sale",
+          "reservation fee"
+        ]
+      }
+    ],
+    "chainFree": {
+      "key": "chain-free",
+      "label": "Chain-free",
+      "patterns": [
+        "no onward chain",
+        "no forward chain",
+        "chain free",
+        "chain-free",
+        "no chain"
+      ]
+    }
   }
 }

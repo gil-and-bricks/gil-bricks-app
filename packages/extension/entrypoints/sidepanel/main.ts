@@ -12,6 +12,8 @@ import {
   smartDefaults,
   rentFitsProperty,
   isOutOfMarket,
+  readSellerSignals,
+  bandLabel,
   scoreCopy,
   floorAreaFromSector,
   postcodeToSector,
@@ -27,6 +29,7 @@ import {
   type StrategyId,
   type SectorFile,
   type Criteria,
+  type SellerSignals,
 } from '@gil-bricks/core';
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
 import * as store from '../../src/store';
@@ -102,6 +105,10 @@ export interface PanelView {
   rentCleared?: boolean;
   /** Priced outside the local market AND no strategy works — the honest line (E7.1). */
   outOfMarket?: boolean;
+  /** Negotiation context, SEPARATE from the score (E8). */
+  signals?: SellerSignals;
+  /** Whether the Seller Signals card is expanded (kept across redraws). */
+  signalsOpen?: boolean;
   ewReject?: string | null;
 }
 export interface PanelHandlers {
@@ -113,6 +120,7 @@ export interface PanelHandlers {
   onOpenSettings?: () => void;
   onCloseSettings?: () => void;
   onSend?: () => void;
+  onToggleSignals?: (open: boolean) => void;
 }
 
 function chip(deal: DealScore | null, result: ScoreListingResult, strategy: StrategyId): HTMLElement {
@@ -158,6 +166,60 @@ function componentsList(view: PanelView): HTMLElement {
     ul.append(li);
   }
   return ul;
+}
+
+// Flexibility is an opportunity (accent); impairment is a WARNING (red/amber) —
+// they must NOT share a colour scale, or a strong warning would read as positive.
+const FLEX_PILL: Record<string, string> = { strong: 'ss-strong', some: 'ss-some', 'none-seen': 'ss-none' };
+const IMP_PILL: Record<string, string> = { strong: 'ss-warn', some: 'ss-caution', 'none-seen': 'ss-none' };
+
+/**
+ * Seller Signals card (E8) — negotiation CONTEXT, visually separate and BELOW
+ * the verdict. Collapsed to its two band lines; evidence expands. Two reads are
+ * never merged; chain-free sits under "worth knowing", never in flexibility.
+ */
+function sellerSignalsCard(view: PanelView, h: PanelHandlers): HTMLElement | null {
+  const s = view.signals;
+  if (!s) return null;
+  const box = e('details', 'seller-signals') as HTMLDetailsElement;
+  if (view.signalsOpen) box.open = true;
+  if (h.onToggleSignals) box.addEventListener('toggle', () => h.onToggleSignals!(box.open));
+
+  const sum = e('summary', 'ss-summary');
+  sum.append(e('span', 'ss-title', 'Seller signals'));
+  sum.append(e('span', `ss-band ${FLEX_PILL[s.flexibility.band]}`, bandLabel('flexibility', s.flexibility.band)));
+  sum.append(e('span', `ss-band ${IMP_PILL[s.impairment.band]}`, bandLabel('impairment', s.impairment.band)));
+  box.append(sum);
+
+  const body = e('div', 'ss-body');
+  body.append(e('p', 'ss-time', s.timeOnMarket));
+
+  const read = (heading: string, r: SellerSignals['flexibility']): HTMLElement => {
+    const sec = e('div', 'ss-read');
+    sec.append(e('h2', 'ss-read-head', heading)); // h1 (address) → h2, no skipped level
+    if (r.evidence.length) {
+      const ul = e('ul', 'ss-evidence');
+      for (const ev of r.evidence) {
+        const li = e('li', 'ss-ev');
+        li.append(e('span', 'ss-ev-label', ev.label));
+        if (ev.phrase) li.append(e('span', 'ss-ev-phrase', ev.phrase));
+        li.append(e('span', 'ss-ev-src', `— ${ev.source === 'listing' ? 'from the description' : `on ${ev.source}`}`));
+        ul.append(li);
+      }
+      sec.append(ul);
+    } else {
+      sec.append(e('p', 'ss-empty', 'None seen on this listing.'));
+    }
+    for (const n of r.notes) sec.append(e('p', 'ss-note', n));
+    return sec;
+  };
+  body.append(read('Seller may be flexible', s.flexibility));
+  body.append(read('Property may be impaired — a warning', s.impairment));
+
+  for (const w of s.worthKnowing) body.append(e('p', 'ss-worth', w));
+  body.append(e('p', 'ss-foot', 'Context for negotiation — this never moves the Deal Score.'));
+  box.append(body);
+  return box;
 }
 
 function numberField(id: string, value: string, placeholder: string, on?: (v: string) => void): HTMLInputElement {
@@ -219,6 +281,10 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
 
   // 5) components
   card.append(componentsList(view));
+
+  // 5b) Seller Signals — negotiation context, separate from and below the score.
+  const signals = sellerSignalsCard(view, h);
+  if (signals) card.append(signals);
 
   // 6) the one/two unknowns
   for (const f of TRIAGE_FIELDS[view.strategy]) {
@@ -345,6 +411,8 @@ interface Ctx {
   cleared: Set<string>;
   /** A remembered rent was dropped as not fitting this property (E7.1). */
   rentCleared: boolean;
+  /** Whether the Seller Signals card is expanded — kept across redraws (E8). */
+  signalsOpen: boolean;
 }
 
 function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['floorAreaSource']; range: PanelView['floorAreaRange'] } {
@@ -400,11 +468,14 @@ function draw(ctx: Ctx): void {
     const verdicts = STRATEGIES.map((s) => (s.id === ctx.strategy ? result : scoreStrategy(ctx, s.id, fa.sqm).result).deal?.verdict ?? null);
     outOfMarket = isOutOfMarket(result.priceVsSold.status, verdicts);
   }
+  // Seller Signals — read from what the page already gave us, computed here and
+  // NEVER fed into scoreListing/scoreDeal, so it can't move the score (E8).
+  const signals = ctx.screen === 'triage' && !ctx.ewReject ? readSellerSignals(ctx.listing, FALLBACK_CONFIG.signals, new Date()) : undefined;
   const view: PanelView = {
     screen: ctx.screen, listing: ctx.listing, strategy: ctx.strategy, result, unknowns, suggestions,
     settings: ctx.settings, criteria: ctx.criteria, floorAreaSqm: fa.sqm, floorAreaSource: fa.source, floorAreaRange: fa.range,
     manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal,
-    rentCleared: ctx.rentCleared, outOfMarket, ewReject: ctx.ewReject,
+    rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, ewReject: ctx.ewReject,
   };
   const setUnknown = (key: string, v: string): void => {
     if (v.trim() === '') ctx.cleared.add(key);
@@ -421,6 +492,7 @@ function draw(ctx: Ctx): void {
     onCriterion: (k, v) => { const c = { ...ctx.criteria }; if (v.trim() === '') delete c[k]; else c[k] = Number(v); ctx.criteria = c; void store.setCriteria(c); redraw(ctx); },
     onOpenSettings: () => { ctx.screen = 'settings'; draw(ctx); },
     onCloseSettings: () => { ctx.screen = 'triage'; draw(ctx); },
+    onToggleSignals: (open) => { ctx.signalsOpen = open; },
     onSend: () => {
       const url = buildAnalyserUrl(WEB_BASE, ctx.listing!, {
         strategy: ctx.strategy, floorAreaSqm: fa.sqm,
@@ -452,7 +524,7 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     url, listing: null, failure: null, screen: 'triage',
     strategy: (await store.getStrategy()) as StrategyId,
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
-    sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(), rentCleared: false,
+    sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
   };
   let result: ExtractResult;
   try {
