@@ -23,11 +23,48 @@ export const RIGHTMOVE_EXTRACTOR_VERSION = 'rm-1.0.0';
 const MSG_CHANGED = 'We couldn’t read this Rightmove page — the site may have changed. Try refreshing; if it keeps happening we’ll need to update the reader.';
 const MSG_NOT_LISTING = 'This doesn’t look like a Rightmove property listing.';
 
+const POSTCODE_RE = /^[A-Z]{1,2}\d[A-Z\d]?(\s*\d[A-Z]{2})?$/i;
+
+/**
+ * Rightmove exposes only a single joined displayAddress (no house-number field),
+ * so parse it into Land-Registry shape — paon (house number, optional letter),
+ * saon (Flat/Apartment/Unit), street, town — so the EPC-from-sector floor-area
+ * lookup can actually match (E8.1). A number can't always be recovered (many
+ * Rightmove addresses are street-only); leaving paon undefined then is correct —
+ * a per-address EPC match is impossible and the fallback returns null.
+ */
 function splitAddress(display: string | undefined): ListingAddress | null {
   if (!display || !display.trim()) return null;
   const parts = display.split(',').map((s) => s.trim()).filter(Boolean);
   if (parts.length === 0) return null;
-  return { street: parts[0], town: parts.length > 1 ? parts[parts.length - 1] : undefined };
+
+  let saon: string | undefined;
+  let idx = 0;
+  // A leading "Flat 2" / "Apartment 5" / "Unit 3B" is the secondary address.
+  if (/^(flat|apartment|apt|unit)\b/i.test(parts[0])) {
+    saon = parts[0];
+    idx = 1;
+  }
+
+  // The next segment carries the house number (paon) + street, e.g. "8 Tyfica Road".
+  const head = parts[idx] ?? '';
+  let paon: string | undefined;
+  let street: string | undefined;
+  const m = /^(\d+[a-z]?)\s+(.*)$/i.exec(head);
+  if (m) {
+    paon = m[1];
+    street = m[2];
+  } else {
+    street = head || undefined;
+  }
+
+  // Town = the last comma part that isn't the street segment or a postcode.
+  let town: string | undefined;
+  for (let i = parts.length - 1; i > idx; i--) {
+    if (!POSTCODE_RE.test(parts[i])) { town = parts[i]; break; }
+  }
+
+  return { paon, saon, street, town };
 }
 
 function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?: string): NormalisedListing {

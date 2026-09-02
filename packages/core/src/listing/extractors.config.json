@@ -67,7 +67,10 @@
     "minSectorSales": 5,
     "evidenceOutsideFactor": 2,
     "rentSanityYieldMin": 0.02,
-    "rentSanityYieldMax": 0.2
+    "rentSanityYieldMax": 0.2,
+    "sanityRefurbMaxFactor": 4,
+    "sanityEndValueMaxFactor": 10,
+    "sanityCashMaxFactor": 5
   },
   "signals": {
     "longOnMarketDays": 90,

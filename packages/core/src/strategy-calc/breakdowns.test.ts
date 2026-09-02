@@ -60,7 +60,7 @@ const FLIP = {
 };
 const BRRRR = {
   price: 150000, country: 'E92000001' as const, refurb: 30000, arv: 220000, funding: 'bridging' as const,
-  bridgeMonths: 6, monthlyRent: 1100, ltvPct: 75, buyingAs: 'basic' as const, bridgeLoanPct: 75,
+  bridgeMonths: 6, monthlyRent: 1100, ltvPct: 75, buyingAs: 'basic' as const, selfManaged: false, bridgeLoanPct: 75,
   bridgeRatePctMonth: 0.85, arrangementPct: 2, exitPct: 0, legals: 1500, refiLegals: 1000, voidWeeks: 5,
   agentPct: 12, maintPct: 1, insurancePerYear: 300, refiRatePct: 5.5, stressRatePct: 5.5, taxBasis: 'additional' as const,
   thresholds: { allOutMax: 0, minCashflowGreen: 100, icrBasic: 1.25, icrHigher: 1.45 },

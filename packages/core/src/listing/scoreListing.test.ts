@@ -33,18 +33,26 @@ describe('priceVsSector', () => {
     expect(priceVsSector(200000, sector(), 5).status).toBe('amber');
     expect(priceVsSector(250000, sector(), 5).status).toBe('red');
     expect(priceVsSector(150000, sector({ count: 3 }), 5).status).toBe('not-enough-sales');
-    expect(priceVsSector(150000, null, 5).status).toBe('no-data');
+    // sector null: default/not-found ⇒ "no data here yet"; load-failed ⇒ transient (E8.1)
+    expect(priceVsSector(150000, null, 5).status).toBe('no-area-data');
+    expect(priceVsSector(150000, null, 5, null, 2, 'load-failed').status).toBe('load-failed');
+    expect(priceVsSector(150000, null, 5, null, 2, 'loading').status).toBe('loading');
     // £1.5m vs a £230k p90 (×2 = £460k) ⇒ outside the evidence, not judged (bug 5b)
     expect(priceVsSector(1_500_000, sector(), 5, null, 2).status).toBe('outside-evidence');
   });
 });
 
 describe('floorAreaFromSector (EPC by address)', () => {
-  const mk = (paon: string, saon: string, area: number) => ({ id: paon + saon, date: '2026-01-01', price: 1, paon, saon, street: 'X', town: 'Y', postcode: 'SA1 8AJ', type: 'F', tenure: 'L', newBuild: false, lat: 0, lng: 0, floorAreaSqm: area, ppsqm: 1 });
+  const mk = (paon: string, saon: string, area: number, street = 'Kings Road') => ({ id: paon + saon, date: '2026-01-01', price: 1, paon, saon, street, town: 'Y', postcode: 'SA1 8AJ', type: 'F', tenure: 'L', newBuild: false, lat: 0, lng: 0, floorAreaSqm: area, ppsqm: 1 });
   it('returns the EPC area for a matching address; null otherwise', () => {
     const sales = [mk('31', '', 68)] as unknown as SectorFile['sales'];
     expect(floorAreaFromSector(sector({}, sales), { paon: '31', street: 'Kings Road' })).toBe(68);
     expect(floorAreaFromSector(sector({}, sales), { paon: '99' })).toBeNull();
+  });
+  it('never matches a house number on the WRONG street (E8.1)', () => {
+    const sales = [mk('6', '', 90, 'The Dell')] as unknown as SectorFile['sales'];
+    expect(floorAreaFromSector(sector({}, sales), { paon: '6', street: 'The Dell' })).toBe(90);
+    expect(floorAreaFromSector(sector({}, sales), { paon: '6', street: 'Bar Street' })).toBeNull();
   });
   it('never borrows a different unit at the same paon (saon presence must agree)', () => {
     const flats = [mk('10', 'Flat 1', 40), mk('10', '', 120)] as unknown as SectorFile['sales'];

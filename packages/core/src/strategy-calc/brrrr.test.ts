@@ -4,7 +4,7 @@ import { analyseBrrrr, arvNeededForAllOut, maxPriceForAllOut, type BrrrrStrategy
 const T = { allOutMax: 2500, minCashflowGreen: 100, icrBasic: 1.25, icrHigher: 1.45 };
 const base: BrrrrStrategyInputs = {
   price: 100000, country: 'E92000001', refurb: 25000, arv: 160000, funding: 'bridging',
-  bridgeMonths: 6, monthlyRent: 800, ltvPct: 75, buyingAs: 'basic',
+  bridgeMonths: 6, monthlyRent: 800, ltvPct: 75, buyingAs: 'basic', selfManaged: false,
   bridgeLoanPct: 75, bridgeRatePctMonth: 0.85, arrangementPct: 2, exitPct: 0,
   legals: 1500, refiLegals: 1000, voidWeeks: 5, agentPct: 12, maintPct: 1,
   insurancePerYear: 300, refiRatePct: 5, stressRatePct: 5.5,

@@ -30,6 +30,8 @@ import {
   type SectorFile,
   type Criteria,
   type SellerSignals,
+  type SectorLoad,
+  type CashNeeded,
 } from '@gil-bricks/core';
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
 import * as store from '../../src/store';
@@ -42,11 +44,14 @@ const LIGHT: Record<DealScore['verdict'], string> = { good: 'ds-good', marginal:
 const COMP_PILL: Record<string, string> = { green: 'st-green', amber: 'st-amber', red: 'st-red', unknown: 'st-unknown' };
 
 /** The one/two unknowns shown in triage per strategy (rest → Settings). */
+// refurbCost is a PER-DEAL unknown for EVERY strategy that uses it (it must never
+// be a global Settings field — that was the E8.1 leak). It stays optional (not in
+// REQUIRED_UNKNOWNS), defaulting to £0.
 const TRIAGE_FIELDS: Record<StrategyId, { key: string; label: string; unit: string }[]> = {
-  btl: [{ key: 'rent', label: 'Monthly rent', unit: '£/mo' }],
+  btl: [{ key: 'rent', label: 'Monthly rent', unit: '£/mo' }, { key: 'refurbCost', label: 'Refurb budget', unit: '£' }],
   flip: [{ key: 'gdv', label: 'End value after works', unit: '£' }, { key: 'refurbCost', label: 'Refurb budget', unit: '£' }],
   brrrr: [{ key: 'arv', label: 'End value after works', unit: '£' }, { key: 'rent', label: 'Monthly rent', unit: '£/mo' }, { key: 'refurbCost', label: 'Refurb budget', unit: '£' }],
-  hmo: [{ key: 'roomRent', label: 'Rent per room', unit: '£/mo' }, { key: 'rooms', label: 'Lettable rooms', unit: '' }],
+  hmo: [{ key: 'roomRent', label: 'Rent per room', unit: '£/mo' }, { key: 'rooms', label: 'Lettable rooms', unit: '' }, { key: 'refurbCost', label: 'Conversion / refurb budget', unit: '£' }],
 };
 
 function e(tag: string, cls?: string, text?: string): HTMLElement {
@@ -81,7 +86,11 @@ function soldText(p: ScoreListingResult['priceVsSold']): { pill: string; label: 
     case 'red': return { pill: 'st-red', label: 'over', text: `Above the £${(p.p90Price ?? 0).toLocaleString('en-GB')} sold ceiling` };
     case 'not-enough-sales': return { pill: 'st-unknown', label: 'thin', text: 'Not enough nearby sales to judge' };
     case 'outside-evidence': return { pill: 'st-unknown', label: 'n/a', text: 'No nearby sales at this level — we can’t judge the price from sold evidence' };
-    default: return { pill: 'st-unknown', label: '—', text: 'Couldn’t load nearby sold prices' };
+    // Distinct honest states (E8.1): a data GAP is not a load FAILURE.
+    case 'no-area-data': return { pill: 'st-unknown', label: 'no data', text: 'We haven’t got sold-price data for this area yet' };
+    case 'load-failed': return { pill: 'st-unknown', label: 'retry', text: 'Couldn’t load sold prices — check your connection and reopen the panel' };
+    case 'loading': return { pill: 'st-unknown', label: '…', text: 'Loading nearby sold prices…' };
+    default: return { pill: 'st-unknown', label: '—', text: 'Nearby sold prices aren’t available' };
   }
 }
 
@@ -109,6 +118,10 @@ export interface PanelView {
   signals?: SellerSignals;
   /** Whether the Seller Signals card is expanded (kept across redraws). */
   signalsOpen?: boolean;
+  /** A brief plain line describing the last lever change (E8.1 #14). */
+  lastChange?: string | null;
+  /** Auction detected (flag OR wording) — one source of truth (E8.1). */
+  isAuction?: boolean;
   ewReject?: string | null;
 }
 export interface PanelHandlers {
@@ -117,6 +130,7 @@ export interface PanelHandlers {
   onArea?: (v: string) => void;
   onSetting?: (key: string, v: string) => void;
   onCriterion?: (key: keyof Criteria, v: string) => void;
+  onLever?: (lever: Lever, value: string) => void;
   onOpenSettings?: () => void;
   onCloseSettings?: () => void;
   onSend?: () => void;
@@ -147,9 +161,13 @@ function componentsList(view: PanelView): HTMLElement {
   const sold = soldText(view.result.priceVsSold);
   const deal = view.result.deal;
   const rows = deal ? deal.components : strategyById(view.strategy)!.score.map((c) => ({ name: c.name, status: 'pending', points: 0, max: c.weight }));
+  // Cashflow is triaged on BEFORE-TAX (the real triage number); after-tax is
+  // shown beneath as secondary context (E8.1 #4). Tax maths in core is unchanged.
+  const an = deal?.analysis as { cashflowBeforeTax?: { value: number }; cashflowAfterTax?: { value: number } } | undefined;
   for (const c of rows) {
     const isSold = /sold/i.test(c.name);
     const isRoom = /room/i.test(c.name) && /size|legal|minimum/i.test(c.name);
+    const isCashflow = /cashflow/i.test(c.name);
     const li = e('li', isSold ? 'component component-note' : 'component');
     li.append(e('span', 'c-name', c.name));
     if (isSold) {
@@ -162,6 +180,10 @@ function componentsList(view: PanelView): HTMLElement {
     } else {
       li.append(e('span', `c-status ${COMP_PILL[(c as { status: string }).status] ?? 'st-unknown'}`, (c as { status: string }).status));
       li.append(e('span', 'c-points', `${(c as { points: number }).points.toFixed(2)} / ${(c as { max: number }).max.toFixed(1)}`));
+      if (isCashflow && an?.cashflowBeforeTax) {
+        li.append(e('span', 'c-cashflow-lead', `${fmtGBP(an.cashflowBeforeTax.value)}/mo before tax`));
+        if (an.cashflowAfterTax) li.append(e('span', 'c-cashflow-sub', `≈ ${fmtGBP(an.cashflowAfterTax.value)}/mo after tax — tax depends on your structure & circumstances`));
+      }
     }
     ul.append(li);
   }
@@ -189,6 +211,11 @@ function sellerSignalsCard(view: PanelView, h: PanelHandlers): HTMLElement | nul
   sum.append(e('span', 'ss-title', 'Seller signals'));
   sum.append(e('span', `ss-band ${FLEX_PILL[s.flexibility.band]}`, bandLabel('flexibility', s.flexibility.band)));
   sum.append(e('span', `ss-band ${IMP_PILL[s.impairment.band]}`, bandLabel('impairment', s.impairment.band)));
+  // A proper, obvious lime control with a label + large target (E8.1 #8). The
+  // native <summary> already gives keyboard + screen-reader toggle behaviour.
+  const toggle = e('span', 'ss-expander', view.signalsOpen ? 'Hide detail ▲' : 'More detail ▼');
+  toggle.setAttribute('aria-hidden', 'true');
+  sum.append(toggle);
   box.append(sum);
 
   const body = e('div', 'ss-body');
@@ -233,14 +260,196 @@ function numberField(id: string, value: string, placeholder: string, on?: (v: st
   return inp;
 }
 
+const fmtThousands = (digits: string): string => (digits ? Number(digits).toLocaleString('en-GB') : '');
+const fmtGBP = (n: number): string => `£${Math.round(n).toLocaleString('en-GB')}`;
+
+/**
+ * A MONEY input that shows "£137,152" with thousands separators as the user
+ * types, while handing back a clean digit string for storage/scoring (E8.1 #10).
+ * Caret is preserved by counting digits, not characters.
+ */
+function moneyField(id: string, raw: string, placeholder: string, onRaw?: (digits: string) => void): HTMLElement {
+  const wrap = e('div', 'money-wrap');
+  wrap.append(e('span', 'money-prefix', '£'));
+  const inp = e('input', 'input-field money-input') as HTMLInputElement;
+  inp.id = id;
+  inp.type = 'text';
+  inp.inputMode = 'numeric';
+  inp.autocomplete = 'off';
+  inp.placeholder = placeholder;
+  inp.value = fmtThousands((raw || '').replace(/[^\d]/g, ''));
+  if (onRaw) {
+    inp.addEventListener('input', () => {
+      const caret = inp.selectionStart ?? inp.value.length;
+      const digitsBefore = (inp.value.slice(0, caret).match(/\d/g) || []).length;
+      const digits = inp.value.replace(/[^\d]/g, '');
+      inp.value = fmtThousands(digits);
+      let pos = 0;
+      let seen = 0;
+      while (pos < inp.value.length && seen < digitsBefore) {
+        if (/\d/.test(inp.value[pos])) seen++;
+        pos++;
+      }
+      try { inp.setSelectionRange(pos, pos); } catch { /* non-text inputs */ }
+      onRaw(digits);
+    });
+  }
+  wrap.append(inp);
+  return wrap;
+}
+
+const MONEY_KEYS = new Set(['rent', 'gdv', 'arv', 'refurbCost', 'roomRent']);
+
+/**
+ * The FIVE front-of-panel levers that change the answer (E8.1 #13), per strategy.
+ * deposit%/rate% are personal CRITERIA; funding/buyingAs/management are settings.
+ * Management applies to EVERY rental strategy (BTL/BRRRR/HMO), never Flip.
+ */
+type LeverKind = 'pct' | 'select';
+interface Lever {
+  key: string;
+  label: string;
+  kind: LeverKind;
+  store: 'criteria' | 'settings';
+  criterionKey?: keyof Criteria;
+  options?: { value: string; label: string }[];
+}
+const FUNDING_CASH_BRIDGE = [{ value: 'bridging', label: 'Bridging' }, { value: 'cash', label: 'Cash' }];
+const BUYING_AS = [{ value: 'basic', label: 'Personally (basic)' }, { value: 'higher', label: 'Personally (higher)' }, { value: 'ltd', label: 'Through a company' }];
+const FLIP_AS = [{ value: 'personal', label: 'Personally' }, { value: 'ltd', label: 'Through a company' }];
+const MGMT = [{ value: 'agent', label: 'Letting agent' }, { value: 'self', label: 'Self-managed' }];
+// Every lever below must map to a key the strategy's score ACTUALLY reads, so it
+// truly changes the answer (E8.1 review): BRRRR has no deposit% (funding sets its
+// cash), and Flip taxes on flipAs, not buyingAs.
+const LEVERS: Record<StrategyId, Lever[]> = {
+  btl: [
+    { key: 'deposit', label: 'Deposit %', kind: 'pct', store: 'criteria', criterionKey: 'depositPct' },
+    { key: 'rate', label: 'Mortgage rate %', kind: 'pct', store: 'criteria', criterionKey: 'ratePct' },
+    { key: 'buyingAs', label: 'Buying as', kind: 'select', store: 'settings', options: BUYING_AS },
+    { key: 'mgmt', label: 'Management', kind: 'select', store: 'settings', options: MGMT },
+  ],
+  hmo: [
+    { key: 'deposit', label: 'Deposit %', kind: 'pct', store: 'criteria', criterionKey: 'depositPct' },
+    { key: 'rate', label: 'Mortgage rate %', kind: 'pct', store: 'criteria', criterionKey: 'ratePct' },
+    { key: 'buyingAs', label: 'Buying as', kind: 'select', store: 'settings', options: BUYING_AS },
+    { key: 'mgmt', label: 'Management', kind: 'select', store: 'settings', options: MGMT },
+  ],
+  brrrr: [
+    { key: 'rate', label: 'Refinance rate %', kind: 'pct', store: 'criteria', criterionKey: 'ratePct' },
+    { key: 'funding', label: 'Funding', kind: 'select', store: 'settings', options: FUNDING_CASH_BRIDGE },
+    { key: 'buyingAs', label: 'Buying as', kind: 'select', store: 'settings', options: BUYING_AS },
+    { key: 'mgmt', label: 'Management', kind: 'select', store: 'settings', options: MGMT },
+  ],
+  flip: [
+    { key: 'funding', label: 'Funding', kind: 'select', store: 'settings', options: FUNDING_CASH_BRIDGE },
+    { key: 'flipAs', label: 'Buying as', kind: 'select', store: 'settings', options: FLIP_AS },
+  ],
+};
+
+/** Current effective value of a lever (criteria/settings → config default). */
+function leverValue(view: PanelView, lever: Lever): string {
+  if (lever.store === 'criteria' && lever.criterionKey) {
+    const v = view.criteria[lever.criterionKey];
+    if (v != null) return String(v);
+    // deposit/rate can live in strategyInputs OR assumptions — search both, so a
+    // lever never renders blank when a config default exists (E8.1 review #5).
+    const cfgField = [...strategyById(view.strategy)!.strategyInputs, ...strategyById(view.strategy)!.assumptions].find((f) => f.key === lever.key);
+    return cfgField?.default ?? '';
+  }
+  const s = view.settings[lever.key];
+  if (s != null && s !== '') return s;
+  const cfgField = [...strategyById(view.strategy)!.strategyInputs, ...strategyById(view.strategy)!.assumptions].find((f) => f.key === lever.key);
+  return cfgField?.default ?? (lever.options?.[0].value ?? '');
+}
+
+/** The five levers, compact, directly under the unknowns (E8.1 #13). */
+function leverControls(view: PanelView, h: PanelHandlers): HTMLElement {
+  const box = e('div', 'levers');
+  box.append(e('h2', 'levers-head', 'The levers that change the answer'));
+  const grid = e('div', 'levers-grid');
+  for (const lever of LEVERS[view.strategy]) {
+    const row = e('div', 'lever');
+    const lab = e('label', 'lever-label', lever.label);
+    lab.setAttribute('for', `gb-l-${lever.key}`);
+    let input: HTMLElement;
+    if (lever.kind === 'select') {
+      const selEl = e('select', 'input-field lever-field') as HTMLSelectElement;
+      selEl.id = `gb-l-${lever.key}`;
+      const cur = leverValue(view, lever);
+      for (const o of lever.options ?? []) {
+        const opt = document.createElement('option');
+        opt.value = o.value;
+        opt.textContent = o.label;
+        if (o.value === cur) opt.selected = true;
+        selEl.append(opt);
+      }
+      if (h.onLever) selEl.addEventListener('change', () => h.onLever!(lever, selEl.value));
+      input = selEl;
+    } else {
+      const inp = e('input', 'input-field lever-field') as HTMLInputElement;
+      inp.id = `gb-l-${lever.key}`;
+      inp.type = 'number';
+      inp.inputMode = 'decimal';
+      inp.value = leverValue(view, lever);
+      if (h.onLever) inp.addEventListener('input', () => h.onLever!(lever, inp.value));
+      input = inp;
+    }
+    row.append(lab, input);
+    grid.append(row);
+  }
+  box.append(grid);
+  if (view.lastChange) box.append(e('p', 'change-signal', view.lastChange));
+  return box;
+}
+
+/** "What you need to put in" — the up-front cash breakdown (E8.1 #15). */
+function costsCard(view: PanelView): HTMLElement | null {
+  const cn = view.result.cashNeeded;
+  if (!cn) return null;
+  const box = e('section', 'costs-card');
+  box.append(e('h2', 'costs-head', scoreCopy.cashNeeded.heading));
+  box.append(e('p', 'costs-intro', scoreCopy.cashNeeded.intro));
+  const ul = e('ul', 'costs-list');
+  for (const line of cn.lines) {
+    const li = e('li', 'costs-line');
+    li.append(e('span', 'costs-label', line.label + (line.estimate ? ' *' : '')));
+    li.append(e('span', 'costs-amount', line.amount == null ? 'check particulars' : fmtGBP(line.amount)));
+    ul.append(li);
+  }
+  box.append(ul);
+  const total = e('p', 'costs-total');
+  total.append(e('span', 'costs-total-label', 'Total cash needed'));
+  total.append(e('span', 'costs-total-amount', fmtGBP(cn.total)));
+  box.append(total);
+  if (cn.bridging) {
+    box.append(e('p', 'costs-split', scoreCopy.cashNeeded.bridgingSplit.replace('{borrowed}', fmtGBP(cn.bridging.borrowed)).replace('{cash}', fmtGBP(cn.bridging.cash))));
+  }
+  if (cn.hasAuctionEstimate) box.append(e('p', 'costs-note', `* Auction fees — ${scoreCopy.cashNeeded.auctionFeesNote}. They add to the cash above.`));
+  return box;
+}
+
+/** Prominent auction warning ABOVE the components (E8.1 #7). */
+function auctionCard(view: PanelView): HTMLElement | null {
+  if (!view.isAuction) return null;
+  const box = e('section', 'auction-card');
+  box.setAttribute('role', 'note');
+  box.append(e('h2', 'auction-head', `⚠ ${scoreCopy.auction.heading}`));
+  const ul = e('ul', 'auction-list');
+  for (const point of [scoreCopy.auction.guide, scoreCopy.auction.fees, scoreCopy.auction.legal]) ul.append(e('li', 'auction-point', point));
+  box.append(ul);
+  return box;
+}
+
 export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   const app = root();
   const L = view.listing;
   const card = e('section', 'glass card');
 
-  // 1) property line
+  // 1) property line — "Flat 2, 8 Earl Street, SA1 2HG" (saon + number kept, E8.1).
   const addr = L.address.value;
-  card.append(e('h1', 'prop-addr', [addr?.paon, addr?.street, L.postcode.value].filter(Boolean).join(', ') || L.postcode.value || 'This property'));
+  const streetLine = [addr?.paon, addr?.street].filter(Boolean).join(' ');
+  const h1 = [addr?.saon, streetLine, L.postcode.value].filter(Boolean).join(', ') || L.postcode.value || 'This property';
+  card.append(e('h1', 'prop-addr', h1));
   const facts = [
     L.askingPrice.value ? `£${L.askingPrice.value.toLocaleString('en-GB')}` : null,
     L.propertyType.value, L.bedrooms.value ? `${L.bedrooms.value} bed` : null, L.tenure.value?.toLowerCase(),
@@ -266,12 +475,13 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
     return;
   }
 
-  // 3) score + headline, 4) what's holding it back
+  // 3) verdict + headline
   card.append(chip(view.result.deal, view.result, view.strategy));
   if (view.usingSuggested) card.append(e('p', 'suggest-note', 'Score uses a suggested end value — set your own to be sure.'));
   if (view.result.note) card.append(e('p', 'read-fail', view.result.note));
   // Honest out-of-market line — priced above local stock, works on no strategy (E7.1).
   if (view.outOfMarket) card.append(e('p', 'out-of-market', scoreCopy.listingNotes.outOfMarket));
+  // 4) what's holding it back
   if (view.result.deal?.bindingConstraint) {
     const bn = e('p', 'binding-note');
     bn.append(e('span', 'binding-label', 'What’s holding it back: '));
@@ -279,46 +489,60 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
     card.append(bn);
   }
 
+  // 4b) AUCTION warning — prominent, ABOVE the components (E8.1 #7).
+  const auction = auctionCard(view);
+  if (auction) card.append(auction);
+
   // 5) components
   card.append(componentsList(view));
 
-  // 5b) Seller Signals — negotiation context, separate from and below the score.
-  const signals = sellerSignalsCard(view, h);
-  if (signals) card.append(signals);
+  // 6) "What you need to put in" — costs breakdown (E8.1 #15).
+  const costs = costsCard(view);
+  if (costs) card.append(costs);
 
-  // 6) the one/two unknowns
+  // 7) the one/two unknowns …
   for (const f of TRIAGE_FIELDS[view.strategy]) {
     const row = e('div', 'input-row');
     const lab = e('label', 'input-label', `${f.label}${f.unit ? ` (${f.unit})` : ''}`);
     lab.setAttribute('for', `gb-u-${f.key}`);
     const sug = view.suggestions[f.key];
     const placeholder = f.key === 'rent' ? 'what it would let for' : sug && sug.value ? sug.label : 'you decide';
-    row.append(lab, numberField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, h.onUnknown ? (v) => h.onUnknown!(f.key, v) : undefined));
-    if (sug) row.append(e('span', 'suggest-note', sug.value ? sug.label : sug.label));
+    const onRaw = h.onUnknown ? (v: string) => h.onUnknown!(f.key, v) : undefined;
+    const field = MONEY_KEYS.has(f.key)
+      ? moneyField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw)
+      : numberField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw);
+    row.append(lab, field);
+    if (sug) row.append(e('span', 'suggest-note', sug.label));
     card.append(row);
-    // A remembered rent that didn't fit this property was cleared — say why (E7.1).
     if (f.key === 'rent' && view.rentCleared && !(view.unknowns.rent ?? '')) {
       card.append(e('p', 'suggest-note cleared-note', scoreCopy.listingNotes.rememberedRentUnfit));
     }
   }
 
-  // floor area (with range honesty — bug 5a)
+  // 7b) the FIVE front levers + the change signal (E8.1 #13/#14).
+  card.append(leverControls(view, h));
+
+  // floor area (with range honesty — bug 5a) — always LABEL the source (E8.1 #11).
   if (view.floorAreaRange) {
     card.append(e('p', 'floor-area', `Floor area: ${view.floorAreaRange.minSqm}–${view.floorAreaRange.maxSqm} m² (a range on the listing; using the ${view.floorAreaSqm} m² midpoint)`));
   } else if (view.floorAreaSqm && (view.floorAreaSource === 'listing' || view.floorAreaSource === 'epc-sector')) {
-    card.append(e('p', 'floor-area', `Floor area: ${view.floorAreaSqm} m² (${view.floorAreaSource === 'listing' ? 'from the listing' : 'from EPC data'})`));
+    card.append(e('p', 'floor-area', `Floor area: ${view.floorAreaSqm} m² (${view.floorAreaSource === 'listing' ? 'from the listing' : 'from our EPC data'})`));
   } else {
     // manual OR none — keep the input MOUNTED so multi-digit entry works
     const row = e('div', 'input-row');
     const lab = e('label', 'input-label', 'Floor area (m²)');
     lab.setAttribute('for', 'gb-area');
-    row.append(lab, numberField('gb-area', view.manualAreaInput, 'not on the listing — optional', h.onArea));
-    if (view.floorAreaSqm && view.floorAreaSource === 'manual') row.append(e('span', 'suggest-note', `using ${view.floorAreaSqm} m²`));
+    row.append(lab, numberField('gb-area', view.manualAreaInput, 'not on the listing — you type it', h.onArea));
+    if (view.floorAreaSqm && view.floorAreaSource === 'manual') row.append(e('span', 'suggest-note', `using ${view.floorAreaSqm} m² (you typed it)`));
     card.append(row);
   }
 
-  // 7) "Using your settings ⚙" + Send
-  const settingsLink = e('button', 'settings-link', 'Using your settings ⚙') as HTMLButtonElement;
+  // 8) Seller Signals — negotiation context, separate, below the inputs (E8.1 #8/#16).
+  const signals = sellerSignalsCard(view, h);
+  if (signals) card.append(signals);
+
+  // 9) "Using your settings ⚙" + Send
+  const settingsLink = e('button', 'settings-link', 'More in settings ⚙') as HTMLButtonElement;
   settingsLink.type = 'button';
   if (h.onOpenSettings) settingsLink.addEventListener('click', () => h.onOpenSettings!());
   card.append(settingsLink);
@@ -340,11 +564,19 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
   if (h.onCloseSettings) back.addEventListener('click', () => h.onCloseSettings!());
   card.append(back);
 
-  card.append(e('h2', 'eyebrow', 'What does a good deal look like to you?'));
-  for (const f of criteriaFields()) {
+  // Heading is WHITE and spaced from the lime back link (E8.1 #9).
+  card.append(e('h2', 'settings-title', 'What does a good deal look like to you?'));
+  // deposit % and rate % are now front-of-panel LEVERS, so they leave this list.
+  for (const f of criteriaFields().filter((f) => f.key !== 'depositPct' && f.key !== 'ratePct')) {
     const row = e('div', 'assume-row');
     const lab = e('label', 'assume-label', `${f.label} (${f.unit})`);
     lab.setAttribute('for', `gb-c-${f.key}`);
+    const isMoney = f.unit.includes('£');
+    if (isMoney) {
+      row.append(lab, moneyField(`gb-c-${f.key}`, view.criteria[f.key] != null ? String(view.criteria[f.key]) : '', String(f.default), h.onCriterion ? (raw) => h.onCriterion!(f.key, raw) : undefined));
+      card.append(row);
+      continue;
+    }
     const inp = e('input', 'assume-field') as HTMLInputElement;
     inp.id = `gb-c-${f.key}`;
     inp.type = 'number';
@@ -355,10 +587,13 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
     card.append(row);
   }
 
-  card.append(e('h2', 'eyebrow settings-sub', `${strategyById(view.strategy)!.name} settings`));
+  card.append(e('h2', 'settings-title settings-sub', `${strategyById(view.strategy)!.name} settings`));
   const cfg = strategyById(view.strategy)!;
-  const triageKeys = new Set(TRIAGE_FIELDS[view.strategy].map((f) => f.key));
-  const skip = new Set([...triageKeys, 'deposit', 'rate']);
+  // Skip everything that now lives on the LISTING view: EVERY strategy's triage
+  // unknowns (so a per-deal figure like refurbCost is never a global setting —
+  // E8.1 #1 leak fix) and the five front levers (deposit/rate/buyingAs/funding/mgmt).
+  const allTriageKeys = Object.values(TRIAGE_FIELDS).flat().map((f) => f.key);
+  const skip = new Set([...allTriageKeys, 'deposit', 'rate', 'buyingAs', 'flipAs', 'funding', 'mgmt']);
   for (const f of [...cfg.strategyInputs, ...cfg.assumptions].filter((x) => !skip.has(x.key))) {
     const row = e('div', 'assume-row');
     const lab = e('label', 'assume-label', `${f.label}${f.unit ? ` (${f.unit})` : ''}`);
@@ -377,6 +612,9 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
       }
       if (h.onSetting) sel.addEventListener('change', () => h.onSetting!(f.key, sel.value));
       input = sel;
+    } else if (f.unit === '£') {
+      // Money fields format with £ + thousands as the user types (E8.1 #10).
+      input = moneyField(`gb-s-${f.key}`, val, String(f.default), h.onSetting ? (raw) => h.onSetting!(f.key, raw) : undefined);
     } else {
       const inp = e('input', 'assume-field') as HTMLInputElement;
       inp.id = `gb-s-${f.key}`;
@@ -413,7 +651,16 @@ interface Ctx {
   rentCleared: boolean;
   /** Whether the Seller Signals card is expanded — kept across redraws (E8). */
   signalsOpen: boolean;
+  /** How the sector fetch resolved, for honest sold-price messaging (E8.1). */
+  sectorLoad: SectorLoad;
+  /** The last front-lever change, shown briefly as a plain effect line (E8.1). */
+  lastChange: { text: string; token: number } | null;
 }
+
+/** Change-signal token so a stale timer never clears a newer message. */
+let changeToken = 0;
+/** The ctx for the currently-loaded listing — a stale timer only acts on this one. */
+let activeCtx: Ctx | null = null;
 
 function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['floorAreaSource']; range: PanelView['floorAreaRange'] } {
   const l = ctx.listing!;
@@ -442,40 +689,82 @@ function effectiveUnknowns(ctx: Ctx, strategy: StrategyId, suggestions: Record<s
 const SANITY_OPTS = {
   minSectorSales: FALLBACK_CONFIG.thresholds.minSectorSales,
   evidenceOutsideFactor: FALLBACK_CONFIG.thresholds.evidenceOutsideFactor,
+  sanityRefurbMaxFactor: FALLBACK_CONFIG.thresholds.sanityRefurbMaxFactor,
+  sanityEndValueMaxFactor: FALLBACK_CONFIG.thresholds.sanityEndValueMaxFactor,
+  sanityCashMaxFactor: FALLBACK_CONFIG.thresholds.sanityCashMaxFactor,
 };
 
 /** Score one strategy end-to-end (used for the current tab and the all-four check). */
-function scoreStrategy(ctx: Ctx, strategy: StrategyId, faSqm: number | null): { result: ScoreListingResult; unknowns: Record<string, string>; suggestedKeys: Set<string>; suggestions: Record<string, { value: string | null; label: string }> } {
+function scoreStrategy(ctx: Ctx, strategy: StrategyId, faSqm: number | null, isAuction: boolean): { result: ScoreListingResult; unknowns: Record<string, string>; suggestedKeys: Set<string>; suggestions: Record<string, { value: string | null; label: string }> } {
   const suggestions = smartDefaults(strategy, ctx.listing!, ctx.sector, faSqm, SANITY_OPTS);
   const { unknowns, suggestedKeys } = effectiveUnknowns(ctx, strategy, suggestions);
   const result = scoreListing(ctx.listing!, {
     strategy, unknowns, settings: ctx.settings, criteria: ctx.criteria,
-    sector: ctx.sector, floorAreaSqm: faSqm, ...SANITY_OPTS,
+    sector: ctx.sector, floorAreaSqm: faSqm, sectorLoad: ctx.sectorLoad, isAuction, ...SANITY_OPTS,
   });
   return { result, unknowns, suggestedKeys, suggestions };
+}
+
+/** One source of truth for "is this an auction" — Zoopla's flag OR wording (E8.1). */
+function detectAuction(listing: NormalisedListing, signals: SellerSignals | undefined): boolean {
+  return listing.isAuction.value === true || (signals?.impairment.evidence.some((ev) => /auction/i.test(ev.label)) ?? false);
 }
 
 function draw(ctx: Ctx): void {
   if (ctx.failure) return renderFailure(ctx.failure);
   if (!ctx.listing) return renderEmpty();
   const fa = resolveFloorArea(ctx);
-  const { result, unknowns, suggestedKeys, suggestions } = scoreStrategy(ctx, ctx.strategy, fa.sqm);
+  // Seller Signals — read from what the page already gave us, computed here and
+  // NEVER fed into scoreListing/scoreDeal, so it can't move the score (E8).
+  const signals = ctx.screen === 'triage' && !ctx.ewReject ? readSellerSignals(ctx.listing, FALLBACK_CONFIG.signals, new Date()) : undefined;
+  const isAuction = detectAuction(ctx.listing, signals);
+  const { result, unknowns, suggestedKeys, suggestions } = scoreStrategy(ctx, ctx.strategy, fa.sqm, isAuction);
   // Out-of-market only when the price is outside the local sold evidence AND no
   // strategy can be made to work — so score all four to be sure (E7.1). Only the
   // triage screen shows this line, so skip the extra three scores on Settings.
   let outOfMarket = false;
   if (ctx.screen === 'triage') {
-    const verdicts = STRATEGIES.map((s) => (s.id === ctx.strategy ? result : scoreStrategy(ctx, s.id, fa.sqm).result).deal?.verdict ?? null);
+    const verdicts = STRATEGIES.map((s) => (s.id === ctx.strategy ? result : scoreStrategy(ctx, s.id, fa.sqm, isAuction).result).deal?.verdict ?? null);
     outOfMarket = isOutOfMarket(result.priceVsSold.status, verdicts);
   }
-  // Seller Signals — read from what the page already gave us, computed here and
-  // NEVER fed into scoreListing/scoreDeal, so it can't move the score (E8).
-  const signals = ctx.screen === 'triage' && !ctx.ewReject ? readSellerSignals(ctx.listing, FALLBACK_CONFIG.signals, new Date()) : undefined;
   const view: PanelView = {
     screen: ctx.screen, listing: ctx.listing, strategy: ctx.strategy, result, unknowns, suggestions,
     settings: ctx.settings, criteria: ctx.criteria, floorAreaSqm: fa.sqm, floorAreaSource: fa.source, floorAreaRange: fa.range,
     manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal,
-    rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, ewReject: ctx.ewReject,
+    rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, isAuction,
+    lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject,
+  };
+  const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null } => {
+    const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number } } | undefined;
+    return { score: r.deal?.score ?? null, cashflow: a?.cashflowBeforeTax?.value ?? null };
+  };
+  const onLever = (lever: Lever, value: string): void => {
+    const before = metricsOf(result);
+    const oldRaw = leverValue(view, lever);
+    if (lever.store === 'criteria' && lever.criterionKey) {
+      const c = { ...ctx.criteria };
+      if (value.trim() === '') delete c[lever.criterionKey];
+      else c[lever.criterionKey] = Number(value);
+      ctx.criteria = c;
+      void store.setCriteria(c);
+    } else {
+      ctx.settings = { ...ctx.settings, [lever.key]: value };
+      void store.setSettings(ctx.settings);
+    }
+    const after = metricsOf(scoreStrategy(ctx, ctx.strategy, fa.sqm, isAuction).result);
+    // Plain "what it did" line — direction + size, near the control (E8.1 #14).
+    const disp = (raw: string): string => (lever.kind === 'select' ? (lever.options?.find((o) => o.value === raw)?.label ?? raw) : `${raw}%`);
+    const parts = [`${lever.label.replace(/ %$/, '')} ${disp(oldRaw)} → ${disp(value)}:`];
+    if (before.cashflow != null && after.cashflow != null) {
+      const d = Math.round(after.cashflow - before.cashflow);
+      parts.push(`cashflow ${d >= 0 ? '+' : '−'}${fmtGBP(Math.abs(d))}/mo${before.score != null && after.score != null ? ',' : ''}`);
+    }
+    if (before.score != null && after.score != null) parts.push(`score ${before.score.toFixed(1)} → ${after.score.toFixed(1)}`);
+    const token = ++changeToken;
+    ctx.lastChange = { text: parts.join(' '), token };
+    const live = document.getElementById('gb-live'); if (live) live.textContent = ctx.lastChange.text;
+    setTimeout(() => { if (activeCtx === ctx && ctx.lastChange?.token === token) { ctx.lastChange = null; redraw(ctx); } }, 6000);
+    redraw(ctx);
   };
   const setUnknown = (key: string, v: string): void => {
     if (v.trim() === '') ctx.cleared.add(key);
@@ -490,6 +779,7 @@ function draw(ctx: Ctx): void {
     onArea: (v) => { ctx.manualArea = v; if (ctx.listing?.listingId.value) void store.setManualArea(ctx.listing.listingId.value, v); redraw(ctx); },
     onSetting: (k, v) => { ctx.settings = { ...ctx.settings, [k]: v }; void store.setSettings(ctx.settings); redraw(ctx); },
     onCriterion: (k, v) => { const c = { ...ctx.criteria }; if (v.trim() === '') delete c[k]; else c[k] = Number(v); ctx.criteria = c; void store.setCriteria(c); redraw(ctx); },
+    onLever,
     onOpenSettings: () => { ctx.screen = 'settings'; draw(ctx); },
     onCloseSettings: () => { ctx.screen = 'triage'; draw(ctx); },
     onToggleSignals: (open) => { ctx.signalsOpen = open; },
@@ -525,7 +815,9 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     strategy: (await store.getStrategy()) as StrategyId,
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
     sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
+    sectorLoad: 'ok', lastChange: null,
   };
+  activeCtx = ctx; // a stale change-signal timer must never redraw a since-navigated listing
   let result: ExtractResult;
   try {
     result = (await chrome.tabs.sendMessage(tabId, { type: EXTRACT_MESSAGE })) as ExtractResult;
@@ -559,9 +851,21 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     }
   }
   if (ctx.listing.listingId.value) ctx.manualArea = await store.getManualArea(ctx.listing.listingId.value);
+  // Set 'loading' BEFORE the first paint when a fetch will actually run, so the
+  // sold-price line reads "Loading…" and never flashes a false "no data" (E8.1 review).
+  if (ctx.sectorId && !ctx.ewReject) ctx.sectorLoad = 'loading';
   draw(ctx);
   if (ctx.sectorId && !ctx.ewReject) {
-    try { ctx.sector = await getSector(ctx.sectorId); } catch { ctx.sector = null; }
+    try {
+      ctx.sector = await getSector(ctx.sectorId);
+      ctx.sectorLoad = 'ok';
+    } catch (err) {
+      // Keep WHY it failed so the panel can say "no data for this area yet"
+      // (a genuine gap) rather than "couldn't load" (transient) — E8.1.
+      ctx.sector = null;
+      const kind = (err as { kind?: string })?.kind;
+      ctx.sectorLoad = kind === 'NotFound' ? 'not-found' : 'load-failed';
+    }
     draw(ctx);
   }
 }

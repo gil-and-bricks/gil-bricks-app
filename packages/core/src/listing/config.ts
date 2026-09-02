@@ -41,6 +41,12 @@ export interface ExtractorConfig {
     /** A remembered rent must imply a gross yield in [min,max] to be applied. */
     rentSanityYieldMin: number;
     rentSanityYieldMax: number;
+    /** Refurb above this × the price is implausible for the property — refuse to score. */
+    sanityRefurbMaxFactor: number;
+    /** End value (GDV/ARV) above this × the price is implausible — refuse to score. */
+    sanityEndValueMaxFactor: number;
+    /** Any output cash figure above this × the price is impossible — never display it. */
+    sanityCashMaxFactor: number;
   };
   /** Seller Signals text patterns (E8) — EDITABLE here, no code change. */
   signals: SignalConfig;
@@ -113,7 +119,7 @@ export const FALLBACK_CONFIG: ExtractorConfig = {
     fallback: { meta: { title: 'og:title', url: 'og:url', description: 'og:description', image: 'og:image' }, ldType: 'RealEstateListing' },
   },
   flags: { rightmoveEnabled: true, zooplaEnabled: true, domFallbackEnabled: true },
-  thresholds: { remoteTimeoutMs: 2500, minSectorSales: 5, evidenceOutsideFactor: 2, rentSanityYieldMin: 0.02, rentSanityYieldMax: 0.2 },
+  thresholds: { remoteTimeoutMs: 2500, minSectorSales: 5, evidenceOutsideFactor: 2, rentSanityYieldMin: 0.02, rentSanityYieldMax: 0.2, sanityRefurbMaxFactor: 4, sanityEndValueMaxFactor: 10, sanityCashMaxFactor: 5 },
   signals: {
     longOnMarketDays: 90,
     flexibilityLanguage: [

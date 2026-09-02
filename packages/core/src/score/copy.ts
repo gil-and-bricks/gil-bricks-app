@@ -105,6 +105,23 @@ export const scoreCopy = {
     // a property type we haven't checked (E7.1 review) — only what the numbers show.
     outOfMarket: 'This is priced well above local investment stock — the numbers won’t work on any strategy.',
   },
+  /**
+   * Auction warning (E8.1) — shown PROMINENTLY above the components whenever the
+   * listing is an auction. Plain English; fully editable here.
+   */
+  auction: {
+    heading: 'This is an auction listing — read this first',
+    guide: 'The guide price is a starting point, not what it will sell for — and it is not a valuation.',
+    fees: 'Auction fees and a buyer’s premium usually apply on top of the price — check the exact figures in the auction particulars.',
+    legal: 'Have a solicitor review the legal pack BEFORE you bid — it can carry costs and conditions that change the deal.',
+  },
+  /** "What you need to put in" costs card (E8.1) — line labels + the show-the-maths intro. */
+  cashNeeded: {
+    heading: 'What you need to put in',
+    intro: 'The cash you’d need up front to do this deal:',
+    auctionFeesNote: 'estimate — check the exact fees in the auction particulars',
+    bridgingSplit: 'Of the purchase, {borrowed} is bridged and {cash} is your cash.',
+  },
   noLeverByKey: {
     moneyLeftIn: 'On these numbers no purchase price pulls all your cash back out.',
     profit: 'On these numbers no purchase price reaches the target profit.',

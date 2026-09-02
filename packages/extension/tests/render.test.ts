@@ -45,10 +45,11 @@ describe('triage panel (E7)', () => {
     expect(txt()).toContain('Kings Road');
     expect(document.querySelectorAll('.strat-btn').length).toBe(4);
     expect(document.querySelector('.deal-score .ds-score strong')).toBeTruthy();
-    // exactly ONE triage UNKNOWN (rent) — everything else is in Settings
-    expect(document.querySelectorAll('[id^="gb-u-"]').length).toBe(1);
+    // rent (the required unknown) + an optional refurb budget — everything else is in Settings/levers
     expect(document.getElementById('gb-u-rent')).toBeTruthy();
-    expect(document.querySelector('.settings-link')?.textContent).toContain('Using your settings');
+    expect(document.getElementById('gb-u-refurbCost')).toBeTruthy();
+    expect(document.querySelectorAll('[id^="gb-u-"]').length).toBe(2);
+    expect(document.querySelector('.settings-link')?.textContent).toContain('settings');
     expect(document.querySelector('.send-btn')?.textContent).toContain('Send to my analyser');
   });
 
@@ -118,6 +119,81 @@ describe('triage panel (E7)', () => {
   });
 });
 
+describe('E8.1 — levers, costs, auction, tax, money formatting', () => {
+  it('each strategy shows only the levers that truly change ITS answer (no inert levers)', () => {
+    // BRRRR: rate + funding + buyingAs + mgmt (BRRRR has no deposit% — funding sets its cash)
+    renderTriage(view({ strategy: 'brrrr', unknowns: { arv: '180000', rent: '1000', refurbCost: '20000' } }));
+    expect([...document.querySelectorAll('.lever [id^="gb-l-"]')].map((n) => n.id.replace('gb-l-', '')).sort()).toEqual(['buyingAs', 'funding', 'mgmt', 'rate']);
+    // BTL: deposit + rate + buyingAs + mgmt (no funding — always mortgage)
+    document.body.innerHTML = '<main id="app"></main>';
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '1000' } }));
+    expect([...document.querySelectorAll('.lever [id^="gb-l-"]')].map((n) => n.id.replace('gb-l-', '')).sort()).toEqual(['buyingAs', 'deposit', 'mgmt', 'rate']);
+    // Flip: funding + flipAs (its real "buying as" key — the lever must not be inert)
+    document.body.innerHTML = '<main id="app"></main>';
+    renderTriage(view({ strategy: 'flip', unknowns: { gdv: '200000', refurbCost: '20000' } }));
+    expect(document.getElementById('gb-l-flipAs')).toBeTruthy();
+    expect(document.getElementById('gb-l-buyingAs')).toBeNull();
+  });
+  it('management is a lever on every rental strategy but not Flip', () => {
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '1000' } }));
+    expect(document.getElementById('gb-l-mgmt')).toBeTruthy();
+    document.body.innerHTML = '<main id="app"></main>';
+    renderTriage(view({ strategy: 'flip', unknowns: { gdv: '200000', refurbCost: '20000' } }));
+    expect(document.getElementById('gb-l-mgmt')).toBeNull();
+    expect(document.getElementById('gb-l-funding')).toBeTruthy();
+  });
+  it('the change-signal line shows the plain effect when set', () => {
+    renderTriage(view({ unknowns: { rent: '1000' }, lastChange: 'Deposit 25% → 35%: cashflow +£118/mo, score 6.3 → 7.4' }));
+    const sig = document.querySelector('.change-signal');
+    expect(sig?.textContent).toContain('Deposit 25% → 35%');
+    expect(sig?.textContent).toContain('score 6.3 → 7.4');
+  });
+  it('"What you need to put in" costs card renders with a total, above the unknowns', () => {
+    renderTriage(view({ strategy: 'brrrr', unknowns: { arv: '180000', rent: '1000', refurbCost: '20000' } }));
+    const costs = document.querySelector('.costs-card')!;
+    expect(costs).toBeTruthy();
+    expect(costs.textContent).toContain('What you need to put in');
+    expect(costs.textContent).toContain('Total cash needed');
+    // costs card is AFTER components and BEFORE the unknown inputs
+    const comps = document.querySelector('.components')!;
+    const firstUnknown = document.getElementById('gb-u-arv')!;
+    expect(comps.compareDocumentPosition(costs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(costs.compareDocumentPosition(firstUnknown) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  it('an auction listing shows a prominent card ABOVE the components (item 7)', () => {
+    const auc = { ...listing, isAuction: found(true) };
+    const result = scoreListing(auc, { strategy: 'btl', unknowns: { rent: '900' }, sector: sector(), isAuction: true });
+    renderTriage(view({ listing: auc, result, unknowns: { rent: '900' }, isAuction: true }));
+    const card = document.querySelector('.auction-card')!;
+    expect(card).toBeTruthy();
+    expect(card.textContent).toMatch(/legal pack/i);
+    expect(card.textContent).toMatch(/guide price/i);
+    const comps = document.querySelector('.components')!;
+    expect(card.compareDocumentPosition(comps) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // card before components
+    // a normal listing has no auction card
+    document.body.innerHTML = '<main id="app"></main>';
+    renderTriage(view({ unknowns: { rent: '900' } }));
+    expect(document.querySelector('.auction-card')).toBeNull();
+  });
+  it('cashflow leads on BEFORE-tax with after-tax beneath (item 4)', () => {
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '1200' } }));
+    const lead = document.querySelector('.c-cashflow-lead');
+    const sub = document.querySelector('.c-cashflow-sub');
+    expect(lead?.textContent).toMatch(/before tax/i);
+    expect(sub?.textContent).toMatch(/after tax/i);
+  });
+  it('money inputs format with £ and thousands separators (item 10)', () => {
+    renderTriage(view({ unknowns: { rent: '1200' } }));
+    expect((document.getElementById('gb-u-rent') as HTMLInputElement).value).toBe('1,200');
+    expect(document.querySelector('.money-prefix')?.textContent).toBe('£');
+  });
+  it('the Seller Signals expander is a labelled control', () => {
+    const signals = readSellerSignals({ ...listing, description: found('Motivated seller.') }, FALLBACK_CONFIG.signals, new Date('2026-09-02T00:00:00Z'));
+    renderTriage(view({ unknowns: { rent: '1200' }, signals }));
+    expect(document.querySelector('.ss-expander')?.textContent).toContain('More detail');
+  });
+});
+
 describe('Seller Signals card (E8)', () => {
   const NOW = new Date('2026-09-02T00:00:00Z');
   const reduced = { ...listing, listingUpdate: found({ reason: 'reduced', date: '2026-07-15' }), description: found('Motivated seller. Offered chain free with no onward chain.') };
@@ -173,7 +249,9 @@ describe('settings screen (E7)', () => {
   it('shows the personal-criteria fields and a back link', () => {
     renderSettings(view({ screen: 'settings' }));
     expect(txt()).toContain('What does a good deal look like to you?');
-    for (const f of criteriaFields()) expect(document.getElementById(`gb-c-${f.key}`), f.key).toBeTruthy();
+    // deposit % and rate % are now front-of-panel levers, so they leave settings (E8.1)
+    for (const f of criteriaFields().filter((f) => f.key !== 'depositPct' && f.key !== 'ratePct')) expect(document.getElementById(`gb-c-${f.key}`), f.key).toBeTruthy();
+    expect(document.getElementById('gb-c-depositPct')).toBeNull();
     expect(document.querySelector('.settings-link')?.textContent).toContain('Back to the listing');
     // rent (a triage unknown) must NOT appear in settings
     expect(document.getElementById('gb-s-rent')).toBeNull();

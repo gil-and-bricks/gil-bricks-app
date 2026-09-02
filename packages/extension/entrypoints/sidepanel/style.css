@@ -196,3 +196,50 @@ body {
 .ss-note { margin: 4px 0 0; color: var(--text-dim); font-size: 0.78rem; }
 .ss-worth { margin: 10px 0 0; padding-left: 10px; border-left: 2px solid var(--accent); font-size: 0.84rem; color: var(--text); }
 .ss-foot { margin: 12px 0 0; color: var(--text-dim); font-size: 0.75rem; }
+
+/* ---- E8.1: money inputs, levers, change signal, costs card, auction card ---- */
+.money-wrap { position: relative; display: flex; align-items: center; }
+.money-prefix { position: absolute; left: 10px; color: var(--text-dim); pointer-events: none; font-size: 1rem; }
+.money-input { padding-left: 22px; }
+
+.settings-title { margin: 18px 0 8px; font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; color: var(--text); }
+.settings-title.settings-sub { margin-top: 22px; font-size: 0.85rem; }
+
+/* Auction warning — prominent, above the components. */
+.auction-card { margin: 12px 0; padding: 12px 14px; border: 2px solid var(--amber); border-radius: 12px; background: rgba(255, 200, 97, 0.08); }
+.auction-head { margin: 0 0 8px; font-family: var(--font-display); font-weight: 800; font-size: 0.92rem; color: var(--amber); }
+.auction-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.auction-point { font-size: 0.86rem; color: var(--text); }
+
+/* Cashflow before/after tax (item 4). */
+.c-cashflow-lead { display: block; grid-column: 1 / -1; margin-top: 3px; font-weight: 700; font-size: 0.86rem; color: var(--text); }
+.c-cashflow-sub { display: block; grid-column: 1 / -1; color: var(--text-dim); font-size: 0.76rem; }
+
+/* "What you need to put in" costs card. */
+.costs-card { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
+.costs-head { margin: 0 0 4px; font-family: var(--font-display); font-weight: 800; font-size: 0.92rem; color: var(--accent); }
+.costs-intro { margin: 0 0 8px; color: var(--text-dim); font-size: 0.8rem; }
+.costs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.costs-line { display: flex; justify-content: space-between; gap: 10px; font-size: 0.88rem; }
+.costs-label { color: var(--text-dim); }
+.costs-amount { font-variant-numeric: tabular-nums; }
+.costs-total { display: flex; justify-content: space-between; gap: 10px; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.14); font-weight: 800; }
+.costs-total-amount { color: var(--accent); font-variant-numeric: tabular-nums; }
+.costs-split { margin: 8px 0 0; color: var(--text-dim); font-size: 0.78rem; }
+.costs-note { margin: 6px 0 0; color: var(--amber); font-size: 0.76rem; }
+
+/* Front levers + change signal. */
+.levers { margin: 14px 0 0; }
+.levers-head { margin: 0 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim); }
+.levers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.lever { display: flex; flex-direction: column; gap: 3px; }
+.lever-label { font-size: 0.78rem; color: var(--text-dim); }
+.lever-field { padding: 7px 9px; font-size: 0.92rem; }
+.change-signal { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(220, 255, 0, 0.12); border-left: 3px solid var(--accent); color: var(--text); font-size: 0.82rem; font-weight: 600; animation: gb-fade 0.3s ease; }
+@keyframes gb-fade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .change-signal { animation: none; } }
+
+/* Seller Signals expander — a proper labelled lime control (item 8). */
+.ss-expander { margin-left: auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
+.ss-summary::after { content: none; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

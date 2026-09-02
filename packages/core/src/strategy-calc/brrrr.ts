@@ -23,6 +23,8 @@ export interface BrrrrStrategyInputs {
   monthlyRent: number;
   ltvPct: number;
   buyingAs: BuyingAs;
+  /** Self-managed lets (no agent fee) vs a letting agent (E8.1 — mgmt lever). */
+  selfManaged: boolean;
   bridgeLoanPct: number;
   bridgeRatePctMonth: number;
   arrangementPct: number;
@@ -53,6 +55,7 @@ export interface BrrrrAnalysis {
   bridging: { loan: number; interest: number; arrangement: number; exit: number; breakdown: Breakdown } | null;
   maxPriceAllOut: number | null;
   arvNeededAllOut: number | null;
+  cashflowBeforeTax: { value: number; breakdown: Breakdown };
   cashflowAfterTax: { value: number; breakdown: Breakdown };
   taxBreakdown: Breakdown;
   roiOnLeftIn: { value: number | null; breakdown: Breakdown };
@@ -64,7 +67,10 @@ export interface BrrrrAnalysis {
 }
 
 function core(i: BrrrrStrategyInputs) {
-  const sdlt = stampDuty({ price: i.price, country: i.country, buyerType: i.taxBasis });
+  // A company (Ltd/SPV) buying residential always pays the additional-property
+  // rates — it can never be 'only property' or a first-time buyer (E8.1). Mirrors flip.ts.
+  const basis: BuyerType = i.buyingAs === 'ltd' ? 'additional' : i.taxBasis;
+  const sdlt = stampDuty({ price: i.price, country: i.country, buyerType: basis });
   const bridgeLoan = i.funding === 'bridging' ? i.price * (i.bridgeLoanPct / 100) : 0;
   const deposit = i.price - bridgeLoan;
   const bridgeInterest = bridgeLoan * (i.bridgeRatePctMonth / 100) * i.bridgeMonths;
@@ -87,7 +93,7 @@ function core(i: BrrrrStrategyInputs) {
     loan: refiLoan,
     ratePct: i.refiRatePct,
     buyingAs: i.buyingAs,
-    selfManaged: false,
+    selfManaged: i.selfManaged,
     voidWeeks: i.voidWeeks,
     agentPct: i.agentPct,
     maintPct: i.maintPct,
@@ -296,6 +302,7 @@ export function analyseBrrrr(i: BrrrrStrategyInputs): BrrrrAnalysis {
     bridging,
     maxPriceAllOut: maxPriceForAllOut(i),
     arvNeededAllOut: arvNeededForAllOut(i),
+    cashflowBeforeTax: { value: c.rental.before.value, breakdown: c.rental.before.breakdown },
     cashflowAfterTax: {
       value: c.rental.after,
       breakdown: {

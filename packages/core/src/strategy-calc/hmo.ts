@@ -99,7 +99,10 @@ export interface HmoAnalysis {
 }
 
 function core(i: HmoInputs) {
-  const sdlt = stampDuty({ price: i.price, country: i.country, buyerType: i.taxBasis });
+  // A company (Ltd/SPV) buying residential always pays the additional-property
+  // rates — it can never be 'only property' or a first-time buyer (E8.1). Mirrors flip.ts.
+  const basis: BuyerType = i.buyingAs === 'ltd' ? 'additional' : i.taxBasis;
+  const sdlt = stampDuty({ price: i.price, country: i.country, buyerType: basis });
   const deposit = i.price * (i.depositPct / 100);
   const loan = i.price - deposit;
   const cash = libCashIn({ deposit, sdlt: sdlt.value.tax, legals: i.legals, refurb: i.refurb, fees: 0 });

@@ -67,6 +67,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
         monthlyRent: num('rent'),
         ltvPct,
         buyingAs: (p.buyingAs as 'basic' | 'higher' | 'ltd') ?? 'basic',
+        selfManaged: p.mgmt === 'self',
         bridgeLoanPct: num('bridgeLoanPct'),
         bridgeRatePctMonth: num('bridgeRate'),
         arrangementPct: num('arrangementPct'),
