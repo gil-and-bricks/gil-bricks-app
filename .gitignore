@@ -27,3 +27,10 @@ pnpm-debug.log*
 # pipeline downloads and build output (multi-GB — never committed)
 pipeline/.data/
 public/map/vendor/
+
+# monorepo paths (E1)
+packages/web/pipeline/.data/
+packages/web/public/map/vendor/
+packages/*/dist/
+**/.data/
+**/node_modules/

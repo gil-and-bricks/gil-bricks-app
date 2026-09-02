@@ -1,0 +1,48 @@
+---
+import { siteConfig } from '../../site.config';
+import { strategies } from '@gil-bricks/core';
+import { AuthHeader } from '../auth/AuthHeader';
+---
+
+<header class="site-header">
+  <a class="brand" href="/">{siteConfig.siteName}</a>
+  <nav aria-label="Main">
+    <a href="/area-data">Area Data</a>
+    {strategies.map((s) => <a href={`${s.route}/analyser`}>{s.shortName ?? s.name}</a>)}
+  </nav>
+  <AuthHeader client:idle />
+</header>
+
+<style>
+  .site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4) var(--space-5);
+    max-width: 72rem;
+    margin: 0 auto;
+  }
+  .brand {
+    font-family: var(--font-display);
+    font-weight: 800;
+    color: var(--text);
+    text-decoration: none;
+    font-size: var(--text-lg);
+  }
+  nav {
+    display: flex;
+    gap: var(--space-4);
+  }
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: var(--text-sm);
+  }
+  nav a:hover {
+    color: var(--accent);
+  }
+  @media (max-width: 640px) {
+    nav { display: none; } /* the bottom tab bar takes over */
+  }
+</style>

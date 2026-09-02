@@ -2,6 +2,29 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+- **Layout**: npm-workspaces monorepo. Root = private, workspaces ["packages/*"], shared dev tooling only (typescript/vitest/tsx/@types/node), no application deps. `packages/web` = the Astro app (moved with git mv, history preserved). `packages/core` = @gil-bricks/core.
+- **What went into core**: maths, comparables, valuation, config/strategies + rates.json (as briefed) PLUS their unavoidable transitive deps — `lib/data` (R2 client + schema types), `lib/landregistry` (valuation depends on it and vice-versa), and `lib/strategies` (the analyseBtl/Brrrr/Flip/Hmo calculators, which ARE core calc returning {value, breakdown}). A package that can't compile isn't an extraction, so the transitive deps had to come along; logged here as the judgment call. The Chrome extension will import all of it by package name.
+- **Config**: the R2 `dataBaseUrl` (public, identical for both products) moved to `packages/core/src/config.ts` (`coreConfig`); web's site.config now sources it from core so no web component changed. Web keeps its own identity (name, tagline, socials, OAuth/Turnstile keys).
+- **One clean public API**: everything is consumed via `@gil-bricks/core` (packages/core/src/index.ts). Web imports were repointed from deep relative paths to the package name; the duplicated files are deleted (moved, not copied).
+- **VerdictColour** was independently re-declared (identically) in all four strategy calculators; deduped into one `strategy-calc/verdict.ts` to avoid an ambiguous barrel re-export. Pure type dedupe, no behaviour change.
+- **pipeline/stats.mjs parity test** moved from core to web (the pipeline stays a web concern); it now asserts `@gil-bricks/core`'s iqm/percentile match the pipeline's, preserving the guarantee without a core→web import.
+- **CI**: `npm ci` at root installs the workspaces; pipeline/map-tiles steps run from `packages/web`. Cloudflare deploy is unchanged (`wrangler deploy` from packages/web against its own wrangler.jsonc + dist).
+- **No formula invented or changed.** Proof below.
+- **Commit message**: "refactor: extract shared maths, comparables, valuation and configs into @gil-bricks/core" (as specified).
+
+## 2026-09-02 - Sprint E1: extract @gil-bricks/core (monorepo). OUTPUT-EQUIVALENCE PROOF
+
+6 representative cases (2xBTL, 2xFlip, 1xBRRRR, 1xHMO) computed on main and on refactor/core-workspace. Full serialized outputs are byte-identical. Sample headline figures (identical both sides):
+
+- BTL #1: verdict=red, ROI=-1.3717%, grossYield=5.7000%, cashIn=63000 - IDENTICAL
+- BTL #2: verdict=red, ROI=0.8218%, grossYield=5.2500%, cashIn=131750 - IDENTICAL
+- FLIP #1: verdict=amber, profitAfterTax=21182.4, roiAfterTax=19.8616% - IDENTICAL
+- FLIP #2: verdict=amber, profitAfterTax=37324.8, roiAfterTax=17.7907% - IDENTICAL
+- BRRRR #1: moneyLeftIn=33487.5, roiOnLeftIn=-3.6677290607861726 - IDENTICAL
+- HMO #1: verdict=green, roi=9.9758%, grossYield=12.0000%, icr=2.9091 - IDENTICAL
+
+`diff BASELINE.json AFTER.json` reported no differences across all 724 lines. Live spot-check: /buy-to-let/analyser (valuation 186,750, ROI -0.8%, Red verdict) and /area-data (typical 150,585) behave identically to main.
+
 ## 2026-08-31 — Sprint S8.1: plain-English pass (microcopy, show-the-maths audit, states)
 
 - **Microcopy** centralised in `src/content/microcopy.ts` (22 keys, mirrored in docs/MICROCOPY.md, tested ≤22 words + acronym expansion). Subject-form, Area Data, comparables and account tooltips read from it by key. Per-strategy input tooltips stay in `src/config/strategies` (golden rule 2 — the operator-editable home for strategy copy); their acronyms (ICR, LTV, GDV, ARV, C4, EICR, HMO) are now expanded on first use in place. Judgment call logged: splitting shared vs strategy tooltips keeps rule 2 intact while giving the operator one file for the common copy.

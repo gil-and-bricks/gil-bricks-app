@@ -1,0 +1,35 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import { strategies } from '@gil-bricks/core';
+import { siteConfig } from '../../site.config';
+
+export function getStaticPaths() {
+  return strategies.map((s) => ({ params: { strategy: s.route.slice(1) }, props: { config: s } }));
+}
+const { config } = Astro.props;
+const others = strategies.filter((s) => s.id !== config.id);
+---
+
+<AppShell title={`${config.name} — ${siteConfig.siteName}`} description={config.heroLine}>
+  <section class="hero">
+    <h1 class="page-title">{config.name}</h1>
+    <p class="page-sub">{config.heroLine}</p>
+  </section>
+  <div class="tool-cards">
+    <a class="glass card" href={`${config.route}/analyser`}>
+      <h3>Deal analyser</h3>
+      <p>{config.tagline}</p>
+    </a>
+    <a class="glass card" href="/comparables">
+      <h3>Sold comparables</h3>
+      <p>Every sale near a postcode, with honest £/sqft evidence.</p>
+    </a>
+    <a class="glass card" href={`${config.route}/analyser#valuation`}>
+      <h3>What's it worth?</h3>
+      <p>A plain-range valuation from two independent evidence lines.</p>
+    </a>
+  </div>
+  <p class="cross-links">
+    Also: {others.map((s, i) => <>{i > 0 && ' · '}<a href={s.route}>{s.name}</a></>)}
+  </p>
+</AppShell>

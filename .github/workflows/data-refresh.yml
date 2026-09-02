@@ -51,32 +51,32 @@ jobs:
         run: npm ci
 
       - name: Download PPD + ONSPD
-        run: npm run pipeline:download
+        run: npm run pipeline:download -w packages/web
 
       - name: Download + slim EPC bulk (streamed, zip never on disk)
         env:
           EPC_BEARER_TOKEN: ${{ secrets.EPC_BEARER_TOKEN }}
         run: |
           command -v bsdtar >/dev/null || (sudo apt-get update && sudo apt-get install -y libarchive-tools)
-          node pipeline/epc.mjs
+          cd packages/web && node pipeline/epc.mjs
           df -h /
 
       - name: Download UKHPI index
-        run: node pipeline/ukhpi.mjs
+        run: cd packages/web && node pipeline/ukhpi.mjs
 
       - name: Download + parse deprivation indices (IMD 2025 / WIMD 2025)
-        run: node pipeline/deprivation.mjs
+        run: cd packages/web && node pipeline/deprivation.mjs
 
       - name: Build sector files (full England & Wales)
-        run: npm run pipeline:build
+        run: npm run pipeline:build -w packages/web
 
       - name: Upload to R2
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: npm run pipeline:upload -- --concurrency 20
+        run: npm run pipeline:upload -w packages/web -- --concurrency 20
 
       - name: Report
         run: |
-          cat pipeline/.data/out/manifest.json
+          cat packages/web/pipeline/.data/out/manifest.json
           df -h /
