@@ -184,7 +184,7 @@ body {
 .ss-band.ss-warn { color: var(--red); }
 .ss-band.ss-caution { color: var(--amber); }
 .ss-body { padding: 0 12px 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-.ss-time { margin: 10px 0 6px; color: var(--text-dim); font-size: 0.85rem; }
+.ss-time { width: 100%; margin: 2px 0 0; color: var(--text-dim); font-size: 0.8rem; }
 .ss-read { margin-top: 10px; }
 .ss-read-head { margin: 0 0 4px; font-size: 0.9rem; font-weight: 700; color: var(--text); }
 .ss-evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }

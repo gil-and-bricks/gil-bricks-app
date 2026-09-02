@@ -141,10 +141,10 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
   } else if (portal === 'rightmove') {
     // Rightmove reliably shows reductions, so absence here is meaningful-ish —
     // but still phrase it as "none shown", never "there were none".
-    flexNotes.push('No price reduction shown on this Rightmove listing.');
+    flexNotes.push('No reduction shown (Rightmove).');
   } else {
     // Zoopla rarely surfaces reductions; it gives a published date instead.
-    flexNotes.push('Zoopla rarely shows price reductions — this doesn’t mean there weren’t any.');
+    flexNotes.push('Reductions rarely shown on Zoopla — absence isn’t proof of none.');
   }
 
   // (2) time on market — from the first-listed date, stated plainly.
@@ -157,7 +157,7 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
       if (days > config.longOnMarketDays) {
         flexEvidence.push({ label: `On the market ${days} days`, phrase: `first listed ${ukDate(fv.value)}`, source: portal });
         flexSignals += 1;
-        flexNotes.push('Longer-listed properties are more often reduced — a tendency, not a rule.');
+        flexNotes.push('Longer-listed homes are more often reduced.');
       }
     } else {
       timeOnMarket = `First-listed date on this ${portal} listing couldn’t be read.`;
@@ -187,7 +187,7 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
     impSignals += 1;
     impSeen.add('auction-mechanism');
   } else if (portal === 'rightmove') {
-    impNotes.push('Rightmove doesn’t flag auctions reliably — checked the wording instead.');
+    impNotes.push('Auctions aren’t flagged on Rightmove — checked the wording.');
   }
 
   for (const group of config.impairmentLanguage) {
@@ -216,10 +216,9 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
   };
 }
 
-/** Plain-English band label for the UI. */
+/** Terse band label for the collapsed card — "signs"/"none seen" never claim
+ * certainty about the seller, and stay to one short line at 380px (E8.2 #7). */
 export function bandLabel(kind: 'flexibility' | 'impairment', band: SignalBand): string {
-  if (kind === 'flexibility') {
-    return band === 'strong' ? 'Seller may be flexible — strong signs' : band === 'some' ? 'Seller may be flexible — some signs' : 'Seller flexibility — none seen';
-  }
-  return band === 'strong' ? 'Property may be impaired — strong warning' : band === 'some' ? 'Property may be impaired — some warning' : 'Property impairment — none seen';
+  const state = band === 'strong' ? 'strong signs' : band === 'some' ? 'some signs' : 'none seen';
+  return kind === 'flexibility' ? `Seller flexibility — ${state}` : `Impairment — ${state}`;
 }

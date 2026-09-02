@@ -51,14 +51,21 @@ describe('two SEPARATE reads, never merged', () => {
     expect(ev?.phrase).toMatch(/motivated seller/i);
   });
 
-  it('bandLabel never implies certainty about the seller (every band)', () => {
+  it('bandLabel is terse and never implies certainty (every band)', () => {
     for (const band of ['strong', 'some'] as const) {
-      expect(bandLabel('flexibility', band).toLowerCase(), band).toContain('may');
-      expect(bandLabel('impairment', band).toLowerCase(), band).toContain('may');
+      // "signs" — a hint, not a certainty; never "is flexible"/"is impaired"
+      expect(bandLabel('flexibility', band).toLowerCase(), band).toContain('signs');
+      expect(bandLabel('impairment', band).toLowerCase(), band).toContain('signs');
+      expect(bandLabel('flexibility', band).toLowerCase()).not.toMatch(/is flexible|will|definitely/);
+      expect(bandLabel('impairment', band).toLowerCase()).not.toMatch(/is impaired|will|definitely/);
     }
-    // "none seen" states an absence, never a fact about the seller
     expect(bandLabel('flexibility', 'none-seen').toLowerCase()).toContain('none seen');
     expect(bandLabel('impairment', 'none-seen').toLowerCase()).toContain('none seen');
+    // stays to one short line
+    for (const b of ['strong', 'some', 'none-seen'] as const) {
+      expect(bandLabel('flexibility', b).length).toBeLessThanOrEqual(34);
+      expect(bandLabel('impairment', b).length).toBeLessThanOrEqual(34);
+    }
   });
 
   it('each language group counts once; two DISTINCT groups make it strong', () => {
@@ -132,12 +139,12 @@ describe('portal honesty (absence of evidence ≠ evidence of absence)', () => {
     const red = readSellerSignals(mk({ portal: 'rightmove', update: { reason: 'reduced', date: '2026-07-15' } }), CFG, NOW);
     expect(red.flexibility.evidence.some((e) => e.label === 'Reduced on 15/07/2026' && e.source === 'rightmove')).toBe(true);
     const none = readSellerSignals(mk({ portal: 'rightmove' }), CFG, NOW);
-    expect(none.flexibility.notes.some((n) => /no price reduction shown/i.test(n))).toBe(true);
+    expect(none.flexibility.notes.some((n) => /no reduction shown/i.test(n))).toBe(true);
   });
   it('Zoopla says reductions are rarely shown — never "there were none"', () => {
     const s = readSellerSignals(mk({ portal: 'zoopla', firstVisible: '2026-06-04' }), CFG, NOW);
-    expect(s.flexibility.notes.some((n) => /rarely shows price reductions/i.test(n))).toBe(true);
-    expect(s.flexibility.notes.join(' ')).not.toMatch(/no reductions|there were none/i);
+    expect(s.flexibility.notes.some((n) => /rarely shown on zoopla/i.test(n))).toBe(true);
+    expect(s.flexibility.notes.join(' ')).not.toMatch(/no reductions|there were none/i); // never claims certainty
   });
   it('time on market is plain, and honestly absent when the portal doesn’t give a date', () => {
     expect(readSellerSignals(mk({ portal: 'zoopla', firstVisible: '2026-06-16' }), CFG, NOW).timeOnMarket).toBe('First listed 78 days ago (zoopla).');

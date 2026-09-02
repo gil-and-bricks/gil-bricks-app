@@ -205,25 +205,31 @@ function sellerSignalsCard(view: PanelView, h: PanelHandlers): HTMLElement | nul
   if (!s) return null;
   const box = e('details', 'seller-signals') as HTMLDetailsElement;
   if (view.signalsOpen) box.open = true;
-  if (h.onToggleSignals) box.addEventListener('toggle', () => h.onToggleSignals!(box.open));
 
+  // COLLAPSED = exactly two short band lines + the time-on-market line, nothing
+  // else (E8.2 #7). Everything else (evidence, portal caveats, the score note)
+  // lives in the expanded detail.
   const sum = e('summary', 'ss-summary');
-  sum.append(e('span', 'ss-title', 'Seller signals'));
   sum.append(e('span', `ss-band ${FLEX_PILL[s.flexibility.band]}`, bandLabel('flexibility', s.flexibility.band)));
   sum.append(e('span', `ss-band ${IMP_PILL[s.impairment.band]}`, bandLabel('impairment', s.impairment.band)));
-  // A proper, obvious lime control with a label + large target (E8.1 #8). The
-  // native <summary> already gives keyboard + screen-reader toggle behaviour.
+  sum.append(e('span', 'ss-time', s.timeOnMarket));
   const toggle = e('span', 'ss-expander', view.signalsOpen ? 'Hide detail ▲' : 'More detail ▼');
   toggle.setAttribute('aria-hidden', 'true');
   sum.append(toggle);
   box.append(sum);
+  // Keep the pill label in sync with the native <details> without a full rebuild,
+  // so it never reads "More detail" while already open (E8.2 review).
+  box.addEventListener('toggle', () => {
+    toggle.textContent = box.open ? 'Hide detail ▲' : 'More detail ▼';
+    if (h.onToggleSignals) h.onToggleSignals(box.open);
+  });
 
   const body = e('div', 'ss-body');
-  body.append(e('p', 'ss-time', s.timeOnMarket));
-
   const read = (heading: string, r: SellerSignals['flexibility']): HTMLElement => {
     const sec = e('div', 'ss-read');
-    sec.append(e('h2', 'ss-read-head', heading)); // h1 (address) → h2, no skipped level
+    sec.append(e('h2', 'ss-read-head', heading));
+    // The band line already says "none seen" — don't repeat it; just show evidence
+    // (when any) and the honest caveats.
     if (r.evidence.length) {
       const ul = e('ul', 'ss-evidence');
       for (const ev of r.evidence) {
@@ -234,17 +240,17 @@ function sellerSignalsCard(view: PanelView, h: PanelHandlers): HTMLElement | nul
         ul.append(li);
       }
       sec.append(ul);
-    } else {
-      sec.append(e('p', 'ss-empty', 'None seen on this listing.'));
     }
     for (const n of r.notes) sec.append(e('p', 'ss-note', n));
+    // Never leave a bare heading with no body (E8.2 review).
+    if (!r.evidence.length && !r.notes.length) sec.append(e('p', 'ss-empty', 'Nothing flagged.'));
     return sec;
   };
-  body.append(read('Seller may be flexible', s.flexibility));
-  body.append(read('Property may be impaired — a warning', s.impairment));
+  body.append(read('Seller flexibility', s.flexibility));
+  body.append(read('Impairment (a warning)', s.impairment));
 
   for (const w of s.worthKnowing) body.append(e('p', 'ss-worth', w));
-  body.append(e('p', 'ss-foot', 'Context for negotiation — this never moves the Deal Score.'));
+  body.append(e('p', 'ss-foot', 'Context for negotiation — never moves the Deal Score.'));
   box.append(body);
   return box;
 }
@@ -365,7 +371,7 @@ function leverValue(view: PanelView, lever: Lever): string {
 /** The five levers, compact, directly under the unknowns (E8.1 #13). */
 function leverControls(view: PanelView, h: PanelHandlers): HTMLElement {
   const box = e('div', 'levers');
-  box.append(e('h2', 'levers-head', 'The levers that change the answer'));
+  box.append(e('h2', 'levers-head', 'What changes the answer'));
   const grid = e('div', 'levers-grid');
   for (const lever of LEVERS[view.strategy]) {
     const row = e('div', 'lever');
@@ -426,6 +432,32 @@ function costsCard(view: PanelView): HTMLElement | null {
   }
   if (cn.hasAuctionEstimate) box.append(e('p', 'costs-note', `* Auction fees — ${scoreCopy.cashNeeded.auctionFeesNote}. They add to the cash above.`));
   return box;
+}
+
+function areaSourceLabel(source: PanelView['floorAreaSource']): string {
+  return source === 'listing' ? 'from the listing' : source === 'epc-sector' ? 'from our EPC data' : source === 'manual' ? 'you typed it' : 'unknown';
+}
+
+/**
+ * Floor-area block — always LABELS the source (listing / EPC / you typed it),
+ * shows a range honestly, and when unknown presents a prominent input. `prompt`
+ * makes the empty-state hint say it must be filled first for a credible end value.
+ */
+function floorAreaBlock(view: PanelView, h: PanelHandlers, prompt: boolean): HTMLElement {
+  const wrap = e('div', 'floor-area-block');
+  if (view.floorAreaRange) {
+    wrap.append(e('p', 'floor-area', `Floor area: ${view.floorAreaRange.minSqm}–${view.floorAreaRange.maxSqm} m² (a range on the listing; using the ${view.floorAreaSqm} m² midpoint)`));
+  } else if (view.floorAreaSqm && (view.floorAreaSource === 'listing' || view.floorAreaSource === 'epc-sector')) {
+    wrap.append(e('p', 'floor-area', `Floor area: ${view.floorAreaSqm} m² (${areaSourceLabel(view.floorAreaSource)})`));
+  } else {
+    const row = e('div', 'input-row');
+    const lab = e('label', 'input-label', 'Floor area (m²)');
+    lab.setAttribute('for', 'gb-area');
+    row.append(lab, numberField('gb-area', view.manualAreaInput, prompt ? 'add this first — needed for a credible end value' : 'not on the listing — you type it', h.onArea));
+    if (view.floorAreaSqm && view.floorAreaSource === 'manual') row.append(e('span', 'suggest-note', `using ${view.floorAreaSqm} m² (you typed it)`));
+    wrap.append(row);
+  }
+  return wrap;
 }
 
 /** Prominent auction warning ABOVE the components (E8.1 #7). */
@@ -500,7 +532,11 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   const costs = costsCard(view);
   if (costs) card.append(costs);
 
-  // 7) the one/two unknowns …
+  // 7) the unknowns. For value-add strategies the FLOOR AREA sits ABOVE the end
+  // value — it must be filled first for a credible end value (E8.2 #6).
+  const needsEndValue = view.strategy === 'flip' || view.strategy === 'brrrr';
+  if (needsEndValue) card.append(floorAreaBlock(view, h, true));
+
   for (const f of TRIAGE_FIELDS[view.strategy]) {
     const row = e('div', 'input-row');
     const lab = e('label', 'input-label', `${f.label}${f.unit ? ` (${f.unit})` : ''}`);
@@ -512,7 +548,15 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
       ? moneyField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw)
       : numberField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw);
     row.append(lab, field);
-    if (sug) row.append(e('span', 'suggest-note', sug.label));
+    if (sug) {
+      // An end-value suggestion derived from £/sqm MUST name the source of the area
+      // (never present it as if we had a floor area we don't) — E8.2 #5.
+      let label = sug.label;
+      if ((f.key === 'gdv' || f.key === 'arv') && sug.value && view.floorAreaSqm && /\/m²/.test(label)) {
+        label += ` · area ${areaSourceLabel(view.floorAreaSource)}`;
+      }
+      row.append(e('span', 'suggest-note', label));
+    }
     card.append(row);
     if (f.key === 'rent' && view.rentCleared && !(view.unknowns.rent ?? '')) {
       card.append(e('p', 'suggest-note cleared-note', scoreCopy.listingNotes.rememberedRentUnfit));
@@ -522,20 +566,8 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   // 7b) the FIVE front levers + the change signal (E8.1 #13/#14).
   card.append(leverControls(view, h));
 
-  // floor area (with range honesty — bug 5a) — always LABEL the source (E8.1 #11).
-  if (view.floorAreaRange) {
-    card.append(e('p', 'floor-area', `Floor area: ${view.floorAreaRange.minSqm}–${view.floorAreaRange.maxSqm} m² (a range on the listing; using the ${view.floorAreaSqm} m² midpoint)`));
-  } else if (view.floorAreaSqm && (view.floorAreaSource === 'listing' || view.floorAreaSource === 'epc-sector')) {
-    card.append(e('p', 'floor-area', `Floor area: ${view.floorAreaSqm} m² (${view.floorAreaSource === 'listing' ? 'from the listing' : 'from our EPC data'})`));
-  } else {
-    // manual OR none — keep the input MOUNTED so multi-digit entry works
-    const row = e('div', 'input-row');
-    const lab = e('label', 'input-label', 'Floor area (m²)');
-    lab.setAttribute('for', 'gb-area');
-    row.append(lab, numberField('gb-area', view.manualAreaInput, 'not on the listing — you type it', h.onArea));
-    if (view.floorAreaSqm && view.floorAreaSource === 'manual') row.append(e('span', 'suggest-note', `using ${view.floorAreaSqm} m² (you typed it)`));
-    card.append(row);
-  }
+  // For BTL/HMO (no end value) the floor area is secondary — show it after the levers.
+  if (!needsEndValue) card.append(floorAreaBlock(view, h, false));
 
   // 8) Seller Signals — negotiation context, separate, below the inputs (E8.1 #8/#16).
   const signals = sellerSignalsCard(view, h);
@@ -734,9 +766,17 @@ function draw(ctx: Ctx): void {
     rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, isAuction,
     lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject,
   };
-  const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null } => {
-    const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number } } | undefined;
-    return { score: r.deal?.score ?? null, cashflow: a?.cashflowBeforeTax?.value ?? null };
+  const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null; cashflowAfter: number | null; profit: number | null; moneyLeftIn: number | null } => {
+    const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number }; cashflowAfterTax?: { value: number }; profitAfterTax?: { value: number }; moneyLeftIn?: number } | undefined;
+    return {
+      score: r.deal?.score ?? null,
+      cashflow: a?.cashflowBeforeTax?.value ?? null,
+      cashflowAfter: a?.cashflowAfterTax?.value ?? null,
+      // Flip has no cashflow — its after-tax PROFIT moves for both flip levers.
+      profit: a?.profitAfterTax?.value ?? null,
+      // BRRRR funding (cash↔bridging) moves ONLY money-left-in, not cashflow.
+      moneyLeftIn: typeof a?.moneyLeftIn === 'number' ? a.moneyLeftIn : null,
+    };
   };
   const onLever = (lever: Lever, value: string): void => {
     const before = metricsOf(result);
@@ -752,14 +792,29 @@ function draw(ctx: Ctx): void {
       void store.setSettings(ctx.settings);
     }
     const after = metricsOf(scoreStrategy(ctx, ctx.strategy, fa.sqm, isAuction).result);
-    // Plain "what it did" line — direction + size, near the control (E8.1 #14).
+    // Plain "what it did" line — direction + size, near the control (E8.1 #14). ALWAYS
+    // shows a real effect (the £ figure) even when the banded score holds, and says
+    // "same verdict band" rather than "7.5 → 7.5" so no lever ever looks inert (E8.2 #1).
     const disp = (raw: string): string => (lever.kind === 'select' ? (lever.options?.find((o) => o.value === raw)?.label ?? raw) : `${raw}%`);
-    const parts = [`${lever.label.replace(/ %$/, '')} ${disp(oldRaw)} → ${disp(value)}:`];
-    if (before.cashflow != null && after.cashflow != null) {
-      const d = Math.round(after.cashflow - before.cashflow);
-      parts.push(`cashflow ${d >= 0 ? '+' : '−'}${fmtGBP(Math.abs(d))}/mo${before.score != null && after.score != null ? ',' : ''}`);
+    const money = (a: number | null, b: number | null): string | null => {
+      if (a == null || b == null) return null;
+      const d = Math.round(b - a);
+      return d === 0 ? null : `${d >= 0 ? '+' : '−'}${fmtGBP(Math.abs(d))}`;
+    };
+    const effects: string[] = [];
+    // Prefer the before-tax move; if a tax lever (buying as) left it unchanged, show
+    // the after-tax move so a tax lever is never silent; else profit (flip); else
+    // money-left-in (BRRRR funding moves only that). No lever ever looks inert.
+    const cf = money(before.cashflow, after.cashflow) ?? money(before.cashflowAfter, after.cashflowAfter);
+    const pf = money(before.profit, after.profit);
+    const ml = money(before.moneyLeftIn, after.moneyLeftIn);
+    if (cf) effects.push(`cashflow ${cf}/mo`);
+    else if (pf) effects.push(`profit ${pf}`);
+    else if (ml) effects.push(`money left in ${ml}`);
+    if (before.score != null && after.score != null) {
+      effects.push(after.score !== before.score ? `score ${before.score.toFixed(1)} → ${after.score.toFixed(1)}` : 'same verdict band');
     }
-    if (before.score != null && after.score != null) parts.push(`score ${before.score.toFixed(1)} → ${after.score.toFixed(1)}`);
+    const parts = [`${lever.label.replace(/ %$/, '')} ${disp(oldRaw)} → ${disp(value)}: ${effects.join(', ') || 'updated'}`];
     const token = ++changeToken;
     ctx.lastChange = { text: parts.join(' '), token };
     const live = document.getElementById('gb-live'); if (live) live.textContent = ctx.lastChange.text;
@@ -800,11 +855,21 @@ function redraw(ctx: Ctx): void {
   const focusId = active?.id || '';
   let caret: number | null = null;
   try { caret = active?.selectionStart ?? null; } catch { caret = null; }
+  // The panel scrolls on the document, and draw() wipes + rebuilds #app. Capture
+  // the scroll position and restore it AFTER the rebuild, and refocus WITHOUT
+  // scrolling the field into view — otherwise typing jumps the view (E8.2 #3).
+  const scroller = (document.scrollingElement || document.documentElement) as HTMLElement | null;
+  const scrollTop = scroller?.scrollTop ?? 0;
+  const oldTop = focusId ? (active?.offsetTop ?? null) : null;
   draw(ctx);
+  let el: HTMLInputElement | null = null;
   if (focusId) {
-    const el = document.getElementById(focusId) as HTMLInputElement | null;
-    if (el) { el.focus(); if (caret != null) { try { el.setSelectionRange(caret, caret); } catch { /* number inputs */ } } }
+    el = document.getElementById(focusId) as HTMLInputElement | null;
+    if (el) { el.focus({ preventScroll: true }); if (caret != null) { try { el.setSelectionRange(caret, caret); } catch { /* number inputs */ } } }
   }
+  // Restore the scroll so the FIELD stays put — anchored to its own shift, so a
+  // re-score that changes the height of content above it doesn't move it either.
+  if (scroller) scroller.scrollTop = el && oldTop != null ? scrollTop + (el.offsetTop - oldTop) : scrollTop;
 }
 
 let lastUrl = '';
@@ -891,3 +956,22 @@ function init(): void {
 
 const runtime = globalThis as unknown as { chrome?: { tabs?: { query?: unknown } } };
 if (runtime.chrome?.tabs?.query) init();
+
+/**
+ * Test-only seam (E8.2): mount the REAL controller (draw/redraw/onLever) over a
+ * given listing so a test can dispatch actual DOM events on the levers and read
+ * the DISPLAYED score — exercising the live path, not just the scoring function.
+ */
+export function __mountForTest(
+  listing: NormalisedListing,
+  opts: { sector?: SectorFile | null; strategy?: StrategyId; rent?: string; listingUnknowns?: Record<string, string>; settings?: Record<string, string>; criteria?: Criteria; sectorLoad?: SectorLoad } = {},
+): void {
+  const ctx: Ctx = {
+    url: 'test', listing, failure: null, screen: 'triage', strategy: opts.strategy ?? 'btl',
+    rent: opts.rent ?? '', listingUnknowns: opts.listingUnknowns ?? {}, settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
+    sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, manualArea: '',
+    cleared: new Set(), rentCleared: false, signalsOpen: false, sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
+  };
+  activeCtx = ctx;
+  draw(ctx);
+}

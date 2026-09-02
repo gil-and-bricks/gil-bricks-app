@@ -194,6 +194,50 @@ describe('E8.1 — levers, costs, auction, tax, money formatting', () => {
   });
 });
 
+describe('E8.2 — floor area, seller-signals copy, heading', () => {
+  it('floor area sits ABOVE the end-value field for value-add strategies (item 6)', () => {
+    renderTriage(view({ strategy: 'flip', unknowns: { gdv: '200000', refurbCost: '10000' } }));
+    const area = document.querySelector('.floor-area-block')!;
+    const gdv = document.getElementById('gb-u-gdv')!;
+    expect(area).toBeTruthy();
+    expect(area.compareDocumentPosition(gdv) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // area before end value
+  });
+
+  it('an area-derived end-value suggestion names the source of the area (item 5)', () => {
+    const withArea = { ...listing, floorAreaSqm: found(90) };
+    const suggestions = smartDefaults('flip', withArea, sector(), 90, { evidenceOutsideFactor: 2, minSectorSales: 5 });
+    renderTriage(view({ strategy: 'flip', listing: withArea, unknowns: {}, suggestions, floorAreaSqm: 90, floorAreaSource: 'epc-sector' }));
+    const note = [...document.querySelectorAll('.suggest-note')].map((n) => n.textContent ?? '').find((t) => /\/m²/.test(t)) ?? '';
+    expect(note).toMatch(/area from our EPC data/i);
+  });
+
+  it('with NO floor area, the end-value suggestion makes no £/sqm claim (item 5)', () => {
+    renderTriage(view({ strategy: 'flip', unknowns: {} }));
+    const notes = [...document.querySelectorAll('.suggest-note')].map((n) => n.textContent ?? '');
+    expect(notes.some((t) => /\/m²/.test(t))).toBe(false); // no area-based claim without an area
+  });
+
+  it('collapsed Seller Signals is two band lines + time, nothing else (item 7)', () => {
+    const signals = readSellerSignals({ ...listing, description: found('A home.') }, FALLBACK_CONFIG.signals, new Date('2026-09-02T00:00:00Z'));
+    renderTriage(view({ unknowns: { rent: '1200' }, signals }));
+    const summary = document.querySelector('.ss-summary')!;
+    expect(summary.querySelectorAll('.ss-band').length).toBe(2);
+    expect(summary.querySelector('.ss-time')).toBeTruthy();
+    // the score-note lives in the expanded body, NOT the collapsed summary
+    expect(summary.textContent ?? '').not.toMatch(/Deal Score/);
+    // "none seen" appears at most twice (the two band lines), never three times
+    const card = document.querySelector('.seller-signals')!;
+    expect((card.textContent ?? '').match(/none seen/gi)?.length ?? 0).toBeLessThanOrEqual(2);
+  });
+
+  it('the levers heading is short enough for one line at 380px (item 8)', () => {
+    renderTriage(view({ unknowns: { rent: '1200' } }));
+    const head = document.querySelector('.levers-head')?.textContent ?? '';
+    expect(head).toBe('What changes the answer');
+    expect(head.length).toBeLessThanOrEqual(24);
+  });
+});
+
 describe('Seller Signals card (E8)', () => {
   const NOW = new Date('2026-09-02T00:00:00Z');
   const reduced = { ...listing, listingUpdate: found({ reason: 'reduced', date: '2026-07-15' }), description: found('Motivated seller. Offered chain free with no onward chain.') };
@@ -205,7 +249,8 @@ describe('Seller Signals card (E8)', () => {
     expect(card).toBeTruthy();
     expect(card.open).toBe(false); // collapsed to its band lines
     expect(document.querySelectorAll('.ss-summary .ss-band').length).toBe(2);
-    expect(txt()).toContain('Seller signals');
+    expect(txt()).toContain('Seller flexibility');
+    expect(txt()).toContain('Impairment');
     // sits AFTER the components in document order
     const comps = document.querySelector('.components')!;
     expect(comps.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -222,7 +267,7 @@ describe('Seller Signals card (E8)', () => {
     expect(txt()).toContain('never moves the Deal Score');
     // chain-free is never a flexibility EVIDENCE LABEL (its context snippet may
     // still show adjacent words — that's the point of showing the phrase)
-    const flexHead = [...document.querySelectorAll('.ss-read-head')].find((h) => /flexible/i.test(h.textContent ?? ''))!;
+    const flexHead = [...document.querySelectorAll('.ss-read-head')].find((h) => /flexib/i.test(h.textContent ?? ''))!;
     const flexSection = flexHead.parentElement!;
     const flexLabels = [...flexSection.querySelectorAll('.ss-ev-label')].map((x) => x.textContent ?? '');
     expect(flexLabels.some((l) => /chain/i.test(l))).toBe(false);
@@ -234,7 +279,7 @@ describe('Seller Signals card (E8)', () => {
     expect(signals.impairment.band).toBe('strong');
     renderTriage(view({ listing: impaired, unknowns: { rent: '1200' }, signals }));
     const bands = [...document.querySelectorAll('.ss-summary .ss-band')];
-    const imp = bands.find((b) => /impaired/i.test(b.textContent ?? ''))!;
+    const imp = bands.find((b) => /impairment/i.test(b.textContent ?? ''))!;
     expect(imp.classList.contains('ss-warn')).toBe(true); // warning scale, not ss-strong
     expect(imp.classList.contains('ss-strong')).toBe(false);
   });
