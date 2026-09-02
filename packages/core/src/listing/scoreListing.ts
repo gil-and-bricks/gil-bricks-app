@@ -176,15 +176,23 @@ export function smartDefaults(
   listing: NormalisedListing,
   sector: SectorFile | null | undefined,
   floorAreaSqm: number | null | undefined,
+  opts?: { minSectorSales?: number; evidenceOutsideFactor?: number },
 ): Record<string, { value: string; label: string } | { value: null; label: string }> {
+  const minSales = opts?.minSectorSales ?? 5;
+  const outsideFactor = opts?.evidenceOutsideFactor ?? 2;
   const out: Record<string, { value: string; label: string } | { value: null; label: string }> = {};
   if (strategy === 'hmo' && listing.bedrooms.status === 'found' && listing.bedrooms.value) {
     out.rooms = { value: String(listing.bedrooms.value), label: 'suggested = bedrooms' };
   }
   if (strategy === 'flip' || strategy === 'brrrr') {
     const key = strategy === 'flip' ? 'gdv' : 'arv';
-    if (!sector || sector.stats.count < 5) {
+    const price = listing.askingPrice.value;
+    if (!sector || sector.stats.count < minSales) {
       out[key] = { value: null, label: 'no suggestion — too few nearby sales' };
+    } else if (price != null && price > sector.stats.p90Price * outsideFactor) {
+      // The property is outside the local sold evidence — the same evidence that
+      // can't judge the price can't support a suggested end value either (E7.1).
+      out[key] = { value: null, label: 'no suggestion — no nearby sales at this level' };
     } else if (floorAreaSqm && floorAreaSqm > 0 && sector.stats.typicalPpsqm) {
       const v = Math.round(sector.stats.typicalPpsqm * floorAreaSqm);
       out[key] = { value: String(v), label: `suggested ≈ £${sector.stats.typicalPpsqm.toLocaleString('en-GB')}/m² × ${floorAreaSqm} m²` };

@@ -10,6 +10,9 @@
 import {
   scoreListing,
   smartDefaults,
+  rentFitsProperty,
+  isOutOfMarket,
+  scoreCopy,
   floorAreaFromSector,
   postcodeToSector,
   buildAnalyserUrl,
@@ -95,6 +98,10 @@ export interface PanelView {
   manualAreaInput: string;
   /** True when the score rests on a suggested (not user-entered) unknown. */
   usingSuggested: boolean;
+  /** A remembered rent was dropped because it didn't fit this property (E7.1). */
+  rentCleared?: boolean;
+  /** Priced outside the local market AND no strategy works — the honest line (E7.1). */
+  outOfMarket?: boolean;
   ewReject?: string | null;
 }
 export interface PanelHandlers {
@@ -201,6 +208,8 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   card.append(chip(view.result.deal, view.result, view.strategy));
   if (view.usingSuggested) card.append(e('p', 'suggest-note', 'Score uses a suggested end value — set your own to be sure.'));
   if (view.result.note) card.append(e('p', 'read-fail', view.result.note));
+  // Honest out-of-market line — priced above local stock, works on no strategy (E7.1).
+  if (view.outOfMarket) card.append(e('p', 'out-of-market', scoreCopy.listingNotes.outOfMarket));
   if (view.result.deal?.bindingConstraint) {
     const bn = e('p', 'binding-note');
     bn.append(e('span', 'binding-label', 'What’s holding it back: '));
@@ -221,6 +230,10 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
     row.append(lab, numberField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, h.onUnknown ? (v) => h.onUnknown!(f.key, v) : undefined));
     if (sug) row.append(e('span', 'suggest-note', sug.value ? sug.label : sug.label));
     card.append(row);
+    // A remembered rent that didn't fit this property was cleared — say why (E7.1).
+    if (f.key === 'rent' && view.rentCleared && !(view.unknowns.rent ?? '')) {
+      card.append(e('p', 'suggest-note cleared-note', scoreCopy.listingNotes.rememberedRentUnfit));
+    }
   }
 
   // floor area (with range honesty — bug 5a)
@@ -330,6 +343,8 @@ interface Ctx {
   manualArea: string;
   /** Unknown fields the user has explicitly emptied — don't re-inject a suggestion. */
   cleared: Set<string>;
+  /** A remembered rent was dropped as not fitting this property (E7.1). */
+  rentCleared: boolean;
 }
 
 function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['floorAreaSource']; range: PanelView['floorAreaRange'] } {
@@ -342,10 +357,10 @@ function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['fl
   return { sqm: null, source: 'none', range: null };
 }
 
-function effectiveUnknowns(ctx: Ctx, suggestions: Record<string, { value: string | null; label: string }>): { unknowns: Record<string, string>; suggestedKeys: Set<string> } {
+function effectiveUnknowns(ctx: Ctx, strategy: StrategyId, suggestions: Record<string, { value: string | null; label: string }>): { unknowns: Record<string, string>; suggestedKeys: Set<string> } {
   const u: Record<string, string> = { rent: ctx.rent, ...ctx.listingUnknowns };
   const suggestedKeys = new Set<string>();
-  for (const f of TRIAGE_FIELDS[ctx.strategy]) {
+  for (const f of TRIAGE_FIELDS[strategy]) {
     // inject a suggestion only when the field is empty AND the user hasn't
     // explicitly cleared it (so a suggested value can be blanked and stay blank)
     if ((u[f.key] ?? '') === '' && !ctx.cleared.has(f.key) && suggestions[f.key]?.value) {
@@ -356,26 +371,45 @@ function effectiveUnknowns(ctx: Ctx, suggestions: Record<string, { value: string
   return { unknowns: u, suggestedKeys };
 }
 
+const SANITY_OPTS = {
+  minSectorSales: FALLBACK_CONFIG.thresholds.minSectorSales,
+  evidenceOutsideFactor: FALLBACK_CONFIG.thresholds.evidenceOutsideFactor,
+};
+
+/** Score one strategy end-to-end (used for the current tab and the all-four check). */
+function scoreStrategy(ctx: Ctx, strategy: StrategyId, faSqm: number | null): { result: ScoreListingResult; unknowns: Record<string, string>; suggestedKeys: Set<string>; suggestions: Record<string, { value: string | null; label: string }> } {
+  const suggestions = smartDefaults(strategy, ctx.listing!, ctx.sector, faSqm, SANITY_OPTS);
+  const { unknowns, suggestedKeys } = effectiveUnknowns(ctx, strategy, suggestions);
+  const result = scoreListing(ctx.listing!, {
+    strategy, unknowns, settings: ctx.settings, criteria: ctx.criteria,
+    sector: ctx.sector, floorAreaSqm: faSqm, ...SANITY_OPTS,
+  });
+  return { result, unknowns, suggestedKeys, suggestions };
+}
+
 function draw(ctx: Ctx): void {
   if (ctx.failure) return renderFailure(ctx.failure);
   if (!ctx.listing) return renderEmpty();
   const fa = resolveFloorArea(ctx);
-  const suggestions = smartDefaults(ctx.strategy, ctx.listing, ctx.sector, fa.sqm);
-  const { unknowns, suggestedKeys } = effectiveUnknowns(ctx, suggestions);
-  const result = scoreListing(ctx.listing, {
-    strategy: ctx.strategy, unknowns, settings: ctx.settings, criteria: ctx.criteria,
-    sector: ctx.sector, floorAreaSqm: fa.sqm,
-    minSectorSales: FALLBACK_CONFIG.thresholds.minSectorSales, evidenceOutsideFactor: FALLBACK_CONFIG.thresholds.evidenceOutsideFactor,
-  });
+  const { result, unknowns, suggestedKeys, suggestions } = scoreStrategy(ctx, ctx.strategy, fa.sqm);
+  // Out-of-market only when the price is outside the local sold evidence AND no
+  // strategy can be made to work — so score all four to be sure (E7.1). Only the
+  // triage screen shows this line, so skip the extra three scores on Settings.
+  let outOfMarket = false;
+  if (ctx.screen === 'triage') {
+    const verdicts = STRATEGIES.map((s) => (s.id === ctx.strategy ? result : scoreStrategy(ctx, s.id, fa.sqm).result).deal?.verdict ?? null);
+    outOfMarket = isOutOfMarket(result.priceVsSold.status, verdicts);
+  }
   const view: PanelView = {
     screen: ctx.screen, listing: ctx.listing, strategy: ctx.strategy, result, unknowns, suggestions,
     settings: ctx.settings, criteria: ctx.criteria, floorAreaSqm: fa.sqm, floorAreaSource: fa.source, floorAreaRange: fa.range,
-    manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal, ewReject: ctx.ewReject,
+    manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal,
+    rentCleared: ctx.rentCleared, outOfMarket, ewReject: ctx.ewReject,
   };
   const setUnknown = (key: string, v: string): void => {
     if (v.trim() === '') ctx.cleared.add(key);
     else ctx.cleared.delete(key);
-    if (key === 'rent') { ctx.rent = v; if (ctx.sectorId) void store.setRent(ctx.sectorId, v); }
+    if (key === 'rent') { ctx.rent = v; if (v.trim() !== '') ctx.rentCleared = false; if (ctx.sectorId) void store.setRent(ctx.sectorId, v); }
     else { ctx.listingUnknowns = { ...ctx.listingUnknowns, [key]: v }; if (ctx.listing?.listingId.value) void store.setUnknowns(ctx.listing.listingId.value, ctx.listingUnknowns); }
     redraw(ctx);
   };
@@ -418,7 +452,7 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     url, listing: null, failure: null, screen: 'triage',
     strategy: (await store.getStrategy()) as StrategyId,
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
-    sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(),
+    sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(), rentCleared: false,
   };
   let result: ExtractResult;
   try {
@@ -433,7 +467,24 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   if (ctx.listing.postcode.value) {
     const pc = postcodeToSector(ctx.listing.postcode.value);
     if (!pc.inEnglandWales) ctx.ewReject = pc.message;
-    else { ctx.sectorId = pc.sector; ctx.rent = await store.getRent(pc.sector); }
+    else {
+      ctx.sectorId = pc.sector;
+      const remembered = await store.getRent(pc.sector);
+      // Sanity-check a remembered (per-sector) rent before applying it: if it
+      // implies an absurd gross yield for THIS property it belongs to a
+      // different (cheaper/dearer) home — clear it and say why (E7.1).
+      const price = ctx.listing.askingPrice.value ?? 0;
+      const th = FALLBACK_CONFIG.thresholds;
+      // Only judge a remembered rent when there's a real price to judge against —
+      // a POA / "offers over" listing has no price, so the honest chip already
+      // says "add a price"; don't also claim the rent "doesn't fit" (E7.1 review).
+      if (price > 0 && remembered && !rentFitsProperty(Number(remembered), price, th.rentSanityYieldMin, th.rentSanityYieldMax)) {
+        ctx.rent = '';
+        ctx.rentCleared = true;
+      } else {
+        ctx.rent = remembered;
+      }
+    }
   }
   if (ctx.listing.listingId.value) ctx.manualArea = await store.getManualArea(ctx.listing.listingId.value);
   draw(ctx);

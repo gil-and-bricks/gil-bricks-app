@@ -84,6 +84,38 @@ describe('triage panel (E7)', () => {
     expect(txt()).toContain('England & Wales only');
     expect(document.querySelector('.deal-score')).toBeNull();
   });
+
+  it('the honest out-of-market line shows only when flagged (E7.1)', () => {
+    const big = { ...listing, askingPrice: found(1_500_000) };
+    const result = scoreListing(big, { strategy: 'btl', unknowns: {}, sector: sector(), evidenceOutsideFactor: 2 });
+    renderTriage(view({ listing: big, result, unknowns: {}, outOfMarket: true }));
+    expect(txt()).toContain('priced well above local investment stock');
+    expect(document.querySelector('.out-of-market')).toBeTruthy();
+    // a normal listing never shows it
+    document.body.innerHTML = '<main id="app"></main>';
+    renderTriage(view({ unknowns: { rent: '1200' } }));
+    expect(txt()).not.toContain('priced well above local investment stock');
+  });
+
+  it('a remembered rent that did not fit is cleared, with a plain reason (E7.1)', () => {
+    renderTriage(view({ unknowns: {}, rentCleared: true }));
+    expect(txt()).toContain('doesn’t fit this property');
+    expect(document.querySelector('.cleared-note')).toBeTruthy();
+    // once a rent is entered, the note is gone
+    document.body.innerHTML = '<main id="app"></main>';
+    renderTriage(view({ unknowns: { rent: '900' }, rentCleared: true }));
+    expect(txt()).not.toContain('doesn’t fit this property');
+  });
+
+  it('Flip end-value suggestion is suppressed with a reason when outside the evidence (E7.1)', () => {
+    const big = { ...listing, askingPrice: found(1_500_000) };
+    const result = scoreListing(big, { strategy: 'flip', unknowns: {}, sector: sector(), evidenceOutsideFactor: 2 });
+    const suggestions = smartDefaults('flip', big, sector(), null, { evidenceOutsideFactor: 2, minSectorSales: 5 });
+    renderTriage(view({ strategy: 'flip', listing: big, result, unknowns: {}, suggestions }));
+    expect(txt().toLowerCase()).toContain('no nearby sales at this level');
+    // and the end-value field is left empty (no fabricated suggestion applied)
+    expect((document.getElementById('gb-u-gdv') as HTMLInputElement).value).toBe('');
+  });
 });
 
 describe('settings screen (E7)', () => {

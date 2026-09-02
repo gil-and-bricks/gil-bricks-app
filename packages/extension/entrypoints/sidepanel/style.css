@@ -87,6 +87,10 @@ body {
 .read-portal { font-family: var(--font-display); font-weight: 700; text-transform: capitalize; }
 .read-source { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
 .read-fail { margin: 8px 0 0; color: var(--text); font-size: 0.92rem; border-left: 2px solid var(--amber); padding-left: 10px; }
+/* E7.1 — priced outside the local market, works on no strategy. */
+.out-of-market { margin: 10px 0 0; color: var(--text); font-size: 0.92rem; font-weight: 600; border-left: 2px solid var(--accent); padding-left: 10px; }
+/* E7.1 — a remembered rent that didn't fit this property was cleared. */
+.suggest-note.cleared-note { color: var(--amber); }
 .fields { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
 .field-row { display: grid; grid-template-columns: 9.5em auto 1fr; align-items: baseline; gap: 8px; font-size: 0.88rem; }
 .f-label { color: var(--text-dim); }

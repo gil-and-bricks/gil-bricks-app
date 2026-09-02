@@ -65,6 +65,8 @@
   "thresholds": {
     "remoteTimeoutMs": 2500,
     "minSectorSales": 5,
-    "evidenceOutsideFactor": 2
+    "evidenceOutsideFactor": 2,
+    "rentSanityYieldMin": 0.02,
+    "rentSanityYieldMax": 0.2
   }
 }

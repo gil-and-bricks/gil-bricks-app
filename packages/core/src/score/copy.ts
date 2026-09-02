@@ -94,6 +94,17 @@ export const scoreCopy = {
     greenLeverRent: '{needed} more rent',
     greenLeverJoin: '{parts} would turn this Green.',
   },
+  /**
+   * Suggestion-sanity + triage notes (E7.1). Shown in the panel verbatim
+   * (no placeholder interpolation); fully editable here.
+   */
+  listingNotes: {
+    // A remembered (per-sector) rent that doesn't fit THIS property — cleared, not applied.
+    rememberedRentUnfit: 'The rent we remembered here doesn’t fit this property, so we’ve cleared it — enter one that matches.',
+    // Priced above local investment stock AND works on no strategy. Doesn't assert
+    // a property type we haven't checked (E7.1 review) — only what the numbers show.
+    outOfMarket: 'This is priced well above local investment stock — the numbers won’t work on any strategy.',
+  },
   noLeverByKey: {
     moneyLeftIn: 'On these numbers no purchase price pulls all your cash back out.',
     profit: 'On these numbers no purchase price reaches the target profit.',

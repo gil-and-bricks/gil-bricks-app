@@ -38,6 +38,9 @@ export interface ExtractorConfig {
     minSectorSales: number;
     /** Subject price above this × the sector p90 is 'outside evidence' — not judged. */
     evidenceOutsideFactor: number;
+    /** A remembered rent must imply a gross yield in [min,max] to be applied. */
+    rentSanityYieldMin: number;
+    rentSanityYieldMax: number;
   };
 }
 
@@ -90,7 +93,7 @@ export const FALLBACK_CONFIG: ExtractorConfig = {
     fallback: { meta: { title: 'og:title', url: 'og:url', description: 'og:description', image: 'og:image' }, ldType: 'RealEstateListing' },
   },
   flags: { rightmoveEnabled: true, zooplaEnabled: true, domFallbackEnabled: true },
-  thresholds: { remoteTimeoutMs: 2500, minSectorSales: 5, evidenceOutsideFactor: 2 },
+  thresholds: { remoteTimeoutMs: 2500, minSectorSales: 5, evidenceOutsideFactor: 2, rentSanityYieldMin: 0.02, rentSanityYieldMax: 0.2 },
 };
 
 export interface ConfigStore {
