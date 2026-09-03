@@ -4,21 +4,23 @@ import type { StrategyField } from '@gil-bricks/core';
 import { strategyParams, updateStrategy } from './state';
 import { Tooltip } from './Tooltip';
 import { Accordion } from './Accordion';
+import { ProvBadge } from './ProvBadge';
+import { markEdited } from './provenance';
 
 function Field({ f }: { f: StrategyField }) {
   const v = strategyParams.value[f.key] ?? f.default;
   return (
     <div class="field">
       <label for={`sf-${f.key}`}>
-        {f.label}{f.unit ? ` (${f.unit})` : ''} <Tooltip text={f.tip} />
+        {f.label}{f.unit ? ` (${f.unit})` : ''} <Tooltip text={f.tip} /> <ProvBadge field={f.key} />
       </label>
       {f.kind === 'select' ? (
-        <select id={`sf-${f.key}`} value={v} onChange={(e) => updateStrategy({ [f.key]: (e.target as HTMLSelectElement).value })}>
+        <select id={`sf-${f.key}`} value={v} onChange={(e) => { updateStrategy({ [f.key]: (e.target as HTMLSelectElement).value }); markEdited(f.key); }}>
           {(f.options ?? []).map((o) => <option value={o.value}>{o.label}</option>)}
         </select>
       ) : (
         <input id={`sf-${f.key}`} inputMode="decimal" value={v}
-          onInput={(e) => updateStrategy({ [f.key]: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') })} />
+          onInput={(e) => { updateStrategy({ [f.key]: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); markEdited(f.key); }} />
       )}
       {f.whyDefault && <p class="field-hint">{f.whyDefault}</p>}
     </div>

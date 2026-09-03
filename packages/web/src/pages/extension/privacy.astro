@@ -1,0 +1,123 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import { siteConfig } from '../../site.config';
+
+const updated = '3 September 2026';
+---
+
+<AppShell
+  title={`Extension privacy policy — ${siteConfig.siteName}`}
+  description={`Plain-English privacy policy for the ${siteConfig.siteName} Chrome extension and website.`}
+>
+  <div class="legal-wrap glass card">
+    <h1>Privacy policy</h1>
+    <p class="legal-updated">Last updated: {updated}</p>
+
+    <p>
+      This policy covers two things: the <strong>{siteConfig.siteName} Chrome extension</strong> (the side panel that
+      scores a property listing) and the <strong>{siteConfig.siteName} website</strong> (where you can sign in and save
+      deals). It’s written in plain English and describes what the software actually does.
+    </p>
+
+    <h2>The Chrome extension</h2>
+    <ul>
+      <li>
+        <strong>Your data stays on your device.</strong> Everything the extension remembers — your default strategy,
+        your assumptions and criteria, rents you’ve entered for an area, and per-listing figures — is stored only in
+        your browser’s local storage on your own computer. It’s never uploaded to us, and it isn’t synced across your
+        devices. Removing the extension removes it.
+      </li>
+      <li>
+        <strong>It never sends the page’s content anywhere.</strong> The extension reads only the one listing page you
+        personally open, in your browser, to pull out figures like the price and size. The listing’s text, the exact
+        address and the price stay on your device — they are not sent to us or to anyone else. The extension does not
+        scrape: it never crawls the portal or opens pages in the background, and it only reads a page when you ask it to.
+      </li>
+      <li>
+        <strong>What goes over the network.</strong> To score a deal, the panel looks up recent sold prices for the
+        property’s <em>postcode area</em> from our public data store (hosted on Cloudflare). That request includes the
+        postcode area of the property you’re viewing and, like any web request, your device’s IP address — but
+        <em>not</em> the listing’s text, exact address, or price. When the panel opens it also refreshes its own
+        reading settings from that same Cloudflare data store (a fixed file — your IP only, nothing about the page).
+        If you open the measure tool, the panel loads the listing’s floor-plan image from the portal into your browser
+        so you can measure it — the image is displayed on your device and nothing is uploaded.
+      </li>
+      <li>
+        <strong>No account, no tracking.</strong> You don’t need an account to use the panel. The extension contains no
+        analytics, advertising or tracking of any kind, and can only run its own code. It requests only two Chrome
+        permissions — the side panel and local storage — and access to Rightmove and Zoopla pages only.
+      </li>
+      <li>
+        <strong>Sending a deal to the website.</strong> If you click “Send to my analyser”, the extension opens a new
+        browser tab on our website with the deal’s figures in the web address. That only happens when you click it.
+      </li>
+    </ul>
+
+    <h2>The website account</h2>
+    <p>You can use the website’s analyser without signing in. If you choose to sign in with Google to save deals, we store:</p>
+    <ul>
+      <li>Your <strong>email address</strong> and <strong>name</strong> from your Google account, and your Google profile picture link.</li>
+      <li>The <strong>date you signed up</strong>, and — if you ticked the marketing box — a record that you consented, when, and to which version of the wording.</li>
+      <li>The <strong>deals you save</strong>: the figures you entered, a label you give the deal, and which strategy it’s for. (A deal you save may include a postcode or address you typed in.)</li>
+    </ul>
+    <p>
+      We do <strong>not</strong> store a password (sign-in is handled by Google), a phone number, or any payment details.
+    </p>
+    <p>
+      <strong>Where it’s stored.</strong> Your account and saved deals are held in a Cloudflare database created in
+      Cloudflare’s <strong>EU jurisdiction</strong>. The UK recognises the EU under “data adequacy”, so this is lawful for
+      UK users. There is no UK-only residency option — EU jurisdiction with UK adequacy is the honest position.
+    </p>
+
+    <h2>Marketing email</h2>
+    <p>
+      We send marketing email only if you tick the box. If you do, your <strong>email address and first name</strong>
+      are sent to our email provider (Kit) so we can email you — and nothing else about you is. If you don’t tick it,
+      nothing about you is ever sent to Kit. You can turn it off any time in your account, which tells Kit to unsubscribe you.
+    </p>
+
+    <h2>Signup security</h2>
+    <p>
+      The first time you create an account, we run a Cloudflare Turnstile anti-bot check. That sends a challenge token
+      and your IP address to Cloudflare to confirm you’re a person. Turnstile is not analytics, and returning sign-ins
+      are not challenged.
+    </p>
+
+    <h2>Cookies</h2>
+    <p>
+      The website sets only two cookies, both strictly necessary and both hidden from page scripts: one keeps you
+      signed in, and one is a short-lived security cookie used only during sign-in. There are no advertising or tracking
+      cookies, so there’s no cookie banner to click through.
+    </p>
+
+    <h2>Who else sees anything</h2>
+    <p>To make the tools work, your browser or our server talks to these services — none of them are advertising or analytics companies:</p>
+    <ul>
+      <li><strong>Cloudflare</strong> — hosts the website and our sold-price data, and runs the anti-bot check.</li>
+      <li><strong>Google</strong> — only when you sign in; it tells us your email and name.</li>
+      <li><strong>Kit</strong> — only if you opt into marketing (email + first name, as above).</li>
+      <li><strong>HM Land Registry, police.uk, the Environment Agency, and planning.data.gov.uk</strong> — open-government data. When you analyse a property, your browser asks these for sold prices, crime, flood and planning info for that <em>location</em>. They see the property’s postcode or coordinates and your IP — never your account email or name.</li>
+    </ul>
+
+    <h2>What we never do</h2>
+    <p>No advertising. No third-party analytics or tracking. We never sell or rent your data to anyone.</p>
+
+    <h2>Deleting your account</h2>
+    <p>
+      In your account page you can delete your account. That permanently removes your account record and every deal
+      you saved from our database, and signs you out. If you were opted into marketing, it also queues an unsubscribe
+      to Kit, which marks you unsubscribed there. This can’t be undone.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions about your data or this policy? Reach us on
+      <a href={siteConfig.socials.instagram} target="_blank" rel="noopener noreferrer">Instagram</a> or
+      <a href={siteConfig.socials.youtube} target="_blank" rel="noopener noreferrer">YouTube</a>.
+    </p>
+  </div>
+</AppShell>
+
+<style>
+  .legal-updated { color: var(--text-dim); font-size: var(--text-sm); margin-top: 0; }
+</style>

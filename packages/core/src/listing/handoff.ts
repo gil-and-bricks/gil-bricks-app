@@ -43,7 +43,16 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
   set('postcode', listing.postcode.value);
   set('price', listing.askingPrice.value);
   set('type', propertyTypeToCode(listing.propertyType.value));
-  if (h.floorAreaSqm && h.floorAreaSqm > 0) set('area', String(Math.round(h.floorAreaSqm)));
+  if (h.floorAreaSqm && h.floorAreaSqm > 0) {
+    set('area', String(Math.round(h.floorAreaSqm)));
+    // Provenance for the floor area (E11): only claim "from the listing" when the
+    // portal listing itself carried the area; otherwise it was resolved elsewhere
+    // (EPC/manual/measured on the plan) and we say honestly it was carried over,
+    // never presenting it as a fact off the listing.
+    params.areaSrc = listing.floorAreaSqm.status === 'found' && Math.round(listing.floorAreaSqm.value ?? 0) === Math.round(h.floorAreaSqm)
+      ? 'listing'
+      : 'carried';
+  }
   set('beds', listing.bedrooms.value);
   set('baths', listing.bathrooms.value);
   set('paon', listing.address.value?.paon);
@@ -51,6 +60,11 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
 
   // Strategy fields (parsed by the web's initStrategyParams)
   for (const [k, v] of Object.entries(h.fields ?? {})) set(k, v);
+
+  // Arrival marker (E11): lets the web show the quiet "brought over from the
+  // extension" confirmation and attribute prefilled fields to the listing. It is
+  // metadata, not a field value — the web reads it once and never re-emits it.
+  params.src = 'ext';
 
   return { route, params };
 }

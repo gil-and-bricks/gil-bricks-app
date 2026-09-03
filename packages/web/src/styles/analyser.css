@@ -38,6 +38,29 @@
 /* Contextual YouTube help, near the verdict — help not promotion (E10). */
 .yt-help { color: var(--text-dim); font-size: var(--text-sm); margin: var(--space-2) 0 0; text-align: center; }
 .yt-help a { color: var(--accent); font-weight: 600; }
+
+/* Arrived-from-extension confirmation (E11) — quiet, one line, dismissible. */
+.arrived-note {
+  display: flex; align-items: center; gap: var(--space-3);
+  margin: 0 0 var(--space-4); padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  background: rgba(220, 255, 0, 0.08); color: var(--text); font-size: var(--text-sm);
+}
+.arrived-x { margin-left: auto; background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: var(--text-base); line-height: 1; padding: 2px 4px; border-radius: 6px; }
+.arrived-x:hover { color: var(--text); }
+
+/* Provenance badges (E11) — small, quiet, consistent. A suggested figure must
+   never look like a fact, so evidence and assumption use different colours.
+   Never lime under white text. */
+.prov-badge {
+  display: inline-block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.01em;
+  padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor;
+  vertical-align: middle; margin-left: var(--space-1); white-space: nowrap;
+}
+.prov-fact { color: #7ddf6a; }      /* from the listing / EPC — evidence */
+.prov-estimate { color: #ffc861; }  /* estimated / carried over — an assumption */
+.prov-typed { color: var(--text-dim); }
+.prov-settings { color: var(--text-dim); }
 .mini-btn {
   padding: 0.45rem 0.7rem; border-radius: 10px; border: 1px solid var(--accent);
   background: transparent; color: var(--accent); font-size: var(--text-xs); cursor: pointer; white-space: nowrap;
@@ -236,6 +259,11 @@
 .home-cards { margin: var(--space-6) 0; }
 .home-chooser { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-chooser p { margin: 0; }
+/* Desktop-only extension promo (E11) — hidden on phones where it can't be used. */
+.home-extension { margin-top: var(--space-4); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.home-extension p { margin: 0 0 var(--space-1); }
+.home-extension .hint { margin: 0; }
+@media (max-width: 640px) { .home-extension { display: none; } }
 .home-trust { text-align: center; color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-6) 0; }
 
 /* live layers (S5.2) */

@@ -18,6 +18,9 @@ export interface SiteConfig {
   domain: string;
   liveUrl: string;
   socials: SocialLinks;
+  /** Chrome Web Store listing URL — EMPTY until the listing is live; the landing
+   * page shows a "coming soon" state while empty (paste the URL here, no code change). */
+  chromeStoreUrl: string;
   /** Public base URL of the R2 data bucket (r2.dev development URL for now). */
   dataBaseUrl: string;
   /** NEVER hand-set: manifest.json is the single as-of source (DATA_SCHEMA.md); display fallback only. */
@@ -38,6 +41,8 @@ export const siteConfig: SiteConfig = {
   tagline: 'Real UK sold-price data for property investors — free.',
   domain: '',
   liveUrl: 'https://gil-bricks-app.gil-782.workers.dev',
+  // Chrome Web Store URL — paste it here once the listing is live (placeholder for now).
+  chromeStoreUrl: '',
   // Socials come from coreConfig so the web app and the panel read the SAME
   // links (one source — golden rules 2 & 4). The per-strategy YouTube links also
   // live in coreConfig and are read via youtubeFor(id) — no duplicate here.

@@ -62,16 +62,25 @@ describe('analyser handoff round-trips through the web parser', () => {
     const strat = strategyParams.value;
 
     const SUBJECT_KEYS = new Set(['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon', 'saon']);
+    // Metadata the web reads once at load and never parses into field state (E11):
+    // the arrival marker and the floor-area provenance. Excluded from round-trip.
+    const META_KEYS = new Set(['src', 'areaSrc']);
     // every subject field this listing supplies MUST actually be written (so a
     // dropped write fails here rather than being silently skipped by the loop)
     for (const k of ['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon', 'saon']) {
       expect(params, `handoff must write "${k}"`).toHaveProperty(k);
     }
-    // EVERY written param is read back with the same value, by the real parser
+    // EVERY written FIELD param is read back with the same value, by the real parser
     for (const [k, v] of Object.entries(params)) {
+      if (META_KEYS.has(k)) continue;
       const readBack = SUBJECT_KEYS.has(k) ? subject[k] : strat[k];
       expect(readBack, `param "${k}" round-trip`).toBe(v);
     }
+    // metadata is present and correct, but is NOT parsed into state (stays off the URL after first edit)
+    expect(params.src).toBe('ext');
+    // the listing has no floor area of its own (floorAreaSqm missing) but 68 was
+    // resolved elsewhere, so it is honestly 'carried', never claimed off the listing
+    expect(params.areaSrc).toBe('carried');
 
     // spot-check the important mappings
     expect(subject.postcode).toBe('SA1 8AJ');

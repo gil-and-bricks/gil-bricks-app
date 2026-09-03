@@ -4,6 +4,8 @@ import { state, update } from './state';
 import { Tooltip } from './Tooltip';
 import { lookupEpcArea } from './epcArea';
 import { tip } from '../../content/microcopy';
+import { ProvBadge } from './ProvBadge';
+import { markEdited, areaEpc } from './provenance';
 
 // Tooltip copy lives in src/content/microcopy.ts (edit words there, not here).
 const TIPS: Record<string, string> = {
@@ -36,6 +38,7 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
     } else if (state.value.area === '') {
       update({ area: String(found) });
       setAreaSource('epc');
+      areaEpc.value = true; // provenance: this area is from EPC data
     } else {
       setEpcMsg(`EPC says ${found} sqm — your figure kept.`);
     }
@@ -44,24 +47,24 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
   return (
     <form class="subject-form" onSubmit={(e) => e.preventDefault()}>
       <div class="field">
-        <label for="f-postcode">Postcode <Tooltip text={TIPS.postcode} /></label>
+        <label for="f-postcode">Postcode <Tooltip text={TIPS.postcode} /> <ProvBadge field="postcode" /></label>
         <input id="f-postcode" inputMode="text" autocomplete="postal-code" value={s.postcode}
-          onInput={(e) => update({ postcode: (e.target as HTMLInputElement).value.toUpperCase() })} />
+          onInput={(e) => { update({ postcode: (e.target as HTMLInputElement).value.toUpperCase() }); markEdited('postcode'); }} />
         {postcodeError && <p class="field-error" role="alert">{postcodeError}</p>}
       </div>
       <div class="field">
-        <label for="f-paon">House number / name <Tooltip text={TIPS.paon} /></label>
+        <label for="f-paon">House number / name <Tooltip text={TIPS.paon} /> <ProvBadge field="paon" /></label>
         <input id="f-paon" value={s.paon}
-          onInput={(e) => update({ paon: (e.target as HTMLInputElement).value, saon: '' })} />
+          onInput={(e) => { update({ paon: (e.target as HTMLInputElement).value, saon: '' }); markEdited('paon'); }} />
       </div>
       <div class="field">
-        <label for="f-price">Price (£) <Tooltip text={TIPS.price} /></label>
+        <label for="f-price">Price (£) <Tooltip text={TIPS.price} /> <ProvBadge field="price" /></label>
         <input id="f-price" inputMode="numeric" value={s.price}
-          onInput={(e) => update({ price: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+          onInput={(e) => { update({ price: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') }); markEdited('price'); }} />
       </div>
       <div class="field">
-        <label for="f-type">Property type <Tooltip text={TIPS.type} /></label>
-        <select id="f-type" value={s.type} onChange={(e) => update({ type: (e.target as HTMLSelectElement).value as never })}>
+        <label for="f-type">Property type <Tooltip text={TIPS.type} /> <ProvBadge field="type" /></label>
+        <select id="f-type" value={s.type} onChange={(e) => { update({ type: (e.target as HTMLSelectElement).value as never }); markEdited('type'); }}>
           <option value="">Choose…</option>
           <option value="D">Detached</option>
           <option value="S">Semi-detached</option>
@@ -70,28 +73,27 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
         </select>
       </div>
       <div class="field">
-        <label for="f-area">Internal area (sqm) <Tooltip text={TIPS.area} /></label>
+        <label for="f-area">Internal area (sqm) <Tooltip text={TIPS.area} /> <ProvBadge field="area" /></label>
         <div class="row">
           <input id="f-area" inputMode="numeric" value={s.area}
-            onInput={(e) => { update({ area: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); setAreaSource('user'); }} />
+            onInput={(e) => { update({ area: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); setAreaSource('user'); areaEpc.value = false; markEdited('area'); }} />
           <button type="button" class="mini-btn" onClick={findArea} disabled={epcBusy || s.paon.trim() === ''}>
             {epcBusy ? '…' : 'EPC lookup'}
           </button>
         </div>
         {areaSource === 'epc' && <p class="field-hint">From the EPC match for this address — edit to override.</p>}
-        {areaSource !== 'epc' && s.area !== '' && <p class="field-hint">Your figure (EPC lookup available).</p>}
         {epcMsg && <p class="field-hint" role="status">{epcMsg}</p>}
       </div>
       <div class="field">
-        <label for="f-beds">Bedrooms <Tooltip text={TIPS.beds} /></label>
-        <select id="f-beds" value={s.beds} onChange={(e) => update({ beds: (e.target as HTMLSelectElement).value })}>
+        <label for="f-beds">Bedrooms <Tooltip text={TIPS.beds} /> <ProvBadge field="beds" /></label>
+        <select id="f-beds" value={s.beds} onChange={(e) => { update({ beds: (e.target as HTMLSelectElement).value }); markEdited('beds'); }}>
           <option value="">—</option>
           {['1', '2', '3', '4', '5', '6+'].map((b) => <option value={b}>{b}</option>)}
         </select>
       </div>
       <div class="field">
-        <label for="f-baths">Bathrooms <Tooltip text={TIPS.baths} /></label>
-        <select id="f-baths" value={s.baths} onChange={(e) => update({ baths: (e.target as HTMLSelectElement).value })}>
+        <label for="f-baths">Bathrooms <Tooltip text={TIPS.baths} /> <ProvBadge field="baths" /></label>
+        <select id="f-baths" value={s.baths} onChange={(e) => { update({ baths: (e.target as HTMLSelectElement).value }); markEdited('baths'); }}>
           <option value="">—</option>
           {['1', '2', '3+'].map((b) => <option value={b}>{b}</option>)}
         </select>

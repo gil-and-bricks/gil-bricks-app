@@ -10,6 +10,7 @@ import { ComparablesError } from '@gil-bricks/core';
 import { fetchSaleHistory, type AddressCandidate } from '@gil-bricks/core';
 import { valueProperty, type Valuation } from '@gil-bricks/core';
 import { initFromUrl, isCompsReady, isReady, state, type UrlState } from './state';
+import { initProvenance, isFromExtension, editedKeys } from './provenance';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
 import { StrategySwitcher } from './StrategySwitcher';
@@ -37,9 +38,24 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
   const [error, setError] = useState<string | null>(null);
   const [postcodeError, setPostcodeError] = useState<string | null>(null);
   const [, bump] = useState(0);
+  const [arrivedDismissed, setArrivedDismissed] = useState(false);
 
   useEffect(() => {
     initFromUrl();
+    initProvenance(typeof window !== 'undefined' ? location.search : '');
+    // Strip the arrival metadata from the URL once captured (E11 review): it is
+    // read-once, so a link Copied/Shared before the first edit never carries the
+    // markers and never falsely shows a recipient the "brought from the extension"
+    // state. Provenance for THIS view is already held in memory by initProvenance.
+    if (typeof window !== 'undefined') {
+      const q = new URLSearchParams(location.search);
+      if (q.has('src') || q.has('areaSrc')) {
+        q.delete('src');
+        q.delete('areaSrc');
+        const qs = q.toString();
+        history.replaceState(null, '', `${location.pathname}${qs ? `?${qs}` : ''}`);
+      }
+    }
     let seq = 0;
     const dispose = effect(() => {
       const s = state.value;
@@ -121,8 +137,17 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
   }, []);
 
   const ready = (showVerdict ? isReady(state.value) : isCompsReady(state.value)) && postcodeError === null;
+  // Quiet, one-line confirmation when opened from the extension deep link.
+  // Dismisses on the first edit (editedKeys grows) or the ✕ — never nags.
+  const showArrived = isFromExtension() && !arrivedDismissed && editedKeys.value.size === 0;
   return (
     <div class="analyser">
+      {showArrived && (
+        <p class="arrived-note" role="status">
+          <span>Brought over from the extension — everything’s filled in below.</span>
+          <button type="button" class="arrived-x" aria-label="Dismiss" onClick={() => setArrivedDismissed(true)}>✕</button>
+        </p>
+      )}
       <section class="glass card">
         <h2>The property</h2>
         <SubjectForm postcodeError={postcodeError} />

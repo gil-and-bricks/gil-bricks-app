@@ -1,0 +1,104 @@
+---
+import AppShell from '../../layouts/AppShell.astro';
+import { siteConfig } from '../../site.config';
+
+const store = siteConfig.chromeStoreUrl.trim();
+const steps = [
+  { n: '1', h: 'Open a listing', p: 'Open any Rightmove or Zoopla property in Chrome on your computer.' },
+  { n: '2', h: 'Open the side panel', p: 'Click the ' + siteConfig.siteName + ' icon in your toolbar. The panel reads the page you have open.' },
+  { n: '3', h: 'See the deal', p: 'Get a Deal Score for BTL, Flip, BRRRR or HMO — then send it to the full analyser here to dig in.' },
+];
+---
+
+<AppShell
+  title={`Chrome extension — ${siteConfig.siteName}`}
+  description="Score any Rightmove or Zoopla listing as a property deal, right in a Chrome side panel — free."
+>
+  <section class="ext-hero">
+    <h1>Score a listing as a deal — without leaving the page</h1>
+    <p class="ext-lede">
+      The free {siteConfig.siteName} side panel reads the Rightmove or Zoopla listing you’re looking at and
+      scores it as a Buy-to-Let, Flip, BRRRR or HMO deal — using real HM Land Registry sold prices, not asking prices.
+    </p>
+    <div class="ext-cta">
+      {store !== '' ? (
+        <a class="btn-primary ext-install" href={store} target="_blank" rel="noopener noreferrer">Add to Chrome — it’s free</a>
+      ) : (
+        <span class="btn-primary ext-install is-disabled" aria-disabled="true" title="Listing coming soon">Coming soon to the Chrome Web Store</span>
+      )}
+      <p class="ext-desktop-note">Chrome on a desktop or laptop. It isn’t available on phones.</p>
+    </div>
+  </section>
+
+  <section class="glass card ext-section">
+    <h2>What it does</h2>
+    <p>
+      When you’re on a property listing, the panel pulls out the price, type and size, works out the numbers for
+      four common strategies, and shows a plain 0–10 Deal Score with what’s holding each one back. You answer at
+      most one or two figures (like the rent) and it’s done. Nothing is filled in as a “fact” unless it really is —
+      estimates are always labelled as estimates.
+    </p>
+  </section>
+
+  <section class="ext-section">
+    <h2>How it works</h2>
+    <ol class="ext-steps">
+      {steps.map((s) => (
+        <li class="glass card ext-step">
+          <span class="ext-step-n">{s.n}</span>
+          <div>
+            <h3>{s.h}</h3>
+            <p>{s.p}</p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  </section>
+
+  <section class="glass card ext-section ext-nope">
+    <h2>What it does <em>not</em> do</h2>
+    <ul>
+      <li><strong>No scraping.</strong> It reads only the one page you personally open — it never crawls the portal or opens pages in the background.</li>
+      <li><strong>It never sends that page’s content anywhere.</strong> The listing’s text, price and address stay on your device.</li>
+      <li><strong>To score the deal</strong> it looks up nearby sold prices using the property’s postcode area — that’s the only detail about the property sent to our data store. (Open the measure tool and it also loads the plan image from the portal to show you — nothing is uploaded.) Full detail in the <a href="/extension/privacy">privacy policy</a>.</li>
+      <li><strong>No account needed</strong> to use the panel. No tracking, no ads, no selling data. Your settings stay on your own device.</li>
+    </ul>
+  </section>
+
+  <section class="glass card ext-section">
+    <h2>Get help</h2>
+    <p>
+      Questions or something not working? Message us on
+      <a href={siteConfig.socials.instagram} target="_blank" rel="noopener noreferrer">Instagram</a> or
+      <a href={siteConfig.socials.youtube} target="_blank" rel="noopener noreferrer">YouTube</a>.
+      See how your data is handled in the <a href="/extension/privacy">privacy policy</a>.
+    </p>
+  </section>
+</AppShell>
+
+<style>
+  .ext-hero { max-width: 46rem; margin: 0 auto; text-align: center; padding: var(--space-5) var(--space-2) var(--space-2); }
+  .ext-hero h1 { font-size: var(--text-2xl); line-height: 1.15; margin: 0 0 var(--space-3); }
+  .ext-lede { color: var(--text-dim); font-size: var(--text-base); max-width: 40rem; margin: 0 auto var(--space-4); }
+  .ext-cta { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); }
+  .ext-install { display: inline-block; text-decoration: none; font-size: var(--text-base); }
+  .ext-install.is-disabled { opacity: 0.6; cursor: default; }
+  .ext-desktop-note { color: var(--text-dim); font-size: var(--text-xs); margin: 0; }
+  .ext-section { max-width: 46rem; margin: var(--space-4) auto 0; }
+  .ext-section h2 { font-size: var(--text-xl); margin: 0 0 var(--space-2); }
+  .ext-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+  .ext-step { display: flex; gap: var(--space-3); align-items: flex-start; }
+  .ext-step h3 { margin: 0 0 var(--space-1); font-size: var(--text-base); }
+  .ext-step p { margin: 0; color: var(--text-dim); font-size: var(--text-sm); }
+  .ext-step-n {
+    flex: 0 0 auto; width: 2rem; height: 2rem; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--accent); color: var(--accent-ink); font-family: var(--font-display); font-weight: 800;
+  }
+  .ext-nope ul { margin: 0; padding-left: 1.1rem; display: grid; gap: var(--space-2); }
+  .ext-nope li { font-size: var(--text-sm); }
+  .ext-nope em { font-style: italic; }
+  @media (min-width: 720px) {
+    .ext-steps { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
