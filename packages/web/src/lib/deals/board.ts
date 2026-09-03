@@ -6,7 +6,7 @@
  * extension speak one visual language. Tested in board.test.ts.
  */
 import { verdictForScore } from '@gil-bricks/core';
-import { PROGRESS_STAGES, DEAD_STAGE, type Stage } from '../../config/pipeline';
+import { PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
 
 /** One deal as the board needs it (from /api/deals when the flag is on). */
 export interface BoardDeal {
@@ -19,7 +19,57 @@ export interface BoardDeal {
   status: string;
   headline_figure: string | null;
   key_figure: string;
+  /** When the deal ENTERED its current stage (latest stage-history at); a fallback
+   * to the immutable created_at is applied server-side for migrated deals that
+   * predate history, so a re-score (which bumps updated_at) never resets the age. */
+  stage_since: string;
+  is_auction: boolean;
   updated_at: string;
+  /** A date the user set for this deal (viewing booked, offer deadline). Ranks the
+   * today line ABOVE dwell time. No date-entry UI exists yet (a later sprint), so
+   * this is the structural seam and is absent for now. */
+  due_date?: string | null;
+}
+
+const STAGE_BY_KEY: Record<string, Stage> = Object.fromEntries([...PROGRESS_STAGES, DEAD_STAGE].map((s) => [s.key, s]));
+/** The stage config for a key (never throws; unknown keys get the initial stage). */
+export function stageMeta(key: string): Stage {
+  return STAGE_BY_KEY[key] ?? STAGE_BY_KEY[INITIAL_STAGE];
+}
+
+const DAY = 86_400_000;
+/** Whole days between an ISO timestamp and now (floored, never negative). */
+export function daysInStage(deal: Pick<BoardDeal, 'stage_since'>, now: number): number {
+  const t = Date.parse(deal.stage_since);
+  if (Number.isNaN(t)) return 0;
+  return Math.max(0, Math.floor((now - t) / DAY));
+}
+
+export type DwellState = 'fresh' | 'amber' | 'cold' | 'none';
+/**
+ * Stage-AWARE ageing — never a blanket timer. A deal past its stage's normal dwell
+ * is 'amber'; past 'cold'. Terminal stages (done/dead, dwellNormalDays 0) never age.
+ */
+export function dwellState(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'status'>, now: number): DwellState {
+  if (deal.status !== 'live') return 'none';
+  const meta = stageMeta(deal.stage);
+  if (meta.dwellNormalDays <= 0) return 'none';
+  const d = daysInStage(deal, now);
+  if (d > meta.dwellColdDays) return 'cold';
+  if (d > meta.dwellNormalDays) return 'amber';
+  return 'fresh';
+}
+
+/** The card's next-step line: what it's waiting on + how long it's been there, and
+ * an honest ageing suffix. Empty for terminal deals (nothing to wait on). */
+export function nextStepLine(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'status'>, now: number): string {
+  if (deal.status !== 'live') return '';
+  const meta = stageMeta(deal.stage);
+  const d = daysInStage(deal, now);
+  const age = dwellState(deal, now);
+  const dayPhrase = d === 0 ? 'today' : `${d} day${d === 1 ? '' : 's'}`;
+  const suffix = age === 'cold' ? ' · gone cold' : age === 'amber' ? ' · no update' : '';
+  return `${meta.waiting} · ${dayPhrase}${suffix}`;
 }
 
 /** A stage plus the deals sitting in it (freshest first). */
@@ -59,4 +109,56 @@ export function scoreClass(score: number | null): 'ds-good' | 'ds-marginal' | 'd
   if (score === null || !Number.isFinite(score)) return 'ds-none';
   const v = verdictForScore(score);
   return v === 'good' ? 'ds-good' : v === 'marginal' ? 'ds-marginal' : 'ds-walk';
+}
+
+/** The single most important thing to do today, or an honest "nothing". */
+export interface TodayLine {
+  /** The line to show, in the operator's voice. */
+  text: string;
+  /** The deal it names (for a link/highlight), or null for the "nothing" line. */
+  dealId: string | null;
+}
+
+/**
+ * "What do I need to do today?" — ONE deal, ONE action. Ranked by a strict
+ * precedence (P4): (1) a date the user set that's due/overdue; (2) how long a deal
+ * has sat past what's NORMAL for its stage (stage-aware, so chasing an offer beats
+ * waiting on searches); (3) a brand-new deal nobody has actioned yet. If nothing
+ * qualifies it says so plainly — never manufactured urgency.
+ */
+export function todayLine(deals: readonly BoardDeal[], now: number): TodayLine {
+  const live = deals.filter((d) => d.status === 'live');
+  const dwellPhrase = (d: BoardDeal): string => {
+    const days = daysInStage(d, now);
+    const age = dwellState(d, now);
+    const dp = days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'}`;
+    return `${dp}${age === 'cold' ? ', gone cold' : age === 'amber' ? ', no update' : ''}`;
+  };
+  const line = (d: BoardDeal): string => `${stageMeta(d.stage).todo} — ${d.title} · ${dwellPhrase(d)}`;
+
+  // (1) A date the user set, due or overdue. Structural seam — no date-entry yet.
+  const dated = live
+    .filter((d) => d.due_date && Date.parse(d.due_date) <= now)
+    .sort((a, b) => Date.parse(a.due_date as string) - Date.parse(b.due_date as string));
+  if (dated.length > 0) return { text: line(dated[0]), dealId: dated[0].id };
+
+  // (2) Past its stage's NORMAL dwell — most overdue first (by ratio, so a stage with
+  // a short normal dwell that's blown wins over a long-dwell stage barely over).
+  const overdue = live
+    .map((d) => ({ d, ratio: daysInStage(d, now) / stageMeta(d.stage).dwellNormalDays }))
+    .filter((x) => Number.isFinite(x.ratio) && x.ratio > 1)
+    .sort((a, b) => b.ratio - a.ratio);
+  if (overdue.length > 0) return { text: line(overdue[0].d), dealId: overdue[0].d.id };
+
+  // (3) A brand-new deal nobody has actioned — still in the initial stage, sat ≥1 day
+  // (never nag on day zero). Oldest first.
+  const untouched = live
+    .filter((d) => d.stage === INITIAL_STAGE && daysInStage(d, now) >= 1)
+    .sort((a, b) => daysInStage(b, now) - daysInStage(a, now));
+  if (untouched.length > 0) return { text: line(untouched[0]), dealId: untouched[0].id };
+
+  // Nothing qualifies — say so plainly.
+  const n = live.length;
+  if (n === 0) return { text: 'No live deals right now — analyse a listing to start one.', dealId: null };
+  return { text: `Nothing needs you today. ${n} deal${n === 1 ? '' : 's'} ticking along.`, dealId: null };
 }

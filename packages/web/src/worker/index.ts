@@ -22,8 +22,8 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { canAddLiveDeal, countLiveDeals, deleteDeal, MAX_LIVE_DEALS, parseAnalyserDeal, upsertPipelineDeal } from './lib/pipeline';
-import { LIVE_CAP_MESSAGE } from '../config/pipeline';
+import { canAddLiveDeal, countLiveDeals, deleteDeal, getOwnedDeal, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, upsertPipelineDeal } from './lib/pipeline';
+import { DEAD_STAGE, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -349,6 +349,7 @@ interface DealBody {
   criteria_json?: string;
   evidence_json?: string;
   headline_figure?: string;
+  is_auction?: boolean;
   postcode_sector?: string;
   source?: 'extension' | 'analyser';
 }
@@ -447,7 +448,8 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // honest fallback for migrated/older deals that predate it.
     const rows = await env.DB.prepare(
       `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
-              d.headline_figure, d.updated_at, s.url_params, s.key_figure
+              d.headline_figure, d.is_auction, d.updated_at, s.url_params, s.key_figure,
+              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
          FROM deals d JOIN saved_deals s ON s.id = d.id
         WHERE d.user_id = ?
         ORDER BY d.updated_at DESC`,
@@ -455,13 +457,16 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
       .bind(user.sub)
       .all<{
         id: string; strategy: string; title: string; stage: string; current_score: number | null;
-        status: string; headline_figure: string | null; updated_at: string; url_params: string; key_figure: string;
+        status: string; headline_figure: string | null; is_auction: number; updated_at: string;
+        url_params: string; key_figure: string; stage_since: string;
       }>();
+    // Coerce the SQLite 0/1 auction flag to a real boolean for the client.
+    const deals = rows.results.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
     // liveCount comes from the SAME counter the 100-cap enforces (countLiveDeals over
     // the deals table), NOT a recount of the joined rows — so the board's "N of 100"
     // can never disagree with an at-cap 409 at save time.
     const liveCount = await countLiveDeals(env.DB, user.sub);
-    return json({ pipeline: true, deals: rows.results, liveCount, cap: MAX_LIVE_DEALS });
+    return json({ pipeline: true, deals, liveCount, cap: MAX_LIVE_DEALS });
   }
 
   // ---- flag OFF: exactly today's flat saved-deals list ----
@@ -491,6 +496,45 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
   // no-op when there is no such pipeline deal.
   await deleteDeal(env.DB, user.sub, dealId);
   return json({ ok: true });
+}
+
+/** P4: move a deal to another progress stage (skipping allowed — it's the user's own
+ * money). Writes deal_stage_history + updates the card's stage/status. Pipeline-only. */
+async function handleMoveDeal(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: { stage?: string };
+  try {
+    body = (await request.json()) as { stage?: string };
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const toStage = String(body?.stage ?? '');
+  // Only progress stages here — parking/killing goes through /dead (it needs a reason).
+  if (!isStage(toStage) || toStage === DEAD_STAGE.key) return json({ error: 'bad request' }, 400);
+  const deal = await getOwnedDeal(env.DB, user.sub, dealId);
+  if (!deal) return json({ error: 'not found' }, 404);
+  if (deal.stage !== toStage) await moveStage(env.DB, dealId, deal.stage, toStage);
+  return json({ ok: true, stage: toStage, status: statusForStage(toStage) });
+}
+
+/** P4: park/kill a deal with a one-chip reason (P9 builds the full graveyard). */
+async function handleParkDeal(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: { reason?: string };
+  try {
+    body = (await request.json()) as { reason?: string };
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const reason = String(body?.reason ?? '').slice(0, 40).trim();
+  const deal = await getOwnedDeal(env.DB, user.sub, dealId);
+  if (!deal) return json({ error: 'not found' }, 404);
+  await markDead(env.DB, dealId, deal.stage, reason);
+  return json({ ok: true, stage: DEAD_STAGE.key, status: 'dead' });
 }
 
 /**
@@ -542,6 +586,10 @@ export default {
     {
       const m = /^\/api\/deals\/([0-9a-f-]{36})$/.exec(pathname);
       if (m && method === 'DELETE') return handleDeleteDeal(request, env, m[1]);
+      const mv = /^\/api\/deals\/([0-9a-f-]{36})\/stage$/.exec(pathname);
+      if (mv && method === 'POST') return handleMoveDeal(request, env, mv[1]);
+      const pk = /^\/api\/deals\/([0-9a-f-]{36})\/dead$/.exec(pathname);
+      if (pk && method === 'POST') return handleParkDeal(request, env, pk[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

@@ -25,6 +25,7 @@ export const PROV_LABEL: Record<ProvSource, string> = {
 // Captured ONCE at load from the arriving URL.
 let arrivedKeys = new Set<string>();
 let fromExtension = false;
+let auctionArrival = false;
 let areaOrigin: 'listing' | 'carried' | null = null;
 
 /** Subject facts the extension reads straight off the portal listing. */
@@ -35,14 +36,18 @@ const DEAL_INPUTS = new Set(['rent', 'gdv', 'arv', 'refurbCost', 'rooms', 'roomR
 export function initProvenance(search: string): void {
   const q = new URLSearchParams(search);
   fromExtension = q.get('src') === 'ext';
+  auctionArrival = q.get('auction') === '1';
   const a = q.get('areaSrc');
   areaOrigin = a === 'listing' ? 'listing' : a === 'carried' ? 'carried' : null;
-  arrivedKeys = new Set([...q.keys()].filter((k) => k !== 'src' && k !== 'areaSrc'));
+  arrivedKeys = new Set([...q.keys()].filter((k) => k !== 'src' && k !== 'areaSrc' && k !== 'auction'));
   editedKeys.value = new Set();
   areaEpc.value = false;
 }
 
 export const isFromExtension = (): boolean => fromExtension;
+/** The deal arrived flagged as an auction (E8.1/P4). Metadata read once from the
+ * URL like `src`; carried onto the deal so the board can warn at Offer in. */
+export const isAuctionArrival = (): boolean => auctionArrival;
 
 /** Keys the user has edited this session (marked from the input handlers). */
 export const editedKeys = signal<Set<string>>(new Set());

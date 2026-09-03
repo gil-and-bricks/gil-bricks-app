@@ -9,7 +9,7 @@ import { siteConfig } from '../site.config';
 import { LIVE_CAP_MESSAGE } from '../config/pipeline';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql'];
+const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql'];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {
@@ -211,5 +211,101 @@ describe('the board list (GET /api/deals)', () => {
     expect(b.max).toBe(100);
     expect(b.deals).toHaveLength(1);
     expect(b.deals[0].key_figure).toBe('ROI 12%'); // the flat list's own field, untouched
+  });
+});
+
+const post = (headers: Record<string, string>, path: string, body: unknown) =>
+  worker.fetch(new Request(`https://s.test${path}`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) }), env());
+
+describe('P4 — moving and parking from the board (flag ON)', () => {
+  beforeEach(() => { siteConfig.features.dealPipeline = true; });
+
+  it('moves a deal forward: writes stage_history and updates stage/status', async () => {
+    const h = await authed();
+    const { id } = await (await save(h, {})).json() as { id: string };
+    const res = await post(h, `/api/deals/${id}/stage`, { stage: 'offer-in' });
+    expect(res.status).toBe(200);
+    expect((await res.json() as { stage: string; status: string })).toEqual({ ok: true, stage: 'offer-in', status: 'live' });
+    expect((sqlite.prepare('SELECT stage FROM deals WHERE id=?').get(id) as { stage: string }).stage).toBe('offer-in');
+    expect(count('deal_stage_history', `WHERE deal_id='${id}'`)).toBe(2); // opening + this move
+  });
+
+  it('allows SKIPPING stages (it is the user’s own money) and marks bought-it as done', async () => {
+    const h = await authed();
+    const { id } = await (await save(h, {})).json() as { id: string };
+    const res = await post(h, `/api/deals/${id}/stage`, { stage: 'bought-it' }); // skip several
+    expect(res.status).toBe(200);
+    expect((await res.json() as { status: string }).status).toBe('done');
+    expect((sqlite.prepare('SELECT status FROM deals WHERE id=?').get(id) as { status: string }).status).toBe('done');
+  });
+
+  it('rejects an unknown stage and refuses to move via /stage into parked-dead', async () => {
+    const h = await authed();
+    const { id } = await (await save(h, {})).json() as { id: string };
+    expect((await post(h, `/api/deals/${id}/stage`, { stage: 'nonsense' })).status).toBe(400);
+    expect((await post(h, `/api/deals/${id}/stage`, { stage: 'parked-dead' })).status).toBe(400);
+  });
+
+  it('parks/kills a deal with a reason: status dead, dead_reason stored, history written', async () => {
+    const h = await authed();
+    const { id } = await (await save(h, {})).json() as { id: string };
+    const res = await post(h, `/api/deals/${id}/dead`, { reason: 'Chain fell through' });
+    expect(res.status).toBe(200);
+    const d = sqlite.prepare('SELECT status, stage, dead_reason FROM deals WHERE id=?').get(id) as Record<string, unknown>;
+    expect(d.status).toBe('dead');
+    expect(d.stage).toBe('parked-dead');
+    expect(d.dead_reason).toBe('Chain fell through');
+  });
+
+  it('a move on someone else’s deal is a 404 (ownership enforced)', async () => {
+    const h1 = await authed('u1');
+    const { id } = await (await save(h1, {})).json() as { id: string };
+    sqlite.prepare('INSERT INTO users (id, email, name, created_at) VALUES (?, ?, ?, ?)').run('u2', 'u2@t', 'T', '2026-01-01T00:00:00Z');
+    const h2 = await authed('u2');
+    expect((await post(h2, `/api/deals/${id}/stage`, { stage: 'offer-in' })).status).toBe(404);
+  });
+
+  it('a migrated deal (no stage history) keeps its age across a re-score — stage_since is created_at, not bumped', async () => {
+    const h = await authed();
+    const old = '2026-07-01T00:00:00Z'; // ~2 months before the seeded "now"
+    const id = '99999999-9999-4999-8999-999999999999';
+    // a migrated-style deal: saved_deals + a deals row with the SAME url_params the
+    // default save uses, an old created_at, and NO deal_stage_history.
+    sqlite.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(id, 'u1', 'btl', 't', 'postcode=CF37+1HR&price=150000', 'ROI 6%', old);
+    sqlite.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, 'u1', 'btl', 't', '', 'worth-a-look', null, 'live', 'saved-deal-migration', old, old);
+    expect(count('deal_stage_history', `WHERE deal_id='${id}'`)).toBe(0);
+    // re-score it (the intended first action) — this bumps updated_at but adds no history
+    await save(h, {});
+    expect((sqlite.prepare('SELECT updated_at, created_at FROM deals WHERE id=?').get(id) as { updated_at: string; created_at: string }).created_at).toBe(old);
+    const b = await (await list(h)).json() as { deals: { id: string; stage_since: string }[] };
+    const d = b.deals.find((x) => x.id === id)!;
+    expect(d.stage_since).toBe(old); // age anchored to created_at, NOT reset to now by the re-score
+  });
+
+  it('stores is_auction and keeps it STICKY across a re-save that omits it', async () => {
+    const h = await authed();
+    await save(h, { is_auction: true });
+    expect((sqlite.prepare('SELECT is_auction FROM deals').get() as { is_auction: number }).is_auction).toBe(1);
+    await save(h, { is_auction: false }); // re-open drops the marker; must not un-flag
+    expect((sqlite.prepare('SELECT is_auction FROM deals').get() as { is_auction: number }).is_auction).toBe(1);
+    // and the board list returns it as a real boolean + a stage_since
+    const b = await (await list(h)).json() as { deals: Record<string, unknown>[] };
+    expect(b.deals[0].is_auction).toBe(true);
+    expect(typeof b.deals[0].stage_since).toBe('string');
+  });
+});
+
+describe('P4 — move/park are inert with the flag OFF', () => {
+  it('both endpoints 404 when the pipeline flag is off', async () => {
+    expect(siteConfig.features.dealPipeline).toBe(false);
+    const h = await authed();
+    const id = '11111111-1111-4111-8111-111111111111';
+    sqlite.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(id, 'u1', 'btl', 't', '', 'worth-a-look', 'live', 'analyser', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z');
+    expect((await post(h, `/api/deals/${id}/stage`, { stage: 'offer-in' })).status).toBe(404);
+    expect((await post(h, `/api/deals/${id}/dead`, { reason: 'x' })).status).toBe(404);
+    expect((sqlite.prepare('SELECT stage FROM deals WHERE id=?').get(id) as { stage: string }).stage).toBe('worth-a-look'); // untouched
   });
 });

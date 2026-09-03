@@ -427,3 +427,52 @@
 .board-parked > summary:hover { color: var(--text); }
 .board-parked[open] > summary { margin-bottom: var(--space-3); }
 .board-parked .board-col-cards { max-width: 20rem; }
+
+/* ---- Pipeline board P4: today line, next-step, ageing, card actions ---------- */
+/* The answer, not a list: ONE deal, ONE action, above the board. */
+.today-line {
+  margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border); border-left: 4px solid var(--accent);
+  border-radius: var(--radius-card); background: rgba(220, 255, 0, 0.06);
+  font-size: var(--text-base); font-weight: 600; color: var(--text);
+}
+.board-note { margin: 0 0 var(--space-3); color: var(--text-dim); font-size: var(--text-sm); }
+
+/* Next-step line — what it's waiting on + how long. Quiet by default; warms with age. */
+.dc-step { margin: 0; color: var(--text-dim); font-size: var(--text-sm); }
+.dc-step.step-amber { color: var(--verdict-amber); }
+.dc-step.step-cold { color: var(--text-dim); font-style: italic; }
+
+/* Stage-AWARE ageing on the card edge — a nudge, never an alarm. No red. */
+.deal-card.age-amber { border-left-width: 3px; border-left-color: var(--verdict-amber); }
+.deal-card.age-cold { border-left-width: 3px; border-left-color: rgba(255,255,255,0.35); opacity: 0.72; }
+.deal-card.dragging { opacity: 0.5; }
+.board-col.drop-target { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-card); }
+
+/* Auction legal-pack warning — unmissable at Offer in, but a warning not an alarm. */
+.dc-auction {
+  margin: 0; padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--verdict-amber); border-radius: 10px;
+  background: rgba(255, 200, 97, 0.14); color: var(--text);
+  font-size: var(--text-sm); font-weight: 600;
+}
+
+/* Card action row: the accessible move picker (keyboard + one-handed mobile) + park. */
+.dc-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-1); }
+.dc-move { display: inline-flex; }
+.dc-move select {
+  font: inherit; font-size: var(--text-sm); color: var(--text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+  border-radius: 10px; padding: 0.4rem 0.6rem; min-height: 40px; cursor: pointer;
+}
+.dc-move select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-link { background: none; border: none; color: var(--text-dim); font: inherit; font-size: var(--text-sm); cursor: pointer; padding: 0.4rem 0.2rem; text-decoration: underline; min-height: 40px; }
+.btn-link:hover, .btn-link:focus-visible { color: var(--text); }
+.dc-park-reasons { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
+.chip {
+  font: inherit; font-size: var(--text-xs); color: var(--text);
+  background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
+  border-radius: 999px; padding: 0.35rem 0.7rem; cursor: pointer; min-height: 36px;
+}
+.chip:hover, .chip:focus-visible { border-color: var(--accent); outline: none; }
+.chip-cancel { color: var(--text-dim); }

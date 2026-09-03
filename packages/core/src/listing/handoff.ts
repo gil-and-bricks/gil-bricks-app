@@ -61,6 +61,11 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
   // Strategy fields (parsed by the web's initStrategyParams)
   for (const [k, v] of Object.entries(h.fields ?? {})) set(k, v);
 
+  // Auction marker (P4): the listing was an auction. Carried as metadata (like `src`)
+  // so the analyser save can flag the deal and the board warns about the legal pack at
+  // Offer in. Only ever '1' when the listing is genuinely flagged an auction.
+  if (listing.isAuction.status === 'found' && listing.isAuction.value === true) params.auction = '1';
+
   // Arrival marker (E11): lets the web show the quiet "brought over from the
   // extension" confirmation and attribute prefilled fields to the listing. It is
   // metadata, not a field value — the web reads it once and never re-emits it.

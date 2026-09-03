@@ -3,7 +3,7 @@ import { loadMe, openLoginWall, resetMe } from '../../lib/auth/session';
 import { dealTitle } from '../../lib/deals/deal';
 import { keyFigure } from './keyFigure';
 import { verdictSnapshot } from './verdictSnapshot';
-import { evidenceSnapshot, isFromExtension } from './provenance';
+import { evidenceSnapshot, isAuctionArrival, isFromExtension } from './provenance';
 import { state, strategyParams, toQuery } from './state';
 import { fmtMoney, postcodeToSector } from '@gil-bricks/core';
 
@@ -61,6 +61,8 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           criteria_json: verdictSnapshot.value?.criteriaJson ?? '{}',
           // the ONE strategy-appropriate figure the pipeline board card shows (P3)
           headline_figure: verdictSnapshot.value?.boardFigure ?? '',
+          // auction flag (P4) — carried from the extension handoff, warns at Offer in
+          is_auction: isAuctionArrival(),
           evidence_json: evidenceSnapshot([...EVIDENCE_SUBJECT_KEYS, ...Object.keys(strategyParams.value)]),
           postcode_sector: pc.inEnglandWales ? pc.sector : '',
           source: isFromExtension() ? 'extension' : 'analyser',
