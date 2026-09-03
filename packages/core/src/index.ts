@@ -36,8 +36,8 @@ export * from './strategy-calc/rental';
 // Strategy configuration objects + their types.
 export * from './strategies';
 
-// Shared config (the R2 data base URL).
-export { coreConfig } from './config';
+// Shared config (R2 data base URL, socials, per-strategy YouTube links).
+export { coreConfig, youtubeFor } from './config';
 
 // Deal Score verdict engine (E2).
 export * from './score/scoreDeal';

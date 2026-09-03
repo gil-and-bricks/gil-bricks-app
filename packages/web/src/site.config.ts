@@ -33,14 +33,15 @@ export interface SiteConfig {
 }
 
 export const siteConfig: SiteConfig = {
-  siteName: 'Gil & Bricks',
+  // Name comes from coreConfig so the web app and the panel read the SAME name.
+  siteName: coreConfig.siteName,
   tagline: 'Real UK sold-price data for property investors — free.',
   domain: '',
   liveUrl: 'https://gil-bricks-app.gil-782.workers.dev',
-  socials: {
-    instagram: 'https://www.instagram.com/gil_and_bricks/',
-    youtube: 'https://www.youtube.com/@gil_and_bricks',
-  },
+  // Socials come from coreConfig so the web app and the panel read the SAME
+  // links (one source — golden rules 2 & 4). The per-strategy YouTube links also
+  // live in coreConfig and are read via youtubeFor(id) — no duplicate here.
+  socials: coreConfig.socials,
   dataBaseUrl: coreConfig.dataBaseUrl,
   dataAsOf: '',
   googleClientId: '548405055261-7h7g1bsbc6ouoa04470ohr3ifigjbbfp.apps.googleusercontent.com',

@@ -81,9 +81,34 @@ describe('triage panel (E7)', () => {
   });
 
   it('EW reject shows the message, no score', () => {
-    renderTriage(view({ unknowns: { rent: '1200' }, ewReject: 'Sorry — this covers England & Wales only' }));
+    renderTriage(view({ unknowns: { rent: '1200' }, ewReject: 'Sorry — this covers England & Wales only', ewRejectReason: 'outside-england-wales' }));
     expect(txt()).toContain('England & Wales only');
+    expect(txt()).toContain('Scotland or Northern Ireland');
     expect(document.querySelector('.deal-score')).toBeNull();
+  });
+
+  it('an unreadable postcode reads DIFFERENTLY from a Scotland/NI reject (E10)', () => {
+    renderTriage(view({ unknowns: { rent: '1200' }, ewReject: 'x', ewRejectReason: 'not-a-postcode' }));
+    expect(txt()).toContain('couldn’t read the postcode');
+    expect(txt()).not.toContain('Scotland'); // not the border message
+  });
+
+  it('a POA listing (no price) says “add a price”, never “no sold data” (E10)', () => {
+    const poa = { ...listing, askingPrice: missing<number>() };
+    const result = scoreListing(poa, { strategy: 'btl', unknowns: { rent: '1200' }, sector: sector() });
+    expect(result.priceVsSold.status).toBe('no-data'); // sector loaded, no price to compare
+    renderTriage(view({ listing: poa, result, unknowns: { rent: '1200' } }));
+    const soldRow = [...document.querySelectorAll('.component')].map((r) => r.textContent ?? '').find((t) => /sold/i.test(t)) ?? '';
+    expect(soldRow.toLowerCase()).toContain('add a price');
+    expect(soldRow.toLowerCase()).not.toContain('aren’t available');
+  });
+
+  it('the YouTube help link’s accessible name contains its visible text (WCAG 2.5.3) (E10)', () => {
+    renderTriage(view({ unknowns: { rent: '1200' } }));
+    const a = document.querySelector('.yt-link') as HTMLAnchorElement;
+    expect(a).toBeTruthy();
+    const visible = (a.textContent ?? '').replace('→', '').trim();
+    expect(a.getAttribute('aria-label') ?? '').toContain(visible);
   });
 
   it('the honest out-of-market line shows only when flagged (E7.1)', () => {

@@ -35,6 +35,9 @@
 .field-error { color: #ff9d9d; font-size: var(--text-xs); margin: var(--space-1) 0 0; }
 .field-hint, .hint { color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-1) 0 0; }
 .start-hint { text-align: center; padding: var(--space-6); font-size: var(--text-base); }
+/* Contextual YouTube help, near the verdict — help not promotion (E10). */
+.yt-help { color: var(--text-dim); font-size: var(--text-sm); margin: var(--space-2) 0 0; text-align: center; }
+.yt-help a { color: var(--accent); font-weight: 600; }
 .mini-btn {
   padding: 0.45rem 0.7rem; border-radius: 10px; border: 1px solid var(--accent);
   background: transparent; color: var(--accent); font-size: var(--text-xs); cursor: pointer; white-space: nowrap;

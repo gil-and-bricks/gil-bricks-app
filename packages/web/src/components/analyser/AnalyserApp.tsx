@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'preact/hooks';
 import { effect } from '@preact/signals';
-import { findComparables, type ComparablesResult } from '@gil-bricks/core';
+import { findComparables, youtubeFor, type ComparablesResult } from '@gil-bricks/core';
 import { ComparablesError } from '@gil-bricks/core';
 import { fetchSaleHistory, type AddressCandidate } from '@gil-bricks/core';
 import { valueProperty, type Valuation } from '@gil-bricks/core';
@@ -153,6 +153,22 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
               </section>
             );
           })()}
+
+          {/* Contextual help, not promotion — a free walkthrough for THIS strategy.
+              Config-driven via youtubeFor (coreConfig.youtube), never a pop-up (E10). */}
+          {showVerdict && config?.id && (
+            <p class="yt-help">
+              New to {config.name}?{' '}
+              <a
+                href={youtubeFor(config.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Watch the free walkthrough for ${config.name} on YouTube (opens a new tab)`}
+              >
+                Watch the free walkthrough →
+              </a>
+            </p>
+          )}
 
           {busy && results.comps === null ? (
             <SkeletonCards />

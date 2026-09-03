@@ -46,6 +46,13 @@ export default defineBackground({
     };
     chrome.runtime.onInstalled.addListener(sweep);
     chrome.runtime.onStartup.addListener(sweep);
+    // main() runs on EVERY service-worker wake (not just install/startup), and
+    // onInstalled/onStartup do NOT fire on a cold-start-from-idle. Without this
+    // immediate sweep, a portal tab that was already active when the worker slept
+    // has no per-tab enable, so it falls back to the global enabled:false and the
+    // toolbar click opens the panel MENU instead of the panel. Sweeping here
+    // re-enables the current portal tab so the icon opens the panel directly (E10).
+    sweep();
 
     chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
       // React when the page settles or navigates (url only present on portal tabs).

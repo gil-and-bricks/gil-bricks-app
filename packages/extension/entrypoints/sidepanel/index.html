@@ -7,6 +7,10 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
+    <!-- Brand header + first-run hint live OUTSIDE #app (root() clears #app),
+         so they persist across every screen. Populated once at init (E10). -->
+    <header id="gb-header" class="gb-header"></header>
+    <div id="gb-firstrun"></div>
     <main id="app" class="panel"></main>
     <!-- Persistent SR live region OUTSIDE #app (root() clears #app), so lever
          change-signals are announced to screen-reader users (E8.1). -->

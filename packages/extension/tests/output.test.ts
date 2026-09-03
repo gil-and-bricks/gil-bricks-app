@@ -115,6 +115,11 @@ describe('no CDN / font / network loads in the built output', () => {
       ['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales'].includes(h) ||
       /\.r2\.dev$/.test(h) || // our R2 data bucket (config + sector data)
       /\.workers\.dev$/.test(h) || // our own web app (Send-to-analyser handoff target)
+      // Our own social profiles + per-strategy walkthrough links (E10). These are
+      // INERT anchor hrefs the user clicks (open a new tab) — never fetched by the
+      // extension, need no host permission, and transmit nothing.
+      ['www.instagram.com', 'instagram.com', 'www.youtube.com', 'youtube.com', 'youtu.be'].includes(h) ||
+      h === 'www.w3.org' || // the SVG XML namespace URI (createElementNS) — an identifier, never fetched
       h === 'rolldown.rs'; // the bundler's inert banner comment (never fetched)
     const hosts = new Set<string>();
     for (const p of walk(OUT)) {

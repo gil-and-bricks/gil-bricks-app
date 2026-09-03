@@ -254,3 +254,64 @@ body {
 .measure-tools { display: flex; gap: 6px; margin: 8px 0; }
 .measure-canvas { width: 100%; max-width: 360px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(255,255,255,0.03); touch-action: none; display: block; }
 .measure-readout { margin: 8px 0; font-size: 0.9rem; color: var(--text); min-height: 1.2em; }
+
+/* ---- E10: brand header, socials, first-run, YouTube help, failure states ---- */
+/* Persistent header (outside #app): transparent logo left, socials right. */
+.gb-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  max-width: 420px; margin: 0 auto; padding: 12px 14px 4px;
+}
+.gb-logo { height: 34px; width: auto; display: block; }
+.gb-socials { display: flex; align-items: center; gap: 4px; }
+.gb-social {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 9px; color: var(--accent);
+  text-decoration: none; border: 1px solid transparent;
+}
+.gb-social:hover { border-color: var(--accent); background: rgba(220, 255, 0, 0.08); }
+.gb-social-icon { width: 20px; height: 20px; display: block; }
+
+/* First-run hint — one quiet, dismissible line. Never lime under white text. */
+.gb-firstrun {
+  display: flex; align-items: flex-start; gap: 10px;
+  max-width: 420px; margin: 4px auto 0; padding: 10px 12px;
+  border-left: 3px solid var(--accent); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.gb-firstrun-msg { margin: 0; color: var(--text-dim); font-size: 0.82rem; line-height: 1.4; }
+.gb-firstrun-x {
+  flex: 0 0 auto; margin-left: auto; background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-size: 0.95rem; line-height: 1; padding: 2px 4px; border-radius: 6px;
+}
+.gb-firstrun-x:hover { color: var(--text); }
+
+/* Per-strategy YouTube help — near the verdict, plain link, never a pop-up. */
+.yt-prompt { margin: 8px 0 0; color: var(--text-dim); font-size: 0.82rem; }
+.yt-link { color: var(--accent); font-weight: 600; text-decoration: underline; }
+.yt-link:hover { filter: brightness(1.08); }
+
+/* Structured failure states — one heading, one sentence, one action. */
+.fail-head { margin: 6px 0 6px; font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; color: var(--text); }
+.fail-body { margin: 0; color: var(--text-dim); font-size: 0.92rem; line-height: 1.45; }
+.fail-action { margin: 8px 0 0; color: var(--text); font-size: 0.9rem; font-weight: 600; border-left: 2px solid var(--accent); padding-left: 10px; }
+/* England & Wales-only — a distinct honest block inside the listing card. */
+.ew-reject { margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+
+/* ---- E10: visible keyboard focus everywhere (WCAG 2.1 AA — 2.4.7) ---- */
+/* The panel had no focus styling; native rings can vanish on the dark gradient.
+   A high-contrast lime ring, offset so it's visible against lime-bordered fields. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* On a lime-filled control (active strat button, send button) the lime ring would
+   be invisible — use a dark ring plus the lime one for a guaranteed edge. */
+.strat-btn.active:focus-visible, .send-btn:focus-visible {
+  outline: 2px solid #070014;
+  box-shadow: 0 0 0 4px var(--accent);
+}
+@media (prefers-contrast: more) {
+  .glass { background: #140322; }
+  .c-name, .prop-facts, .fp-note, .yt-prompt, .gb-firstrun-msg, .fail-body { color: #ffffff; }
+}

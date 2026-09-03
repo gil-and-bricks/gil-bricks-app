@@ -50,3 +50,23 @@ export const setCriteria = (c: Criteria) => setLocal('gb:criteria', c);
 const unkKey = (id: string) => `gb:unk:${id}`;
 export const getUnknowns = (id: string) => getLocal<Record<string, string>>(unkKey(id), {});
 export const setUnknowns = (id: string, u: Record<string, string>) => setLocal(unkKey(id), u);
+
+// First-run hint dismissal — shown once, never again after the user closes it.
+export const getFirstRunDismissed = () => getLocal<boolean>('gb:firstRunDismissed', false);
+export const setFirstRunDismissed = () => setLocal('gb:firstRunDismissed', true);
+
+/**
+ * Whether chrome.storage.local is actually usable (a private window or a
+ * quota-blocked profile can make writes throw). Round-trips a tiny probe so the
+ * panel can tell the user honestly that their settings won't be remembered
+ * THIS session, rather than silently losing them.
+ */
+export async function storageAvailable(): Promise<boolean> {
+  try {
+    await chrome.storage.local.set({ 'gb:probe': 1 });
+    await chrome.storage.local.remove('gb:probe');
+    return true;
+  } catch {
+    return false;
+  }
+}

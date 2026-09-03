@@ -21,6 +21,8 @@ import {
   getSector,
   strategyById,
   criteriaFields,
+  coreConfig,
+  youtubeFor,
   FALLBACK_CONFIG,
   type NormalisedListing,
   type ExtractResult,
@@ -89,15 +91,160 @@ function root(): HTMLElement {
 
 export function renderEmpty(): void {
   const card = e('section', 'glass card empty');
-  card.append(e('p', 'eyebrow', 'Gil & Bricks'));
-  card.append(e('p', 'empty-msg', 'Open a Rightmove or Zoopla listing to analyse.'));
+  card.append(e('p', 'eyebrow', coreConfig.siteName));
+  card.append(e('p', 'empty-msg', 'Open a Rightmove or Zoopla listing and I’ll score it as a deal.'));
   root().append(card);
 }
-export function renderFailure(message: string): void {
-  const card = e('section', 'glass card');
-  card.append(e('p', 'eyebrow', 'Gil & Bricks'));
-  card.append(e('p', 'read-fail', message));
+
+/**
+ * Every honest failure state (E10): ONE heading, ONE plain sentence, and ONE
+ * next action where a next action helps. `renderFailure` accepts a legacy plain
+ * string (rendered as the body) or a structured state.
+ */
+export interface FailureState { heading: string; body: string; action?: string }
+
+export function renderFailure(state: FailureState | string): void {
+  const s: FailureState = typeof state === 'string' ? { heading: 'We couldn’t read this page', body: state } : state;
+  const card = e('section', 'glass card fail-card');
+  card.setAttribute('role', 'alert');
+  card.append(e('p', 'eyebrow', coreConfig.siteName));
+  card.append(e('h1', 'fail-head', s.heading));
+  card.append(e('p', 'fail-body', s.body));
+  if (s.action) card.append(e('p', 'fail-action', s.action));
   root().append(card);
+}
+
+/**
+ * Honest, structured copy for each extract failure, keyed on the reason the core
+ * reader returned — a "this isn't a listing" reads DIFFERENTLY from "the portal
+ * changed" from "something unexpected" (E10). The core message is used as the
+ * body where it's already the clearest sentence.
+ */
+export function failureFor(reason: string, message?: string): FailureState {
+  switch (reason) {
+    case 'not-a-listing':
+      return {
+        heading: 'This isn’t a listing page',
+        body: message ?? 'This page isn’t a Rightmove or Zoopla property listing.',
+        action: 'Open a specific property listing, then reopen this panel.',
+      };
+    case 'shape-changed':
+    case 'no-blob':
+      return {
+        heading: 'The page format changed',
+        body: message ?? 'We couldn’t read this page — the portal may have changed its layout.',
+        action: 'Refresh the page. If it keeps happening, the reader needs an update — we’ll fix it.',
+      };
+    case 'no-content-script':
+      // We only reach this on a page tick() already confirmed is a Rightmove/
+      // Zoopla tab — so the honest cause is the reader hasn't loaded on the page
+      // yet (still loading, or opened before the panel), NOT "no listing open".
+      return {
+        heading: 'Just a moment — refresh needed',
+        body: 'This panel reads the page you have open, and the reader hasn’t loaded on it yet.',
+        action: 'Refresh the listing page, then reopen this panel.',
+      };
+    case 'unreadable':
+    default:
+      return {
+        heading: 'Something got in the way',
+        body: message ?? 'We couldn’t read this page — something unexpected got in the way.',
+        action: 'Refresh the page and reopen the panel.',
+      };
+  }
+}
+
+/** Inline social icon (no external asset) — accessible name via aria-label on the link. */
+function socialIcon(kind: 'instagram' | 'youtube'): SVGElement {
+  const NS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('class', 'gb-social-icon');
+  svg.setAttribute('aria-hidden', 'true');
+  svg.setAttribute('focusable', 'false');
+  const path = document.createElementNS(NS, 'path');
+  path.setAttribute('fill', 'currentColor');
+  if (kind === 'instagram') {
+    path.setAttribute('d', 'M12 2.2c3.2 0 3.6 0 4.9.07 1.2.05 1.8.25 2.2.42.6.22 1 .48 1.4.9.42.4.68.8.9 1.4.17.4.37 1 .42 2.2.06 1.3.07 1.7.07 4.9s0 3.6-.07 4.9c-.05 1.2-.25 1.8-.42 2.2-.22.6-.48 1-.9 1.4-.4.42-.8.68-1.4.9-.4.17-1 .37-2.2.42-1.3.06-1.7.07-4.9.07s-3.6 0-4.9-.07c-1.2-.05-1.8-.25-2.2-.42-.6-.22-1-.48-1.4-.9-.42-.4-.68-.8-.9-1.4-.17-.4-.37-1-.42-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.07-4.9c.05-1.2.25-1.8.42-2.2.22-.6.48-1 .9-1.4.4-.42.8-.68 1.4-.9.4-.17 1-.37 2.2-.42C8.4 2.2 8.8 2.2 12 2.2Zm0 3.2A6.6 6.6 0 1 0 18.6 12 6.6 6.6 0 0 0 12 5.4Zm0 10.9A4.3 4.3 0 1 1 16.3 12 4.3 4.3 0 0 1 12 16.3Zm6.9-11.1a1.54 1.54 0 1 1-1.55-1.54 1.54 1.54 0 0 1 1.55 1.54Z');
+  } else {
+    path.setAttribute('d', 'M23.5 6.5a3 3 0 0 0-2.1-2.1C19.5 3.9 12 3.9 12 3.9s-7.5 0-9.4.5A3 3 0 0 0 .5 6.5 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.5ZM9.6 15.6V8.4l6.2 3.6Z');
+  }
+  svg.appendChild(path);
+  return svg;
+}
+
+/**
+ * Persistent brand header (E10) — the transparent logo + a compact socials row.
+ * Rendered ONCE into #gb-header (outside #app), so it stays put across every
+ * screen and every redraw. Name-agnostic: the logo is a file the operator swaps;
+ * the social URLs read from coreConfig (one source).
+ */
+export function renderHeader(container: HTMLElement): void {
+  container.textContent = '';
+  const logo = e('img', 'gb-logo') as HTMLImageElement;
+  logo.src = '/brand/logo-wordmark.svg';
+  logo.alt = coreConfig.siteName; // name-agnostic — one source (golden rule 4)
+  logo.width = 104;
+  logo.decoding = 'async';
+  container.append(logo);
+  const socials = e('div', 'gb-socials');
+  const link = (href: string, label: string, kind: 'instagram' | 'youtube'): HTMLAnchorElement => {
+    const a = e('a', 'gb-social') as HTMLAnchorElement;
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.setAttribute('aria-label', label);
+    a.title = label;
+    a.append(socialIcon(kind));
+    return a;
+  };
+  socials.append(
+    link(coreConfig.socials.instagram, `${coreConfig.siteName} on Instagram (opens a new tab)`, 'instagram'),
+    link(coreConfig.socials.youtube, `${coreConfig.siteName} on YouTube (opens a new tab)`, 'youtube'),
+  );
+  container.append(socials);
+}
+
+/**
+ * First-run hint (E10) — one quiet, dismissible line, shown the first time only.
+ * No tour, no wizard. `storageOk=false` means we can't remember the dismissal,
+ * so we also say settings won't persist — honestly, and without blocking anything.
+ */
+export function renderFirstRun(container: HTMLElement, storageOk: boolean, onDismiss: () => void): void {
+  container.textContent = '';
+  const box = e('div', 'gb-firstrun');
+  box.setAttribute('role', 'note');
+  const msg = storageOk
+    ? 'Open a Rightmove or Zoopla listing and I’ll score it. Set your own criteria in Settings whenever you like.'
+    : 'Open a Rightmove or Zoopla listing and I’ll score it. Note: your browser isn’t letting this panel save settings, so they won’t be remembered after you close it.';
+  box.append(e('p', 'gb-firstrun-msg', msg));
+  const x = e('button', 'gb-firstrun-x', '✕') as HTMLButtonElement;
+  x.type = 'button';
+  x.setAttribute('aria-label', 'Dismiss this tip');
+  x.addEventListener('click', () => { container.textContent = ''; onDismiss(); });
+  box.append(x);
+  container.append(box);
+}
+
+/**
+ * Per-strategy contextual YouTube link (E10) — HELP, not promotion. Never a
+ * pop-up or interstitial; a plain link near the verdict. The URL reads from
+ * config (one entry per strategy), so the operator swaps in playlist URLs later.
+ */
+function youtubePrompt(strategy: StrategyId): HTMLElement {
+  const name = strategyById(strategy)!.name;
+  const p = e('p', 'yt-prompt');
+  p.append(document.createTextNode(`New to ${name}? `));
+  const a = e('a', 'yt-link') as HTMLAnchorElement;
+  a.href = youtubeFor(strategy);
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  a.textContent = 'Watch the free walkthrough →';
+  // The accessible name must CONTAIN the visible text contiguously (WCAG 2.5.3
+  // Label in Name) — so the strategy name is appended, never spliced mid-phrase.
+  a.setAttribute('aria-label', `Watch the free walkthrough for ${name} on YouTube (opens a new tab)`);
+  p.append(a);
+  return p;
 }
 
 function soldText(p: ScoreListingResult['priceVsSold']): { pill: string; label: string; text: string } {
@@ -111,6 +258,10 @@ function soldText(p: ScoreListingResult['priceVsSold']): { pill: string; label: 
     case 'no-area-data': return { pill: 'st-unknown', label: 'no data', text: 'We haven’t got sold-price data for this area yet' };
     case 'load-failed': return { pill: 'st-unknown', label: 'retry', text: 'Couldn’t load sold prices — check your connection and reopen the panel' };
     case 'loading': return { pill: 'st-unknown', label: '…', text: 'Loading nearby sold prices…' };
+    // The sector DID load with sales — there's just no asking price to compare
+    // against yet (e.g. a POA / "offers over" listing). Say that, don't claim the
+    // sold prices are missing (E10 review).
+    case 'no-data': return { pill: 'st-unknown', label: 'no price', text: 'Add a price to compare it with nearby sold prices' };
     default: return { pill: 'st-unknown', label: '—', text: 'Nearby sold prices aren’t available' };
   }
 }
@@ -146,6 +297,9 @@ export interface PanelView {
   /** Floor-plan measure state (E9.1). */
   floorplan?: FloorPlanState;
   ewReject?: string | null;
+  /** WHY the postcode was rejected — a border reject reads differently from an
+   * unreadable postcode (E10 review). */
+  ewRejectReason?: 'outside-england-wales' | 'not-a-postcode' | null;
 }
 export interface PanelHandlers {
   onStrategy?: (s: StrategyId) => void;
@@ -563,13 +717,28 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   card.append(sw);
 
   if (view.ewReject) {
-    card.append(e('p', 'read-fail', view.ewReject));
+    // Two DISTINCT honest states share the reject path (E10 review): a real
+    // out-of-area postcode (Scotland/NI) vs a postcode we couldn't read at all.
+    const box = e('div', 'ew-reject');
+    box.setAttribute('role', 'note');
+    if (view.ewRejectReason === 'not-a-postcode') {
+      box.append(e('h2', 'fail-head', 'We couldn’t read the postcode'));
+      box.append(e('p', 'fail-body', 'This listing didn’t give a full postcode we could read, so we can’t pull the sold-price data for it.'));
+      box.append(e('p', 'fail-action', 'Open the full listing page (not a search result), then reopen this panel.'));
+    } else {
+      box.append(e('h2', 'fail-head', 'England & Wales only'));
+      box.append(e('p', 'fail-body', 'This tool covers England & Wales only — the sold-price data it scores against doesn’t include Scotland or Northern Ireland.'));
+      box.append(e('p', 'fail-action', 'Try a listing in England or Wales.'));
+    }
+    card.append(box);
     app.append(card);
     return;
   }
 
   // 3) verdict + headline
   card.append(chip(view.result.deal, view.result, view.strategy));
+  // Contextual, non-blocking help — a free walkthrough for THIS strategy (E10).
+  card.append(youtubePrompt(view.strategy));
   if (view.usingSuggested) card.append(e('p', 'suggest-note', 'Score uses a suggested end value — set your own to be sure.'));
   if (view.result.note) card.append(e('p', 'read-fail', view.result.note));
   // Honest out-of-market line — priced above local stock, works on no strategy (E7.1).
@@ -660,6 +829,16 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
   back.type = 'button';
   if (h.onCloseSettings) back.addEventListener('click', () => h.onCloseSettings!());
   card.append(back);
+
+  // Honest storage state (E10 review): if the browser won't let us save (a
+  // private window / blocked profile), say so HERE too — where saving matters —
+  // not only in the one-time first-run hint. Non-blocking; changes still apply
+  // this session.
+  if (!storageAvailableFlag) {
+    const note = e('p', 'fail-action', 'Your browser isn’t letting this panel save settings, so any changes here apply now but won’t be remembered after you close it.');
+    note.setAttribute('role', 'note');
+    card.append(note);
+  }
 
   // Heading is WHITE and spaced from the lime back link (E8.1 #9).
   card.append(e('h2', 'settings-title', 'What does a good deal look like to you?'));
@@ -818,7 +997,7 @@ function wireMeasureCanvas(canvas: HTMLCanvasElement, view: PanelView, readout: 
   let ready = false;
   const drawBase = (): void => { ctx2d.clearRect(0, 0, canvas.width, canvas.height); if (ready) ctx2d.drawImage(img, 0, 0, canvas.width, canvas.height); };
   img.onload = () => { ready = true; drawBase(); };
-  img.onerror = () => { readout.textContent = 'Couldn’t load the plan image to measure.'; };
+  img.onerror = () => { readout.textContent = 'We couldn’t load the plan image to measure — the portal may block it. You can still type a room’s width × length below to check it.'; };
   if (view.floorplan?.imageUrl) img.src = view.floorplan.imageUrl;
 
   let start: { x: number; y: number } | null = null;
@@ -866,7 +1045,7 @@ function wireMeasureCanvas(canvas: HTMLCanvasElement, view: PanelView, readout: 
 interface Ctx {
   url: string;
   listing: NormalisedListing | null;
-  failure: string | null;
+  failure: FailureState | null;
   screen: 'triage' | 'settings' | 'measure';
   strategy: StrategyId;
   rent: string;
@@ -876,6 +1055,7 @@ interface Ctx {
   sector: SectorFile | null;
   sectorId: string | null;
   ewReject: string | null;
+  ewRejectReason: 'outside-england-wales' | 'not-a-postcode' | null;
   manualArea: string;
   /** Unknown fields the user has explicitly emptied — don't re-inject a suggestion. */
   cleared: Set<string>;
@@ -985,7 +1165,7 @@ function draw(ctx: Ctx): void {
     settings: ctx.settings, criteria: ctx.criteria, floorAreaSqm: fa.sqm, floorAreaSource: fa.source, floorAreaRange: fa.range,
     manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal,
     rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, isAuction,
-    floorplan: ctx.floorplan, lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject,
+    floorplan: ctx.floorplan, lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject, ewRejectReason: ctx.ewRejectReason,
   };
   const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null; cashflowAfter: number | null; profit: number | null; moneyLeftIn: number | null } => {
     const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number }; cashflowAfterTax?: { value: number }; profitAfterTax?: { value: number }; moneyLeftIn?: number } | undefined;
@@ -1098,13 +1278,17 @@ function redraw(ctx: Ctx): void {
 }
 
 let lastUrl = '';
+/** Whether chrome.storage.local is usable this session (probed once at init).
+ * Defaults true; when false, the Settings screen shows an honest "won't be
+ * remembered" note beyond the one-time first-run hint (E10 review). */
+let storageAvailableFlag = true;
 
 async function loadFor(tabId: number, url: string): Promise<void> {
   const ctx: Ctx = {
     url, listing: null, failure: null, screen: 'triage',
     strategy: (await store.getStrategy()) as StrategyId,
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
-    sector: null, sectorId: null, ewReject: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
+    sector: null, sectorId: null, ewReject: null, ewRejectReason: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
     sectorLoad: 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [] },
   };
@@ -1115,10 +1299,12 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   try {
     result = (await chrome.tabs.sendMessage(tabId, { type: EXTRACT_MESSAGE })) as ExtractResult;
   } catch {
-    ctx.failure = 'Open a Rightmove or Zoopla listing, then reopen this panel.';
+    // No content script answered — the page isn't one of our portals (or hadn't
+    // loaded the reader yet). Honest, with the next action (E10).
+    ctx.failure = failureFor('no-content-script');
     return draw(ctx);
   }
-  if (!result.ok) { ctx.failure = result.message; return draw(ctx); }
+  if (!result.ok) { ctx.failure = failureFor(result.reason, result.message); return draw(ctx); }
   ctx.listing = result.listing;
   // Floor-plan availability from the listing (measure tool opens on demand — E9.1).
   const fpUrl = ctx.listing.floorPlanImageUrls.status === 'found' ? ctx.listing.floorPlanImageUrls.value?.[0] : undefined;
@@ -1127,7 +1313,7 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   if (ctx.listing.listingId.value) ctx.listingUnknowns = await store.getUnknowns(ctx.listing.listingId.value);
   if (ctx.listing.postcode.value) {
     const pc = postcodeToSector(ctx.listing.postcode.value);
-    if (!pc.inEnglandWales) ctx.ewReject = pc.message;
+    if (!pc.inEnglandWales) { ctx.ewReject = pc.message; ctx.ewRejectReason = pc.reason; }
     else {
       ctx.sectorId = pc.sector;
       const remembered = await store.getRent(pc.sector);
@@ -1181,6 +1367,27 @@ async function tick(): Promise<void> {
 }
 
 function init(): void {
+  // Document title follows the ONE name source (golden rule 4), so the static
+  // index.html <title> isn't a second place to rename (E10 review).
+  document.title = `${coreConfig.siteName} Deal Analyser`;
+  // Persistent brand header — rendered once, never cleared by root() (E10).
+  const header = document.getElementById('gb-header');
+  if (header) renderHeader(header);
+  // First-run hint — shown once, dismissible, never again. Also honestly flags
+  // when storage is unavailable so settings-won't-persist isn't a silent surprise.
+  const firstRun = document.getElementById('gb-firstrun');
+  if (firstRun) {
+    void (async () => {
+      const [dismissed, storageOk] = await Promise.all([store.getFirstRunDismissed(), store.storageAvailable()]);
+      storageAvailableFlag = storageOk;
+      if (!dismissed) {
+        renderFirstRun(firstRun, storageOk, () => { firstRun.textContent = ''; });
+        // "Shown once": mark it seen the moment it's displayed, so closing the
+        // panel WITHOUT clicking ✕ still means it never returns (E10 review).
+        void store.setFirstRunDismissed();
+      }
+    })();
+  }
   void refreshRemoteConfig();
   void tick();
   setInterval(() => void tick(), 1500);
@@ -1201,7 +1408,7 @@ export function __mountForTest(
   const ctx: Ctx = {
     url: 'test', listing, failure: null, screen: 'triage', strategy: opts.strategy ?? 'btl',
     rent: opts.rent ?? '', listingUnknowns: opts.listingUnknowns ?? {}, settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
-    sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, manualArea: '',
+    sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, ewRejectReason: null, manualArea: '',
     cleared: new Set(), rentCleared: false, signalsOpen: false, sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [], ...opts.floorplan },
   };

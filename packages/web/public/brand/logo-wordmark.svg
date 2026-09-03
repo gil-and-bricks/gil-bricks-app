@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 72" role="img" aria-label="Gil & Bricks">
+  <!-- PLACEHOLDER wordmark (transparent). Operator: replace this file with the
+       real transparent logo, keeping the same path + filename. -->
+  <text x="0" y="30" font-family="Montserrat, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+        font-size="26" font-weight="800" letter-spacing="0.5" fill="#ffffff">GIL &amp;</text>
+  <text x="0" y="62" font-family="Montserrat, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif"
+        font-size="30" font-weight="800" letter-spacing="1.5" fill="#dcff00">BRICKS</text>
+</svg>
