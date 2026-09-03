@@ -217,6 +217,16 @@ function verdictOf(score: number): Verdict {
 }
 
 /**
+ * The Green/Amber/Red band a bare 0–10 score falls in — the SINGLE source shared
+ * by every surface (the analyser chip, the extension, the pipeline board), so the
+ * traffic-light colour is defined once. Same thresholds the verdict uses (green
+ * 8–10, amber 6–7.9, red 0–5.9); a null/unscored deal has no band and no colour.
+ */
+export function verdictForScore(score: number): Verdict {
+  return verdictOf(score);
+}
+
+/**
  * Plain lever sentence for the binding component, reusing existing lever outputs.
  * ALL wording lives in copy.ts (fixByKey / leverByKey / noLeverByKey); this only
  * fills figures and picks the right template — the operator can reword freely.

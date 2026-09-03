@@ -1,6 +1,17 @@
 /** Saved-deal title + share text helpers (client side, pure). */
 import type { UrlState } from '../../components/analyser/state';
-import { fmtMoney } from '@gil-bricks/core';
+import { fmtMoney, strategies } from '@gil-bricks/core';
+
+/**
+ * The analyser link that RE-OPENS a deal with its state restored — the deal's
+ * strategy route plus its saved url params (exactly how a saved deal re-opens
+ * today). The board is read-only: tapping a card just opens the analyser.
+ */
+export function dealHref(strategy: string, urlParams: string): string {
+  const route = strategies.find((s) => s.id === strategy)?.route;
+  const base = route ? `${route}/analyser` : '/comparables';
+  return urlParams !== '' ? `${base}?${urlParams}` : base;
+}
 
 const TYPE_WORDS: Record<string, string> = {
   D: 'Detached',

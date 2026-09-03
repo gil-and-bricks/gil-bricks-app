@@ -22,7 +22,7 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { canAddLiveDeal, countLiveDeals, deleteDeal, parseAnalyserDeal, upsertPipelineDeal } from './lib/pipeline';
+import { canAddLiveDeal, countLiveDeals, deleteDeal, MAX_LIVE_DEALS, parseAnalyserDeal, upsertPipelineDeal } from './lib/pipeline';
 import { LIVE_CAP_MESSAGE } from '../config/pipeline';
 
 export interface Env {
@@ -348,6 +348,7 @@ interface DealBody {
   score?: number;
   criteria_json?: string;
   evidence_json?: string;
+  headline_figure?: string;
   postcode_sector?: string;
   source?: 'extension' | 'analyser';
 }
@@ -437,6 +438,33 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
 async function handleListDeals(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
+
+  // ---- P3: the pipeline board (only when the flag is on) ----
+  if (siteConfig.features.dealPipeline) {
+    // One row per deal, joined to saved_deals ONLY for its url_params (the analyser
+    // link) — every deal has a matching saved_deals row (P2 dual-write; deleted
+    // together). headline_figure is the board card's figure; key_figure is the
+    // honest fallback for migrated/older deals that predate it.
+    const rows = await env.DB.prepare(
+      `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
+              d.headline_figure, d.updated_at, s.url_params, s.key_figure
+         FROM deals d JOIN saved_deals s ON s.id = d.id
+        WHERE d.user_id = ?
+        ORDER BY d.updated_at DESC`,
+    )
+      .bind(user.sub)
+      .all<{
+        id: string; strategy: string; title: string; stage: string; current_score: number | null;
+        status: string; headline_figure: string | null; updated_at: string; url_params: string; key_figure: string;
+      }>();
+    // liveCount comes from the SAME counter the 100-cap enforces (countLiveDeals over
+    // the deals table), NOT a recount of the joined rows — so the board's "N of 100"
+    // can never disagree with an at-cap 409 at save time.
+    const liveCount = await countLiveDeals(env.DB, user.sub);
+    return json({ pipeline: true, deals: rows.results, liveCount, cap: MAX_LIVE_DEALS });
+  }
+
+  // ---- flag OFF: exactly today's flat saved-deals list ----
   const rows = await env.DB.prepare(
     'SELECT id, strategy, title, url_params, key_figure, created_at FROM saved_deals WHERE user_id = ? ORDER BY created_at DESC',
   )
@@ -455,10 +483,13 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
   if (!owned) return json({ error: 'not found' }, 404);
   await env.DB.prepare('DELETE FROM saved_deals WHERE id = ? AND user_id = ?').bind(dealId, user.sub).run();
   // Keep the pipeline in lock-step: the deal shares saved_deals' id, so remove it (and
-  // its history/facts/verdicts) too — otherwise re-saving the same property would orphan
-  // the old deal, duplicate it, and leak a LIVE-cap slot. Flag-gated so the flag-off path
-  // stays byte-for-byte identical; a no-op when there's no such pipeline deal.
-  if (siteConfig.features.dealPipeline) await deleteDeal(env.DB, user.sub, dealId);
+  // its history/facts/verdicts) too. Done REGARDLESS of the flag — a migrated deal (from
+  // the 0005 backfill) exists in `deals` even while the pipeline UI is off, so gating this
+  // would orphan a status='live' row that no flag-off API surfaces, yet countLiveDeals
+  // (the cap) still counts, permanently leaking a slot and hiding the row from the board.
+  // Deleting it changes NO flag-off response (they all read saved_deals only); it's a
+  // no-op when there is no such pipeline deal.
+  await deleteDeal(env.DB, user.sub, dealId);
   return json({ ok: true });
 }
 

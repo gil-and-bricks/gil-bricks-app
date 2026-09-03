@@ -9,7 +9,7 @@ import { siteConfig } from '../site.config';
 import { LIVE_CAP_MESSAGE } from '../config/pipeline';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql'];
+const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql'];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {
@@ -31,7 +31,7 @@ const authed = async (user = 'u1') => ({ Cookie: `${SESSION_COOKIE}=${await sign
 const save = async (headers: Record<string, string>, body: Record<string, unknown>) =>
   worker.fetch(new Request('https://s.test/api/deals', {
     method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
-    body: JSON.stringify({ strategy: 'btl', title: 'A · CF37 1HR · £150,000', url_params: 'postcode=CF37+1HR&price=150000', key_figure: 'ROI 12%', score: 7.2, criteria_json: '{"minRoi":12}', evidence_json: '{"sources":{"price":"listing"}}', postcode_sector: 'CF37 1', source: 'analyser', ...body }),
+    body: JSON.stringify({ strategy: 'btl', title: 'A · CF37 1HR · £150,000', url_params: 'postcode=CF37+1HR&price=150000', key_figure: 'ROI 12%', headline_figure: '£250/mo', score: 7.2, criteria_json: '{"minRoi":12}', evidence_json: '{"sources":{"price":"listing"}}', postcode_sector: 'CF37 1', source: 'analyser', ...body }),
   }), env());
 const count = (t: string, where = '') => (sqlite.prepare(`SELECT COUNT(*) n FROM ${t} ${where}`).get() as { n: number }).n;
 
@@ -61,6 +61,7 @@ describe('save writes a pipeline deal (flag ON)', () => {
     expect(d.current_score).toBe(7.2);
     expect(d.postcode_sector).toBe('CF37 1');
     expect(d.source).toBe('analyser');
+    expect(d.headline_figure).toBe('£250/mo'); // the board card's strategy-appropriate figure (P3)
     const v = sqlite.prepare('SELECT * FROM deal_verdicts').get() as Record<string, unknown>;
     expect(v.score).toBe(7.2);
     expect(JSON.parse(v.criteria_json as string).minRoi).toBe(12);
@@ -80,7 +81,7 @@ describe('save writes a pipeline deal (flag ON)', () => {
     const first = await (await save(h, {})).json() as { id: string };
     // the user progresses the deal
     sqlite.prepare("UPDATE deals SET stage = 'offer-in', updated_at = ? WHERE id = ?").run('2026-02-01T00:00:00Z', first.id);
-    const res = await save(h, { title: 'A · updated', score: 5.1 });
+    const res = await save(h, { title: 'A · updated', score: 5.1, headline_figure: '£300/mo' });
     const b = await res.json() as { updated: boolean };
     expect(b.updated).toBe(true);
     expect(count('deals')).toBe(1);          // still one deal
@@ -88,6 +89,7 @@ describe('save writes a pipeline deal (flag ON)', () => {
     const d = sqlite.prepare('SELECT * FROM deals').get() as Record<string, unknown>;
     expect(d.stage).toBe('offer-in');        // NOT reset to worth-a-look
     expect(d.current_score).toBe(5.1);       // refreshed
+    expect(d.headline_figure).toBe('£300/mo'); // board figure refreshed on re-score
   });
 
   it('the same property under a DIFFERENT strategy is a separate deal', async () => {
@@ -144,5 +146,70 @@ describe('flag OFF — nothing changes (today’s behaviour)', () => {
     expect(count('saved_deals')).toBe(1);
     expect(count('deals')).toBe(0);          // pipeline untouched
     expect(count('deal_verdicts')).toBe(0);
+  });
+
+  it('deleting a saved deal ALSO removes its (migrated) pipeline row — even flag off — so no orphan leaks the cap', async () => {
+    expect(siteConfig.features.dealPipeline).toBe(false);
+    const h = await authed();
+    // a migrated deal: a saved_deals row + a matching live deals row with the same id
+    // (what the 0005 backfill produces), present even while the pipeline UI is off.
+    const now = '2026-01-01T00:00:00Z';
+    const mid = crypto.randomUUID(); // the DELETE route requires a 36-char uuid
+    sqlite.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(mid, 'u1', 'btl', 't', 'p=1', 'ROI 6%', now);
+    sqlite.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(mid, 'u1', 'btl', 't', '', 'worth-a-look', null, 'live', 'saved-deal-migration', now, now);
+    const del = await worker.fetch(new Request(`https://s.test/api/deals/${mid}`, { method: 'DELETE', headers: h }), env());
+    expect(del.status).toBe(200);
+    expect(count('saved_deals')).toBe(0);
+    expect(count('deals')).toBe(0); // the pipeline row is gone too — not orphaned
+  });
+});
+
+const list = async (headers: Record<string, string>) =>
+  worker.fetch(new Request('https://s.test/api/deals', { method: 'GET', headers }), env());
+
+describe('the board list (GET /api/deals)', () => {
+  it('flag ON returns pipeline board data — stage, score, figure, url_params + live count vs cap', async () => {
+    siteConfig.features.dealPipeline = true;
+    const h = await authed();
+    await save(h, { strategy: 'btl', url_params: 'postcode=CF37+1HR&price=150000' });
+    await save(h, { strategy: 'flip', url_params: 'postcode=CF37+1HR&price=150000', headline_figure: '£30,000 profit', score: 3.4 });
+    // progress one and kill nothing; the live count = both
+    const res = await list(h);
+    expect(res.status).toBe(200);
+    const b = await res.json() as { pipeline: boolean; deals: Record<string, unknown>[]; liveCount: number; cap: number };
+    expect(b.pipeline).toBe(true);
+    expect(b.cap).toBe(100);
+    expect(b.liveCount).toBe(2);
+    expect(b.deals).toHaveLength(2);
+    const btl = b.deals.find((d) => d.strategy === 'btl')!;
+    expect(btl.stage).toBe('worth-a-look');
+    expect(btl.headline_figure).toBe('£250/mo');
+    expect(btl.url_params).toBe('postcode=CF37+1HR&price=150000'); // joined from saved_deals, opens the analyser
+    expect(typeof btl.current_score).toBe('number');
+    const flip = b.deals.find((d) => d.strategy === 'flip')!;
+    expect(flip.headline_figure).toBe('£30,000 profit');
+  });
+
+  it('a dead deal drops out of the live count but is still returned (board tucks it away)', async () => {
+    siteConfig.features.dealPipeline = true;
+    const h = await authed();
+    const first = await (await save(h, {})).json() as { id: string };
+    sqlite.prepare("UPDATE deals SET stage = 'parked-dead', status = 'dead' WHERE id = ?").run(first.id);
+    const b = await (await list(h)).json() as { deals: Record<string, unknown>[]; liveCount: number };
+    expect(b.deals).toHaveLength(1);
+    expect(b.liveCount).toBe(0); // dead deals never count toward the cap
+  });
+
+  it('flag OFF returns exactly today’s flat shape (no pipeline field)', async () => {
+    expect(siteConfig.features.dealPipeline).toBe(false);
+    const h = await authed();
+    await save(h, {});
+    const b = await (await list(h)).json() as { deals: Record<string, unknown>[]; max?: number; pipeline?: boolean };
+    expect(b.pipeline).toBeUndefined();
+    expect(b.max).toBe(100);
+    expect(b.deals).toHaveLength(1);
+    expect(b.deals[0].key_figure).toBe('ROI 12%'); // the flat list's own field, untouched
   });
 });

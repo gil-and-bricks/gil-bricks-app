@@ -9,5 +9,9 @@ import { signal } from '@preact/signals';
 export interface VerdictSnapshot {
   score: number | null;
   criteriaJson: string;
+  /** The ONE strategy-appropriate figure the pipeline board card shows (P3):
+   * BTL monthly cashflow, BRRRR money left in, Flip profit, HMO ROI — the
+   * analyser's own display string, so the card can never contradict the deal. */
+  boardFigure: string;
 }
 export const verdictSnapshot = signal<VerdictSnapshot | null>(null);

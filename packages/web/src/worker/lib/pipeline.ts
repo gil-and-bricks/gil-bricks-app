@@ -28,6 +28,9 @@ export interface AnalyserDealPayload {
   criteriaJson: string;
   /** Which inputs were from the listing / EPC / estimated / typed (E11 provenance). */
   evidenceJson: string;
+  /** The ONE strategy-appropriate figure the board card shows (P3) — the analyser's
+   * own display string (BTL cashflow / BRRRR money-left-in / Flip profit / HMO ROI). */
+  headlineFigure: string;
   /** Honest arrival source: the deal came from the extension or the analyser page. */
   source: 'extension' | 'analyser';
 }
@@ -59,6 +62,7 @@ export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => 
     score,
     criteriaJson: isJson(b.criteria_json) ? (b.criteria_json as string) : '{}',
     evidenceJson: isJson(b.evidence_json) ? (b.evidence_json as string) : '{}',
+    headlineFigure: String(b.headline_figure ?? '').slice(0, 60).trim(),
     source,
   } as AnalyserDealPayload;
 }
@@ -80,6 +84,7 @@ export interface DealRow {
   postcode_sector: string;
   stage: string;
   current_score: number | null;
+  headline_figure: string | null;
   status: string;
   dead_reason: string | null;
   source: string;
@@ -233,8 +238,8 @@ export async function upsertPipelineDeal(
   if (existing) {
     // Re-save: keep stage, status, dead_reason and all history untouched.
     await db.batch([
-      db.prepare('UPDATE deals SET current_score = ?, title = ?, updated_at = ? WHERE id = ? AND user_id = ?')
-        .bind(payload.score, payload.title, now, ctx.id, ctx.userId),
+      db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+        .bind(payload.score, payload.title, payload.headlineFigure, now, ctx.id, ctx.userId),
       db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
         .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
     ]);
@@ -242,8 +247,8 @@ export async function upsertPipelineDeal(
   }
   if (!canAddLiveDeal(await countLiveDeals(db, ctx.userId))) return 'at-cap';
   await db.batch([
-    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
-      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, 'live', payload.source, now, now),
+    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
+      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, 'live', payload.source, now, now),
     db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, NULL, ?, ?)')
       .bind(crypto.randomUUID(), ctx.id, INITIAL_STAGE, now),
     db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')

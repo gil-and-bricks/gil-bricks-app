@@ -20,6 +20,14 @@
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.7);
 
+  /* Verdict traffic light — ONE source shared by the analyser Deal Score chip,
+     the verdict banner and the pipeline board, so every surface speaks one
+     visual language (mirrors core's verdictForScore bands: green ≥8, amber ≥6,
+     red <6). Used for borders/dots only — never as a background under white text. */
+  --verdict-good: #7ddf6a;
+  --verdict-amber: #ffc861;
+  --verdict-walk: #ff9d9d;
+
   /* Glass cards */
   --glass-bg: rgba(255, 255, 255, 0.05);
   --glass-border: rgba(220, 255, 0, 0.4);

@@ -59,6 +59,8 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           // dealPipeline flag is on; harmless (ignored) when it's off.
           score: verdictSnapshot.value?.score ?? null,
           criteria_json: verdictSnapshot.value?.criteriaJson ?? '{}',
+          // the ONE strategy-appropriate figure the pipeline board card shows (P3)
+          headline_figure: verdictSnapshot.value?.boardFigure ?? '',
           evidence_json: evidenceSnapshot([...EVIDENCE_SUBJECT_KEYS, ...Object.keys(strategyParams.value)]),
           postcode_sector: pc.inEnglandWales ? pc.sector : '',
           source: isFromExtension() ? 'extension' : 'analyser',

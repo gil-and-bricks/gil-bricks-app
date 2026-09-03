@@ -3,6 +3,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealShareText } from '../../lib/deals/deal';
+import { siteConfig } from '../../site.config';
 
 interface Deal {
   id: string;
@@ -36,7 +37,9 @@ export function AccountApp() {
 
   useEffect(() => {
     void loadMe().then((v) => {
-      if (v === null) return;
+      // Pipeline ON: deals live on the board (/deals), not this flat list — so
+      // don't fetch it here. Flag OFF: exactly today's behaviour.
+      if (v === null || siteConfig.features.dealPipeline) return;
       fetch('/api/deals')
         .then((r) => {
           if (!r.ok) throw new Error(String(r.status));
@@ -144,6 +147,13 @@ export function AccountApp() {
         </form>
       </div>
 
+      {siteConfig.features.dealPipeline ? (
+        <div class="glass card">
+          <h2>My deals</h2>
+          <p class="hint">Your deals live in your <a href="/deals">pipeline</a> now — it shows which one needs you next.</p>
+          <a class="btn-primary" href="/deals">Open my pipeline</a>
+        </div>
+      ) : (
       <div class="glass card">
         <h2>My deals</h2>
         {dealNote !== '' && <p class="hint" role="alert">{dealNote}</p>}
@@ -197,6 +207,7 @@ export function AccountApp() {
           </ul>
         )}
       </div>
+      )}
 
       <div class="glass card">
         <h2>Delete my account</h2>
