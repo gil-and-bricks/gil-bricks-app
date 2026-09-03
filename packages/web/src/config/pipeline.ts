@@ -68,6 +68,13 @@ export function isDealStatus(key: string): key is DealStatus {
 export const INITIAL_STAGE = 'worth-a-look';
 
 /**
+ * Shown when a user hits the LIVE-deal cap. Helpful, not a wall: dead deals free
+ * a slot and their reason is kept as memory. Reworded here without a code change.
+ */
+export const LIVE_CAP_MESSAGE =
+  'You’ve got 100 live deals. Kill the ones that are dead — that frees a slot, and the reason gets remembered.';
+
+/**
  * Fact types the pipeline re-scores against — the facts that arrive after a deal
  * is first sent over (the builder's quote lands, the survey finds damp, the
  * lender down-values, a covenant appears, auction fees emerge from the legal

@@ -35,6 +35,19 @@ Live at: https://gil-bricks-app.gil-782.workers.dev
 - MapLibre GL + Protomaps namedFlavor("dark"), self-hosted glyphs/sprites.
 - Data pipeline: GitHub Actions (PUBLIC repo) monthly -> wrangler r2 object put -> manifest.json.
 
+## Deal pipeline (LOCKED boundaries — buy-side, self-filling)
+- A deal can ONLY be born from an ANALYSER PAYLOAD. NO manual "add a property",
+  no off-market/agent-call entry — ever. This keeps the pipeline zero-maintenance:
+  deals enter themselves. Enforced by construction: the only deal-creating helper
+  (`upsertPipelineDeal`, packages/web/src/worker/lib/pipeline.ts) takes a BRANDED
+  `AnalyserDealPayload` produced solely by `parseAnalyserDeal`. Never add another
+  `INSERT INTO deals` path — a test (pipeline.test.ts "no-manual-entry") fails loudly if you do.
+- Buy-side ONLY, ends at purchase. Nothing investor-facing (no packaging/packs/
+  sharing/sending), nothing about teaching/courses/badges/streaks, nothing about
+  owning/letting/tenancies/tax. The spine is RE-SCORING as facts arrive; NO new
+  formulas — always reuse @gil-bricks/core. Stage/fact KEYS are stable in the DB;
+  display copy lives in src/config/pipeline.ts. The 100 cap counts LIVE deals only.
+
 ## Data contracts (LOCKED — changing these = versioned migration, never in place)
 - sector-JSON schema is versioned: every file + manifest.json carry schemaVersion.
 - manifest.json is the single as-of source; UI reads dataAsOf from it.

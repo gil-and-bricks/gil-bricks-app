@@ -2,8 +2,13 @@ import { useEffect, useState } from 'preact/hooks';
 import { loadMe, openLoginWall, resetMe } from '../../lib/auth/session';
 import { dealTitle } from '../../lib/deals/deal';
 import { keyFigure } from './keyFigure';
+import { verdictSnapshot } from './verdictSnapshot';
+import { evidenceSnapshot, isFromExtension } from './provenance';
 import { state, strategyParams, toQuery } from './state';
-import { fmtMoney } from '@gil-bricks/core';
+import { fmtMoney, postcodeToSector } from '@gil-bricks/core';
+
+/** Subject fields whose provenance is worth snapshotting as evidence. */
+const EVIDENCE_SUBJECT_KEYS = ['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon'] as const;
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 
@@ -11,6 +16,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   const [copied, setCopied] = useState(false);
   const [saveNote, setSaveNote] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [savedToPipeline, setSavedToPipeline] = useState(false);
   useEffect(() => {
     void loadMe();
   }, []);
@@ -22,6 +28,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   useEffect(() => {
     setSaveState('idle');
     setSaveNote('');
+    setSavedToPipeline(false);
   }, [currentParams]);
 
   const saveDeal = async () => {
@@ -38,6 +45,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           ? `typical ${fmtMoney(comps.stats.typicalPrice)}`
           : '';
     try {
+      const pc = postcodeToSector(state.value.postcode);
       const res = await fetch('/api/deals', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -47,9 +55,18 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           // click-time canonical params, never the debounced address bar
           url_params: toQuery(state.value, strategyParams.value).replace(/^\?/, ''),
           key_figure: figure,
+          // Pipeline verdict snapshot (P2) — the worker uses these only when the
+          // dealPipeline flag is on; harmless (ignored) when it's off.
+          score: verdictSnapshot.value?.score ?? null,
+          criteria_json: verdictSnapshot.value?.criteriaJson ?? '{}',
+          evidence_json: evidenceSnapshot([...EVIDENCE_SUBJECT_KEYS, ...Object.keys(strategyParams.value)]),
+          postcode_sector: pc.inEnglandWales ? pc.sector : '',
+          source: isFromExtension() ? 'extension' : 'analyser',
         }),
       });
       if (res.ok) {
+        const b = (await res.json().catch(() => ({}))) as { pipeline?: boolean };
+        setSavedToPipeline(b.pipeline === true);
         setSaveState('saved');
         setSaveNote('');
       } else if (res.status === 401) {
@@ -99,7 +116,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
       <button type="button" class="btn-primary" onClick={share}>Share on WhatsApp</button>
       <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
       {saveState === 'saved' ? (
-        <a class="btn-secondary save-done" href="/account">Saved ✓ — view in My deals</a>
+        <a class="btn-secondary save-done" href="/account">{savedToPipeline ? 'In your pipeline ✓' : 'Saved ✓ — view in My deals'}</a>
       ) : (
         <button type="button" class="btn-secondary" disabled={saveState === 'saving'} onClick={saveDeal}>
           {saveState === 'saving' ? 'Saving…' : 'Save'}
@@ -108,7 +125,11 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
       <button type="button" class="btn-secondary" disabled aria-describedby="pdf-soon">PDF</button>
       <span id="pdf-soon" class="hint" role="status">
         {saveState === 'saved' ? (
-          <>Saved to <a href="/account">My deals</a>.</>
+          savedToPipeline ? (
+            <>It’s in your <a href="/account">pipeline</a> — it’ll re-score as facts land.</>
+          ) : (
+            <>Saved to <a href="/account">My deals</a>.</>
+          )
         ) : saveNote !== '' ? (
           saveNote
         ) : (

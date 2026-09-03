@@ -22,6 +22,8 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
+import { canAddLiveDeal, countLiveDeals, deleteDeal, parseAnalyserDeal, upsertPipelineDeal } from './lib/pipeline';
+import { LIVE_CAP_MESSAGE } from '../config/pipeline';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -340,6 +342,14 @@ interface DealBody {
   title: string;
   url_params: string;
   key_figure: string;
+  // Pipeline extras (P2) — used only when features.dealPipeline is on. The
+  // verdict snapshot captures the score, the criteria it was judged against, and
+  // the evidence state (which inputs were listing/EPC/estimated/typed).
+  score?: number;
+  criteria_json?: string;
+  evidence_json?: string;
+  postcode_sector?: string;
+  source?: 'extension' | 'analyser';
 }
 
 async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
@@ -359,11 +369,44 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
   if (!isDealStrategy(strategy) || title === '' || urlParams === '') return json({ error: 'bad request' }, 400);
 
   const now = new Date().toISOString();
-  // Idempotent per (strategy, url_params): re-saving the SAME analysis
-  // updates; the same property under a DIFFERENT strategy is a separate deal.
+  // The stable id for (user, strategy, url_params): the SAME property+strategy is
+  // the SAME deal; the same property under a DIFFERENT strategy is a separate deal.
   const existing = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
     .bind(user.sub, strategy, urlParams)
     .first<{ id: string }>();
+
+  // ---- P2: save into the deal PIPELINE (only when the flag is on) ----
+  if (siteConfig.features.dealPipeline) {
+    // A deal can ONLY be born from an analyser payload — parse+brand it here.
+    const payload = parseAnalyserDeal(body, isDealStrategy);
+    if (!payload) return json({ error: 'bad request' }, 400);
+    const postcodeSector = String(body.postcode_sector ?? '').slice(0, 12).trim();
+    // A NEW deal must fit under the LIVE cap — checked BEFORE any write, so an
+    // at-cap save leaves nothing behind (no stray saved_deals row).
+    if (!existing && !canAddLiveDeal(await countLiveDeals(env.DB, user.sub))) {
+      return json({ error: LIVE_CAP_MESSAGE }, 409);
+    }
+    // Claim the stable id atomically. saved_deals' UNIQUE(user_id, strategy, url_params)
+    // collapses a re-save AND two racing saves to ONE row, and we read the canonical id
+    // back from it — so the pipeline deal (which shares that id) can never be duplicated
+    // by a divergent uuid. Mirroring first also keeps the legacy read path working.
+    const id = existing?.id ?? crypto.randomUUID();
+    await env.DB.prepare(
+      'INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, strategy, url_params) DO UPDATE SET title = excluded.title, key_figure = excluded.key_figure',
+    ).bind(id, user.sub, strategy, title, urlParams, keyFigure, now).run();
+    const canonical = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
+      .bind(user.sub, strategy, urlParams)
+      .first<{ id: string }>();
+    const dealId = canonical?.id ?? id;
+    // Idempotent per property+strategy: re-save updates the deal and adds a new
+    // verdict snapshot, KEEPING its stage/history. The internal cap check is a
+    // backstop for the tiny check-then-write race (self-heals on the next save).
+    const r = await upsertPipelineDeal(env.DB, { id: dealId, userId: user.sub, postcodeSector }, payload);
+    if (r === 'at-cap') return json({ error: LIVE_CAP_MESSAGE }, 409);
+    return json({ ok: true, id: dealId, updated: r === 'updated', pipeline: true });
+  }
+
+  // ---- flag OFF: exactly today's behaviour (the flat saved-deals list) ----
   if (existing) {
     await env.DB.prepare('UPDATE saved_deals SET title = ?, key_figure = ? WHERE id = ?')
       .bind(title, keyFigure, existing.id)
@@ -411,6 +454,11 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
     .first<{ id: string }>();
   if (!owned) return json({ error: 'not found' }, 404);
   await env.DB.prepare('DELETE FROM saved_deals WHERE id = ? AND user_id = ?').bind(dealId, user.sub).run();
+  // Keep the pipeline in lock-step: the deal shares saved_deals' id, so remove it (and
+  // its history/facts/verdicts) too — otherwise re-saving the same property would orphan
+  // the old deal, duplicate it, and leak a LIVE-cap slot. Flag-gated so the flag-off path
+  // stays byte-for-byte identical; a no-op when there's no such pipeline deal.
+  if (siteConfig.features.dealPipeline) await deleteDeal(env.DB, user.sub, dealId);
   return json({ ok: true });
 }
 

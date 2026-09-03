@@ -71,3 +71,18 @@ export function sourceFor(key: string): ProvSource | null {
   if (DEAL_INPUTS.has(key)) return 'carried';
   return 'settings'; // an arrived assumption field = the user's extension settings
 }
+
+/**
+ * A snapshot of the evidence state at save time (P2): for every field that has a
+ * known source, which it was — from the listing / EPC / typed / carried, plus the
+ * arrival marker. Stored on the deal's verdict so P6/P7 know what the score rested
+ * on. Fields the user typed on a blank direct visit have no source and are omitted.
+ */
+export function evidenceSnapshot(fieldKeys: readonly string[]): string {
+  const sources: Record<string, ProvSource> = {};
+  for (const k of fieldKeys) {
+    const s = sourceFor(k);
+    if (s) sources[k] = s;
+  }
+  return JSON.stringify({ from: fromExtension ? 'extension' : 'direct', sources });
+}

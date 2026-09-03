@@ -1,12 +1,31 @@
 import { describe, expect, it } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { join, basename } from 'node:path';
 import {
   countLiveDeals, canAddLiveDeal, MAX_LIVE_DEALS, listLiveDealsByStaleness,
-  createDealFromAnalyser, recordVerdict, recordFact, moveStage, markDead, deleteDeal,
+  upsertPipelineDeal, parseAnalyserDeal, recordVerdict, recordFact, moveStage, markDead, deleteDeal,
   dealFacts, dealVerdicts, stageHistory, getOwnedDeal,
 } from './pipeline';
+
+const isDealStrategy = (s: string) => ['btl', 'flip', 'brrrr', 'hmo'].includes(s);
+// Every SQL phrasing that CREATES a deals row: plain INSERT, INSERT OR REPLACE/IGNORE/…,
+// and REPLACE INTO. The word boundary keeps it off the sibling `saved_deals` table.
+const DEAL_INSERT_RE = /(INSERT(\s+OR\s+(REPLACE|IGNORE|ABORT|FAIL|ROLLBACK))?|REPLACE)\s+INTO\s+deals\b/i;
+/** Build a deal the only supported way: a branded analyser payload → upsertPipelineDeal. */
+async function mkDeal(
+  d1: D1Database,
+  o: { id?: string; userId?: string; strategy?: string; title?: string; postcodeSector?: string; score?: number | null; url_params?: string; criteriaJson?: string; evidenceJson?: string; source?: 'extension' | 'analyser' } = {},
+) {
+  const id = o.id ?? crypto.randomUUID();
+  const payload = parseAnalyserDeal({
+    strategy: o.strategy ?? 'btl', title: o.title ?? 't', url_params: o.url_params ?? `postcode=CF37+1HR&price=1&k=${id}`,
+    score: o.score === undefined ? 7 : o.score, criteria_json: o.criteriaJson ?? '{}', evidence_json: o.evidenceJson ?? '{}', source: o.source ?? 'analyser',
+  }, isDealStrategy)!;
+  const result = await upsertPipelineDeal(d1, { id, userId: o.userId ?? 'u1', postcodeSector: o.postcodeSector ?? 'CF37 1' }, payload);
+  return { id, result };
+}
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../../migrations/${n}`, import.meta.url)), 'utf8');
 const ALL_MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql'];
@@ -105,7 +124,7 @@ describe('pipeline helpers (P1)', () => {
   it('countLiveDeals excludes dead and done deals', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const mk = () => createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
+    const mk = async () => (await mkDeal(d1)).id;
     const live1 = await mk(); await mk(); const toDie = await mk(); const toWin = await mk();
     await markDead(d1, toDie, 'worth-a-look', 'chain collapsed');
     await moveStage(d1, toWin, 'nearly-there', 'bought-it'); // ⇒ status done
@@ -115,10 +134,10 @@ describe('pipeline helpers (P1)', () => {
     void live1;
   });
 
-  it('createDealFromAnalyser writes the deal, an opening stage entry and a first verdict', async () => {
+  it('a new deal writes the deal, an opening stage entry and a first verdict', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const id = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'flip', title: 'A flip', postcodeSector: 'SA1 8', score: 6.4, criteriaJson: '{"minRoi":12}', evidenceJson: '{"price":110000}', source: 'analyser' });
+    const { id: id } = await mkDeal(d1, { strategy: 'flip', title: 'A flip', postcodeSector: 'SA1 8', score: 6.4, criteriaJson: '{"minRoi":12}', evidenceJson: '{"price":110000}' });
     const deal = await getOwnedDeal(d1, 'u1', id);
     expect(deal?.stage).toBe('worth-a-look');
     expect(deal?.status).toBe('live');
@@ -130,7 +149,7 @@ describe('pipeline helpers (P1)', () => {
   it('recordVerdict snapshots a new score and updates current_score (re-scoring)', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const id = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
+    const { id: id } = await mkDeal(d1, { strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}' });
     await recordVerdict(d1, id, { score: 4.2, criteriaJson: '{}', evidenceJson: '{"downValuation":-20000}' });
     expect((await getOwnedDeal(d1, 'u1', id))?.current_score).toBe(4.2);
     expect(await dealVerdicts(d1, id)).toHaveLength(2); // full history kept
@@ -139,7 +158,7 @@ describe('pipeline helpers (P1)', () => {
   it('recordFact validates the fact type and appends in time order', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const id = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: null, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
+    const { id: id } = await mkDeal(d1, { strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: null, criteriaJson: '{}', evidenceJson: '{}' });
     await recordFact(d1, id, 'builder-quote', '{"amount":18000}');
     await recordFact(d1, id, 'survey-finding', '{"note":"damp"}');
     expect((await dealFacts(d1, id)).map((f) => f.fact_type)).toEqual(['builder-quote', 'survey-finding']);
@@ -149,7 +168,7 @@ describe('pipeline helpers (P1)', () => {
   it('markDead parks the deal with a reason; deleteDeal removes it and all children', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const id = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
+    const { id: id } = await mkDeal(d1, { strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}' });
     await recordFact(d1, id, 'covenant', '{"detail":"no HMO"}');
     await markDead(d1, id, 'offer-in', 'covenant blocks the plan');
     const dead = await getOwnedDeal(d1, 'u1', id);
@@ -169,8 +188,8 @@ describe('pipeline helpers (P1)', () => {
   it('lists live deals oldest-touched first (staleness)', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const a = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 'A', postcodeSector: 'X', score: 7, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
-    const b = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 'B', postcodeSector: 'X', score: 7, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
+    const { id: a } = await mkDeal(d1, { strategy: 'btl', title: 'A', postcodeSector: 'X', score: 7, criteriaJson: '{}', evidenceJson: '{}' });
+    const { id: b } = await mkDeal(d1, { strategy: 'btl', title: 'B', postcodeSector: 'X', score: 7, criteriaJson: '{}', evidenceJson: '{}' });
     // set distinct updated_at so ordering is deterministic (creation can share a ms)
     sqlite.prepare('UPDATE deals SET updated_at = ? WHERE id = ?').run('2026-03-01T00:00:00Z', a);
     sqlite.prepare('UPDATE deals SET updated_at = ? WHERE id = ?').run('2026-01-01T00:00:00Z', b);
@@ -180,11 +199,98 @@ describe('pipeline helpers (P1)', () => {
   it('deleting a user cascades to their deals and every child row (FK)', async () => {
     const { sqlite, d1 } = db();
     seedUser(sqlite);
-    const id = await createDealFromAnalyser(d1, { userId: 'u1', strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}', source: 'analyser' });
+    const { id: id } = await mkDeal(d1, { strategy: 'btl', title: 't', postcodeSector: 'CF37 1', score: 7, criteriaJson: '{}', evidenceJson: '{}' });
     await recordFact(d1, id, 'ground-rent', '{"annual":250}');
     sqlite.prepare('DELETE FROM users WHERE id = ?').run('u1');
     for (const t of ['deals', 'deal_facts', 'deal_verdicts', 'deal_stage_history']) {
       expect((sqlite.prepare(`SELECT COUNT(*) n FROM ${t}`).get() as { n: number }).n).toBe(0);
     }
+  });
+});
+
+describe('P2 — save originates only from an analyser payload', () => {
+  it('parseAnalyserDeal accepts a real analyser body and rejects everything else', () => {
+    const ok = parseAnalyserDeal({ strategy: 'btl', title: 'A deal', url_params: 'postcode=CF37+1HR&price=1', score: 7.2, criteria_json: '{"a":1}', evidence_json: '{"b":2}', source: 'extension' }, isDealStrategy);
+    expect(ok).not.toBeNull();
+    expect(ok!.strategy).toBe('btl');
+    expect(ok!.score).toBe(7.2);
+    expect(ok!.source).toBe('extension');
+    expect(ok!.criteriaJson).toBe('{"a":1}');
+    // no analyser payload ⇒ no deal
+    expect(parseAnalyserDeal({ strategy: 'btl', title: 'x', url_params: '' }, isDealStrategy)).toBeNull(); // no inputs
+    expect(parseAnalyserDeal({ strategy: 'not-a-strategy', title: 'x', url_params: 'p=1' }, isDealStrategy)).toBeNull();
+    expect(parseAnalyserDeal({ title: 'x', url_params: 'p=1' }, isDealStrategy)).toBeNull(); // no strategy
+    expect(parseAnalyserDeal(null, isDealStrategy)).toBeNull();
+    expect(parseAnalyserDeal('nope', isDealStrategy)).toBeNull();
+    // coercions: a non-numeric score ⇒ null; a bogus source ⇒ 'analyser'; bad JSON ⇒ '{}'
+    const c = parseAnalyserDeal({ strategy: 'btl', title: 'x', url_params: 'p=1', score: 'high', criteria_json: 'not json', source: 'manual' }, isDealStrategy)!;
+    expect(c.score).toBeNull();
+    expect(c.source).toBe('analyser');
+    expect(c.criteriaJson).toBe('{}');
+  });
+
+  it('re-saving keeps stage/history; a new snapshot is added; the score is refreshed', async () => {
+    const { sqlite, d1 } = db(); seedUser(sqlite);
+    const id = crypto.randomUUID();
+    const payload = (score: number, title: string) => parseAnalyserDeal({ strategy: 'btl', title, url_params: 'postcode=CF37+1HR&price=1', score, criteria_json: '{}', evidence_json: '{}', source: 'analyser' }, isDealStrategy)!;
+    expect(await upsertPipelineDeal(d1, { id, userId: 'u1', postcodeSector: 'CF37 1' }, payload(7, 'first'))).toBe('created');
+    await moveStage(d1, id, 'worth-a-look', 'offer-in'); // the user progressed it
+    // re-save the same property+strategy (same id)
+    expect(await upsertPipelineDeal(d1, { id, userId: 'u1', postcodeSector: 'CF37 1' }, payload(5.5, 'second'))).toBe('updated');
+    const deal = await getOwnedDeal(d1, 'u1', id);
+    expect(deal?.stage).toBe('offer-in');      // NOT reset to worth-a-look
+    expect(deal?.status).toBe('live');
+    expect(deal?.current_score).toBe(5.5);     // refreshed
+    expect(deal?.title).toBe('second');
+    expect(await dealVerdicts(d1, id)).toHaveLength(2); // first + re-save snapshot, history kept
+    expect((await stageHistory(d1, id)).map((h) => h.to_stage)).toEqual(['worth-a-look', 'offer-in']); // unchanged by re-save
+  });
+
+  it('the LIVE cap blocks a NEW deal (dead/done never count)', async () => {
+    const { sqlite, d1 } = db(); seedUser(sqlite);
+    const now = '2026-01-01T00:00:00Z';
+    // 100 live + 5 dead + 5 done, inserted directly as if already migrated
+    for (let i = 0; i < 110; i++) {
+      const status = i < 100 ? 'live' : i < 105 ? 'dead' : 'done';
+      sqlite.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .run('d' + i, 'u1', 'btl', 't', '', 'worth-a-look', 7, status, 'analyser', now, now);
+    }
+    expect(await countLiveDeals(d1, 'u1')).toBe(100);
+    const p = parseAnalyserDeal({ strategy: 'btl', title: 'one more', url_params: 'p=new', score: 7, criteria_json: '{}', evidence_json: '{}', source: 'analyser' }, isDealStrategy)!;
+    expect(await upsertPipelineDeal(d1, { id: crypto.randomUUID(), userId: 'u1', postcodeSector: '' }, p)).toBe('at-cap');
+  });
+
+  it('NO MANUAL ENTRY: the ONLY code that inserts a deal lives in pipeline.ts', () => {
+    // Fails loudly if any future sprint adds an INSERT INTO deals anywhere else.
+    const SRC = fileURLToPath(new URL('../../', import.meta.url)); // packages/web/src
+    const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const p = join(dir, e.name);
+      return e.isDirectory() ? walk(p) : [p];
+    });
+    const offenders = walk(SRC)
+      // every JS/TS source flavour, tests excluded — a raw insert could hide in a .mts/.cts/.js too
+      .filter((p) => /\.(m|c)?(t|j)sx?$/.test(p) && !/\.test\.[a-z]+$/.test(p))
+      .filter((p) => DEAL_INSERT_RE.test(readFileSync(p, 'utf8')))
+      .map((p) => basename(p));
+    expect(offenders).toEqual(['pipeline.ts']);
+  });
+
+  it('the guardrail regex catches every deal-creating SQL phrasing, not just plain INSERT INTO', () => {
+    // Proves the guardrail is NOT vacuous: INSERT OR REPLACE / OR IGNORE and REPLACE INTO
+    // are all standard SQLite ways to create a deals row and MUST trip the guard.
+    for (const sql of [
+      'INSERT INTO deals (id) VALUES (?)',
+      'INSERT OR REPLACE INTO deals (id) VALUES (?)',
+      'INSERT OR IGNORE INTO deals (id) VALUES (?)',
+      'INSERT OR ABORT INTO deals (id) VALUES (?)',
+      'REPLACE INTO deals (id) VALUES (?)',
+      'insert   into   deals(id)',
+    ]) expect(DEAL_INSERT_RE.test(sql)).toBe(true);
+    // and it must NOT false-positive on the sibling saved_deals table
+    for (const sql of [
+      'INSERT INTO saved_deals (id) VALUES (?)',
+      'REPLACE INTO saved_deals (id) VALUES (?)',
+      'SELECT * FROM deals',
+    ]) expect(DEAL_INSERT_RE.test(sql)).toBe(false);
   });
 });

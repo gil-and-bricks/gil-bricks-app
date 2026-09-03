@@ -1,6 +1,7 @@
 /** The Flip verdict island — config + @gil-bricks/core (strategy-calc/flip) only.
  * NO rental maths. ROI (after tax, selected scenario) leads. */
 import { keyFigure } from './keyFigure';
+import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
@@ -98,9 +99,17 @@ export function FlipVerdict({ config, comps, valuation }: {
   const gdv = num('gdv');
   // publish the headline for Save (S6.2)
   const headlineForSave = analysis ? `${fmtMoney(analysis.profitAfterTax.value)} profit after tax` : '';
+  // Snapshot published to the Save action. Built each render and used BOTH as the value
+  // and (serialised) as the effect dep, so a change that moves the SCORE or the criteria
+  // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
+  // still republishes — the saved score can never contradict what's on screen.
+  const nextSnapshot = analysis
+    ? { score: deal ? deal.score : null, criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }) }
+    : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
-  }, [headlineForSave]);
+    verdictSnapshot.value = nextSnapshot;
+  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.criteriaJson}` : null]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">

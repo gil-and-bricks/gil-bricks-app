@@ -8,6 +8,62 @@
 import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE } from '../../config/pipeline';
 
 /**
+ * A deal can ONLY be born from an analysed listing (P2 boundary — enforced by
+ * construction). `AnalyserDealPayload` is a BRANDED type: the only way to make
+ * one is `parseAnalyserDeal`, which requires a real analyser payload (a valid
+ * strategy and the analyser's url params). No manual "add a property" data can
+ * satisfy it, so no reachable code path can create a deal without an analyser
+ * payload. Keep it that way — see CLAUDE.md.
+ */
+declare const analyserBrand: unique symbol;
+export interface AnalyserDealPayload {
+  readonly [analyserBrand]: 'analyser';
+  strategy: string;
+  title: string;
+  urlParams: string;
+  keyFigure: string;
+  /** The 0-10 Deal Score at save time (from @gil-bricks/core), or null if not scored. */
+  score: number | null;
+  /** The personal criteria the score was judged against (thresholds + assumptions). */
+  criteriaJson: string;
+  /** Which inputs were from the listing / EPC / estimated / typed (E11 provenance). */
+  evidenceJson: string;
+  /** Honest arrival source: the deal came from the extension or the analyser page. */
+  source: 'extension' | 'analyser';
+}
+
+const isJson = (s: unknown): s is string => {
+  if (typeof s !== 'string') return false;
+  try { JSON.parse(s); return true; } catch { return false; }
+};
+
+/**
+ * The SOLE constructor of an AnalyserDealPayload. Validates that the body is a
+ * genuine analyser save (valid strategy, non-empty url params). Returns null for
+ * anything that isn't — so the save endpoint cannot create a deal from a
+ * hand-authored / manual-entry body.
+ */
+export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => boolean): AnalyserDealPayload | null {
+  if (typeof body !== 'object' || body === null) return null;
+  const b = body as Record<string, unknown>;
+  const strategy = String(b.strategy ?? '');
+  const title = String(b.title ?? '').slice(0, 120).trim();
+  const urlParams = String(b.url_params ?? '').slice(0, 2000);
+  if (!isDealStrategy(strategy) || title === '' || urlParams === '') return null;
+  const rawScore = b.score;
+  const score = typeof rawScore === 'number' && Number.isFinite(rawScore) ? rawScore : null;
+  const source: 'extension' | 'analyser' = b.source === 'extension' ? 'extension' : 'analyser';
+  return {
+    strategy, title, urlParams,
+    keyFigure: String(b.key_figure ?? '').slice(0, 80).trim(),
+    score,
+    criteriaJson: isJson(b.criteria_json) ? (b.criteria_json as string) : '{}',
+    evidenceJson: isJson(b.evidence_json) ? (b.evidence_json as string) : '{}',
+    source,
+  } as AnalyserDealPayload;
+}
+
+/**
  * The 100-deal cap now applies to LIVE deals only — dead and done deals are the
  * valuable memory, not clutter, and never count against it.
  */
@@ -84,38 +140,6 @@ export async function stageHistory(db: D1Database, dealId: string): Promise<Stag
   return rows.results;
 }
 
-export interface NewDeal {
-  userId: string;
-  strategy: string;
-  title: string;
-  postcodeSector: string;
-  /** Score computed by the caller with @gil-bricks/core (null if not yet scored). */
-  score: number | null;
-  criteriaJson: string;
-  evidenceJson: string;
-  /** Where it came from — the pipeline only originates from an analyser payload. */
-  source: string;
-}
-
-/**
- * Create a deal from an analyser payload (the ONLY way a deal is born — no manual
- * entry). Writes the deal, its opening stage-history entry and its first verdict
- * snapshot atomically. Returns the new deal id.
- */
-export async function createDealFromAnalyser(db: D1Database, d: NewDeal): Promise<string> {
-  const id = crypto.randomUUID();
-  const now = new Date().toISOString();
-  await db.batch([
-    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
-      .bind(id, d.userId, d.strategy, d.title, d.postcodeSector, INITIAL_STAGE, d.score, 'live', d.source, now, now),
-    db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, NULL, ?, ?)')
-      .bind(crypto.randomUUID(), id, INITIAL_STAGE, now),
-    db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), id, d.score, d.criteriaJson, d.evidenceJson, now),
-  ]);
-  return id;
-}
-
 /** Record a fact that has arrived, and touch the deal so it sorts as fresh. */
 export async function recordFact(db: D1Database, dealId: string, factType: string, valueJson: string): Promise<void> {
   if (!isFactType(factType)) throw new Error(`unknown fact type: ${factType}`);
@@ -186,4 +210,44 @@ export async function deleteDeal(db: D1Database, userId: string, dealId: string)
     db.prepare('DELETE FROM deals WHERE id = ? AND user_id = ?').bind(dealId, userId),
   ]);
   return true;
+}
+
+/**
+ * Idempotent save from an analyser payload — the ONLY origination path (P2).
+ * The deal id is the stable saved_deals id for (user, strategy, url_params), so:
+ *  - same property + same strategy ⇒ same deal: KEEP its stage/status/history,
+ *    refresh current_score + title, and append a NEW verdict snapshot;
+ *  - same property + a DIFFERENT strategy ⇒ a different id ⇒ a separate deal;
+ *  - a brand-new deal ⇒ enforce the LIVE-deal cap, then create the deal, its
+ *    opening stage-history entry and its first verdict snapshot.
+ * Re-saving NEVER resets a progressed deal back to worth-a-look. `payload` is the
+ * branded analyser type, so this cannot be called with manual-entry data.
+ */
+export async function upsertPipelineDeal(
+  db: D1Database,
+  ctx: { id: string; userId: string; postcodeSector: string },
+  payload: AnalyserDealPayload,
+): Promise<'created' | 'updated' | 'at-cap'> {
+  const now = new Date().toISOString();
+  const existing = await getOwnedDeal(db, ctx.userId, ctx.id);
+  if (existing) {
+    // Re-save: keep stage, status, dead_reason and all history untouched.
+    await db.batch([
+      db.prepare('UPDATE deals SET current_score = ?, title = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+        .bind(payload.score, payload.title, now, ctx.id, ctx.userId),
+      db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
+    ]);
+    return 'updated';
+  }
+  if (!canAddLiveDeal(await countLiveDeals(db, ctx.userId))) return 'at-cap';
+  await db.batch([
+    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
+      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, 'live', payload.source, now, now),
+    db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, NULL, ?, ?)')
+      .bind(crypto.randomUUID(), ctx.id, INITIAL_STAGE, now),
+    db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
+  ]);
+  return 'created';
 }
