@@ -11,10 +11,12 @@ export interface SocialLinks {
 }
 
 export interface SiteConfig {
-  /** Placeholder — the final site name is TBD. */
+  /** PRODUCT name (PropLaunch) — from coreConfig; the brand users see. */
   siteName: string;
+  /** MAKER credit (Gil & Bricks) — shown as a quiet secondary "by …". */
+  makerName: string;
   tagline: string;
-  /** Final domain, empty until launch (Phase 11). */
+  /** Locked product domain (proplaunch.ai) — NOT yet live; liveUrl stays workers.dev. */
   domain: string;
   liveUrl: string;
   socials: SocialLinks;
@@ -36,10 +38,13 @@ export interface SiteConfig {
 }
 
 export const siteConfig: SiteConfig = {
-  // Name comes from coreConfig so the web app and the panel read the SAME name.
+  // Product + maker names come from coreConfig so the web app and the panel read
+  // the SAME names (one source — golden rules 2 & 4).
   siteName: coreConfig.siteName,
+  makerName: coreConfig.makerName,
   tagline: 'Real UK sold-price data for property investors — free.',
-  domain: '',
+  // Locked future domain; the site still serves from liveUrl (workers.dev) for now.
+  domain: 'proplaunch.ai',
   liveUrl: 'https://gil-bricks-app.gil-782.workers.dev',
   // Chrome Web Store URL — paste it here once the listing is live (placeholder for now).
   chromeStoreUrl: '',

@@ -5,8 +5,9 @@ import { AuthHeader } from '../auth/AuthHeader';
 ---
 
 <header class="site-header">
-  <a class="brand" href="/" aria-label={`${siteConfig.siteName} — home`}>
-    <img class="brand-logo" src="/brand/logo-wordmark.svg" alt={siteConfig.siteName} width="112" height="40" decoding="async" />
+  <a class="brand" href="/" aria-label={`${siteConfig.siteName} by ${siteConfig.makerName} — home`}>
+    <img class="brand-logo" src="/brand/proplaunch-wordmark.png" alt={siteConfig.siteName} width="152" height="38" decoding="async" />
+    <span class="brand-maker">by {siteConfig.makerName}</span>
   </a>
   <nav aria-label="Main">
     <a href="/area-data">Area Data</a>
@@ -15,11 +16,11 @@ import { AuthHeader } from '../auth/AuthHeader';
   <div class="header-right">
     <div class="header-socials">
       <a href={siteConfig.socials.instagram} target="_blank" rel="noopener noreferrer"
-         aria-label={`${siteConfig.siteName} on Instagram (opens a new tab)`} title="Instagram">
+         aria-label={`${siteConfig.makerName} on Instagram (opens a new tab)`} title="Instagram">
         <svg viewBox="0 0 24 24" class="social-icon" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2.2c3.2 0 3.6 0 4.9.07 1.2.05 1.8.25 2.2.42.6.22 1 .48 1.4.9.42.4.68.8.9 1.4.17.4.37 1 .42 2.2.06 1.3.07 1.7.07 4.9s0 3.6-.07 4.9c-.05 1.2-.25 1.8-.42 2.2-.22.6-.48 1-.9 1.4-.4.42-.8.68-1.4.9-.4.17-1 .37-2.2.42-1.3.06-1.7.07-4.9.07s-3.6 0-4.9-.07c-1.2-.05-1.8-.25-2.2-.42-.6-.22-1-.48-1.4-.9-.42-.4-.68-.8-.9-1.4-.17-.4-.37-1-.42-2.2C2.2 15.6 2.2 15.2 2.2 12s0-3.6.07-4.9c.05-1.2.25-1.8.42-2.2.22-.6.48-1 .9-1.4.4-.42.8-.68 1.4-.9.4-.17 1-.37 2.2-.42C8.4 2.2 8.8 2.2 12 2.2Zm0 3.2A6.6 6.6 0 1 0 18.6 12 6.6 6.6 0 0 0 12 5.4Zm0 10.9A4.3 4.3 0 1 1 16.3 12 4.3 4.3 0 0 1 12 16.3Zm6.9-11.1a1.54 1.54 0 1 1-1.55-1.54 1.54 1.54 0 0 1 1.55 1.54Z"/></svg>
       </a>
       <a href={siteConfig.socials.youtube} target="_blank" rel="noopener noreferrer"
-         aria-label={`${siteConfig.siteName} on YouTube (opens a new tab)`} title="YouTube">
+         aria-label={`${siteConfig.makerName} on YouTube (opens a new tab)`} title="YouTube">
         <svg viewBox="0 0 24 24" class="social-icon" aria-hidden="true" focusable="false"><path fill="currentColor" d="M23.5 6.5a3 3 0 0 0-2.1-2.1C19.5 3.9 12 3.9 12 3.9s-7.5 0-9.4.5A3 3 0 0 0 .5 6.5 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.5ZM9.6 15.6V8.4l6.2 3.6Z"/></svg>
       </a>
     </div>
@@ -39,13 +40,21 @@ import { AuthHeader } from '../auth/AuthHeader';
   }
   .brand {
     display: inline-flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
     text-decoration: none;
   }
   .brand-logo {
-    height: 40px;
+    height: 38px;
     width: auto;
     display: block;
+  }
+  .brand-maker {
+    font-size: 0.62rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-dim);
   }
   nav {
     display: flex;

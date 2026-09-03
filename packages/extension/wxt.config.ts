@@ -7,7 +7,7 @@ import { coreConfig } from '@gil-bricks/core/config';
 const PRODUCT_NAME = `${coreConfig.siteName} Deal Analyser`;
 
 /**
- * Gil & Bricks MV3 side-panel extension (E4 scaffold).
+ * PropLaunch (by Gil & Bricks) MV3 side-panel extension.
  *
  * The manifest is pinned to the sprint spec: MV3, Chrome 114+, ONLY the
  * sidePanel + storage permissions, host access to Rightmove/Zoopla ONLY, a

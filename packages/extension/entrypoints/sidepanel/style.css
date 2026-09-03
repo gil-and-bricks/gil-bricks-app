@@ -1,4 +1,4 @@
-/* Gil & Bricks side-panel brand styling. Self-hosted fonts (no CDN). Narrow
+/* PropLaunch (by Gil & Bricks) side-panel brand styling. Self-hosted fonts (no CDN). Narrow
    single-column layout (~360-400px), verdict first. Lime is only ever an accent
    or a fill under near-black text — never a background under white text. */
 
@@ -261,7 +261,9 @@ body {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   max-width: 420px; margin: 0 auto; padding: 12px 14px 4px;
 }
-.gb-logo { height: 34px; width: auto; display: block; }
+.gb-brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.gb-logo { height: 30px; width: auto; display: block; }
+.gb-maker { font-size: 0.62rem; letter-spacing: 0.04em; color: var(--text-dim); text-transform: uppercase; }
 .gb-socials { display: flex; align-items: center; gap: 4px; }
 .gb-social {
   display: inline-flex; align-items: center; justify-content: center;

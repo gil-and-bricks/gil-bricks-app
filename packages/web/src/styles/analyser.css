@@ -259,6 +259,8 @@
 .home-cards { margin: var(--space-6) 0; }
 .home-chooser { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-chooser p { margin: 0; }
+/* Maker credit under the product name in the hero (E11.1) — quiet, secondary. */
+.hero-maker { margin: calc(-1 * var(--space-2)) 0 var(--space-2); color: var(--text-dim); font-size: var(--text-sm); letter-spacing: 0.04em; text-transform: uppercase; }
 /* Desktop-only extension promo (E11) — hidden on phones where it can't be used. */
 .home-extension { margin-top: var(--space-4); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-extension p { margin: 0 0 var(--space-1); }

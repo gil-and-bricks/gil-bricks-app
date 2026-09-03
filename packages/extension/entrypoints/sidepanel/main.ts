@@ -181,12 +181,17 @@ function socialIcon(kind: 'instagram' | 'youtube'): SVGElement {
  */
 export function renderHeader(container: HTMLElement): void {
   container.textContent = '';
+  // PropLaunch is the product mark; "by Gil & Bricks" is the quiet maker credit.
+  const brand = e('div', 'gb-brand');
   const logo = e('img', 'gb-logo') as HTMLImageElement;
-  logo.src = '/brand/logo-wordmark.svg';
+  logo.src = '/brand/proplaunch-wordmark.png';
   logo.alt = coreConfig.siteName; // name-agnostic — one source (golden rule 4)
-  logo.width = 104;
+  logo.width = 124;
+  logo.height = 31;
   logo.decoding = 'async';
-  container.append(logo);
+  brand.append(logo);
+  brand.append(e('span', 'gb-maker', `by ${coreConfig.makerName}`));
+  container.append(brand);
   const socials = e('div', 'gb-socials');
   const link = (href: string, label: string, kind: 'instagram' | 'youtube'): HTMLAnchorElement => {
     const a = e('a', 'gb-social') as HTMLAnchorElement;
@@ -198,9 +203,11 @@ export function renderHeader(container: HTMLElement): void {
     a.append(socialIcon(kind));
     return a;
   };
+  // The social accounts belong to the MAKER (@gil_and_bricks), so label them with
+  // the maker name — never imply the product owns its own accounts (E11.1 review).
   socials.append(
-    link(coreConfig.socials.instagram, `${coreConfig.siteName} on Instagram (opens a new tab)`, 'instagram'),
-    link(coreConfig.socials.youtube, `${coreConfig.siteName} on YouTube (opens a new tab)`, 'youtube'),
+    link(coreConfig.socials.instagram, `${coreConfig.makerName} on Instagram (opens a new tab)`, 'instagram'),
+    link(coreConfig.socials.youtube, `${coreConfig.makerName} on YouTube (opens a new tab)`, 'youtube'),
   );
   container.append(socials);
 }

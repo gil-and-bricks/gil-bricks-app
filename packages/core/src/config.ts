@@ -9,12 +9,16 @@
  */
 export const coreConfig = {
   /**
-   * Site name — the ONE source both products read (golden rule 4, name-agnostic).
-   * The name is TBD; when it's settled the operator edits ONLY this line and both
-   * the web app and the extension panel (visible text AND screen-reader labels)
-   * follow, with no code change.
+   * PRODUCT name — the ONE source both products read (golden rule 4). This is the
+   * brand users see: PropLaunch. Gil & Bricks is the MAKER, shown as a secondary
+   * credit (makerName below). `siteName` stays the field name every consumer already
+   * reads, so it now resolves to the product name with no code change downstream.
    */
-  siteName: 'Gil & Bricks',
+  siteName: 'PropLaunch',
+
+  /** MAKER credit — shown as a quiet secondary "by Gil & Bricks", never as the
+   * primary product name. Its own social channels are in `socials`. */
+  makerName: 'Gil & Bricks',
 
   /** Public base URL of the R2 data bucket (sector JSON, manifest, ukhpi, etc.). */
   dataBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
