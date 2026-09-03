@@ -28,8 +28,6 @@ export interface Stage {
    */
   dwellNormalDays: number;
   dwellColdDays: number;
-  /** Card next-step line: what this deal is waiting on, in the operator's voice. */
-  waiting: string;
   /** The ONE thing to do, imperative — used by the today line. '' = terminal. */
   todo: string;
 }
@@ -40,13 +38,13 @@ export interface Stage {
  * copy are all editable here without a migration.
  */
 export const PROGRESS_STAGES: readonly Stage[] = [
-  { key: 'worth-a-look', label: 'Worth a look', blurb: 'A deal you’ve sent over that looks worth checking.', dwellNormalDays: 3, dwellColdDays: 10, waiting: 'Not looked at yet', todo: 'Decide if it’s worth a viewing' },
-  { key: 'going-to-view', label: 'Going to view', blurb: 'You’re booked in or planning to see it.', dwellNormalDays: 7, dwellColdDays: 21, waiting: 'Viewing to book', todo: 'Book the viewing, or bin it' },
-  { key: 'getting-real-numbers', label: 'Getting real numbers', blurb: 'Chasing the figures that firm up the estimate — rent, refurb, quotes.', dwellNormalDays: 14, dwellColdDays: 35, waiting: 'Chasing the real numbers', todo: 'Get the numbers that firm it up' },
-  { key: 'offer-in', label: 'Offer in', blurb: 'You’ve made an offer and are waiting.', dwellNormalDays: 4, dwellColdDays: 10, waiting: 'Offer in, no word back', todo: 'Chase the agent on your offer' },
-  { key: 'offer-accepted', label: 'Offer accepted', blurb: 'Offer agreed — into the legal and survey work.', dwellNormalDays: 21, dwellColdDays: 49, waiting: 'Legals under way', todo: 'Push the solicitor along' },
-  { key: 'nearly-there', label: 'Nearly there', blurb: 'Exchange in sight — final checks landing.', dwellNormalDays: 21, dwellColdDays: 49, waiting: 'Nearly at exchange', todo: 'Chase exchange' },
-  { key: 'bought-it', label: 'Bought it', blurb: 'Completed. The deal is done.', dwellNormalDays: 0, dwellColdDays: 0, waiting: 'Bought', todo: '' },
+  { key: 'worth-a-look', label: 'Worth a look', blurb: 'A deal you’ve sent over that looks worth checking.', dwellNormalDays: 3, dwellColdDays: 10, todo: 'Decide if it’s worth a viewing' },
+  { key: 'going-to-view', label: 'Going to view', blurb: 'You’re booked in or planning to see it.', dwellNormalDays: 7, dwellColdDays: 21, todo: 'Book the viewing, or bin it' },
+  { key: 'getting-real-numbers', label: 'Getting real numbers', blurb: 'Chasing the figures that firm up the estimate — rent, refurb, quotes.', dwellNormalDays: 14, dwellColdDays: 35, todo: 'Get the numbers that firm it up' },
+  { key: 'offer-in', label: 'Offer in', blurb: 'You’ve made an offer and are waiting.', dwellNormalDays: 4, dwellColdDays: 10, todo: 'Chase the agent on your offer' },
+  { key: 'offer-accepted', label: 'Offer accepted', blurb: 'Offer agreed — into the legal and survey work.', dwellNormalDays: 21, dwellColdDays: 49, todo: 'Push the solicitor along' },
+  { key: 'nearly-there', label: 'Nearly there', blurb: 'Exchange in sight — final checks landing.', dwellNormalDays: 21, dwellColdDays: 49, todo: 'Chase exchange' },
+  { key: 'bought-it', label: 'Bought it', blurb: 'Completed. The deal is done.', dwellNormalDays: 0, dwellColdDays: 0, todo: '' },
 ] as const;
 
 /** The dead terminal stage (status `dead`). Kept out of the ordered list. */
@@ -56,7 +54,6 @@ export const DEAD_STAGE: Stage = {
   blurb: 'Not proceeding — kept as memory of why it didn’t work.',
   dwellNormalDays: 0,
   dwellColdDays: 0,
-  waiting: 'Parked',
   todo: '',
 };
 

@@ -468,7 +468,15 @@
 .dc-move select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .btn-link { background: none; border: none; color: var(--text-dim); font: inherit; font-size: var(--text-sm); cursor: pointer; padding: 0.4rem 0.2rem; text-decoration: underline; min-height: 40px; }
 .btn-link:hover, .btn-link:focus-visible { color: var(--text); }
-.dc-park-reasons { display: inline-flex; flex-wrap: wrap; gap: var(--space-1); }
+/* Verdict line — the reason, in the user's voice. Neutral text (the dot carries the
+   colour); the unscored prompt is muted. */
+.dc-verdict { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.3; }
+.dc-verdict.v-unscored { color: var(--text-dim); font-style: italic; }
+/* Per-card action note (skip / rollback) — on the card it refers to, not the page top. */
+.dc-note { margin: 0; font-size: var(--text-xs); color: var(--verdict-amber); }
+/* Park reasons: a full-width wrapping block BELOW the actions row, so the chips never
+   push the card out of shape at 390px. */
+.dc-park-reasons { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: var(--space-1); }
 .chip {
   font: inherit; font-size: var(--text-xs); color: var(--text);
   background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
@@ -476,3 +484,10 @@
 }
 .chip:hover, .chip:focus-visible { border-color: var(--accent); outline: none; }
 .chip-cancel { color: var(--text-dim); }
+
+/* Fixed bottom tab bar (≤640px) must never overlap page content or the footer.
+   Reserve its height (+ safe area) on the body so short pages (e.g. a near-empty
+   /deals board) don't let the footer float under it. */
+@media (max-width: 640px) {
+  body { padding-bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px)); }
+}

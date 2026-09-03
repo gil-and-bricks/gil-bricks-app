@@ -24,6 +24,10 @@ export interface BoardDeal {
    * predate history, so a re-score (which bumps updated_at) never resets the age. */
   stage_since: string;
   is_auction: boolean;
+  /** The analyser's own verdict line (@gil-bricks/core DealScore.headline) at save
+   * time — the short reason in the user's voice, referencing their own criteria.
+   * Null for migrated/older deals (the card then says why it can't score). */
+  verdict_line: string | null;
   updated_at: string;
   /** A date the user set for this deal (viewing booked, offer deadline). Ranks the
    * today line ABOVE dwell time. No date-entry UI exists yet (a later sprint), so
@@ -60,16 +64,37 @@ export function dwellState(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'stat
   return 'fresh';
 }
 
-/** The card's next-step line: what it's waiting on + how long it's been there, and
- * an honest ageing suffix. Empty for terminal deals (nothing to wait on). */
+/** The card's next-step line — an INSTRUCTION, not a description: the stage's verb
+ * (config `todo`) + how long it's sat. "Book the viewing, or bin it — 3 days sat
+ * here". Empty for terminal deals (nothing to do). */
 export function nextStepLine(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'status'>, now: number): string {
   if (deal.status !== 'live') return '';
   const meta = stageMeta(deal.stage);
+  if (meta.todo === '') return '';
   const d = daysInStage(deal, now);
   const age = dwellState(deal, now);
-  const dayPhrase = d === 0 ? 'today' : `${d} day${d === 1 ? '' : 's'}`;
-  const suffix = age === 'cold' ? ' · gone cold' : age === 'amber' ? ' · no update' : '';
-  return `${meta.waiting} · ${dayPhrase}${suffix}`;
+  const dwell = age === 'cold' ? `${d} days, gone cold`
+    : age === 'amber' ? `${d} days, no update`
+    : d === 0 ? 'today' : `${d} day${d === 1 ? '' : 's'} sat here`;
+  return `${meta.todo} — ${dwell}`;
+}
+
+/** The card's verdict presentation. A deal with a stored score shows that score
+ * (with its colour) and the analyser's own reason line; a deal without one (migrated
+ * or pre-verdict-line) never shows a bare dash — it says plainly why it can't. */
+export interface CardVerdict {
+  scored: boolean;
+  /** ds-good/marginal/walk when scored, ds-none otherwise. */
+  cls: 'ds-good' | 'ds-marginal' | 'ds-walk' | 'ds-none';
+  /** The reason line (scored) or the honest can't-score prompt (unscored). */
+  line: string;
+}
+export function cardVerdict(d: BoardDeal): CardVerdict {
+  if (d.current_score === null || !Number.isFinite(d.current_score)) {
+    return { scored: false, cls: 'ds-none', line: 'Re-open to score this' };
+  }
+  const line = (d.verdict_line ?? '').trim() || cardFigure(d);
+  return { scored: true, cls: scoreClass(d.current_score), line };
 }
 
 /** A stage plus the deals sitting in it (freshest first). */
@@ -157,8 +182,30 @@ export function todayLine(deals: readonly BoardDeal[], now: number): TodayLine {
     .sort((a, b) => daysInStage(b, now) - daysInStage(a, now));
   if (untouched.length > 0) return { text: line(untouched[0]), dealId: untouched[0].id };
 
-  // Nothing qualifies — say so plainly.
+  // Nothing needs you — say so plainly, and NEVER imply the board is empty when a
+  // bought/parked deal is sitting right there (the "analyse a listing" call to action
+  // belongs only to the genuinely-empty board, which the board renders separately).
   const n = live.length;
-  if (n === 0) return { text: 'No live deals right now — analyse a listing to start one.', dealId: null };
+  if (n === 0) return { text: 'Nothing needs you today.', dealId: null };
   return { text: `Nothing needs you today. ${n} deal${n === 1 ? '' : 's'} ticking along.`, dealId: null };
+}
+
+/** Board tallies for the quiet counter. `live` is the only figure the 100-cap
+ * counts; `done`/`dead` are terminal wins/memory and are shown so a bought-only
+ * board never reads as empty. `isEmpty` is true ONLY when there is nothing at all. */
+export interface BoardCounts { live: number; done: number; dead: number; isEmpty: boolean }
+export function boardCounts(deals: readonly BoardDeal[]): BoardCounts {
+  const live = deals.filter((d) => d.status === 'live').length;
+  const done = deals.filter((d) => d.status === 'done').length;
+  const dead = deals.filter((d) => d.status === 'dead').length;
+  return { live, done, dead, isEmpty: deals.length === 0 };
+}
+
+/** The quiet counter line: live vs cap, plus terminal tallies so a bought/parked
+ * deal is acknowledged as a result, not an absence. */
+export function counterLine(counts: BoardCounts, cap: number): string {
+  const parts = [`${counts.live} of ${cap} live`];
+  if (counts.done > 0) parts.push(`${counts.done} bought`);
+  if (counts.dead > 0) parts.push(`${counts.dead} parked`);
+  return parts.join(' · ');
 }

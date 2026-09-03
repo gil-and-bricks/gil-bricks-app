@@ -9,7 +9,7 @@ import { siteConfig } from '../site.config';
 import { LIVE_CAP_MESSAGE } from '../config/pipeline';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql'];
+const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql'];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {
@@ -31,7 +31,7 @@ const authed = async (user = 'u1') => ({ Cookie: `${SESSION_COOKIE}=${await sign
 const save = async (headers: Record<string, string>, body: Record<string, unknown>) =>
   worker.fetch(new Request('https://s.test/api/deals', {
     method: 'POST', headers: { ...headers, 'content-type': 'application/json' },
-    body: JSON.stringify({ strategy: 'btl', title: 'A · CF37 1HR · £150,000', url_params: 'postcode=CF37+1HR&price=150000', key_figure: 'ROI 12%', headline_figure: '£250/mo', score: 7.2, criteria_json: '{"minRoi":12}', evidence_json: '{"sources":{"price":"listing"}}', postcode_sector: 'CF37 1', source: 'analyser', ...body }),
+    body: JSON.stringify({ strategy: 'btl', title: 'A · CF37 1HR · £150,000', url_params: 'postcode=CF37+1HR&price=150000', key_figure: 'ROI 12%', headline_figure: '£250/mo', verdict_line: 'Just 6.5% back, short of the 12% you set', score: 7.2, criteria_json: '{"minRoi":12}', evidence_json: '{"sources":{"price":"listing"}}', postcode_sector: 'CF37 1', source: 'analyser', ...body }),
   }), env());
 const count = (t: string, where = '') => (sqlite.prepare(`SELECT COUNT(*) n FROM ${t} ${where}`).get() as { n: number }).n;
 
@@ -63,6 +63,7 @@ describe('save writes a pipeline deal (flag ON)', () => {
     expect(d.postcode_sector).toBe('CF37 1');
     expect(d.source).toBe('analyser');
     expect(d.headline_figure).toBe('£250/mo'); // the board card's strategy-appropriate figure (P3)
+    expect(d.verdict_line).toBe('Just 6.5% back, short of the 12% you set'); // the analyser's verdict line (P4.1)
     const v = sqlite.prepare('SELECT * FROM deal_verdicts').get() as Record<string, unknown>;
     expect(v.score).toBe(7.2);
     expect(JSON.parse(v.criteria_json as string).minRoi).toBe(12);

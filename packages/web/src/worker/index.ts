@@ -349,6 +349,7 @@ interface DealBody {
   criteria_json?: string;
   evidence_json?: string;
   headline_figure?: string;
+  verdict_line?: string;
   is_auction?: boolean;
   postcode_sector?: string;
   source?: 'extension' | 'analyser';
@@ -448,7 +449,7 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // honest fallback for migrated/older deals that predate it.
     const rows = await env.DB.prepare(
       `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
-              d.headline_figure, d.is_auction, d.updated_at, s.url_params, s.key_figure,
+              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, s.url_params, s.key_figure,
               COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
          FROM deals d JOIN saved_deals s ON s.id = d.id
         WHERE d.user_id = ?
@@ -457,7 +458,7 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
       .bind(user.sub)
       .all<{
         id: string; strategy: string; title: string; stage: string; current_score: number | null;
-        status: string; headline_figure: string | null; is_auction: number; updated_at: string;
+        status: string; headline_figure: string | null; verdict_line: string | null; is_auction: number; updated_at: string;
         url_params: string; key_figure: string; stage_since: string;
       }>();
     // Coerce the SQLite 0/1 auction flag to a real boolean for the client.

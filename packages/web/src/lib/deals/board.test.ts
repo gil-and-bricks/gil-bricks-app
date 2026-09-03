@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cardFigure, parkedDeals, scoreClass, stageColumns,
-  daysInStage, dwellState, nextStepLine, todayLine, stageMeta, type BoardDeal,
+  daysInStage, dwellState, nextStepLine, todayLine, stageMeta, cardVerdict, boardCounts, counterLine, type BoardDeal,
 } from './board';
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
@@ -19,6 +19,7 @@ const mk = (o: Partial<BoardDeal>): BoardDeal => ({
   key_figure: o.key_figure ?? 'ROI 6%',
   stage_since: o.stage_since ?? daysAgo(0),
   is_auction: o.is_auction ?? false,
+  verdict_line: o.verdict_line === undefined ? 'Just 6.5% back, short of the 12% you set' : o.verdict_line,
   updated_at: o.updated_at ?? '2026-01-01T00:00:00Z',
   due_date: o.due_date ?? null,
 });
@@ -105,14 +106,50 @@ describe('dwellState — stage-aware, never a blanket timer', () => {
   });
 });
 
-describe('nextStepLine', () => {
-  it('states what it is waiting on + how long, with an honest ageing suffix', () => {
-    expect(nextStepLine(mk({ stage: 'offer-in', stage_since: daysAgo(9) }), NOW)).toBe('Offer in, no word back · 9 days · no update');
-    expect(nextStepLine(mk({ stage: 'going-to-view', stage_since: daysAgo(1) }), NOW)).toBe('Viewing to book · 1 day');
-    expect(nextStepLine(mk({ stage: 'offer-in', stage_since: daysAgo(12) }), NOW)).toContain('gone cold');
+describe('nextStepLine — an instruction (a verb), not a description', () => {
+  it('leads with the stage verb and says how long it has sat', () => {
+    expect(nextStepLine(mk({ stage: 'going-to-view', stage_since: daysAgo(3) }), NOW)).toBe('Book the viewing, or bin it — 3 days sat here');
+    expect(nextStepLine(mk({ stage: 'going-to-view', stage_since: daysAgo(1) }), NOW)).toBe('Book the viewing, or bin it — 1 day sat here');
+    expect(nextStepLine(mk({ stage: 'offer-in', stage_since: daysAgo(9) }), NOW)).toBe('Chase the agent on your offer — 9 days, no update');
+    expect(nextStepLine(mk({ stage: 'offer-in', stage_since: daysAgo(12) }), NOW)).toBe('Chase the agent on your offer — 12 days, gone cold');
   });
-  it('is empty for a terminal deal', () => {
+  it('is empty for a terminal deal (nothing to do)', () => {
     expect(nextStepLine(mk({ stage: 'bought-it', status: 'done' }), NOW)).toBe('');
+  });
+});
+
+describe('cardVerdict — a verdict or an honest reason, never a bare dash', () => {
+  it('a scored deal shows the analyser reason line + its colour', () => {
+    const v = cardVerdict(mk({ current_score: 5.2, verdict_line: 'Just 6.5% back, short of the 12% you set' }));
+    expect(v).toEqual({ scored: true, cls: 'ds-walk', line: 'Just 6.5% back, short of the 12% you set' });
+  });
+  it('a scored deal with no stored reason falls back to the figure (still a verdict, no dash)', () => {
+    const v = cardVerdict(mk({ current_score: 8.4, verdict_line: null, headline_figure: '£312/mo' }));
+    expect(v).toEqual({ scored: true, cls: 'ds-good', line: '£312/mo' });
+  });
+  it('an unscored (migrated) deal says why it cannot score — never a dash', () => {
+    const v = cardVerdict(mk({ current_score: null, verdict_line: null, headline_figure: null, key_figure: '' }));
+    expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Re-open to score this' });
+  });
+});
+
+describe('boardCounts + counterLine — the four combinations', () => {
+  const live = mk({ status: 'live', stage: 'offer-in' });
+  const bought = mk({ status: 'done', stage: 'bought-it' });
+  const dead = mk({ status: 'dead', stage: 'parked-dead' });
+  it('nothing at all', () => {
+    expect(boardCounts([])).toEqual({ live: 0, done: 0, dead: 0, isEmpty: true });
+  });
+  it('only live', () => {
+    expect(counterLine(boardCounts([live, live]), 100)).toBe('2 of 100 live');
+  });
+  it('only terminal — a bought-only board reads as a result, never "0 of 100 live" alone', () => {
+    const c = boardCounts([bought]);
+    expect(c).toEqual({ live: 0, done: 1, dead: 0, isEmpty: false });
+    expect(counterLine(c, 100)).toBe('0 of 100 live · 1 bought');
+  });
+  it('both', () => {
+    expect(counterLine(boardCounts([live, bought, dead]), 100)).toBe('1 of 100 live · 1 bought · 1 parked');
   });
 });
 
@@ -161,7 +198,7 @@ describe('todayLine — one deal, one action, honest precedence', () => {
       mk({ stage: 'bought-it', status: 'done', stage_since: daysAgo(99) }),
     ], NOW);
     expect(t.dealId).toBeNull();
-    expect(t.text).toContain('No live deals');
+    expect(t.text).toBe('Nothing needs you today.');
   });
 });
 

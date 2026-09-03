@@ -61,6 +61,8 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           criteria_json: verdictSnapshot.value?.criteriaJson ?? '{}',
           // the ONE strategy-appropriate figure the pipeline board card shows (P3)
           headline_figure: verdictSnapshot.value?.boardFigure ?? '',
+          // the analyser's verdict line — the board card's reason (P4.1)
+          verdict_line: verdictSnapshot.value?.headline ?? '',
           // auction flag (P4) — carried from the extension handoff, warns at Offer in
           is_auction: isAuctionArrival(),
           evidence_json: evidenceSnapshot([...EVIDENCE_SUBJECT_KEYS, ...Object.keys(strategyParams.value)]),

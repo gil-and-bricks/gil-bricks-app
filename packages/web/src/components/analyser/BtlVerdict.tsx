@@ -92,12 +92,12 @@ export function BtlVerdict({ config, comps, valuation }: {
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), boardFigure: `${fmtMoney(analysis.cashflowAfterTax.value)}/mo` }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), boardFigure: `${fmtMoney(analysis.cashflowAfterTax.value)}/mo` }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
     verdictSnapshot.value = nextSnapshot;
-  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.criteriaJson}` : null]);
+  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}` : null]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">

@@ -28,7 +28,7 @@ async function mkDeal(
 }
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../../migrations/${n}`, import.meta.url)), 'utf8');
-const ALL_MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql'];
+const ALL_MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql'];
 
 /** Minimal D1 adapter over node:sqlite so tests run the REAL SQL these helpers issue. */
 function makeD1(sqlite: DatabaseSync): D1Database {

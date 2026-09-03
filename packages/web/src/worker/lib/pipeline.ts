@@ -31,6 +31,8 @@ export interface AnalyserDealPayload {
   /** The ONE strategy-appropriate figure the board card shows (P3) — the analyser's
    * own display string (BTL cashflow / BRRRR money-left-in / Flip profit / HMO ROI). */
   headlineFigure: string;
+  /** The analyser's verdict line at save time (DealScore.headline) — the card's reason. */
+  verdictLine: string;
   /** The listing was an auction (P4) — surfaces the legal-pack warning at Offer in.
    * Sticky once true: a later re-save never un-flags it. */
   isAuction: boolean;
@@ -66,6 +68,7 @@ export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => 
     criteriaJson: isJson(b.criteria_json) ? (b.criteria_json as string) : '{}',
     evidenceJson: isJson(b.evidence_json) ? (b.evidence_json as string) : '{}',
     headlineFigure: String(b.headline_figure ?? '').slice(0, 60).trim(),
+    verdictLine: String(b.verdict_line ?? '').slice(0, 160).trim(),
     isAuction: b.is_auction === true,
     source,
   } as AnalyserDealPayload;
@@ -90,6 +93,7 @@ export interface DealRow {
   current_score: number | null;
   headline_figure: string | null;
   is_auction: number;
+  verdict_line: string | null;
   status: string;
   dead_reason: string | null;
   source: string;
@@ -246,8 +250,8 @@ export async function upsertPipelineDeal(
       // is_auction is STICKY: MAX keeps a once-true flag true across re-saves (a
       // re-opened deal's url no longer carries the auction marker, so the payload
       // would otherwise reset it to 0).
-      db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, is_auction = MAX(is_auction, ?), updated_at = ? WHERE id = ? AND user_id = ?')
-        .bind(payload.score, payload.title, payload.headlineFigure, payload.isAuction ? 1 : 0, now, ctx.id, ctx.userId),
+      db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, verdict_line = ?, is_auction = MAX(is_auction, ?), updated_at = ? WHERE id = ? AND user_id = ?')
+        .bind(payload.score, payload.title, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, now, ctx.id, ctx.userId),
       db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
         .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
     ]);
@@ -255,8 +259,8 @@ export async function upsertPipelineDeal(
   }
   if (!canAddLiveDeal(await countLiveDeals(db, ctx.userId))) return 'at-cap';
   await db.batch([
-    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, is_auction, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
-      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, payload.isAuction ? 1 : 0, 'live', payload.source, now, now),
+    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
+      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, 'live', payload.source, now, now),
     db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, NULL, ?, ?)')
       .bind(crypto.randomUUID(), ctx.id, INITIAL_STAGE, now),
     db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')

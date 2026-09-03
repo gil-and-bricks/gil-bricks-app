@@ -12,7 +12,7 @@ import { useEffect, useState } from 'preact/hooks';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealHref } from '../../lib/deals/deal';
-import { cardFigure, dwellState, nextStepLine, parkedDeals, scoreClass, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
+import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
 import { DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
@@ -23,7 +23,7 @@ const STAGE_ORDER = PROGRESS_STAGES.map((s) => s.key);
 export function DealBoard() {
   const [deals, setDeals] = useState<BoardDeal[] | null | 'error'>(null);
   const [cap, setCap] = useState(100);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState<{ id: string; text: string } | null>(null);
   const [parkingId, setParkingId] = useState('');
   const [dragId, setDragId] = useState('');
   const [dropStage, setDropStage] = useState('');
@@ -61,7 +61,7 @@ export function DealBoard() {
     const skipped = fromIdx >= 0 && toIdx > fromIdx + 1;
     setBusy(deal.id, true);
     setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, stage: toStage, status: statusForStage(toStage), stage_since: stageSince } : d)) : cur));
-    setNote(skipped ? 'Skipped a stage — your call.' : '');
+    setNote(skipped ? { id: deal.id, text: 'Skipped a stage — your call.' } : null);
     try {
       const res = await fetch(`/api/deals/${deal.id}/stage`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stage: toStage }),
@@ -69,7 +69,7 @@ export function DealBoard() {
       if (!res.ok) throw new Error();
     } catch {
       setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
-      setNote('That didn’t move — put back. Try again.');
+      setNote({ id: deal.id, text: 'That didn’t move — put back. Try again.' });
     } finally {
       setBusy(deal.id, false);
     }
@@ -88,7 +88,7 @@ export function DealBoard() {
       if (!res.ok) throw new Error();
     } catch {
       setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
-      setNote('That didn’t save — put back. Try again.');
+      setNote({ id: deal.id, text: 'That didn’t save — put back. Try again.' });
     } finally {
       setBusy(deal.id, false);
     }
@@ -131,7 +131,7 @@ export function DealBoard() {
 
   const columns = stageColumns(deals);
   const parked = parkedDeals(deals);
-  const liveCount = deals.filter((d) => d.status === 'live').length;
+  const counts = boardCounts(deals);
   const today = todayLine(deals, now);
 
   // Card is a render HELPER, invoked as Card({ d }) (not <Card/>), so it doesn't
@@ -140,8 +140,7 @@ export function DealBoard() {
   // and aborting an in-progress drag. Called inline, its DOM is diffed and preserved.
   const Card = ({ d }: { d: BoardDeal }) => {
     const age = dwellState(d, now);
-    const cls = scoreClass(d.current_score);
-    const figure = cardFigure(d);
+    const verdict = cardVerdict(d);
     const step = nextStepLine(d, now);
     const auctionWarn = d.is_auction && d.stage === 'offer-in';
     const busy = pending.has(d.id);
@@ -155,13 +154,18 @@ export function DealBoard() {
       >
         <a class="dc-title" href={dealHref(d.strategy, d.url_params)}>{d.title}</a>
         <span class="dc-meta">
-          <span class={`board-score ${cls}`} aria-label={d.current_score === null ? 'not scored yet' : `Deal score ${d.current_score.toFixed(1)} out of 10`}>
-            <span class="bs-dot" aria-hidden="true">●</span>
-            <strong>{d.current_score === null ? '—' : d.current_score.toFixed(1)}</strong>
-          </span>
+          {verdict.scored && (
+            <span class={`board-score ${verdict.cls}`} aria-label={`Deal score ${(d.current_score as number).toFixed(1)} out of 10`}>
+              <span class="bs-dot" aria-hidden="true">●</span>
+              <strong>{(d.current_score as number).toFixed(1)}</strong>
+            </span>
+          )}
           <span class="pill pill-current dc-strat">{strategyBadge(d.strategy)}</span>
-          {figure !== '' && <span class="dc-figure">{figure}</span>}
         </span>
+
+        {/* The VERDICT: is it good, and why — the analyser's own line, or an honest
+            reason it can't be scored. Never a bare dash. */}
+        <p class={`dc-verdict ${verdict.scored ? 'v-' + verdict.cls : 'v-unscored'}`}>{verdict.line}</p>
 
         {auctionWarn && (
           <p class="dc-auction" role="note">⚠ Auction — read the legal pack before you bid. Fees and a fixed completion apply.</p>
@@ -169,25 +173,28 @@ export function DealBoard() {
 
         {step !== '' && <p class={`dc-step step-${age}`}>{step}</p>}
 
+        {note && note.id === d.id && <p class="dc-note" role="status">{note.text}</p>}
+
         {d.status === 'live' && (
-          <div class="dc-actions">
-            <label class="dc-move">
-              <span class="sr-only">Move {d.title} to a stage</span>
-              <select value={d.stage} disabled={busy} onChange={(e) => void moveTo(d, (e.target as HTMLSelectElement).value)}>
-                {PROGRESS_STAGES.map((s) => <option value={s.key}>{s.label}</option>)}
-              </select>
-            </label>
-            {parkingId === d.id ? (
-              <span class="dc-park-reasons" role="group" aria-label={`Why are you parking ${d.title}?`}>
+          <>
+            <div class="dc-actions">
+              <label class="dc-move">
+                <span class="sr-only">Move {d.title} to a stage</span>
+                <select value={d.stage} disabled={busy} onChange={(e) => void moveTo(d, (e.target as HTMLSelectElement).value)}>
+                  {PROGRESS_STAGES.map((s) => <option value={s.key}>{s.label}</option>)}
+                </select>
+              </label>
+              <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => setParkingId(parkingId === d.id ? '' : d.id)}>Park</button>
+            </div>
+            {parkingId === d.id && (
+              <div class="dc-park-reasons" role="group" aria-label={`Why are you parking ${d.title}?`}>
                 {PARK_REASONS.map((r) => (
                   <button type="button" class="chip" onClick={() => void park(d, r.label)}>{r.label}</button>
                 ))}
-                <button type="button" class="chip chip-cancel" onClick={() => setParkingId('')}>Keep</button>
-              </span>
-            ) : (
-              <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => setParkingId(d.id)}>Park</button>
+                <button type="button" class="chip chip-cancel" onClick={() => setParkingId('')}>Keep it</button>
+              </div>
             )}
-          </div>
+          </>
         )}
       </div>
     );
@@ -196,8 +203,7 @@ export function DealBoard() {
   return (
     <div class="board">
       <p class={`today-line${today.dealId ? ' today-act' : ''}`} role="status">{today.text}</p>
-      <p class="board-count">{liveCount} of {cap} live</p>
-      {note !== '' && <p class="board-note" role="status">{note}</p>}
+      <p class="board-count">{counterLine(counts, cap)}</p>
 
       <div class="board-stages">
         {columns.map((col) => (

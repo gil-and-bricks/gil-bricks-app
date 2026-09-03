@@ -8,6 +8,9 @@ import { signal } from '@preact/signals';
 
 export interface VerdictSnapshot {
   score: number | null;
+  /** The analyser's own verdict line (DealScore.headline) — the short reason in the
+   * user's voice, referencing their own criteria. Shown as the card's verdict. */
+  headline: string;
   criteriaJson: string;
   /** The ONE strategy-appropriate figure the pipeline board card shows (P3):
    * BTL monthly cashflow, BRRRR money left in, Flip profit, HMO ROI — the
