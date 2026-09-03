@@ -57,5 +57,5 @@ export const siteConfig: SiteConfig = {
   googleClientId: '548405055261-7h7g1bsbc6ouoa04470ohr3ifigjbbfp.apps.googleusercontent.com',
   turnstileSiteKey: '0x4AAAAAAEjDnxbmFpl9_C_M',
   consentVersion: '2026-08-31.2-placeholder',
-  features: { dealScore: true, dealPipeline: false },
+  features: { dealScore: true, dealPipeline: true },
 };

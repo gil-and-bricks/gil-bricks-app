@@ -36,6 +36,7 @@ const save = async (headers: Record<string, string>, body: Record<string, unknow
 const count = (t: string, where = '') => (sqlite.prepare(`SELECT COUNT(*) n FROM ${t} ${where}`).get() as { n: number }).n;
 
 beforeEach(() => {
+  siteConfig.features.dealPipeline = false; // explicit baseline; flag-ON describes opt in. Robust to the committed default.
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   for (const m of MIGRATIONS) sqlite.exec(MIG(m));
