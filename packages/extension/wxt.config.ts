@@ -5,8 +5,8 @@ import { defineConfig } from 'wxt';
  *
  * The manifest is pinned to the sprint spec: MV3, Chrome 114+, ONLY the
  * sidePanel + storage permissions, host access to Rightmove/Zoopla ONLY, a
- * module service worker, and a CSP that already allows `wasm-unsafe-eval` so the
- * later OCR sprint needs no manifest change. WXT fills in the mechanical parts
+ * module service worker, and a strict CSP (script-src 'self'; object-src 'self')
+ * — OCR was removed in E9.1, so no wasm-unsafe-eval. WXT fills in the mechanical parts
  * (manifest_version, side_panel.default_path from the sidepanel entrypoint,
  * background.service_worker + type:module from the background entrypoint).
  */
@@ -22,8 +22,10 @@ export default defineConfig({
     // (SW type:module is set on the background entrypoint via defineBackground.)
     action: { default_title: 'Gil & Bricks Deal Analyser' },
     icons: { 16: 'icon/16.png', 48: 'icon/48.png', 128: 'icon/128.png' },
+    // OCR was removed (E9.1); with no wasm/worker in the panel the CSP is tightened
+    // back to the strict default — no wasm-unsafe-eval, no worker-src.
     content_security_policy: {
-      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; worker-src 'self'",
+      extension_pages: "script-src 'self'; object-src 'self'",
     },
   },
 });

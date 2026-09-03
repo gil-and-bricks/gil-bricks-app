@@ -57,12 +57,21 @@ describe('company purchase forces additional-rate SDLT (item 3)', () => {
 describe('floor-plan feeds HMO room-size when confident (E9 item 3)', () => {
   const roomStatus = (r: ReturnType<typeof scoreListing>) => r.deal!.components.find((c) => /room/i.test(c.name) && /size|legal|minimum/i.test(c.name))!.status;
   const u = { roomRent: '600', rooms: '4' };
-  it('null failures ⇒ room-size stays "check in the analyser" (unknown)', () => {
-    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null }))).toBe('unknown');
+  const roomWhy = (r: ReturnType<typeof scoreListing>) => r.deal!.components.find((c) => /room/i.test(c.name) && /size|legal|minimum/i.test(c.name))!.why;
+  it('no measurements ⇒ HONEST assumption from bedroom count, never a legality claim (E9.1)', () => {
+    const r = scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null });
+    expect(roomStatus(r)).toBe('unknown');
+    expect(roomWhy(r)).toMatch(/assumed .* lettable rooms/i);
+    expect(roomWhy(r)).toMatch(/measure them before you commit/i);
+    expect(roomWhy(r)).not.toMatch(/all rooms meet|meets the .* minimum/i); // never claims compliance
   });
-  it('0 failures from the plan ⇒ green; some failures ⇒ red', () => {
-    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 0 }))).toBe('green');
-    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 2 }))).toBe('red');
+  it('all rooms measured & clear ⇒ green; any measured failure ⇒ red; partial all-pass ⇒ stays the assumption (E9.1 review)', () => {
+    // green ONLY with full coverage — every assumed lettable room measured and clear
+    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 0, roomsMeasured: 4 }))).toBe('green');
+    // a measured undersized room is ALWAYS authoritative, however many are unmeasured
+    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 2, roomsMeasured: 2 }))).toBe('red');
+    // a partial all-pass (fewer measured than the 4 assumed) must NOT go green — no false all-clear
+    expect(roomStatus(scoreListing(listing(200000), { strategy: 'hmo', unknowns: u, sector: null, roomSizeFailures: 0, roomsMeasured: 2 }))).toBe('unknown');
   });
 });
 

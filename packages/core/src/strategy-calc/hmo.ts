@@ -180,15 +180,23 @@ export function analyseHmo(i: HmoInputs): HmoAnalysis {
 
   let verdictCopy: string;
   if (colour === 'green') {
-    verdictCopy = 'Green — the rooms cashflow well after tax, the lender stress test passes and the room sizes are legal.';
+    // Green is only reachable once every room has been checked and clears the
+    // numeric minimum — but a size check is an INDICATION, not a survey (floor
+    // under a 1.5 m ceiling is excluded, councils can require larger), so never
+    // state flat statutory compliance (E9.1 honesty).
+    verdictCopy = 'Green — the rooms cashflow well after tax, the lender stress test passes and the rooms you checked meet the legal minimum sizes (an indication, not a survey).';
   } else if (colour === 'amber') {
-    const rf = i.roomSizeFailures ?? 0; // null (unverified) ⇒ no room-fail copy
+    const rf = i.roomSizeFailures; // null ⇒ room sizes UNVERIFIED (never a fail claim)
     const roomsPhrase = rf === 1 ? 'one room fails' : `${rf} rooms fail`;
     const moneyAloneGreen = c.after >= i.thresholds.minCashflowGreen && c.roiRes.value >= i.thresholds.minRoiGreen;
-    if (rf > 0 && moneyAloneGreen) {
+    if (rf != null && rf > 0 && moneyAloneGreen) {
       verdictCopy = `Amber — the money works, but ${roomsPhrase} the legal size minimums.`;
-    } else if (rf > 0) {
+    } else if (rf != null && rf > 0) {
       verdictCopy = `Amber — the returns are thin for an HMO’s extra work, and ${roomsPhrase} the legal size minimums.`;
+    } else if (rf == null && moneyAloneGreen) {
+      // Money is green but the rooms haven't been checked — say exactly that,
+      // never imply the rooms are (or aren't) legal (E9.1 honesty).
+      verdictCopy = 'Amber — the money works, but check each room meets the legal size minimums before you commit.';
     } else {
       verdictCopy = 'Amber — it covers its costs, but the returns are thin for an HMO’s extra work.';
     }

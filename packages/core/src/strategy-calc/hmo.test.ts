@@ -71,6 +71,16 @@ describe('room-size checker (statutory minimums)', () => {
     expect(a.verdictCopy).toMatch(/one room fails/);
     expect(a.lever).toBeNull(); // rent can't fix an illegal room
   });
+  it('UNVERIFIED room sizes (null) never claim legality and never invent a fail — honest amber (E9.1)', () => {
+    // A money-strong HMO with room sizes NOT yet checked must NOT go green ("the
+    // room sizes are legal") NOR be described as thin/failing — just say check them.
+    const strong = { ...base, price: 150000, roomRent: 700, opCostPct: 25, roomSizeFailures: null };
+    const a = analyseHmo(strong);
+    expect(a.verdict).not.toBe('green'); // never a legal all-clear without a check
+    expect(a.verdictCopy).not.toMatch(/room sizes are legal/i); // no false compliance
+    expect(a.verdictCopy).not.toMatch(/rooms? fails?|returns are thin/i); // no invented failure/thin claim
+    expect(a.verdictCopy).toMatch(/check each room meets the legal size minimums/i);
+  });
 });
 
 describe('colours, licence levels, lever', () => {

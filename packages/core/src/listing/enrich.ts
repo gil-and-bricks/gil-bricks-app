@@ -14,28 +14,45 @@ const norm = (s: string | undefined): string =>
   (s ?? '').toLowerCase().replace(/['’`]+/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 
 /** EPC-derived floor area for this exact address from the sector sales, or null.
- * Matches on primary address (paon), the STREET (when both sides have one, so a
- * house number can't match the wrong street), and saon when both have one. */
-export function floorAreaFromSector(sector: SectorFile | null | undefined, address: ListingAddress | null | undefined): number | null {
+ * Matches, strongest first: (1) full POSTCODE + paon (+ saon) — a full postcode
+ * plus a house number is effectively unique; (2) paon + STREET (+ saon) within
+ * the sector. saon presence must always agree so a flat never borrows a whole
+ * house's area. Never guesses when candidate areas disagree (E9.1). */
+export function floorAreaFromSector(
+  sector: SectorFile | null | undefined,
+  address: ListingAddress | null | undefined,
+  postcode?: string | null,
+): number | null {
   if (!sector || !address?.paon) return null;
   const paon = norm(address.paon);
   const saon = norm(address.saon) || undefined;
   const street = norm(address.street) || undefined;
-  for (const sale of sector.sales) {
-    if (sale.floorAreaSqm == null) continue;
-    if (norm(sale.paon) !== paon) continue;
-    // When both sides name a street, they must agree — paon "6" alone must not
-    // match "6 Foo Road" against a sale on "6 Bar Street" in the same sector.
-    const saleStreet = norm(sale.street) || undefined;
-    if (street && saleStreet && saleStreet !== street) continue;
-    const saleSaon = norm(sale.saon) || undefined;
-    // saon presence must AGREE — a flat (has saon) must not match a whole-house
-    // sale (no saon) at the same paon, and vice versa (would be a different unit).
-    if (Boolean(saon) !== Boolean(saleSaon)) continue;
-    if (saon && saleSaon !== saon) continue;
-    return sale.floorAreaSqm;
+  const saonOk = (saleSaon: string | undefined): boolean => Boolean(saon) === Boolean(saleSaon) && (!saon || saleSaon === saon);
+  const normPc = (s: string | undefined | null): string => (s ?? '').toUpperCase().replace(/\s+/g, ' ').trim();
+  // Agree-or-refuse: a unanimous area, else null — NEVER a first-wins guess when
+  // candidates (flats, or a re-sale with a revised EPC) disagree (E9.1 review).
+  const agree = (cands: SectorFile['sales']): number | null => {
+    const areas = new Set(cands.filter((s) => s.floorAreaSqm != null).map((s) => s.floorAreaSqm));
+    return areas.size === 1 ? [...areas][0] : null;
+  };
+
+  // (1) full postcode + paon — the strongest match (E9.1). When the postcode
+  // matched candidates we DECIDE here (unanimous area or refuse); only a postcode
+  // that matched NOTHING falls through to the street path.
+  const pc = normPc(postcode);
+  if (pc) {
+    const byPc = sector.sales.filter((s) => s.floorAreaSqm != null && normPc(s.postcode) === pc && norm(s.paon) === paon && saonOk(norm(s.saon) || undefined));
+    if (byPc.length) return agree(byPc);
   }
-  return null;
+
+  // (2) paon + street within the sector — also agree-or-refuse (never first-wins).
+  const byStreet = sector.sales.filter((s) => {
+    if (s.floorAreaSqm == null || norm(s.paon) !== paon) return false;
+    const saleStreet = norm(s.street) || undefined;
+    if (street && saleStreet && saleStreet !== street) return false;
+    return saonOk(norm(s.saon) || undefined);
+  });
+  return agree(byStreet);
 }
 
 /**

@@ -143,6 +143,21 @@ describe('explainFailure renders in Gil voice for every strategy', () => {
     expect(text.length).toBeGreaterThan(20);
     expect(text).not.toMatch(/\{value\}|\{needed\}|undefined|NaN/);
   });
+  it('a money-strong, rooms-UNVERIFIED HMO explains the same honest thing as the chip — never "margins are thin" (E9.1 review)', () => {
+    const ds = scoreDeal('hmo', { ...HMO, price: 150000, roomRent: 700, roomSizeFailures: null } as never);
+    expect(ds.verdict).toBe('marginal'); // capped by unverified rooms, not by the money
+    expect(explainFailure(ds)).toBe(ds.headline); // the two surfaces never disagree
+    expect(explainFailure(ds)).not.toMatch(/margins are thin|only just/i); // no invented failure
+    expect(explainFailure(ds)).toMatch(/\d+ rooms?/); // names the real assumed room count
+  });
+  it('the measured HMO room-size why never asserts one specific m² figure (occupancy varies — E9.1 review)', () => {
+    for (const fails of [0, 1]) {
+      const rc = scoreDeal('hmo', { ...HMO, price: 180000, roomRent: 650, roomSizeFailures: fails } as never)
+        .components.find((c) => /room/i.test(c.name) && /size|legal|minimum/i.test(c.name))!;
+      expect(rc.why).not.toMatch(/6\.51|10\.22|4\.64|single-adult/); // a double/child room fails a different minimum
+      expect(rc.why).toMatch(/statutory minimum size/i);
+    }
+  });
 });
 
 describe('evidence component', () => {
@@ -175,6 +190,9 @@ describe('deal-specific headlines (E2.1)', () => {
     { id: 'brrrr', label: 'brrrr-good', inputs: { ...BRRRR, price: 100000, arv: 220000, monthlyRent: 1300 } },
     { id: 'hmo', label: 'hmo-roi', inputs: { ...HMO, price: 250000, roomRent: 500 } },
     { id: 'hmo', label: 'hmo-roomsize', inputs: { ...HMO, price: 180000, roomRent: 650, roomSizeFailures: 2 } },
+    // money strong but rooms UNVERIFIED (the default unmeasured state) — the chip
+    // must name the assumed rooms, never a tier platitude nor a false failure (E9.1 review).
+    { id: 'hmo', label: 'hmo-roomsize-unchecked', inputs: { ...HMO, price: 150000, roomRent: 700, roomSizeFailures: null } },
     { id: 'hmo', label: 'hmo-good', inputs: { ...HMO, price: 170000, roomRent: 650 } },
   ];
 
@@ -187,6 +205,21 @@ describe('deal-specific headlines (E2.1)', () => {
       // never one of the generic tier sentences
       expect(tierLines, `${d.label} used a tier platitude`).not.toContain(ds.headline);
     }
+  });
+
+  it('an UNVERIFIED HMO room-size is never the binding constraint / a false failure headline (E9.1)', () => {
+    // A money-strong HMO whose rooms haven't been measured (roomSizeFailures null):
+    // the analysis caps at amber (rooms unverified), but the headline/binding note
+    // must NOT assert a room-size FAILURE ("you couldn't let every room legally") —
+    // an unknown component can't be "what's holding it back".
+    const ds = scoreDeal('hmo', { ...HMO, price: 150000, roomRent: 700, opCostPct: 25, roomSizeFailures: null } as never);
+    expect(ds.verdict).not.toBe('good'); // no false all-clear without a room check
+    expect(ds.headline).not.toMatch(/couldn’t let every room|let every room legally|below the .* minimum/i);
+    const bc = ds.bindingConstraint;
+    // if a binding constraint is shown at all, it is NOT the (unknown) room-size one
+    if (bc) expect(bc.metric.toLowerCase()).not.toMatch(/room size|room-size/);
+    const roomComp = ds.components.find((c) => /room/i.test(c.name) && /size|legal|minimum/i.test(c.name))!;
+    expect(roomComp.status).toBe('unknown'); // stays honestly unknown, never green
   });
 
   it('two deals failing for DIFFERENT reasons produce DIFFERENT headlines', () => {

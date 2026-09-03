@@ -49,6 +49,14 @@ describe('floorAreaFromSector (EPC by address)', () => {
     expect(floorAreaFromSector(sector({}, sales), { paon: '31', street: 'Kings Road' })).toBe(68);
     expect(floorAreaFromSector(sector({}, sales), { paon: '99' })).toBeNull();
   });
+  it('matches on full POSTCODE + paon, even when the street text differs (E9.1)', () => {
+    const sales = [mk('6', '', 130, 'The Dell'), mk('8', '', 95, 'The Dell')] as unknown as SectorFile['sales'];
+    sales.forEach((s) => { (s as { postcode: string }).postcode = 'SA2 7DX'; });
+    // listing street text differs from Land Registry, but postcode+paon nails it
+    expect(floorAreaFromSector(sector({}, sales), { paon: '6', street: 'Dell Road' }, 'SA2 7DX')).toBe(130);
+    // a street-only listing (no house number) still can't match — honest
+    expect(floorAreaFromSector(sector({}, sales), { street: 'The Dell' }, 'SA2 7DX')).toBeNull();
+  });
   it('never matches a house number on the WRONG street (E8.1)', () => {
     const sales = [mk('6', '', 90, 'The Dell')] as unknown as SectorFile['sales'];
     expect(floorAreaFromSector(sector({}, sales), { paon: '6', street: 'The Dell' })).toBe(90);
@@ -58,6 +66,18 @@ describe('floorAreaFromSector (EPC by address)', () => {
     const flats = [mk('10', 'Flat 1', 40), mk('10', '', 120)] as unknown as SectorFile['sales'];
     expect(floorAreaFromSector(sector({}, flats), { paon: '10' })).toBe(120);
     expect(floorAreaFromSector(sector({}, [mk('10', '', 120)] as unknown as SectorFile['sales']), { paon: '10', saon: 'Flat 2' })).toBeNull();
+  });
+  it('refuses (null) when candidate areas DISAGREE — never a first-wins guess (E9.1 review)', () => {
+    // Two sales at the SAME full postcode + house number but different EPC areas.
+    const clash = [mk('10', '', 50), mk('10', '', 70)] as unknown as SectorFile['sales'];
+    // postcode path: ambiguous ⇒ null, and it must NOT fall through to the street loop (which used to return 50).
+    expect(floorAreaFromSector(sector({}, clash), { paon: '10', street: 'Kings Road' }, 'SA1 8AJ')).toBeNull();
+    // street path (no postcode given): also agree-or-refuse, never first-wins.
+    expect(floorAreaFromSector(sector({}, clash), { paon: '10', street: 'Kings Road' })).toBeNull();
+    // but a unanimous pair still resolves cleanly on both paths.
+    const agree = [mk('10', '', 60), mk('10', '', 60)] as unknown as SectorFile['sales'];
+    expect(floorAreaFromSector(sector({}, agree), { paon: '10', street: 'Kings Road' }, 'SA1 8AJ')).toBe(60);
+    expect(floorAreaFromSector(sector({}, agree), { paon: '10', street: 'Kings Road' })).toBe(60);
   });
 });
 

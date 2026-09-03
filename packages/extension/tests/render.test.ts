@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, beforeEach } from 'vitest';
-import { scoreListing, smartDefaults, readSellerSignals, parseFloorPlan, found, missing, unavailable, criteriaFields, FALLBACK_CONFIG, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
+import { scoreListing, smartDefaults, readSellerSignals, found, missing, unavailable, criteriaFields, FALLBACK_CONFIG, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
 import { renderEmpty, renderFailure, renderTriage, renderSettings, type PanelView } from '../entrypoints/sidepanel/main.ts';
 
 const listing: NormalisedListing = {
@@ -290,44 +290,32 @@ describe('Seller Signals card (E8)', () => {
   });
 });
 
-describe('E9 — floor-plan OCR card', () => {
-  const readPlan = () => parseFloorPlan(['Living Room', '3.50m x 4.20m', 'Bedroom 1', '3.60m x 4.10m', 'Bedroom 2', '2.60m x 2.10m'].join('\n'), 88);
+describe('E9.1 — floor-plan MEASURE card (OCR removed)', () => {
+  const fp = (over = {}) => ({ available: true, open: false, acceptedSqm: null, measuredRooms: [], imageUrl: 'x', ...over });
 
   it('no card when the listing has no floor plan', () => {
-    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: { available: false, status: 'idle', open: false, acceptedSqm: null } }));
+    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [] } }));
     expect(document.querySelector('.floorplan-card')).toBeNull();
   });
 
-  it('available + idle: a collapsed card inviting a read', () => {
-    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: { available: true, status: 'idle', open: false, acceptedSqm: null, imageUrl: 'x' } }));
-    expect(document.querySelector('.floorplan-card')).toBeTruthy();
-    expect(txt().toLowerCase()).toContain('tap to read');
+  it('available: headline is the measure tool with a one-line prompt, no OCR', () => {
+    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: fp() }));
+    const card = document.querySelector('.floorplan-card')!;
+    expect(card).toBeTruthy();
+    expect(card.querySelector('.fp-head')?.textContent).toBe('Measure the floor plan');
+    expect(card.textContent).toMatch(/drag along a dimension/i);
+    const open = [...card.querySelectorAll('.send-btn')].find((b) => /measure tool/i.test(b.textContent ?? ''));
+    expect(open).toBeTruthy();
+    expect(card.textContent).not.toMatch(/read dimensions|OCR|reading/i);
+    expect(card.textContent).toMatch(/never uploaded|stays on your device/i);
   });
 
-  it('running: shows a progress state (loads after the verdict)', () => {
-    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: { available: true, status: 'running', open: true, acceptedSqm: null, imageUrl: 'x', progress: { stage: 'reading', pct: 60 } } }));
-    expect(document.querySelector('.fp-progress')?.textContent).toMatch(/60%/);
-  });
-
-  it('done: per-room list, honest total, room-fit, accept-area button', () => {
-    const read = readPlan();
-    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: { available: true, status: 'done', open: true, acceptedSqm: null, imageUrl: 'x', read } }));
-    expect(document.querySelectorAll('.fp-room').length).toBe(read.rooms.length);
-    expect(txt()).toMatch(/sum of \d+ rooms? we could read/);
-    expect(txt()).not.toMatch(/GIA|gross internal/i);
-    expect(txt()).toContain('single-adult minimum'); // HMO room-fit block
-    const use = [...document.querySelectorAll('.send-btn')].find((b) => /as floor area/i.test(b.textContent ?? ''));
-    expect(use).toBeTruthy();
-    expect(use!.textContent).toContain('from the floor plan');
-    // every room has a confidence indicator + an edit control
-    expect(document.querySelectorAll('.fp-room-conf').length).toBe(read.rooms.length);
-    expect(document.querySelectorAll('.fp-room-edit').length).toBe(read.rooms.length);
-  });
-
-  it('failed: honest message + manual entry, never a wrong number', () => {
-    renderTriage(view({ unknowns: { rent: '1200' }, floorplan: { available: true, status: 'failed', open: true, acceptedSqm: null, imageUrl: 'x', error: 'We couldn’t read any room dimensions from this plan.' } }));
-    expect(txt()).toContain('couldn’t read');
-    expect(document.getElementById('gb-area')).toBeTruthy(); // manual entry offered
+  it('shows a measured floor area and measured-room count once captured', () => {
+    const result = scoreListing({ ...listing, floorAreaSqm: found(74) }, { strategy: 'btl', unknowns: { rent: '1200' }, sector: sector() });
+    renderTriage(view({ listing: { ...listing, floorAreaSqm: found(74) }, result, unknowns: { rent: '1200' }, floorAreaSqm: 74, floorAreaSource: 'floorplan', floorplan: fp({ acceptedSqm: 74, measuredRooms: [12, 5] }) }));
+    const card = document.querySelector('.floorplan-card')!;
+    expect(card.textContent).toMatch(/74 m² measured on the plan/i);
+    expect(card.textContent).toMatch(/2 rooms.*1 below the 6\.51/i); // one of 12/5 is below
   });
 });
 

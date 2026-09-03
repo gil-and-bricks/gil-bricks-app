@@ -51,10 +51,16 @@ export function HmoVerdict({ config, comps, valuation }: {
   const roomsSel = p.rooms ?? '4';
   const isSuiGeneris = roomsSel === '7plus';
   const roomCount = isSuiGeneris ? 0 : Number(roomsSel);
+  const enteredRooms = rows.slice(0, roomCount).filter((r) => r.sqm !== '');
   const checks = checkRoomSizes(
-    rows.slice(0, roomCount).filter((r) => r.sqm !== '').map((r) => ({ sqm: Number(r.sqm), occupancy: r.occupancy })),
+    enteredRooms.map((r) => ({ sqm: Number(r.sqm), occupancy: r.occupancy })),
   );
   const failures = checks.filter((c) => !c.ok).length;
+  // Coverage-gate the all-clear: a measured failure is always authoritative, but
+  // an all-pass (0) only clears once EVERY assumed room has been entered — a partial
+  // or empty accordion stays UNVERIFIED (null), never a false "the room sizes are
+  // legal" green (E9.1 review; mirrors the extension's scoreListing gate).
+  const roomSizeFailures = failures > 0 ? failures : enteredRooms.length >= roomCount ? 0 : null;
 
   const selfManaged = p.mgmt === 'self';
   const ready = !isSuiGeneris && num('roomRent') > 0 && Number(s.price) > 0;
@@ -82,7 +88,7 @@ export function HmoVerdict({ config, comps, valuation }: {
         legals: num('legals'),
         stressRatePct: num('stressRate'),
         taxBasis: (p.taxBasis as BuyerType) ?? 'additional',
-        roomSizeFailures: failures,
+        roomSizeFailures,
         thresholds: requireThresholds(config),
       };
       analysis = analyseHmo(inputs);

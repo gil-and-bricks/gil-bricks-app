@@ -38,3 +38,6 @@ packages/*/dist/
 # Extension (WXT) build output + generated types
 packages/extension/.output/
 packages/extension/.wxt/
+
+# Claude Code session artifacts (machine-local)
+.claude/

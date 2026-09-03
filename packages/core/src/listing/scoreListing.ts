@@ -41,9 +41,15 @@ export interface ScoreListingOptions {
   /** Whether this listing is an auction (structured flag OR wording) — one source
    * of truth for the auction card and the auction-fees costs line (E8.1). */
   isAuction?: boolean;
-  /** HMO room-size failures read from the FLOOR PLAN when confidence is high
-   * enough (E9). null keeps the room-size component as "check in the analyser". */
+  /** HMO rooms the user MEASURED that fall below the 6.51 m² minimum, or null
+   * when they've measured none (E9.1). A measured failure is always authoritative;
+   * an all-clear (0) is coverage-gated against the assumed lettable-room count
+   * below, so a partial all-pass stays the honest "assumed N rooms" (never a
+   * false green). null keeps the room-size component as "check in the analyser". */
   roomSizeFailures?: number | null;
+  /** How many rooms the user has measured with the overlay (E9.1). Used to
+   * coverage-gate the all-clear against the assumed lettable-room count. */
+  roomsMeasured?: number;
 }
 
 /** One line in the "what you need to put in" costs card (E8.1). */
@@ -208,13 +214,23 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
     };
   } else {
     const selfManaged = sel('mgmt', 'agent') === 'self';
+    const roomsAssumed = num('rooms');
+    // Coverage-gate the MEASURED all-clear against the SAME assumed lettable-room
+    // count the deal is scored with (num('rooms')) — never a divergent count from
+    // the caller (E9.1 review). A measured undersized room is always authoritative;
+    // an all-pass only clears (0) once every assumed room has been measured, else
+    // it stays the honest assumption (null). null when nothing measured.
+    const rawFails = opts.roomSizeFailures ?? null;
+    const roomSizeFailures = rawFails == null || rawFails > 0
+      ? rawFails
+      : (opts.roomsMeasured ?? 0) >= roomsAssumed ? 0 : null;
     inputs = {
-      price, country, rooms: num('rooms'), roomRent: num('roomRent'), billsIncluded: sel('bills', 'yes') !== 'no',
+      price, country, rooms: roomsAssumed, roomRent: num('roomRent'), billsIncluded: sel('bills', 'yes') !== 'no',
       refurb: num('refurbCost'), buyingAs: sel('buyingAs', 'basic') as HmoInputs['buyingAs'], selfManaged,
       depositPct: num('deposit'), ratePct: num('rate'), opCostPct: selfManaged ? num('opCostPctSelf') : num('opCostPctAgent'),
       licenceFee: num('licenceFee'), licenceYears: 5, compliancePerYear: num('compliancePerYear'), legals: num('legals'),
       stressRatePct: num('stressRate'), taxBasis: sel('taxBasis', 'additional') as HmoInputs['taxBasis'],
-      roomSizeFailures: opts.roomSizeFailures ?? null, // from the floor plan when confident (E9), else "check in analyser"
+      roomSizeFailures,
       thresholds,
     };
   }

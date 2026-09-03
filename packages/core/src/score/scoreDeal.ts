@@ -16,6 +16,7 @@ import { analyseHmo, type HmoAnalysis, type HmoInputs } from '../strategy-calc/h
 import { strategyById } from '../strategies';
 import type { ScoreComponent } from '../strategies/types';
 import { fmtMoney, fmtPct } from '../maths/format';
+import { ROOM_FIT_CAVEAT } from '../listing/floorplan';
 import { scoreCopy, type Verdict } from './copy';
 
 export type StrategyId = 'btl' | 'flip' | 'brrrr' | 'hmo';
@@ -149,10 +150,33 @@ function evaluate(
     }
     case 'roomSize': {
       const fails = (inputs as HmoInputs).roomSizeFailures;
-      // null ⇒ we couldn't verify room sizes (no dimensions on a sale listing):
-      // score it 'unknown' and say so — never guess compliance.
-      if (fails == null) return { status: 'unknown', why: 'Room sizes not checked — no dimensions on the listing.', currentValue: 'rooms not checked', neededValue: null, credit: null };
-      return { status: fails === 0 ? 'green' : 'red', why: fails === 0 ? 'All rooms meet the legal minimum.' : `${fails} room(s) below the legal minimum size.`, currentValue: `${fails} room${fails === 1 ? '' : 's'} below the minimum`, neededValue: null, credit: fails === 0 ? 1 : clamp01(1 - fails / 3) };
+      const rooms = (inputs as HmoInputs).rooms;
+      // null ⇒ the user hasn't measured rooms. We ASSUME lettable rooms from the
+      // listing's bedroom count so the strategy can score, and say so plainly —
+      // NEVER a legality claim that the rooms meet the statutory minimum (E9.1).
+      if (fails == null) return {
+        status: 'unknown',
+        why: `Assumed ${rooms} lettable room${rooms === 1 ? '' : 's'} — check this figure. We can’t see room sizes from a listing, so measure them before you commit — undersized rooms can’t be let in a licensed HMO.`,
+        currentValue: `${rooms} assumed rooms`,
+        neededValue: null,
+        credit: null,
+      };
+      // Measured by the user with the overlay — use THEIR figures, and say so.
+      // The measured pass ALWAYS carries the caveat so it never reads as flat
+      // legal compliance (E9.1 review).
+      // Occupancy-AGNOSTIC wording: `fails` is judged against whichever statutory
+      // minimum fits how each room is let (single 6.51 / two-adult 10.22 / child
+      // 4.64 m² on the web; single-adult on the extension), so never assert one
+      // specific figure here — it would be false for a double or child room (E9.1 review).
+      return {
+        status: fails === 0 ? 'green' : 'red',
+        why: fails === 0
+          ? `Your measured rooms all meet the statutory minimum size for how each is let. ${ROOM_FIT_CAVEAT}`
+          : `From your measurements, ${fails} room(s) fall below the statutory minimum size for how they’re let. ${ROOM_FIT_CAVEAT}`,
+        currentValue: `${fails} room${fails === 1 ? '' : 's'} below the minimum (measured)`,
+        neededValue: null,
+        credit: fails === 0 ? 1 : clamp01(1 - fails / 3),
+      };
     }
     case 'evidence': {
       // BTL scores purchase price; BRRRR/Flip score the end value they assume.
@@ -357,14 +381,31 @@ export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: De
   // shown when the deal ISN'T already good — "what's holding it back" is
   // meaningless on a green/good deal (that spurious note contradicted the card).
   const gaps = config.score.map((c, i) => ({ c, i, lost: c.weight - components[i].points, comp: components[i] }));
-  const worst = gaps.filter((g) => g.lost > 0).sort((a, b) => b.lost - a.lost || Number(b.c.gate) - Number(a.c.gate) || a.i - b.i)[0];
+  // "What's holding it back" must be a REAL, judged failure — never an UNKNOWN
+  // component (one we can't judge, e.g. an unmeasured HMO room-size or missing
+  // sold evidence). An unknown loses half its weight but asserting it as the
+  // binding constraint would print a failure sentence ("you couldn't let every
+  // room legally") for something we simply haven't verified — a false claim
+  // (E9.1 review). So unknowns are excluded here.
+  const worst = gaps.filter((g) => g.lost > 0 && g.comp.status !== 'unknown').sort((a, b) => b.lost - a.lost || Number(b.c.gate) - Number(a.c.gate) || a.i - b.i)[0];
   const t = inputs.thresholds as Record<string, number>;
   let bindingConstraint: BindingConstraint | null = null;
   // The chip headline: deal-specific, carries THIS deal's deciding number. Good
   // deals name what makes them good; failing deals name the binding constraint.
   let headline: string;
-  if (verdict === 'good' || !worst) {
-    headline = verdict === 'good' ? goodHeadline(strategy, analysis) : scoreCopy.headline[verdict];
+  if (verdict === 'good') {
+    headline = goodHeadline(strategy, analysis);
+  } else if (!worst) {
+    // Non-good, yet no JUDGED component failed — an UNKNOWN one capped the tier.
+    // The only real case is an unverified HMO room-size (money fine, rooms not
+    // yet measured). Never a tier platitude and never a false failure: name the
+    // unchecked thing with a real figure so the chip agrees with the verdict
+    // banner beside it (E9.1 review). Any other (unreachable) case: tier line.
+    const blocker = gaps.filter((g) => g.lost > 0 && g.comp.status === 'unknown')
+      .sort((a, b) => b.lost - a.lost || Number(b.c.gate) - Number(a.c.gate) || a.i - b.i)[0];
+    headline = blocker?.c.key === 'roomSize'
+      ? scoreCopy.headlineByKey.roomSizeUnchecked.replace('{value}', `${(inputs as HmoInputs).rooms} rooms`)
+      : scoreCopy.headline[verdict];
   } else {
     const e = evaluate(worst.c.key, analysis, inputs, evidence);
     const lever = leverFor(worst.c.key, analysis);
@@ -389,11 +430,14 @@ export function scoreDeal(strategy: StrategyId, inputs: AnyInputs, evidence?: De
  * naming the number that killed it. Copy is editable in score/copy.ts.
  */
 export function explainFailure(result: DealScore): string {
-  const { verdict, bindingConstraint: bc, components } = result;
+  const { verdict, bindingConstraint: bc } = result;
   if (!bc) {
-    return verdict === 'good'
-      ? 'Nothing’s holding this back — the numbers stack up across the board.'
-      : scoreCopy.headline[verdict];
+    if (verdict === 'good') return 'Nothing’s holding this back — the numbers stack up across the board.';
+    // Non-good with NO binding constraint ⇒ an unknown component capped the tier
+    // (e.g. an unmeasured HMO room-size). Reuse the SAME honest, figure-bearing
+    // headline the chip shows so the two never disagree — never a tier platitude
+    // that would invent a failure the money doesn't have (E9.1 review).
+    return result.headline;
   }
   // bc only exists when the verdict isn't good; plainExplanation already carries
   // the teaching sentence + the fix, so hand it back whole.

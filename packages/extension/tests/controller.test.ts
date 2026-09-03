@@ -96,6 +96,30 @@ describe('E8.2 — a lever moves the DISPLAYED score, verdict and headline (live
     expect(sig).toMatch(/money left in [+−]£/);
   });
 
+  it('measured rooms feed the HMO room-size component (E9.1)', () => {
+    const hmoListing = { ...listing, propertyType: found('Terraced'), bedrooms: found(4) };
+    // no measurements → honest assumption (component unknown)
+    __mountForTest(hmoListing, { sector, strategy: 'hmo', listingUnknowns: { roomRent: '650', rooms: '4' } });
+    const roomRow = () => [...document.querySelectorAll('.component')].map((r) => r.textContent ?? '').find((t) => /room/i.test(t) && /size|legal|minimum/i.test(t)) ?? '';
+    expect(roomRow().toLowerCase()).toContain('check analyser');
+    // with a measured undersized room recorded → the component reflects a failure
+    __mountForTest(hmoListing, { sector, strategy: 'hmo', listingUnknowns: { roomRent: '650', rooms: '4' }, floorplan: { available: true, open: false, acceptedSqm: null, measuredRooms: [12, 5], imageUrl: 'x' } });
+    expect(roomRow().toLowerCase()).toMatch(/red|below/);
+    // ONE adequate room (fewer than the 4 assumed) must NOT flip it green — still the honest assumption (E9.1 review)
+    __mountForTest(hmoListing, { sector, strategy: 'hmo', listingUnknowns: { roomRent: '650', rooms: '4' }, floorplan: { available: true, open: false, acceptedSqm: null, measuredRooms: [12], imageUrl: 'x' } });
+    expect(roomRow().toLowerCase()).toContain('check analyser');
+    // every assumed room measured and adequate → a genuine all-clear
+    __mountForTest(hmoListing, { sector, strategy: 'hmo', listingUnknowns: { roomRent: '650', rooms: '4' }, floorplan: { available: true, open: false, acceptedSqm: null, measuredRooms: [12, 10, 8, 9], imageUrl: 'x' } });
+    expect(roomRow().toLowerCase()).toMatch(/meet/);
+    // REVIEWER SCENARIO: bedroom count NOT read → no `rooms` unknown at all, yet the
+    // engine still scores the HMO on the config-default room count. Measuring ONE
+    // adequate room must NOT flip it green — the all-clear is gated against the SAME
+    // assumed count the deal is scored with, never a caller-side 0 (E9.1 review).
+    const noBeds = { ...listing, propertyType: found('Terraced'), bedrooms: missing() };
+    __mountForTest(noBeds, { sector, strategy: 'hmo', listingUnknowns: { roomRent: '650' }, floorplan: { available: true, open: false, acceptedSqm: null, measuredRooms: [12], imageUrl: 'x' } });
+    expect(roomRow().toLowerCase()).toContain('check analyser');
+  });
+
   it('the Seller Signals expander label tracks the open state (E8.2 review)', () => {
     __mountForTest(listing, { sector, strategy: 'btl', rent: '1000' });
     const box = document.querySelector('details.seller-signals') as HTMLDetailsElement;

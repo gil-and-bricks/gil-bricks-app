@@ -52,6 +52,9 @@ export const scoreCopy = {
     // Fallback if it ever binds with no sold data loaded (its trigger); honest.
     evidenceNoData: 'Your {value} hasn’t been checked against sold evidence — none is loaded for this area yet.',
     roomSize: '{value} — you couldn’t let every room legally, so the room income you’re counting on isn’t there.',
+    // Money is fine but the rooms haven't been checked — the honest holdback for
+    // an unmeasured HMO. Names the assumed room count; never claims (il)legality.
+    roomSizeUnchecked: 'The money stacks up — now measure the {value} to be sure each is a legal HMO size before you commit.',
     // The subject sits far outside the local sold evidence — not judged (bug E7/5b).
     evidenceOutside: 'No nearby sales at this level — we can’t judge the price from sold evidence.',
   },
