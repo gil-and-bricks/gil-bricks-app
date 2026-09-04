@@ -15,6 +15,8 @@ const cards = [
     blurb: s.tagline,
   })),
 ];
+import { COPY } from '../config/copy';
+const store = siteConfig.chromeStoreUrl.trim();
 ---
 
 <AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={siteConfig.tagline}>
@@ -49,10 +51,17 @@ const cards = [
       desktop visitors and hidden on phones (it isn't available there) — E11. */}
   <section class="glass card home-extension">
     <div>
-      <p><strong>On a computer?</strong> Get the free Chrome side-panel extension to score any Rightmove or Zoopla listing as you browse.</p>
-      <p class="hint">Chrome on desktop only — it isn’t available on phones.</p>
+      <p>{COPY.extension.homeLead}</p>
+      <p class="hint">{COPY.extension.desktopNote}</p>
     </div>
-    <a class="btn-secondary" href="/extension">See the extension</a>
+    <div class="home-extension-cta">
+      {store !== '' && (
+        <a class="store-badge" href={store} target="_blank" rel="noopener noreferrer">
+          <img src="/brand/chrome-web-store-badge.png" alt={COPY.extension.badgeAlt} width="206" height="58" />
+        </a>
+      )}
+      <a class="btn-secondary" href="/extension">{COPY.extension.seeMore}</a>
+    </div>
   </section>
 
   <p class="home-trust">

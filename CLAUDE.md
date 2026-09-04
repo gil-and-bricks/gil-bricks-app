@@ -19,7 +19,9 @@ Live at: https://gil-bricks-app.gil-782.workers.dev
 5. £0: only Cloudflare free tier + free GitHub Actions. No paid service in the
    request path. If a task implies paid infra, STOP and flag it.
 6. NEVER send email from the app. Marketing = Kit outbox row + Worker push only.
-7. NO cookie banner (strictly-necessary only). NO phone capture. NO scraping.
+7. NO cookie banner (strictly-necessary only). NO phone capture ANYWHERE except
+   the bridging enquiry form, which needs one because the outcome is a call
+   (see "Bridging finance page"). NO scraping.
    NO named lenders. NO live asking prices/rents. See docs/exclusions.md.
 8. England & Wales ONLY — gate on ONSPD CTRY (E92000001 / W92000004); reject
    Scotland/NI gracefully.
@@ -79,6 +81,24 @@ and the StrategyConfig fields in @gil-bricks/core) so any word can be changed
 without touching code. Exemptions from rule 1 are named in copy.test.ts with a
 reason each: accordion bodies and licence attributions. docs/COPY_AUDIT.md is
 the record of the N5 pass — every string, its length, and what happened to it.
+
+## Bridging finance page (INTRODUCTION ONLY — treat like a legal document)
+/bridging-finance introduces people to ONE broker the operator knows. It is not
+a broker, does not advise, does not compare products, does not recommend, and
+never states or implies a decision about anyone's finance.
+- The page may never say we will find the best rate or deal, name a lender,
+  recommend a product, or promise an outcome. Tested in lib/bridging.test.ts.
+- Wording lives in src/config/bridging.ts. Any change to it needs the same care
+  as a change to the terms: read it as a regulator would.
+- The enquiry form takes a PHONE NUMBER. That is a deliberate, page-scoped
+  exception to the no-phone-capture rule (the outcome is a phone call) — it is
+  documented here, in the privacy policy, and beside the field itself.
+- Qualification is server-side, two buckets only (qualified / not yet), with
+  thresholds in config. No deal data is ever carried into the enquiry; the
+  broker does not review deals.
+- D1 is written before Kit is called, so an enquiry survives a Kit outage; the
+  app itself still never sends email.
+- BEFORE THIS PAGE IS PUBLIC: the ICO data-protection fee must be paid.
 
 ## Stack
 - Astro (static-first), built to dist/, deployed as Cloudflare Workers static assets.

@@ -7,8 +7,17 @@
  *  - upsert:      POST /v4/subscribers { email_address, first_name } → 200/201 (202 async)
  *  - find:        GET  /v4/subscribers?email_address=… (exact match)
  *  - unsubscribe: POST /v4/subscribers/{id}/unsubscribe → 204
+ *  - tag:         POST /v4/tags/{tag_id}/subscribers { email_address } → 200/201
  * Auth header: X-Kit-Api-Key (server-side only, never logged).
+ *
+ * F1 adds two actions, 'bridging-qualified' and 'bridging-not-yet': the person
+ * is upserted and TAGGED, and Kit's own automations send the broker's
+ * notification and the follow-up. The app still sends no email itself. Until
+ * the operator fills in the tag ids the push fails honestly and the row waits
+ * in D1 for the cron — the enquiry is never lost.
  */
+
+import { BROKER } from '../../config/bridging';
 
 const KIT_API = 'https://api.kit.com/v4';
 
@@ -50,6 +59,7 @@ export async function pushToKit(
   row: Pick<OutboxRow, 'email' | 'first_name' | 'action'>,
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
+  tags: { qualified: string; notYet: string } = { qualified: BROKER.kitTagQualified, notYet: BROKER.kitTagNotYet },
 ): Promise<PushResult> {
   const headers = { 'X-Kit-Api-Key': apiKey, 'content-type': 'application/json' };
   try {
@@ -74,6 +84,25 @@ export async function pushToKit(
       const res = await fetchImpl(`${KIT_API}/subscribers/${sub.id}/unsubscribe`, { method: 'POST', headers });
       if (res.status === 204) return { ok: true };
       return { ok: false, error: `kit unsubscribe HTTP ${res.status}` };
+    }
+    if (row.action === 'bridging-qualified' || row.action === 'bridging-not-yet') {
+      const tagId = row.action === 'bridging-qualified' ? tags.qualified : tags.notYet;
+      if (tagId.trim() === '') return { ok: false, error: `kit tag id not configured for ${row.action}` };
+      const up = await fetchImpl(`${KIT_API}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email, first_name: row.first_name }),
+      });
+      if (!(up.status === 200 || up.status === 201 || up.status === 202)) {
+        return { ok: false, error: `kit subscribe HTTP ${up.status}` };
+      }
+      const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tagId)}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email }),
+      });
+      if (res.status === 200 || res.status === 201 || res.status === 202) return { ok: true };
+      return { ok: false, error: `kit tag HTTP ${res.status}` };
     }
     return { ok: false, error: `unknown action "${row.action}"` };
   } catch {

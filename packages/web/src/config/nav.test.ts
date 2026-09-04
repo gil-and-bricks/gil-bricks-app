@@ -27,7 +27,6 @@ describe('navigation (N4)', () => {
     ...NAV.primary, ...NAV.mine, ...NAV.bottom, ...NAV.more.links,
     { label: NAV.analyse.label, href: NAV.analyse.href },
     { label: COMING_SOON.tools.cta.label, href: COMING_SOON.tools.cta.href },
-    { label: COMING_SOON.finance.cta.label, href: COMING_SOON.finance.cta.href },
   ];
 
   it('every destination in the nav is a page this site actually has', () => {
@@ -49,7 +48,7 @@ describe('navigation (N4)', () => {
   it('the route list is read from the pages that exist, and it found them', () => {
     expect(ROUTES.has('/')).toBe(true);
     expect(ROUTES.has('/tools')).toBe(true);
-    expect(ROUTES.has('/finance')).toBe(true);
+    expect(ROUTES.has('/bridging-finance')).toBe(true);
     expect(ROUTES.size).toBeGreaterThan(8);
     expect(ROUTES.has('/definitely-not-a-page')).toBe(false);
   });
@@ -69,7 +68,7 @@ describe('navigation (N4)', () => {
   });
 
   it('the coming-soon pages say what is coming and point somewhere useful meanwhile', () => {
-    for (const page of [COMING_SOON.tools, COMING_SOON.finance]) {
+    for (const page of [COMING_SOON.tools]) {
       expect(page.body.length).toBeGreaterThan(0);
       expect(page.body.join(' ')).toMatch(/not built yet|nothing (here )?is built|none are built/i);
       expect(page.cta.href.startsWith('/')).toBe(true);

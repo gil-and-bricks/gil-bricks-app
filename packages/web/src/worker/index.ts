@@ -9,6 +9,8 @@
  */
 import { siteConfig } from '../site.config';
 import { features } from '../config/features';
+import { BRIDGING_RULES, BROKER } from '../config/bridging';
+import { qualify, isComplete, loanAmount, phoneDigits, type Enquiry } from '../lib/bridging';
 import {
   AUTH_STATE_COOKIE,
   authStateCookie,
@@ -220,7 +222,9 @@ async function enqueueKit(env: Env, userId: string | null, email: string, firstN
   // the same transaction, so a stalled older subscribe can never be replayed
   // by the cron after a newer unsubscribe (and vice versa).
   await env.DB.batch([
-    env.DB.prepare("UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending'").bind(email),
+    // ONLY the consent actions supersede each other — a pending bridging
+    // notification is a different thing and must still be delivered.
+    env.DB.prepare("UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND action IN ('subscribe','unsubscribe')").bind(email),
     env.DB.prepare(
       "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
     ).bind(id, userId, email, firstName, action, now),
@@ -334,6 +338,9 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     );
   }
   stmts.push(
+    // F1: a bridging enquiry is personal data too — deleting the account
+    // deletes it, exactly as the privacy policy says.
+    env.DB.prepare('DELETE FROM bridging_enquiries WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM saved_deals WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.sub),
   );
@@ -504,6 +511,81 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
   return json({ ok: true });
 }
 
+
+/**
+ * F1 — a bridging enquiry. Sign-in gated (we already have their name and
+ * email, so we never ask), Turnstile-checked, and QUALIFIED SERVER-SIDE with
+ * the same pure rules the browser used, so nothing can be talked past by
+ * editing the page. D1 is written FIRST and is the source of truth: if Kit is
+ * unreachable the row still exists, the outbox retries, and the person still
+ * gets an honest answer.
+ *
+ * This is an INTRODUCTION, never advice and never a decision about anyone's
+ * finance (CLAUDE.md → "Bridging finance page").
+ */
+async function handleBridgingEnquiry(request: Request, env: Env): Promise<Response> {
+  if (!features.bridgingFinance) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const str = (k: string): string => (typeof body[k] === 'string' ? (body[k] as string).trim() : '');
+  const human = await verifyTurnstile(str('turnstile'), env.TURNSTILE_SECRET, request.headers.get('CF-Connecting-IP'));
+  if (!human) return json({ error: 'human check failed' }, 403);
+
+  const enquiry: Enquiry = {
+    loan: str('loan'),
+    deposit: str('deposit') as Enquiry['deposit'],
+    property: str('property') as Enquiry['property'],
+    entity: str('entity') as Enquiry['entity'],
+    exit: str('exit') as Enquiry['exit'],
+    story: str('story'),
+    timing: str('timing') as Enquiry['timing'],
+    credit: str('credit') as Enquiry['credit'],
+    phone: str('phone'),
+    consent: body.consent === true,
+  };
+  // The same completeness rules the form showed — enforced again here.
+  if (!isComplete(enquiry)) return json({ error: 'incomplete' }, 400);
+
+  const decision = qualify(enquiry);
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  const firstName = user.name.split(' ')[0] ?? '';
+
+  // D1 FIRST: the enquiry is safe before Kit is touched at all.
+  await env.DB.prepare(
+    `INSERT INTO bridging_enquiries (id, user_id, email, first_name, phone, loan, deposit_band, property_state,
+      entity, exit_route, story, timing, credit, outcome, reasons, consent_at, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
+    .bind(
+      id, user.sub, user.email, firstName, phoneDigits(enquiry.phone), loanAmount(enquiry.loan),
+      enquiry.deposit, enquiry.property, enquiry.entity, enquiry.exit, enquiry.story.slice(0, 4000),
+      enquiry.timing, enquiry.credit, decision.outcome, decision.reasons.join(','), now, now,
+    )
+    .run();
+
+  // Then the outbox row Kit acts on — the app itself sends no email, ever.
+  const action = decision.outcome === 'qualified' ? 'bridging-qualified' : 'bridging-not-yet';
+  await env.DB.prepare(
+    "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+  ).bind(crypto.randomUUID(), user.sub, user.email, firstName, action, now).run();
+  // one inline attempt so the common case is instant; failure just waits for the cron
+  const row = await env.DB.prepare(
+    "SELECT id, email, first_name, action, attempts FROM kit_outbox WHERE action = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1",
+  ).bind(action, user.sub).first<{ id: string; email: string; first_name: string; action: string; attempts: number }>();
+  if (row) await attemptKitRow(env, row);
+
+  // the reasons are stable keys; the page turns them into one line each
+  return json({ outcome: decision.outcome, reasons: decision.reasons });
+}
+
 /** P4: move a deal to another progress stage (skipping allowed — it's the user's own
  * money). Writes deal_stage_history + updates the card's stage/status. Pipeline-only. */
 async function handleMoveDeal(request: Request, env: Env, dealId: string): Promise<Response> {
@@ -611,6 +693,7 @@ export default {
     if (pathname === '/api/me' && method === 'GET') return handleMe(request, env);
     if (pathname === '/api/consent' && method === 'POST') return handleConsent(request, env);
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);
+    if (pathname === '/api/bridging' && method === 'POST') return handleBridgingEnquiry(request, env);
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
     {

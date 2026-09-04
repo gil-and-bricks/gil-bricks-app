@@ -29,7 +29,7 @@ export const NAV = {
   primary: [
     { label: 'Area Data', href: '/area-data' },
     { label: 'Tools', href: '/tools' },
-    { label: 'Finance', href: '/finance' },
+    { label: 'Bridging finance', href: '/bridging-finance' },
   ] as NavLink[],
   /** The right-hand cluster: your own things. */
   mine: [
@@ -49,7 +49,7 @@ export const NAV = {
     /** Announced on the button so it is clearly a menu, not a destination. */
     hint: 'More places to go',
     links: [
-      { label: 'Finance', href: '/finance' },
+      { label: 'Bridging finance', href: '/bridging-finance' },
       { label: 'Account', href: '/account' },
       { label: 'Where should I start?', href: '/start' },
       { label: 'Privacy', href: '/privacy' },
@@ -59,9 +59,10 @@ export const NAV = {
 } as const;
 
 /**
- * The two destinations the nav promises before they exist. Honest by
+ * The one destination the nav promises before it exists. Honest by
  * construction: the page says what is coming and what to use meanwhile, and
- * the nav never points at a blank screen.
+ * the nav never points at a blank screen. (Finance became the real bridging
+ * page in F1 — see src/config/bridging.ts.)
  */
 export const COMING_SOON = {
   tools: {
@@ -72,14 +73,5 @@ export const COMING_SOON = {
       'None are built yet. The analyser already does this maths inside a deal.',
     ],
     cta: { label: 'Open the analyser', href: '/buy-to-let/analyser' },
-  },
-  finance: {
-    title: 'Finance',
-    tagline: 'How the money side gets funded — bridging, refurb and exit.',
-    body: [
-      'Bridging and refurb finance guidance is coming: real costs, and how to check a quote.',
-      'Nothing is built yet, and we never name lenders. BRRRR and Flip already model bridging costs.',
-    ],
-    cta: { label: 'Model a bridging deal', href: '/brrrr/analyser' },
   },
 } as const;

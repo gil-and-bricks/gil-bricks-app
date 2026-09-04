@@ -89,6 +89,14 @@ export const COPY = {
     dealsEmptyCta: 'Open an analyser',
     auctionWarning: 'Auction — read the legal pack before you bid.',
   },
+  /** The Chrome side panel. The badge itself is Google's artwork, unmodified;
+   * only the words around it are ours. */
+  extension: {
+    badgeAlt: 'Available in the Chrome Web Store',
+    desktopNote: 'Chrome on a desktop or laptop. It isn’t available on phones.',
+    homeLead: 'On a computer? The free Chrome side panel scores any Rightmove or Zoopla listing as you browse.',
+    seeMore: 'See what it does',
+  },
   /** One sold record. */
   transaction: {
     noId: 'This link doesn’t point to a sale. Go back and pick a row.',

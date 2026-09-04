@@ -1,6 +1,7 @@
 ---
 import AppShell from '../../layouts/AppShell.astro';
 import { siteConfig } from '../../site.config';
+import { COPY } from '../../config/copy';
 
 const store = siteConfig.chromeStoreUrl.trim();
 const steps = [
@@ -21,12 +22,14 @@ const steps = [
       Flip, BRRRR or HMO deal, using real sold prices.
     </p>
     <div class="ext-cta">
-      {store !== '' ? (
-        <a class="btn-primary ext-install" href={store} target="_blank" rel="noopener noreferrer">Add to Chrome — it’s free</a>
-      ) : (
-        <span class="btn-primary ext-install is-disabled" aria-disabled="true" title="Listing coming soon">Coming soon to the Chrome Web Store</span>
+      {store !== '' && (
+        <a class="store-badge" href={store} target="_blank" rel="noopener noreferrer">
+          {/* Google's official badge, used unmodified per the Chrome Web Store
+              branding guidelines, self-hosted (never a third-party CDN). */}
+          <img src="/brand/chrome-web-store-badge.png" alt={COPY.extension.badgeAlt} width="206" height="58" />
+        </a>
       )}
-      <p class="ext-desktop-note">Chrome on a desktop or laptop. It isn’t available on phones.</p>
+      <p class="ext-desktop-note">{COPY.extension.desktopNote}</p>
     </div>
   </section>
 

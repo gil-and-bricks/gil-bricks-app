@@ -1,5 +1,6 @@
 /** Shared subject-property inputs. Tooltip copy lives in src/content/microcopy.ts. */
 import { useState } from 'preact/hooks';
+import { MoneyInput } from './MoneyInput';
 import { state, update } from './state';
 import { Tooltip } from './Tooltip';
 import { lookupEpcArea } from './epcArea';
@@ -59,8 +60,7 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
       </div>
       <div class="field">
         <label for="f-price">Price (£) <Tooltip text={TIPS.price} /> <ProvBadge field="price" /></label>
-        <input id="f-price" inputMode="numeric" value={s.price}
-          onInput={(e) => { update({ price: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') }); markEdited('price'); }} />
+        <MoneyInput id="f-price" value={s.price} onValue={(price) => update({ price })} onEdited={() => markEdited('price')} />
       </div>
       <div class="field">
         <label for="f-type">Property type <Tooltip text={TIPS.type} /> <ProvBadge field="type" /></label>

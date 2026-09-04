@@ -313,3 +313,17 @@ describe('consent → Kit outbox', () => {
     expect(f.outbox).toHaveLength(0);
   });
 });
+
+describe('a consent change never cancels a bridging notification (F1)', () => {
+  it('supersedes only the consent actions', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    // The supersede is scoped by action, so a pending bridging row is untouched
+    // — the broker still gets told, whatever the person does about marketing.
+    const sql = readFileSync(fileURLToPath(new URL('./index.ts', import.meta.url)), 'utf8');
+    const supersedes = sql.match(/UPDATE kit_outbox SET status = 'superseded'[^"]*/g) ?? [];
+    expect(supersedes.length).toBeGreaterThan(0);
+    const inEnqueue = supersedes.find((q) => q.includes("action IN ('subscribe','unsubscribe')"));
+    expect(inEnqueue, 'enqueueKit must scope its supersede by action').toBeTruthy();
+  });
+});

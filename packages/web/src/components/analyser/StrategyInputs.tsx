@@ -1,12 +1,19 @@
 /** Generic renderer for StrategyConfig fields — visible inputs + the
  * assumptions accordion. Purely config-driven; no strategy names in code. */
 import type { StrategyField } from '@gil-bricks/core';
+import { MoneyInput } from './MoneyInput';
 import { strategyParams, updateStrategy } from './state';
 import { Tooltip } from './Tooltip';
 import { Accordion } from './Accordion';
 import { ProvBadge } from './ProvBadge';
 import { markEdited } from './provenance';
 import { SECTION_STRIP } from '../../config/analyserSections';
+
+/** A pounds field is one whose unit starts with £ — the config already says so,
+ * so no component keeps its own list of "which fields are money" (F1). */
+function isMoney(f: StrategyField): boolean {
+  return (f.unit ?? '').trim().startsWith('£');
+}
 
 function Field({ f }: { f: StrategyField }) {
   const v = strategyParams.value[f.key] ?? f.default;
@@ -19,6 +26,8 @@ function Field({ f }: { f: StrategyField }) {
         <select id={`sf-${f.key}`} value={v} onChange={(e) => { updateStrategy({ [f.key]: (e.target as HTMLSelectElement).value }); markEdited(f.key); }}>
           {(f.options ?? []).map((o) => <option value={o.value}>{o.label}</option>)}
         </select>
+      ) : isMoney(f) ? (
+        <MoneyInput id={`sf-${f.key}`} value={v} onValue={(raw) => updateStrategy({ [f.key]: raw })} onEdited={() => markEdited(f.key)} />
       ) : (
         <input id={`sf-${f.key}`} inputMode="decimal" value={v}
           onInput={(e) => { updateStrategy({ [f.key]: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); markEdited(f.key); }} />

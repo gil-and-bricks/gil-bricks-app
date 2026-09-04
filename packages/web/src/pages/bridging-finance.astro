@@ -1,0 +1,45 @@
+---
+/**
+ * F1 — bridging finance. This page makes an INTRODUCTION to one broker the
+ * operator knows: no advice, no comparison, no product recommendation, and
+ * never a decision about anyone's finance. Every word comes from
+ * src/config/bridging.ts; see CLAUDE.md → "Bridging finance page".
+ */
+import AppShell from '../layouts/AppShell.astro';
+import { BridgingEnquiry } from '../components/finance/BridgingEnquiry';
+import { BRIDGING } from '../config/bridging';
+import { siteConfig } from '../site.config';
+---
+
+<AppShell title={`${BRIDGING.title} — ${siteConfig.siteName}`} description={BRIDGING.tagline}>
+  <h1 class="page-title">{BRIDGING.title}</h1>
+  <p class="page-sub">{BRIDGING.tagline}</p>
+
+  <section class="glass card">
+    <h2>{BRIDGING.what.heading}</h2>
+    {BRIDGING.what.body.map((line) => <p>{line}</p>)}
+  </section>
+
+  <section class="glass card">
+    <h2>{BRIDGING.how.heading}</h2>
+    <ol class="bridge-steps">
+      {BRIDGING.how.steps.map((line) => <li>{line}</li>)}
+    </ol>
+  </section>
+
+  <section class="glass card">
+    <h2>{BRIDGING.notFor.heading}</h2>
+    <ul class="bridge-list">
+      {BRIDGING.notFor.items.map((line) => <li>{line}</li>)}
+    </ul>
+  </section>
+
+  <section class="glass card bridge-risk">
+    <h2>{BRIDGING.risk.heading}</h2>
+    <ul class="bridge-list">
+      {BRIDGING.risk.items.map((line) => <li>{line}</li>)}
+    </ul>
+  </section>
+
+  <BridgingEnquiry client:load />
+</AppShell>

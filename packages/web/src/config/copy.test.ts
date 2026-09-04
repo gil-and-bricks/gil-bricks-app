@@ -16,6 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
+import { BRIDGING } from './bridging';
 import { COMING_SOON, NAV } from './nav';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
 
@@ -78,6 +79,19 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
       .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
       .map((s) => `${s.key}: ${wordCount(s.text)} words`);
     expect(long).toEqual([]);
+  });
+
+  it('the bridging page obeys the same rules — it is the wordiest thing we ship', () => {
+    const strings = flatten(BRIDGING, 'BRIDGING');
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long).toEqual([]);
+    const longSentence = strings
+      .flatMap((s) => sentencesOf(s.text).map((sentence) => ({ key: s.key, sentence })))
+      .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
+      .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
+    expect(longSentence).toEqual([]);
   });
 
   it('tooltips stay at 20 words — they are already the short home', () => {

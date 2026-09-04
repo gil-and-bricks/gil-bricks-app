@@ -39,6 +39,9 @@ import {
   type SellerSignals,
   type SectorLoad,
   type CashNeeded,
+  fmtMoneyInput,
+  moneyCaret,
+  parseMoneyInput,
 } from '@gil-bricks/core';
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
 import * as store from '../../src/store';
@@ -455,7 +458,9 @@ function numberField(id: string, value: string, placeholder: string, on?: (v: st
   return inp;
 }
 
-const fmtThousands = (digits: string): string => (digits ? Number(digits).toLocaleString('en-GB') : '');
+/** Formatting and caret maths come from @gil-bricks/core (F1) so the panel and
+ * the web app can never drift; the £ prefix here is the panel's own chrome. */
+const fmtThousands = (digits: string): string => fmtMoneyInput(digits).replace('£', '');
 const fmtGBP = (n: number): string => `£${Math.round(n).toLocaleString('en-GB')}`;
 
 /**
@@ -476,15 +481,10 @@ function moneyField(id: string, raw: string, placeholder: string, onRaw?: (digit
   if (onRaw) {
     inp.addEventListener('input', () => {
       const caret = inp.selectionStart ?? inp.value.length;
-      const digitsBefore = (inp.value.slice(0, caret).match(/\d/g) || []).length;
-      const digits = inp.value.replace(/[^\d]/g, '');
+      const typed = inp.value;
+      const digits = parseMoneyInput(typed);
       inp.value = fmtThousands(digits);
-      let pos = 0;
-      let seen = 0;
-      while (pos < inp.value.length && seen < digitsBefore) {
-        if (/\d/.test(inp.value[pos])) seen++;
-        pos++;
-      }
+      const pos = moneyCaret(typed, caret, inp.value);
       try { inp.setSelectionRange(pos, pos); } catch { /* non-text inputs */ }
       onRaw(digits);
     });

@@ -47,8 +47,13 @@ export interface FeatureFlags {
   desktopSplit: boolean;
   /** The grouped header and the five-item bottom bar with a More sheet (N4).
    * Off: the flat header list (Area Data + four strategies) and the old
-   * five-strategy bottom bar. The /tools and /finance pages exist either way. */
+   * five-strategy bottom bar. The /tools and /bridging-finance pages exist either way. */
   navV2: boolean;
+  /** The bridging finance enquiry page (F1) at /bridging-finance: the
+   * explanation, the sign-in gate and the two-step form. Off: the route still
+   * exists and explains what is coming, but no form renders and the API
+   * answers 404 — nothing can be submitted. */
+  bridgingFinance: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -60,6 +65,7 @@ export const features: FeatureFlags = {
   compsMobile: true,
   desktopSplit: true,
   navV2: true,
+  bridgingFinance: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags
