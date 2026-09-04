@@ -1,6 +1,7 @@
 /** Render-on-demand transaction detail. Compliant links only:
  * Land Registry primary; portal LANDING pages, never internal URLs. */
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { COPY } from '../../config/copy';
 import { fmtMoney } from '@gil-bricks/core';
 import { getTransaction, type TransactionDetail as Tx, OGL_ATTRIBUTION } from '@gil-bricks/core';
 import { compLinks } from '@gil-bricks/core';
@@ -49,11 +50,11 @@ export function TransactionDetail() {
   if (err) {
     const msg =
       err === 'missing'
-        ? 'This link doesn’t point to a specific sale — go back to the comparables list and pick a row.'
-        : 'We couldn’t load this sold record just now — it’s usually temporary. Please try again in a moment.';
+        ? COPY.transaction.noId
+        : COPY.transaction.failed;
     return (
       <section class="glass card">
-        <h3 class="state-h">We couldn’t show this sale</h3>
+        <h3 class="state-h">{COPY.transaction.failedTitle}</h3>
         <p class="field-error" role="alert">{msg}</p>
       </section>
     );

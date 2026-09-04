@@ -1,4 +1,5 @@
 import { fmtMoney } from '@gil-bricks/core';
+import { COPY } from '../../config/copy';
 import { sqmToSqft } from '@gil-bricks/core';
 import type { Comp, ComparablesResult, SortKey } from '@gil-bricks/core';
 import { computeStats, sortComps } from '@gil-bricks/core';
@@ -136,11 +137,11 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
       ) : filterFields}
 
         {result === null ? (
-          <p class="hint">Waiting for a postcode…</p>
+          <p class="hint">{COPY.comps.waiting}</p>
         ) : result.comps.length === 0 ? (
           <div role="status">
-            <h3 class="state-h">No matching sales</h3>
-            <p class="hint">{result.suggestion ?? 'No sold prices matched this search near this postcode.'}</p>
+            <h3 class="state-h">{COPY.comps.noneTitle}</h3>
+            <p class="hint">{result.suggestion ?? COPY.comps.none}</p>
           </div>
         ) : (
           <>
@@ -183,7 +184,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               >
                 Map
               </button>
-              {s.view === 'map' && <span class="hint">The list view carries the same data for keyboard and screen-reader use.</span>}
+              {s.view === 'map' && <span class="hint">{COPY.comps.listCarriesData}</span>}
             </div>
             {s.view === 'map' && comps.some((c) => !c.included) && (
               <span class="map-chip">{comps.filter((c) => !c.included).length} dimmed — excluded from the stats</span>
@@ -197,7 +198,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                 selectedId={null}
               />
             )}
-            {s.view === 'list' && <p class="hint">Untick a row to leave it out — the stats recalculate instantly.</p>}
+            {s.view === 'list' && <p class="hint">{COPY.comps.untick}</p>}
             {cards && (
               <ul class="comp-cards" aria-label={COMPARABLES.card.listLabel} hidden={s.view === 'map'}>
                 {comps.map((c) => {

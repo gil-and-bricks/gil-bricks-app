@@ -9,6 +9,7 @@
  * retry — a blank map can never ship silently.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { COPY } from '../../config/copy';
 import type { Comp } from '@gil-bricks/core';
 import type { MapData, MapHandle } from './mapImpl';
 import { hoveredCompId } from './mapSync';
@@ -114,10 +115,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
         role="application"
       />
       {article4 && a4 && a4.features.length > 0 && !broken && (
-        <p class="hint map-a4-note">
-          Shaded areas have an Article 4 direction recorded in the national planning dataset (England). Coverage is
-          incomplete and councils change these — always confirm with the council before you buy.
-        </p>
+        <p class="hint map-a4-note">{COPY.comps.article4}</p>
       )}
     </>
   );

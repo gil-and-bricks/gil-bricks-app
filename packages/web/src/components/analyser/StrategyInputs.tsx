@@ -23,7 +23,6 @@ function Field({ f }: { f: StrategyField }) {
         <input id={`sf-${f.key}`} inputMode="decimal" value={v}
           onInput={(e) => { updateStrategy({ [f.key]: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); markEdited(f.key); }} />
       )}
-      {f.whyDefault && <p class="field-hint">{f.whyDefault}</p>}
     </div>
   );
 }

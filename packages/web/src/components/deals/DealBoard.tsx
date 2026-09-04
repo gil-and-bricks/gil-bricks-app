@@ -9,6 +9,7 @@
  *  - auction deals surface the legal-pack warning unmissably at Offer in.
  */
 import { useEffect, useState } from 'preact/hooks';
+import { COPY } from '../../config/copy';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealHref } from '../../lib/deals/deal';
@@ -110,7 +111,7 @@ export function DealBoard() {
     return (
       <div class="glass card">
         <h3 class="state-h">Sign in to see your pipeline</h3>
-        <p class="hint">Your deals live here once you’re signed in — it’s free and takes one tap with Google.</p>
+        <p class="hint">{COPY.account.dealsSignIn}</p>
         <button type="button" class="btn-primary" onClick={openLoginWall}>Log in</button>
       </div>
     );
@@ -122,10 +123,8 @@ export function DealBoard() {
     return (
       <div class="glass card board-empty">
         <h3 class="state-h">No deals yet</h3>
-        <p class="hint">
-          Deals show up here when you analyse a listing — there’s no “add a property” button by design.
-          Run one through an <a href="/">analyser</a>, or send one over with the <a href="/extension">extension</a>.
-        </p>
+        <p class="hint">{COPY.account.dealsEmpty}</p>
+        <p class="hint"><a href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a></p>
       </div>
     );
   }
@@ -169,7 +168,7 @@ export function DealBoard() {
         <p class={`dc-verdict ${verdict.scored ? 'v-' + verdict.cls : 'v-unscored'}`}>{verdict.line}</p>
 
         {auctionWarn && (
-          <p class="dc-auction" role="note">⚠ Auction — read the legal pack before you bid. Fees and a fixed completion apply.</p>
+          <p class="dc-auction" role="note">⚠ {COPY.account.auctionWarning}</p>
         )}
 
         {step !== '' && <p class={`dc-step step-${age}`}>{step}</p>}

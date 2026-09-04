@@ -71,7 +71,7 @@ describe('navigation (N4)', () => {
   it('the coming-soon pages say what is coming and point somewhere useful meanwhile', () => {
     for (const page of [COMING_SOON.tools, COMING_SOON.finance]) {
       expect(page.body.length).toBeGreaterThan(0);
-      expect(page.body.join(' ')).toMatch(/not built yet|nothing here is built/i);
+      expect(page.body.join(' ')).toMatch(/not built yet|nothing (here )?is built|none are built/i);
       expect(page.cta.href.startsWith('/')).toBe(true);
     }
   });

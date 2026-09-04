@@ -16,8 +16,6 @@ export interface StrategyField {
   options?: { value: string; label: string }[];
   /** Tooltip microcopy (placeholder until S8). */
   tip: string;
-  /** One-line "why this default" note, shown in the assumptions accordion. */
-  whyDefault?: string;
   /** Render only when another field holds a value (companion fields). */
   showWhen?: { key: string; value: string };
 }
@@ -51,7 +49,7 @@ export interface StrategyConfig {
   heroLine: string;
   /** Visible strategy inputs (max 7 logical, companions excluded — simplicity law). */
   strategyInputs: StrategyField[];
-  /** Editable assumptions (collapsed accordion), each with whyDefault. */
+  /** Editable assumptions, in a collapsed accordion. */
   assumptions: StrategyField[];
   /** Verdict thresholds — tune here, never in code. */
   thresholds: Record<string, number>;

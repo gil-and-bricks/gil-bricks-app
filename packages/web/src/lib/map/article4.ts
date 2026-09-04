@@ -104,7 +104,7 @@ export function article4Flag(result: Article4Result, country: string): Article4F
       mentionsHmo: false,
       headline: 'Article 4 not checked here',
       detail:
-        'The national Article 4 dataset covers England only. In Wales, check the local authority directly for any Article 4 direction affecting small HMOs.',
+        'The national dataset covers England only. In Wales, check with the council.',
     };
   }
   if (!result.ok) {

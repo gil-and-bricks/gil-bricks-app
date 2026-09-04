@@ -5,6 +5,7 @@
  * human check (server-verified only when an account is CREATED).
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { COPY } from '../../config/copy';
 import { siteConfig } from '../../site.config';
 import { cookiesBlocked } from '../../lib/auth/session';
 
@@ -146,12 +147,12 @@ export function LoginWall() {
       <div class="glass card wall" role="dialog" aria-modal="true" aria-labelledby="wall-title">
         <button type="button" class="wall-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
         <h2 id="wall-title" ref={headingRef} tabindex={-1}>Sign in to {siteConfig.siteName}</h2>
-        <p class="hint">Free forever — sign in to save deals to My deals and share them. (PDF export is coming soon.)</p>
+        <p class="hint">{COPY.account.loginWhy}</p>
 
         {blocked ? (
           <>
             <h3 class="state-h">Turn on cookies to sign in</h3>
-            <p>Signing in and saving need cookies switched on in your browser. Your analysis is safe in this link — copy it so you don’t lose it.</p>
+            <p>{COPY.account.cookiesOff}</p>
             <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
           </>
         ) : (
@@ -167,10 +168,7 @@ export function LoginWall() {
             </label>
             <div class="wall-turnstile" ref={widgetRef} />
             {tsError && (
-              <p class="hint" role="alert">
-                The quick human check couldn't load. Existing users can sign in as normal; creating a NEW account needs
-                it — reload the page to retry.
-              </p>
+              <p class="hint" role="alert">{COPY.account.checkFailed}</p>
             )}
             <button type="button" class="gsi-button" disabled={!accepted} onClick={startLogin} aria-describedby={accepted ? undefined : 'wall-accept-first'}>
               <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true">

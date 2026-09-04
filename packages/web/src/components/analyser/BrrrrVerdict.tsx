@@ -1,5 +1,6 @@
 /** The BRRRR verdict island — config + @gil-bricks/core (strategy-calc/brrrr) only. */
 import { keyFigure } from './keyFigure';
+import { COPY } from '../../config/copy';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -91,7 +92,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       analysisError = /must be|cannot be/.test(raw)
-        ? 'These numbers don’t work together — check the price, end value, LTV and rent.'
+        ? COPY.verdict.inputsClash
         : raw;
     }
   }
@@ -116,16 +117,11 @@ export function BrrrrVerdict({ config, comps, valuation }: {
       <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
-        <p class="field-hint">
-          End value pre-filled from our estimate ({fmtMoney(valuation.estimate)}) — it reflects typical sold
-          condition for the area; raise it only if your finish will clearly beat local stock.
-        </p>
+        <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}
       {!ready && (
         <p class="hint">
-          {p.ltv === 'custom' && num('ltvCustom') <= 0
-            ? 'Enter your custom loan-to-value % to get a verdict.'
-            : 'Add the end value after works and the rent after works to get a verdict — the refurb budget and price help too.'}
+          {p.ltv === 'custom' && num('ltvCustom') <= 0 ? COPY.verdict.needLtv : COPY.verdict.needBrrrr}
         </p>
       )}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}

@@ -68,8 +68,8 @@ export const COMING_SOON = {
     title: 'Tools',
     tagline: 'Small calculators that answer one question each.',
     body: [
-      'This is where the standalone calculators will live — stamp duty on its own, a rent-to-price check, a refurb budget sanity check — each one answering a single question without filling in a whole deal.',
-      'Nothing here is built yet. The full analyser already does all of this maths inside a deal, so use that in the meantime.',
+      'Small calculators are coming: stamp duty, a rent-to-price check, a refurb budget check.',
+      'None are built yet. The analyser already does this maths inside a deal.',
     ],
     cta: { label: 'Open the analyser', href: '/buy-to-let/analyser' },
   },
@@ -77,8 +77,8 @@ export const COMING_SOON = {
     title: 'Finance',
     tagline: 'How the money side gets funded — bridging, refurb and exit.',
     body: [
-      'This is where bridging and development finance guidance will live: what the costs actually are, how lenders read a deal, and how to sanity-check a quote before you commit.',
-      'Nothing here is built yet, and we will never name or recommend a lender. The BRRRR and Flip analysers already model bridging costs inside a deal, so use those in the meantime.',
+      'Bridging and refurb finance guidance is coming: real costs, and how to check a quote.',
+      'Nothing is built yet, and we never name lenders. BRRRR and Flip already model bridging costs.',
     ],
     cta: { label: 'Model a bridging deal', href: '/brrrr/analyser' },
   },

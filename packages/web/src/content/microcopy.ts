@@ -39,14 +39,14 @@ export const microcopy: Record<string, string> = {
 
   // --- Comparables ---
   'comps.typical':
-    'The typical sold price: we drop the cheapest and dearest quarter of sales, then average the rest (the interquartile mean, IQM).',
+    'The typical sold price: we drop the cheapest and dearest quarter, then average the rest (the interquartile mean).',
   'comps.range80':
     '8 in 10 nearby sales fell in this range — the cheapest tenth and dearest tenth are left out.',
   'comps.persqft':
-    'Price per square foot of floor space — a fair way to compare homes of different sizes. Needs a known floor area.',
+    'Price per square foot — a fair way to compare homes of different sizes.',
 
   // --- Account ---
-  'account.marketing': 'Tick to get property tips and updates by email. Untick any time — we tell our email provider to stop.',
+  'account.marketing': 'Property tips and updates by email. Untick any time.',
 };
 
 /** Read a tooltip by key. Falls back to the key itself so a missing key is visible, never blank. */

@@ -1,4 +1,5 @@
 import { fmtMoney } from '@gil-bricks/core';
+import { COPY } from '../../config/copy';
 import type { Valuation } from '@gil-bricks/core';
 import type { AddressCandidate } from '@gil-bricks/core';
 import { MathsAccordion } from './Accordion';
@@ -26,24 +27,18 @@ export function ValuationCard({ valuation, lrState, candidates }: {
       )}
       {lrState === 'timeout' && (
         <div role="status" class="state-block">
-          <h3 class="state-h">Sale history unavailable</h3>
-          <p class="hint">
-            We couldn’t reach HM Land Registry just now, so we can’t use this exact property’s own past sale. The
-            estimate below still leans on nearby sold prices.
-          </p>
+          <h3 class="state-h">{COPY.valuation.lrTimeoutTitle}</h3>
+          <p class="hint">{COPY.valuation.lrTimeout}</p>
         </div>
       )}
       {state.value.area === '' && (
         <div role="status" class="state-block">
-          <h3 class="state-h">Add the floor area for £/sqft</h3>
-          <p class="hint">
-            Without the internal area we can’t show a price per square foot for this property. Type the size in square
-            metres (it’s on the EPC) in the form above to unlock it.
-          </p>
+          <h3 class="state-h">{COPY.valuation.needAreaTitle}</h3>
+          <p class="hint">{COPY.valuation.needArea}</p>
         </div>
       )}
       {valuation === null ? (
-        <p class="hint">Not enough evidence yet — add the internal area, or a house number so we can find its sale history.</p>
+        <p class="hint">{COPY.valuation.thinEvidence}</p>
       ) : (
         <>
           <p class="big-figure">{fmtMoney(valuation.estimate)}</p>
@@ -62,9 +57,7 @@ export function ValuationCard({ valuation, lrState, candidates }: {
             </div>
           ))}
           <MathsAccordion breakdown={valuation.breakdown} />
-          <p class="context-note">
-            Beds, baths, garden and parking are context only — they never adjust the numbers.
-          </p>
+          <p class="context-note">{COPY.valuation.contextOnly}</p>
         </>
       )}
     </section>

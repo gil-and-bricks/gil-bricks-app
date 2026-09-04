@@ -13,12 +13,10 @@ const dataBase = sc.dataBaseUrl.replace(/\/+$/, '');
   <link rel="preload" as="fetch" href={`${dataBase}/ukhpi.json`} crossorigin />
   <h1 class="page-title">Area data</h1>
   <p class="page-sub">
-    What actually sold, for any England &amp; Wales postcode — typical prices, the price trend, market activity and
-    deprivation, straight from HM Land Registry, EPC and official government indices. No asking prices, no guesswork.
+    What actually sold near any England &amp; Wales postcode. No asking prices, no guesswork.
   </p>
   <AreaApp client:load />
   <p class="page-note">
-    The crime and flood cards query data.police.uk and the Environment Agency directly from your browser, so those
-    official services see the request as coming from you. We add no cookies or tracking.
+    The crime and flood cards call police.uk and the Environment Agency from your browser. We add no cookies or tracking.
   </p>
 </AppShell>

@@ -17,8 +17,8 @@ const steps = [
   <section class="ext-hero">
     <h1>Score a listing as a deal — without leaving the page</h1>
     <p class="ext-lede">
-      The free {siteConfig.siteName} side panel reads the Rightmove or Zoopla listing you’re looking at and
-      scores it as a Buy-to-Let, Flip, BRRRR or HMO deal — using real HM Land Registry sold prices, not asking prices.
+      The free {siteConfig.siteName} side panel scores the listing you’re looking at as a BTL,
+      Flip, BRRRR or HMO deal, using real sold prices.
     </p>
     <div class="ext-cta">
       {store !== '' ? (
@@ -33,10 +33,8 @@ const steps = [
   <section class="glass card ext-section">
     <h2>What it does</h2>
     <p>
-      When you’re on a property listing, the panel pulls out the price, type and size, works out the numbers for
-      four common strategies, and shows a plain 0–10 Deal Score with what’s holding each one back. You answer at
-      most one or two figures (like the rent) and it’s done. Nothing is filled in as a “fact” unless it really is —
-      estimates are always labelled as estimates.
+      The panel reads the price, type and size, then scores four strategies out of 10 and says what’s
+      holding each back. You add a figure or two, like the rent.
     </p>
   </section>
 
@@ -59,8 +57,8 @@ const steps = [
     <h2>What it does <em>not</em> do</h2>
     <ul>
       <li><strong>No scraping.</strong> It reads only the one page you personally open — it never crawls the portal or opens pages in the background.</li>
-      <li><strong>It never sends that page’s content anywhere on its own.</strong> The listing’s text, price and address stay on your device — until <em>you</em> click “Send to my analyser”, which opens them (with your figures) in a new tab on our site to analyse further.</li>
-      <li><strong>To score the deal</strong> it looks up nearby sold prices using the property’s postcode area — that’s the only page detail sent automatically. (Open the measure tool and it also loads the plan image from the portal to show you — nothing is uploaded.) Full detail in the <a href="/extension/privacy">privacy policy</a>.</li>
+      <li><strong>It never sends that page’s content anywhere on its own.</strong> The listing stays on your device until you click “Send to my analyser”.</li>
+      <li><strong>To score the deal</strong> it looks up sold prices by postcode area — the only detail sent automatically. Full detail in the <a href="/extension/privacy">privacy policy</a>.</li>
       <li><strong>No account needed</strong> to use the panel. No tracking, no ads, no selling data. Your settings stay on your own device.</li>
     </ul>
   </section>

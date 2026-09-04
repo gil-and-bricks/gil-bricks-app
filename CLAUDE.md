@@ -55,6 +55,31 @@ commit per sprint, additive-only migrations) are review discipline, not tests:
 say so rather than pretending a test covers them. Page prose under src/pages and src/content is content, not config,
 and is out of the ratchet's scope on purpose.
 
+## Copy rules (HARD RULE — enforced by packages/web/src/config/copy.test.ts)
+Wordiness is a navigation problem: the more there is to read, the harder the
+page is to use. These are permanent.
+1. No visible explanatory block over TWO sentences or about 30 words. Anything
+   longer moves into the 'i' tooltip or the show-the-maths accordion — both
+   already exist for exactly this.
+2. One idea per sentence. Sentences under 20 words. Split anything longer.
+3. A field gets NO description by default. It earns one only if it stops a
+   wrong entry, says where to find the number, or defines a term a beginner
+   genuinely will not know. Otherwise delete it.
+4. Labels carry their own meaning: the thing plus its unit. "Monthly rent (£)"
+   needs nothing underneath it.
+5. Active voice, second person, present tense. No filler — never "in order to",
+   "please note that", "it is important to understand".
+6. Target reading age nine. Not dumbing down: it is how a tired person on a
+   phone reads faster.
+7. Verdict headlines, levers and Deal Score lines are EXEMPT from shortening —
+   naming the binding number IS the plain-English win. Never weaken them.
+Every visible string lives in config (src/config/copy.ts, nav.ts, pipeline.ts,
+comparables.ts, analyserSections.ts, stickyVerdict.ts, content/microcopy.ts,
+and the StrategyConfig fields in @gil-bricks/core) so any word can be changed
+without touching code. Exemptions from rule 1 are named in copy.test.ts with a
+reason each: accordion bodies and licence attributions. docs/COPY_AUDIT.md is
+the record of the N5 pass — every string, its length, and what happened to it.
+
 ## Stack
 - Astro (static-first), built to dist/, deployed as Cloudflare Workers static assets.
 - wrangler v4, wrangler.jsonc (NOT toml). Recent compatibility_date.

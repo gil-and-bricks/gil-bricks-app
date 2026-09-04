@@ -4,6 +4,7 @@
  * which sends CORS headers — probed live, no proxy needed).
  */
 import { useEffect, useState } from 'preact/hooks';
+import { COPY } from '../../config/copy';
 import { effect } from '@preact/signals';
 import { findComparables, youtubeFor, type ComparablesResult } from '@gil-bricks/core';
 import { ComparablesError } from '@gil-bricks/core';
@@ -122,11 +123,11 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
         } catch (err) {
           if (mySeq !== seq) return;
           if (err instanceof ComparablesError && err.kind === 'OutsideEnglandWales') {
-            setPostcodeError('This tool only has sold-price data for England & Wales, so we can’t analyse Scottish or Northern Irish postcodes.');
+            setPostcodeError(COPY.analyser.outsideEnglandWales);
           } else if (err instanceof ComparablesError && err.kind === 'UnknownPostcode') {
             setPostcodeError(err.message);
           } else {
-            setError('Something went wrong fetching sold prices for this search — it’s usually temporary. Please try again in a moment.');
+            setError(COPY.analyser.loadFailed);
           }
           setResults({ comps: null, valuation: null, candidates: null, lrState: null });
         } finally {
@@ -146,7 +147,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
     <div class="analyser">
       {showArrived && (
         <p class="arrived-note" role="status">
-          <span>Brought over from the extension — everything’s filled in below.</span>
+          <span>{COPY.analyser.fromExtension}</span>
           <button type="button" class="arrived-x" aria-label="Dismiss" onClick={() => setArrivedDismissed(true)}>✕</button>
         </p>
       )}
@@ -157,7 +158,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
 
       {error && (
         <section class="glass card">
-          <h3 class="state-h">Couldn’t load the sales data</h3>
+          <h3 class="state-h">{COPY.analyser.loadFailedTitle}</h3>
           <p class="field-error" role="alert">{error}</p>
         </section>
       )}
@@ -181,7 +182,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             return (
               <section class="glass card verdict-slot" aria-label="Strategy verdict">
                 <h2>{strategyName} verdict</h2>
-                <p class="hint">We haven’t built the verdict for this strategy yet — the sold comparables and valuation below still work.</p>
+                <p class="hint">{COPY.analyser.noVerdictYet}</p>
               </section>
             );
           })()}
@@ -223,9 +224,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
       )}
       {!ready && (
         <p class="hint start-hint">
-          {showVerdict
-            ? 'Start with the postcode and the asking price, then pick the property type — everything else has sensible defaults you can change.'
-            : 'Start with a postcode to see what recently sold nearby.'}
+          {showVerdict ? COPY.analyser.startSubject : COPY.analyser.startComps}
         </p>
       )}
     </div>

@@ -1,6 +1,7 @@
 /** The small-HMO verdict island — config + @gil-bricks/core (strategy-calc/hmo) only.
  * BRICKS-AND-MORTAR valuation only; no commercial valuation anywhere. */
 import { keyFigure } from './keyFigure';
+import { COPY } from '../../config/copy';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useState } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -99,7 +100,7 @@ export function HmoVerdict({ config, comps, valuation }: {
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       analysisError = /must be|cannot be/.test(raw)
-        ? 'These numbers don’t work together — check the price, rooms and rent values.'
+        ? COPY.verdict.inputsClash
         : raw;
     }
   }
@@ -122,24 +123,16 @@ export function HmoVerdict({ config, comps, valuation }: {
   return (
     <section class="glass card" aria-labelledby="verdict-h">
       <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
-      <p class="hint">
-        This works out the bricks-and-mortar value and room-by-room cashflow for small HMOs (up to 6 people).
-        It does not estimate a commercial HMO valuation — those need a surveyor.
-      </p>
+      <p class="hint">{COPY.verdict.hmoScope}</p>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {comps && <Article4Flag lat={comps.subject.lat} lng={comps.subject.lng} country={comps.subject.country} />}
       {isSuiGeneris && (
-        <p class="field-error" role="alert">
-          7 or more people is a large ‘sui generis’ HMO — outside what this tool covers.
-        </p>
+        <p class="field-error" role="alert">{COPY.verdict.hmoSuiGeneris}</p>
       )}
       {!isSuiGeneris && p.bills === 'no' && (
-        <p class="field-hint">
-          Tenants paying their own bills usually cuts your operating costs — lower the operating % in
-          the assumptions to match.
-        </p>
+        <p class="field-hint">{COPY.verdict.hmoBills}</p>
       )}
-      {!isSuiGeneris && !ready && <p class="hint">Add the rent per room to get a verdict.</p>}
+      {!isSuiGeneris && !ready && <p class="hint">{COPY.verdict.needRoomRent}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
 
       {!isSuiGeneris && (
@@ -204,10 +197,7 @@ export function HmoVerdict({ config, comps, valuation }: {
 
           <div class={`licence-flag licence-${analysis.licence.level}`} role="note">
             <p>{analysis.licence.copy}</p>
-            <p class="field-hint">
-              To check if a property is a licensed HMO, find your council at gov.uk/find-local-council and
-              search its site for ‘HMO register’.
-            </p>
+            <p class="field-hint">{COPY.verdict.hmoRegister}</p>
           </div>
 
           <Accordion label="Planning: do I need permission?">

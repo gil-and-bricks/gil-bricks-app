@@ -24,18 +24,18 @@ const btlInputs: StrategyField[] = [
 ];
 
 const btlAssumptions: StrategyField[] = [
-  { key: 'voidWeeks', label: 'Void allowance', kind: 'number', unit: 'weeks/yr', default: '5', tip: 'Weeks a year with no tenant.', whyDefault: 'Around 5 weeks a year of empty periods is a common planning figure.' },
-  { key: 'agentPct', label: 'Agent management fee', kind: 'number', unit: '% of rent', default: '12', tip: 'What a letting agent charges.', whyDefault: 'Full management typically costs 10–15% of rent; 12% is mid-range. Ignored when self-managing.' },
-  { key: 'maintPct', label: 'Maintenance', kind: 'number', unit: '% of price/yr', default: '1', tip: 'Yearly upkeep budget.', whyDefault: '1% of the purchase price a year is a standard upkeep rule of thumb.' },
-  { key: 'insurance', label: 'Landlord insurance', kind: 'number', unit: '£/yr', default: '300', tip: 'Buildings + landlord cover.', whyDefault: 'A typical single-let policy runs £250–£400 a year.' },
-  { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
-  { key: 'refurbCost', label: 'Refurb budget', kind: 'number', unit: '£', default: '0', tip: 'Work needed before letting.', whyDefault: 'Zero unless you know work is needed — it counts in your cash in.' },
+  { key: 'voidWeeks', label: 'Void allowance', kind: 'number', unit: 'weeks/yr', default: '5', tip: 'Weeks a year with no tenant.' },
+  { key: 'agentPct', label: 'Agent management fee', kind: 'number', unit: '% of rent', default: '12', tip: 'What a letting agent charges. Ignored when you self-manage.' },
+  { key: 'maintPct', label: 'Maintenance', kind: 'number', unit: '% of price/yr', default: '1', tip: 'Yearly upkeep budget.' },
+  { key: 'insurance', label: 'Landlord insurance', kind: 'number', unit: '£/yr', default: '300', tip: 'Buildings + landlord cover.' },
+  { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey.' },
+  { key: 'refurbCost', label: 'Refurb budget', kind: 'number', unit: '£', default: '0', tip: 'Work needed before letting.' },
   {
     key: 'mortType', label: 'Mortgage type', kind: 'select', default: 'io',
     options: [{ value: 'io', label: 'Interest-only' }],
-    tip: 'Interest-only keeps payments low; the loan is not paid down.', whyDefault: 'Most landlords use interest-only; repayment modelling arrives later.',
+    tip: 'Interest-only keeps payments low; the loan is not paid down.',
   },
-  { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the rent against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5% even when your pay rate is lower.' },
+  { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the rent against (ICR = interest cover ratio).' },
   {
     key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
     options: [
@@ -43,7 +43,7 @@ const btlAssumptions: StrategyField[] = [
       { value: 'standard', label: 'Only property' },
       { value: 'firstTimeBuyer', label: 'First-time buyer' },
     ],
-    tip: 'A second property pays the higher stamp-duty rates.', whyDefault: 'Most investors already own a home, so the additional-property rates apply.',
+    tip: 'A second property pays the higher stamp-duty rates.',
   },
 ];
 
@@ -98,12 +98,12 @@ export const strategies: StrategyConfig[] = [
       },
     ],
     assumptions: [
-      { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.', whyDefault: 'Bridging lenders commonly advance around 75% of the purchase price.' },
-      { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.', whyDefault: 'Around 0.85% a month is a typical bridging rate as of 2026.' },
-      { key: 'arrangementPct', label: 'Bridging arrangement fee', kind: 'number', unit: '%', default: '2', tip: 'Charged on the bridging loan.', whyDefault: '2% of the loan is the standard arrangement fee.' },
-      { key: 'exitPct', label: 'Bridging exit fee', kind: 'number', unit: '%', default: '0', tip: 'Some bridges charge on the way out.', whyDefault: 'Many bridges have no exit fee — check yours.' },
-      { key: 'legals', label: 'Purchase legals & survey', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey on purchase.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
-      { key: 'contingencyPct', label: 'Contingency', kind: 'number', unit: '% of refurb', default: '10', tip: 'Refurbs run over — budget for it.', whyDefault: '10% of the refurb budget is the standard buffer for surprises.' },
+      { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.' },
+      { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.' },
+      { key: 'arrangementPct', label: 'Bridging arrangement fee', kind: 'number', unit: '%', default: '2', tip: 'Charged on the bridging loan.' },
+      { key: 'exitPct', label: 'Bridging exit fee', kind: 'number', unit: '%', default: '0', tip: 'Some bridges charge on the way out.' },
+      { key: 'legals', label: 'Purchase legals & survey', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey on purchase.' },
+      { key: 'contingencyPct', label: 'Contingency', kind: 'number', unit: '% of refurb', default: '10', tip: 'Refurbs run over — budget for it.' },
       {
         key: 'incomeBand', label: 'Your other income band', kind: 'select', default: 'higher',
         options: [
@@ -111,7 +111,6 @@ export const strategies: StrategyConfig[] = [
           { value: 'higher', label: 'Higher rate' },
         ],
         tip: 'Flip profit stacks on top of your other income.',
-        whyDefault: 'Most flippers already earn into the higher band, so their flip profit is taxed there too.',
       },
       {
         key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
@@ -119,7 +118,7 @@ export const strategies: StrategyConfig[] = [
           { value: 'additional', label: 'Additional property' },
           { value: 'standard', label: 'Only property' },
         ],
-        tip: 'A second property pays the higher rates. Companies always pay them.', whyDefault: 'Most flippers already own a home; buying through a company always pays the higher rates.',
+        tip: 'A second property pays the higher rates. Companies always pay them.',
       },
     ],
     // Verdict thresholds (logged): after-tax ROI leads, before-tax profit floors it.
@@ -174,18 +173,18 @@ export const strategies: StrategyConfig[] = [
       },
     ],
     assumptions: [
-      { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.', whyDefault: 'Bridging lenders commonly advance around 75% of the purchase price.' },
-      { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.', whyDefault: 'Around 0.85% a month is a typical bridging rate as of 2026.' },
-      { key: 'arrangementPct', label: 'Bridging arrangement fee', kind: 'number', unit: '%', default: '2', tip: 'Charged on the bridging loan.', whyDefault: '2% of the loan is the standard arrangement fee.' },
-      { key: 'exitPct', label: 'Bridging exit fee', kind: 'number', unit: '%', default: '0', tip: 'Some bridges charge on the way out.', whyDefault: 'Many bridges have no exit fee — check yours.' },
-      { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey on purchase.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
-      { key: 'refiLegals', label: 'Refinance legals', kind: 'number', unit: '£', default: '1000', tip: 'The remortgage has its own legal work.', whyDefault: 'A remortgage typically costs about £1,000 in legals and fees.' },
-      { key: 'voidWeeks', label: 'Void allowance', kind: 'number', unit: 'weeks/yr', default: '5', tip: 'Weeks a year with no tenant.', whyDefault: 'Around 5 weeks a year of empty periods is a common planning figure.' },
-      { key: 'agentPct', label: 'Agent management fee', kind: 'number', unit: '% of rent', default: '12', tip: 'What a letting agent charges.', whyDefault: 'Full management typically costs 10–15% of rent.' },
-      { key: 'maintPct', label: 'Maintenance', kind: 'number', unit: '% of value/yr', default: '1', tip: 'Yearly upkeep budget on the end value.', whyDefault: '1% of the property value a year is a standard upkeep rule of thumb.' },
-      { key: 'insurance', label: 'Landlord insurance', kind: 'number', unit: '£/yr', default: '300', tip: 'Buildings + landlord cover.', whyDefault: 'A typical single-let policy runs £250–£400 a year.' },
-      { key: 'rate', label: 'Refinance interest rate', kind: 'number', unit: '%', default: '5.0', tip: 'The rate on the new mortgage.', whyDefault: 'A mid-range buy-to-let remortgage rate as of 2026.' },
-      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the rent against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
+      { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.' },
+      { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.' },
+      { key: 'arrangementPct', label: 'Bridging arrangement fee', kind: 'number', unit: '%', default: '2', tip: 'Charged on the bridging loan.' },
+      { key: 'exitPct', label: 'Bridging exit fee', kind: 'number', unit: '%', default: '0', tip: 'Some bridges charge on the way out.' },
+      { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey on purchase.' },
+      { key: 'refiLegals', label: 'Refinance legals', kind: 'number', unit: '£', default: '1000', tip: 'The remortgage has its own legal work.' },
+      { key: 'voidWeeks', label: 'Void allowance', kind: 'number', unit: 'weeks/yr', default: '5', tip: 'Weeks a year with no tenant.' },
+      { key: 'agentPct', label: 'Agent management fee', kind: 'number', unit: '% of rent', default: '12', tip: 'What a letting agent charges. Ignored when you self-manage.' },
+      { key: 'maintPct', label: 'Maintenance', kind: 'number', unit: '% of value/yr', default: '1', tip: 'Yearly upkeep budget on the end value.' },
+      { key: 'insurance', label: 'Landlord insurance', kind: 'number', unit: '£/yr', default: '300', tip: 'Buildings + landlord cover.' },
+      { key: 'rate', label: 'Refinance interest rate', kind: 'number', unit: '%', default: '5.0', tip: 'The rate on the new mortgage.' },
+      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the rent against (ICR = interest cover ratio).' },
       {
         key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
         options: [
@@ -193,7 +192,7 @@ export const strategies: StrategyConfig[] = [
           { value: 'standard', label: 'Only property' },
           { value: 'firstTimeBuyer', label: 'First-time buyer' },
         ],
-        tip: 'A second property pays the higher stamp-duty rates.', whyDefault: 'Most investors already own a home.',
+        tip: 'A second property pays the higher stamp-duty rates.',
       },
     ],
     // Verdict thresholds (logged): green = effectively all out (≤ £2,500 in)
@@ -224,9 +223,9 @@ export const strategies: StrategyConfig[] = [
           { value: '6', label: '6 rooms' },
           { value: '7plus', label: '7 or more' },
         ],
-        tip: 'A small HMO (House in Multiple Occupation) is a shared home for 3–6 unrelated people (planning class C4).',
+        tip: 'A small HMO: a shared home for 3–6 unrelated people (planning class C4).',
       },
-      { key: 'roomRent', label: 'Average rent per room', kind: 'number', unit: '£/month', default: '', tip: 'Find local room rates yourself: ask letting agents what rooms actually let for, and check what similar rooms advertise at.' },
+      { key: 'roomRent', label: 'Average rent per room', kind: 'number', unit: '£/month', default: '', tip: 'Ask letting agents what rooms actually let for locally.' },
       {
         key: 'bills', label: 'Bills included in rent?', kind: 'select', default: 'yes',
         options: [
@@ -255,21 +254,21 @@ export const strategies: StrategyConfig[] = [
       },
     ],
     assumptions: [
-      { key: 'deposit', label: 'Deposit', kind: 'number', unit: '%', default: '25', tip: 'Your cash share of the price.', whyDefault: 'HMO lenders usually want at least 25%.' },
-      { key: 'rate', label: 'HMO mortgage rate', kind: 'number', unit: '%', default: '6.0', tip: 'HMO mortgages price higher than single lets.', whyDefault: 'HMO products typically cost ~1% more than standard buy-to-let as of 2026.' },
-      { key: 'opCostPctSelf', label: 'Operating costs (self-managed)', kind: 'number', unit: '% of income', default: '23', tip: 'Everything it costs to run the rooms.', whyDefault: 'Bills, broadband, cleaning, voids, maintenance and insurance typically absorb ~23% when you manage it yourself.' },
-      { key: 'opCostPctAgent', label: 'Operating costs (agent + bills)', kind: 'number', unit: '% of income', default: '40', tip: 'Everything including agent management.', whyDefault: 'Add full management to bills, broadband, cleaning, voids, maintenance and insurance and ~40% of room income is a realistic planning figure.' },
-      { key: 'licenceFee', label: 'HMO licence fee', kind: 'number', unit: '£ / 5 years', default: '1200', tip: 'Licences run five years and are budgeted yearly here.', whyDefault: 'Councils typically charge £1,000–£1,500 for a five-year licence.' },
-      { key: 'compliancePerYear', label: 'Compliance costs', kind: 'number', unit: '£/yr', default: '600', tip: 'Fire-alarm servicing, an electrical safety certificate (EICR), a gas-safety check and a fire-risk assessment.', whyDefault: 'Annual servicing and certificates for a small HMO usually total ~£600.' },
-      { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey.', whyDefault: 'Conveyancing plus a survey usually lands near £1,500.' },
-      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the room income against (ICR = interest cover ratio).', whyDefault: 'Lenders commonly stress-test at around 5.5%.' },
+      { key: 'deposit', label: 'Deposit', kind: 'number', unit: '%', default: '25', tip: 'Your cash share of the price.' },
+      { key: 'rate', label: 'HMO mortgage rate', kind: 'number', unit: '%', default: '6.0', tip: 'HMO mortgages price higher than single lets.' },
+      { key: 'opCostPctSelf', label: 'Operating costs (self-managed)', kind: 'number', unit: '% of income', default: '23', tip: 'Everything it costs to run the rooms.' },
+      { key: 'opCostPctAgent', label: 'Operating costs (agent + bills)', kind: 'number', unit: '% of income', default: '40', tip: 'Everything including agent management.' },
+      { key: 'licenceFee', label: 'HMO licence fee', kind: 'number', unit: '£ / 5 years', default: '1200', tip: 'Licences run five years. We budget a fifth of the fee each year.' },
+      { key: 'compliancePerYear', label: 'Compliance costs', kind: 'number', unit: '£/yr', default: '600', tip: 'Fire-alarm servicing, an electrical safety certificate (EICR), a gas-safety check and a fire-risk assessment.' },
+      { key: 'legals', label: 'Legal & survey costs', kind: 'number', unit: '£', default: '1500', tip: 'Conveyancing and survey.' },
+      { key: 'stressRate', label: 'ICR stress rate', kind: 'number', unit: '%', default: '5.5', tip: 'The pretend higher interest rate a lender checks the room income against (ICR = interest cover ratio).' },
       {
         key: 'taxBasis', label: 'Purchase tax basis', kind: 'select', default: 'additional',
         options: [
           { value: 'additional', label: 'Additional property' },
           { value: 'standard', label: 'Only property' },
         ],
-        tip: 'A second property pays the higher stamp-duty rates.', whyDefault: 'Most investors already own a home.',
+        tip: 'A second property pays the higher stamp-duty rates.',
       },
     ],
     // Verdict thresholds (logged): HMOs must earn their extra work.

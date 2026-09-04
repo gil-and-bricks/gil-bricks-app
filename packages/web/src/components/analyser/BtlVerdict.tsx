@@ -2,6 +2,7 @@
  * S4.3–S4.5, see docs/STRATEGY_CONFIG_GUIDE.md). All maths comes from
  * @gil-bricks/core (strategy-calc/btl), which composes the canonical maths lib. */
 import { keyFigure } from './keyFigure';
+import { COPY } from '../../config/copy';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -77,7 +78,7 @@ export function BtlVerdict({ config, comps, valuation }: {
       const raw = err instanceof Error ? err.message : String(err);
       // internal guard messages are for developers; users get plain English
       analysisError = /must be|cannot be/.test(raw)
-        ? 'These numbers don’t work together — check the deposit, rate, rent and assumption values.'
+        ? COPY.verdict.inputsClash
         : raw;
     }
   }
@@ -103,7 +104,7 @@ export function BtlVerdict({ config, comps, valuation }: {
     <section class="glass card" aria-labelledby="verdict-h">
       <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
-      {!rentOk && <p class="hint">Add the monthly rent to get a verdict.</p>}
+      {!rentOk && <p class="hint">{COPY.verdict.needRent}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}

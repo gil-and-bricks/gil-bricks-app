@@ -5,6 +5,7 @@
  * The 1-mile comparison reuses the ONE ComparablesEngine.
  */
 import type * as preact from 'preact';
+import { COPY } from '../../config/copy';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { computeStats, findComparables, type ComparablesResult } from '@gil-bricks/core';
 import { geocodePostcode, type GeocodedPostcode } from '@gil-bricks/core';
@@ -249,9 +250,8 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
         <div class="glass card">
           <h3>No recorded sales here in the last 12 months</h3>
           <p>
-            HM Land Registry has no sales for sector {subject.sectorId} in the year to {asOf}. That usually means a very
-            thin market rather than a problem with the postcode — try the surroundings below, or{' '}
-            <a href={`/comparables?postcode=${encodeURIComponent(subject.postcode)}`}>browse sold comparables</a> within a mile.
+            {COPY.area.thinMarket}{' '}
+            <a href={`/comparables?postcode=${encodeURIComponent(subject.postcode)}`}>{COPY.area.thinMarketCta}</a>.
           </p>
         </div>
       )}
@@ -300,7 +300,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
           <p class="area-vs" aria-live="polite">
             {mile === null ? (
               <span class="area-vs-wait">
-                Comparing with everything sold within 1 mile of this postcode — the wider sweep takes a moment longer…
+                {COPY.area.wideSweep}
               </span>
             ) : mile === 'failed' ? (
               <span class="area-vs-wait">The 1-mile comparison isn't available right now — everything above still is.</span>
@@ -351,12 +351,11 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
               {' '}· UK HPI to {monthLabel(ukhpi.ukhpiMonth)}
             </p>
             <p class="hint">
-              This is the {countryName}-wide index, not a local one — local sold prices above are the better guide to this
-              exact area.
+              {COPY.area.hpiScope(countryName)}
             </p>
           </>
         ) : (
-          <p class="hint">The house-price trend isn’t available right now — the sold prices above are the better local guide anyway.</p>
+          <p class="hint">{COPY.area.hpiUnavailable}</p>
         )}
       </div>
 
@@ -396,13 +395,11 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
             <p class="hint">
               Source: {depSource}
               {coverage !== undefined && coverage < 0.9 && <> · based on {Math.round(coverage * 100)}% of postcodes here</>}
-              . Deprivation summarises official statistics on income, employment, health, education, crime, housing and
-              environment for small areas — it says nothing about any individual street or property, so read it alongside
-              the sold prices above, not instead of them.
+              . {COPY.area.deprivationScope}
             </p>
           </>
         ) : (
-          <p class="hint">We don’t have a deprivation score matched to this postcode sector — everything else on this page still holds.</p>
+          <p class="hint">{COPY.area.deprivationMissing}</p>
         )}
       </div>
 
@@ -425,7 +422,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
               {crime.radiusMiles === 1 ? '1 mile' : 'roughly half a mile'} of this postcode
             </p>
             {crime.radiusMiles === 0.5 && (
-              <p class="hint">The full 1-mile list was too large to fetch, so these numbers cover roughly half a mile.</p>
+              <p class="hint">{COPY.area.crimeHalfMile}</p>
             )}
             {crime.top.length > 0 && (
               <ul class="crime-list">
@@ -437,9 +434,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
               </ul>
             )}
             <p class="hint">
-              Raw counts carry no judgement about any street or person — compare areas by using the same radius. Totals
-              reflect what each police force publishes to police.uk; some forces publish incomplete street-level data.
-              Crime data: data.police.uk (OGL v3).
+              {COPY.area.crimeScope} Crime data: data.police.uk (OGL v3).
             </p>
           </>
         )}
@@ -466,7 +461,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
         ) : flood.length === 0 ? (
           <>
             <p>No current flood alerts in this area.</p>
-            <p class="hint">Uses Environment Agency flood and river level data from the real-time data API (Beta).</p>
+            <p class="hint">{COPY.area.floodSource}</p>
           </>
         ) : (
           <>
@@ -481,7 +476,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
                 </li>
               ))}
             </ul>
-            <p class="hint">Uses Environment Agency flood and river level data from the real-time data API (Beta).</p>
+            <p class="hint">{COPY.area.floodSource}</p>
           </>
         )}
         <p class="hint">

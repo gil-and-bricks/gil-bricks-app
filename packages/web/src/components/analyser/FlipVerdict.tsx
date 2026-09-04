@@ -1,6 +1,7 @@
 /** The Flip verdict island — config + @gil-bricks/core (strategy-calc/flip) only.
  * NO rental maths. ROI (after tax, selected scenario) leads. */
 import { keyFigure } from './keyFigure';
+import { COPY } from '../../config/copy';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -91,7 +92,7 @@ export function FlipVerdict({ config, comps, valuation }: {
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
       analysisError = /must be|cannot be/.test(raw)
-        ? 'These numbers don’t work together — check the price, sale price and refurb values.'
+        ? COPY.verdict.inputsClash
         : raw;
     }
   }
@@ -116,13 +117,10 @@ export function FlipVerdict({ config, comps, valuation }: {
       <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {valuation && prefilled.current !== null && !diverged.current && (strategyParams.value.gdv ?? '') === prefilled.current && (
-        <p class="field-hint">
-          Sale price pre-filled from our estimate ({fmtMoney(valuation.estimate)}) — it reflects typical sold
-          condition for the area; raise it only if your finish will clearly beat local stock.
-        </p>
+        <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}
-      {isLtd && <p class="field-hint">Buying through a company always pays the higher purchase-tax rates — applied automatically.</p>}
-      {!ready && <p class="hint">Add the refurb budget and the sale price after works to get a verdict.</p>}
+      {isLtd && <p class="field-hint">{COPY.verdict.companyTax}</p>}
+      {!ready && <p class="hint">{COPY.verdict.needFlip}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}
@@ -141,7 +139,7 @@ export function FlipVerdict({ config, comps, valuation }: {
               </p>
             )}
           </div>
-          <p class="hint">Buy-refurb-sell for profit is normally taxed as trading income, not capital gains. This is not tax advice — check with an accountant.</p>
+          <p class="hint">{COPY.verdict.flipTax}</p>
           <div class="tiles" id="sec-figures">
             <div class="tile tile-hero">
               <p class="tile-label">Project return after tax ({isLtd ? 'company' : 'personal'})</p>

@@ -1,5 +1,6 @@
 /** /account island: profile, My deals, marketing-consent toggle, delete account. */
 import { useEffect, useState } from 'preact/hooks';
+import { COPY } from '../../config/copy';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealShareText } from '../../lib/deals/deal';
@@ -88,7 +89,7 @@ export function AccountApp() {
     return (
       <div class="glass card">
         <h3 class="state-h">Sign in to see your deals</h3>
-        <p class="hint">Your saved deals live here once you’re signed in — it’s free and takes one tap with Google.</p>
+        <p class="hint">{COPY.account.signInToSave}</p>
         <button type="button" class="btn-primary" onClick={openLoginWall}>Log in</button>
       </div>
     );
@@ -104,7 +105,7 @@ export function AccountApp() {
       });
       if (res.ok) {
         me.value = { ...v, marketingConsent: !v.marketingConsent };
-        setNote(!v.marketingConsent ? 'You’re on the list — we’ll email you when there’s something worth sending. Untick any time.' : 'Marketing emails off.');
+        setNote(!v.marketingConsent ? COPY.account.signedUp : 'Marketing emails off.');
       } else setNote('That did not save — please try again.');
     } catch {
       setNote('That did not save — please try again.');
@@ -211,7 +212,7 @@ export function AccountApp() {
 
       <div class="glass card">
         <h2>Delete my account</h2>
-        <p class="hint">Removes your account and saved deals, and queues an unsubscribe to our email provider. This cannot be undone.</p>
+        <p class="hint">{COPY.account.deleteWarning}</p>
         {!confirming ? (
           <button type="button" class="btn-secondary" onClick={() => setConfirming(true)}>Delete my account</button>
         ) : (

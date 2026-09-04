@@ -105,7 +105,7 @@ export const INITIAL_STAGE = 'worth-a-look';
  * a slot and their reason is kept as memory. Reworded here without a code change.
  */
 export const LIVE_CAP_MESSAGE =
-  'You’ve got 100 live deals. Kill the ones that are dead — that frees a slot, and the reason gets remembered.';
+  'You’ve got 100 live deals. Kill a dead one to free a slot.';
 
 /**
  * Fact types the pipeline re-scores against — the facts that arrive after a deal
