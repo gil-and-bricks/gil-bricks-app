@@ -6,6 +6,7 @@
  * extension speak one visual language. Tested in board.test.ts.
  */
 import { verdictForScore } from '@gil-bricks/core';
+import { features } from '../../config/features';
 import { BOARD_COPY, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
 
 /** One deal as the board needs it (from /api/deals when the flag is on). */
@@ -113,6 +114,9 @@ export interface CardVerdict {
   action: 'none' | 'score' | 'add';
 }
 export function cardVerdict(d: BoardDeal): CardVerdict {
+  // Deal Score switched off: never ask for a score the analyser cannot produce —
+  // the card shows its figure quietly, exactly like a terminal deal.
+  if (!features.dealScore) return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
   if (d.current_score === null || !Number.isFinite(d.current_score)) {
     if (d.status !== 'live') return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
     const missing = missingRequiredInput(d.strategy, d.url_params);

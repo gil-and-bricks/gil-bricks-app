@@ -9,9 +9,17 @@ that is the whole rollback. No flag lives anywhere else (not in
 
 | Flag | Default | What it turns ON | What happens when it's OFF |
 |---|---|---|---|
-| `dealScore` | on | The 0–10 **Deal Score** chip and the "what's holding it back" note on every analyser verdict (all four strategies). | The verdict banner, lever line and tiles still show exactly as before the score existed. Nothing is scored; a saved deal carries no score, so the pipeline board shows "Tap to score this" / "Add … to score this" cards. |
+| `dealScore` | on | The 0–10 **Deal Score** chip and the "what's holding it back" note on every analyser verdict (all four strategies). | The verdict banner, lever line and tiles still show exactly as before the score existed. Nothing is scored, and the pipeline board stops asking for one: every card shows its figure quietly instead of a "Tap to score this" prompt that could never complete. |
 | `dealPipeline` | on | The **deal pipeline**: the board at `/deals` (stages, moves, park/kill, the today line, the counter), the save-to-pipeline mirror and the `/api/deals/*` routes. | `/deals` redirects to `/account`, which shows the flat saved-deals list. Saving a deal still works (it is written to `saved_deals` as before). The pipeline-only API routes (`/stage`, `/dead`, `/score`) answer 404; save, list and delete keep working as before. Nothing is deleted — the `deals` tables keep their rows for when the flag comes back. |
-| `stickyVerdict` | on | The **sticky verdict bar** on the analyser pages (N1): Deal Score + tier colour + the verdict line pinned under the header, updating in place as inputs change; tap to expand; jump to the full card. Mounted ONCE on the shared analyser shell, so all four strategies inherit it. | No bar, no live region of its own. The verdict card is the only place the score shows and its banner is the polite live region again — byte-for-byte the pre-N1 analyser. Needs `dealScore`: with `dealScore` off there is nothing to show, so the bar is off regardless (`stickyVerdictActive()`). |
+| `stickyVerdict` | on | The **sticky verdict bar** on the analyser pages (N1): Deal Score + tier colour + the verdict line pinned under the header, updating in place as inputs change; tap to expand; jump to the full card. Mounted ONCE on the shared analyser shell, so all four strategies inherit it. | No bar, no live region of its own. The verdict card is the only place the score shows and its banner is the polite live region again — the pre-N1 analyser in behaviour (the markup keeps one N1 addition: the verdict `<h2>` is focusable, which nothing uses while the bar is off). Needs `dealScore`: with `dealScore` off there is nothing to show, so the bar is off regardless (`stickyVerdictActive()`). |
+
+## Known trade-off
+
+With `stickyVerdict` ON, the verdict card's banner is no longer a live region
+(the bar is the ONE polite region — two would double-announce). A screen reader
+therefore hears the score, the tier and the binding headline on every change,
+but not the banner's lever line or the price-vs-evidence cross-check; those are
+still read on demand in the card itself.
 
 ## All flags off (proved 2026-09-04, N1)
 

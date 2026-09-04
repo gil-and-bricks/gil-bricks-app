@@ -49,6 +49,9 @@ function StickyVerdictBar() {
   const bar = useRef<HTMLDivElement>(null);
   const toggle = useRef<HTMLButtonElement>(null);
   const lastHeight = useRef(0);
+  /** Previous "is there a verdict" state + the content's position before it changed. */
+  const prevHas = useRef(false);
+  const contentTop = useRef<number | null>(null);
   const prevScore = useRef<number | null>(null);
 
   const visible = barVisible({ score, textFocused, keyboardOpen });
@@ -62,6 +65,7 @@ function StickyVerdictBar() {
       const el = document.activeElement as (Element & FocusTarget) | null;
       setTextFocused(isTextEntry(el) && !(bar.current?.contains(el) ?? false));
     };
+    update(); // the island hydrates late (client:idle) — a field may ALREADY be focused
     document.addEventListener('focusin', update);
     document.addEventListener('focusout', update);
     return () => {
@@ -76,6 +80,7 @@ function StickyVerdictBar() {
     const vv = window.visualViewport;
     if (!vv) return;
     const update = () => setKeyboardOpen(keyboardLikelyOpen(vv.height * vv.scale, window.innerHeight));
+    update(); // …and the keyboard may already be up when it does
     vv.addEventListener('resize', update);
     return () => vv.removeEventListener('resize', update);
   }, []);
@@ -108,22 +113,27 @@ function StickyVerdictBar() {
     };
   }, [has]);
 
-  // (9) Appearing/vanishing must not move the user: if the bar's slot is above
-  // the viewport, cancel the reflow by scrolling exactly the bar's height.
+  // (9) Appearing/vanishing must not move the user. We cancel the OBSERVED drift
+  // of the content below the bar, never an assumed bar height: Chrome and Firefox
+  // already re-anchor the scroll themselves (so a fixed correction would double
+  // it and throw the page 53px), Safari does not (so without one it jumps).
+  // Measuring covers both — and any future browser.
+  if (prevHas.current !== has && typeof document !== 'undefined') {
+    // read DURING render: the DOM still shows the pre-change layout
+    contentTop.current = document.querySelector('main')?.getBoundingClientRect().top ?? null;
+  }
   useLayoutEffect(() => {
     const a = anchor.current;
-    if (!a) return;
-    const slotTop = a.getBoundingClientRect().top;
-    if (has) {
-      const h = bar.current?.offsetHeight ?? 0;
-      lastHeight.current = h;
-      if (slotTop < 0 && h > 0) window.scrollBy(0, h);
-    } else {
-      const h = lastHeight.current;
-      if (slotTop < 0 && h > 0) window.scrollBy(0, -h);
-      lastHeight.current = 0;
-      setOpen(false);
-    }
+    const main = document.querySelector('main');
+    const before = contentTop.current;
+    const changed = prevHas.current !== has;
+    prevHas.current = has;
+    if (!has) setOpen(false);
+    if (!a || !main || before === null || !changed) return;
+    const drift = main.getBoundingClientRect().top - before;
+    // the slot is on screen: the content SHOULD move down to make room for the bar
+    if (Math.abs(drift) < 1 || a.getBoundingClientRect().top >= 0) return;
+    window.scrollBy(0, drift);
   }, [has]);
 
   // (7) One brief tint when the score MOVES (not on first arrival); a change

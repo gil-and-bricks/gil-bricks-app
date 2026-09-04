@@ -24,7 +24,7 @@ Live at: https://gil-bricks-app.gil-782.workers.dev
 8. England & Wales ONLY — gate on ONSPD CTRY (E92000001 / W92000004); reject
    Scotland/NI gracefully.
 
-## Reversibility charter (HARD RULE — enforced by tests, not habit)
+## Reversibility charter (HARD RULE — rules 1 and 2 enforced by tests)
 Everything we build must be switchable off, or swapped for a different design,
 without unpicking the rest.
 1. Every new user-facing feature ships behind a NAMED flag in the ONE central
@@ -42,7 +42,7 @@ without unpicking the rest.
    the previous product with nothing dangling.
 5. Migrations are additive-only (new tables/columns/indexes) and never
    destroy data. Turning a flag off hides a feature; it never deletes rows.
-Enforced by packages/web/src/config/reversibility.test.ts (flags-in-one-place
+Rules 1-2 are enforced by packages/web/src/config/reversibility.test.ts (flags-in-one-place
 + a positive control on the flag shapes, brand-hex-only-in-tokens,
 no-retyped-config-copy, no-thresholds-in-components, and an inline-copy
 RATCHET: existing files may only go down, new files are held to zero) and
@@ -50,7 +50,9 @@ features.test.ts (every flag documented). The ratchet counts JSX/Astro text,
 user-facing attributes, unknown props on our own components and sentence-like
 literals — not every single string; docs/FEATURE_FLAGS.md states the scope.
 The baseline is grandfathered debt (617 strings / 35 files on 2026-09-04) —
-pay it down, never raise it. Page prose under src/pages and src/content is content, not config,
+pay it down, never raise it. Rules 3-5 (no maths in the UI, one revertible
+commit per sprint, additive-only migrations) are review discipline, not tests:
+say so rather than pretending a test covers them. Page prose under src/pages and src/content is content, not config,
 and is out of the ratchet's scope on purpose.
 
 ## Stack

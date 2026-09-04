@@ -128,6 +128,19 @@ describe('StickyVerdict island', () => {
     expect(panel.hidden).toBe(true);
   });
 
+  it('hydrating while a field already has focus starts hidden (the island mounts late)', () => {
+    const rent = document.createElement('input');
+    rent.type = 'number';
+    document.body.appendChild(rent);
+    rent.focus();
+    mount();
+    set(snap(7.2));
+    expect(bar()!.classList.contains('is-hidden')).toBe(true);
+    act(() => { rent.blur(); });
+    expect(bar()!.classList.contains('is-hidden')).toBe(false);
+    rent.remove();
+  });
+
   it('Escape pressed on a form control closes the panel but never steals focus', () => {
     mount();
     set(snap(8.5));
