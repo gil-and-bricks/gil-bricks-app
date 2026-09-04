@@ -311,3 +311,38 @@ describe('P4 — move/park are inert with the flag OFF', () => {
     expect((sqlite.prepare('SELECT stage FROM deals WHERE id=?').get(id) as { stage: string }).stage).toBe('worth-a-look'); // untouched
   });
 });
+
+describe('P4.2 — backfill a deal score by id (flag ON)', () => {
+  beforeEach(() => { siteConfig.features.dealPipeline = true; });
+
+  it('stores score/verdict_line/headline_figure on an owned deal, without creating a new one', async () => {
+    const h = await authed();
+    const { id } = await (await save(h, {})).json() as { id: string };
+    // simulate a scoreless (migrated) state, then backfill
+    sqlite.prepare('UPDATE deals SET current_score = NULL, verdict_line = NULL WHERE id = ?').run(id);
+    const res = await post(h, `/api/deals/${id}/score`, { score: 5.1, verdict_line: 'Just 6.5% back — short of the 12% you set', headline_figure: 'ROI 6.5%' });
+    expect(res.status).toBe(200);
+    expect(count('deals')).toBe(1); // updated, not created
+    const d = sqlite.prepare('SELECT current_score, verdict_line, headline_figure FROM deals WHERE id=?').get(id) as Record<string, unknown>;
+    expect(d.current_score).toBe(5.1);
+    expect(d.verdict_line).toBe('Just 6.5% back — short of the 12% you set');
+    expect(d.headline_figure).toBe('ROI 6.5%');
+  });
+
+  it('rejects a non-numeric score and a non-owned deal', async () => {
+    const h = await authed();
+    const { id } = await (await save(h, {})).json() as { id: string };
+    expect((await post(h, `/api/deals/${id}/score`, { verdict_line: 'x' })).status).toBe(400);
+    const other = '11111111-1111-4111-8111-111111111111';
+    expect((await post(h, `/api/deals/${other}/score`, { score: 7 })).status).toBe(404);
+  });
+});
+
+describe('P4.2 — the score endpoint is inert with the flag OFF', () => {
+  it('404s when the pipeline flag is off', async () => {
+    expect(siteConfig.features.dealPipeline).toBe(false);
+    const h = await authed();
+    const id = '11111111-1111-4111-8111-111111111111';
+    expect((await post(h, `/api/deals/${id}/score`, { score: 7 })).status).toBe(404);
+  });
+});

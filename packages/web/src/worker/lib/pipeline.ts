@@ -237,6 +237,29 @@ export async function deleteDeal(db: D1Database, userId: string, dealId: string)
  * Re-saving NEVER resets a progressed deal back to worth-a-look. `payload` is the
  * branded analyser type, so this cannot be called with manual-entry data.
  */
+/**
+ * Backfill a deal's SCORE only (P4.2) — used when an already-saved deal had no
+ * stored score (a migrated deal) and the analyser has now computed one on open.
+ * Targets the deal BY ID (never re-derives its url_params, so it can never create a
+ * duplicate), touches only the verdict fields, and leaves stage/status/history and
+ * updated_at (hence ordering + ageing) alone. Returns false if not owned.
+ */
+export async function setDealScore(
+  db: D1Database,
+  userId: string,
+  dealId: string,
+  score: number,
+  verdictLine: string,
+  headlineFigure: string,
+): Promise<boolean> {
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned) return false;
+  await db.prepare('UPDATE deals SET current_score = ?, verdict_line = ?, headline_figure = ? WHERE id = ? AND user_id = ?')
+    .bind(score, verdictLine, headlineFigure, dealId, userId)
+    .run();
+  return true;
+}
+
 export async function upsertPipelineDeal(
   db: D1Database,
   ctx: { id: string; userId: string; postcodeSector: string },
@@ -267,4 +290,61 @@ export async function upsertPipelineDeal(
       .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
   ]);
   return 'created';
+}
+
+/**
+ * DEV/TEST SEED ONLY — never a production origination path (the dev seed route that
+ * calls this is inert in production; see worker/dev.ts). Co-located here so the
+ * "only pipeline.ts inserts a deal" guardrail stays true. Wipes any existing seed
+ * set for the user first (idempotent), then inserts a realistic spread across every
+ * stage, strategy, verdict colour and age, incl. one auction at Offer in. Returns
+ * the number of deals created.
+ */
+interface SeedSpec {
+  strategy: string; title: string; sector: string; stage: string; status: string;
+  score: number; figure: string; verdict: string; auction?: boolean; dead?: string;
+  ageDays: number; params: string;
+}
+const DEV_SEED_SPECS: readonly SeedSpec[] = [
+  { strategy: 'btl', title: 'Terraced · CF24 4AA · £185,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', score: 8.7, figure: '£312/mo', verdict: 'Cashflows £312/mo after tax and clears the lender stress test — the numbers stack up.', ageDays: 1, params: 'postcode=CF24+4AA&price=185000&type=T&rent=1150' },
+  { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', score: 4.9, figure: 'ROI 6.5%', verdict: 'Just 6.5% back on the cash you’d put in — short of the 12.0% you set as your minimum.', ageDays: 12, params: 'postcode=SA1+6HW&price=85000&type=S&roomRent=350&refurbCost=40000' },
+  { strategy: 'flip', title: 'Detached · NP20 1AA · £240,000', sector: 'NP20 1', stage: 'going-to-view', status: 'live', score: 6.8, figure: '£28,000 profit', verdict: '£28,000 profit before tax — a fair cushion, but one overrun eats into it.', ageDays: 9, params: 'postcode=NP20+1AA&price=240000&type=D&gdv=300000&refurbCost=35000' },
+  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £150,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', score: 8.2, figure: 'All money out + £4,500', verdict: 'Refinance pulls all your cash back out with £4,500 to spare — a clean BRRRR.', ageDays: 5, params: 'postcode=CF11+9AB&price=150000&type=T&rent=1000&arv=210000&refurbCost=30000' },
+  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', score: 6.4, figure: '£210/mo', verdict: '£210/mo after tax — it works, but it’s thin for a flat with a service charge.', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&price=135000&type=F&rent=850' },
+  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', score: 5.2, figure: 'ROI 9.0%', verdict: 'Just 9.0% back on the cash you’d put in — under the 12.0% that makes an HMO worth the work.', ageDays: 12, params: 'postcode=SA2+0AA&price=220000&type=T&roomRent=420&refurbCost=45000' },
+  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', score: 8.9, figure: '£41,000 profit', verdict: '£41,000 profit before tax on a tidy refurb — a strong margin for the risk.', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=235000&refurbCost=30000' },
+  { strategy: 'brrrr', title: 'Terraced · NP19 0AA · £128,000', sector: 'NP19 0', stage: 'nearly-there', status: 'live', score: 7.1, figure: '£3,000 left in', verdict: '£3,000 stays in after refinancing — close to all-out, and the rent covers it.', ageDays: 3, params: 'postcode=NP19+0AA&price=128000&type=T&rent=875&arv=175000&refurbCost=22000' },
+  { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', score: 8.4, figure: '£350/mo', verdict: 'Completed — £350/mo after tax, comfortably above your minimum.', ageDays: 30, params: 'postcode=CF37+1HR&price=120000&type=T&rent=950' },
+  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', score: 3.8, figure: 'ROI 5.0%', verdict: 'Only 5.0% back on the cash — the numbers never worked at this price.', dead: 'Numbers don’t work', ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000' },
+];
+
+export async function seedDemoDeals(db: D1Database, userId: string): Promise<number> {
+  await clearDemoDeals(db, userId);
+  const day = 86_400_000;
+  const stmts: D1PreparedStatement[] = [];
+  for (const s of DEV_SEED_SPECS) {
+    const id = crypto.randomUUID();
+    const at = new Date(Date.now() - s.ageDays * day).toISOString();
+    stmts.push(
+      db.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, userId, s.strategy, s.title, s.params, s.figure, at),
+      db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, s.score, s.figure, s.verdict, s.auction ? 1 : 0, s.status, s.dead ?? null, 'dev-seed', at, at),
+    );
+  }
+  await db.batch(stmts);
+  return DEV_SEED_SPECS.length;
+}
+
+/** Remove every dev-seeded deal (source='dev-seed') for the user, and its saved_deals
+ * mirror + children. Returns how many deals were removed. */
+export async function clearDemoDeals(db: D1Database, userId: string): Promise<number> {
+  const rows = await db.prepare("SELECT id FROM deals WHERE user_id = ? AND source = 'dev-seed'").bind(userId).all<{ id: string }>();
+  const ids = rows.results.map((r) => r.id);
+  for (const id of ids) await deleteDeal(db, userId, id); // removes deals + children
+  if (ids.length > 0) {
+    const marks = ids.map(() => '?').join(',');
+    await db.prepare(`DELETE FROM saved_deals WHERE user_id = ? AND id IN (${marks})`).bind(userId, ...ids).run();
+  }
+  return ids.length;
 }

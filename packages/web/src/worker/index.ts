@@ -22,8 +22,9 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { canAddLiveDeal, countLiveDeals, deleteDeal, getOwnedDeal, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, upsertPipelineDeal } from './lib/pipeline';
+import { canAddLiveDeal, countLiveDeals, deleteDeal, getOwnedDeal, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, setDealScore, upsertPipelineDeal } from './lib/pipeline';
 import { DEAD_STAGE, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
+import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -32,6 +33,9 @@ export interface Env {
   GOOGLE_CLIENT_SECRET: string;
   TURNSTILE_SECRET: string;
   KIT_API_KEY: string;
+  /** DEV-ONLY gate. Set ONLY in .dev.vars (never deployed); undefined in production,
+   * which disables /auth/dev-login and /dev/seed entirely. See worker/dev.ts. */
+  DEV_LOGIN?: string;
 }
 
 const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -520,6 +524,26 @@ async function handleMoveDeal(request: Request, env: Env, dealId: string): Promi
   return json({ ok: true, stage: toStage, status: statusForStage(toStage) });
 }
 
+/** P4.1/P4.2: backfill a deal's score (analyser computed it on open for a deal that
+ * had none). Targets the deal by id — verdict fields only, never creates. */
+async function handleScoreDeal(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: { score?: number; verdict_line?: string; headline_figure?: string };
+  try {
+    body = (await request.json()) as { score?: number; verdict_line?: string; headline_figure?: string };
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const score = typeof body?.score === 'number' && Number.isFinite(body.score) ? body.score : null;
+  if (score === null) return json({ error: 'bad request' }, 400);
+  const verdictLine = String(body?.verdict_line ?? '').slice(0, 160).trim();
+  const headlineFigure = String(body?.headline_figure ?? '').slice(0, 60).trim();
+  const ok = await setDealScore(env.DB, user.sub, dealId, score, verdictLine, headlineFigure);
+  return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
+}
+
 /** P4: park/kill a deal with a one-chip reason (P9 builds the full graveyard). */
 async function handleParkDeal(request: Request, env: Env, dealId: string): Promise<Response> {
   if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
@@ -579,6 +603,10 @@ export default {
     if (pathname === '/auth/logout' && method === 'POST') {
       return redirect(safeNextPath(url.searchParams.get('next')), [clearSessionCookie()]);
     }
+    // DEV-ONLY routes (inert in production — see worker/dev.ts).
+    if (pathname === '/auth/dev-login' && method === 'GET') return handleDevLogin(request, env);
+    if (pathname === '/dev/seed' && method === 'GET') return handleDevSeed(request, env);
+    if (pathname === '/dev/seed/clear' && method === 'GET') return handleDevSeedClear(request, env);
     if (pathname === '/api/me' && method === 'GET') return handleMe(request, env);
     if (pathname === '/api/consent' && method === 'POST') return handleConsent(request, env);
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);
@@ -591,6 +619,8 @@ export default {
       if (mv && method === 'POST') return handleMoveDeal(request, env, mv[1]);
       const pk = /^\/api\/deals\/([0-9a-f-]{36})\/dead$/.exec(pathname);
       if (pk && method === 'POST') return handleParkDeal(request, env, pk[1]);
+      const sc = /^\/api\/deals\/([0-9a-f-]{36})\/score$/.exec(pathname);
+      if (sc && method === 'POST') return handleScoreDeal(request, env, sc[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { loadMe, openLoginWall, resetMe } from '../../lib/auth/session';
 import { dealTitle } from '../../lib/deals/deal';
 import { keyFigure } from './keyFigure';
@@ -20,6 +20,26 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   useEffect(() => {
     void loadMe();
   }, []);
+
+  // P4.2 backfill-on-open: a scoreless board card links here with ?backfill=<dealId>.
+  // When the score is ready and the user is signed in, silently persist it to THAT
+  // deal by id (never creates, never pops the login wall) so the card fills in. Once.
+  const backfillId = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('backfill'));
+  const backfilled = useRef(false);
+  const snap = verdictSnapshot.value; // subscribe so this re-runs when the score lands
+  useEffect(() => {
+    const id = backfillId.current;
+    if (!id || backfilled.current || !snap || typeof snap.score !== 'number' || !Number.isFinite(snap.score)) return;
+    backfilled.current = true;
+    void (async () => {
+      const v = await loadMe();
+      if (v === null) return; // signed out — leave it; don't nag
+      await fetch(`/api/deals/${id}/score`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ score: snap.score, verdict_line: snap.headline, headline_figure: snap.boardFigure }),
+      }).catch(() => {});
+    })();
+  }, [snap]);
   // Canonical params from the SIGNALS (same builder as the URL writer) —
   // reactive, and immune to the 250ms replaceState debounce that made
   // location.search stale at click time. A changed analysis is a different

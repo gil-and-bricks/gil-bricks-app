@@ -28,6 +28,7 @@ export function DealBoard() {
   const [dragId, setDragId] = useState('');
   const [dropStage, setDropStage] = useState('');
   const [pending, setPending] = useState<Set<string>>(new Set());
+  const [showParked, setShowParked] = useState(false);
   const setBusy = (id: string, on: boolean) =>
     setPending((prev) => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
 
@@ -152,7 +153,7 @@ export function DealBoard() {
         onDragStart={(e) => { setDragId(d.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
         onDragEnd={() => { setDragId(''); setDropStage(''); }}
       >
-        <a class="dc-title" href={dealHref(d.strategy, d.url_params)}>{d.title}</a>
+        <a class="dc-title" href={dealHref(d.strategy, d.url_params, verdict.action === 'score' ? d.id : undefined)}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
             <span class={`board-score ${verdict.cls}`} aria-label={`Deal score ${(d.current_score as number).toFixed(1)} out of 10`}>
@@ -230,12 +231,17 @@ export function DealBoard() {
       </div>
 
       {parked.length > 0 && (
-        <details class="board-parked">
-          <summary>{DEAD_STAGE.label} <span class="board-col-n">{parked.length}</span></summary>
-          <div class="board-col-cards">
-            {parked.map((d) => Card({ d }))}
-          </div>
-        </details>
+        <section class="board-parked">
+          <button type="button" class="board-parked-toggle" aria-expanded={showParked} onClick={() => setShowParked(!showParked)}>
+            {DEAD_STAGE.label} <span class="board-col-n">{parked.length}</span>
+            <span class="board-parked-caret" aria-hidden="true">{showParked ? '▾' : '▸'}</span>
+          </button>
+          {showParked && (
+            <div class="board-col-cards board-parked-cards">
+              {parked.map((d) => Card({ d }))}
+            </div>
+          )}
+        </section>
       )}
     </div>
   );

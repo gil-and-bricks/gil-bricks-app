@@ -7,10 +7,14 @@ import { fmtMoney, strategies } from '@gil-bricks/core';
  * strategy route plus its saved url params (exactly how a saved deal re-opens
  * today). The board is read-only: tapping a card just opens the analyser.
  */
-export function dealHref(strategy: string, urlParams: string): string {
+export function dealHref(strategy: string, urlParams: string, backfillId?: string): string {
   const route = strategies.find((s) => s.id === strategy)?.route;
   const base = route ? `${route}/analyser` : '/comparables';
-  return urlParams !== '' ? `${base}?${urlParams}` : base;
+  let href = urlParams !== '' ? `${base}?${urlParams}` : base;
+  // A scoreless deal links with backfill=<id>: the analyser scores it on open and
+  // silently persists that score to THIS deal (by id), so the card fills in.
+  if (backfillId) href += `${href.includes('?') ? '&' : '?'}backfill=${encodeURIComponent(backfillId)}`;
+  return href;
 }
 
 const TYPE_WORDS: Record<string, string> = {

@@ -79,22 +79,47 @@ export function nextStepLine(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'st
   return `${meta.todo} — ${dwell}`;
 }
 
-/** The card's verdict presentation. A deal with a stored score shows that score
- * (with its colour) and the analyser's own reason line; a deal without one (migrated
- * or pre-verdict-line) never shows a bare dash — it says plainly why it can't. */
+/** The inputs a strategy MUST have in its saved url params before it can be scored
+ * (mirrors each analyser verdict's readiness gate). Returns the human name of the
+ * first missing one, or null if scoreable. arv/gdv are excluded — the analyser
+ * pre-fills them from the valuation, so their absence doesn't block a score. */
+export function missingRequiredInput(strategy: string, urlParams: string): string | null {
+  const q = new URLSearchParams(urlParams);
+  const num = (k: string): number => Number(q.get(k) ?? '');
+  if (!(num('price') > 0)) return 'a price';
+  if (strategy === 'btl' || strategy === 'brrrr') { if (!(num('rent') > 0)) return 'a rent'; }
+  if (strategy === 'hmo') {
+    // Mirror the analyser's HMO readiness gate: a 7+ person (sui generis) HMO is
+    // outside what the tool scores, so never promise a one-tap score for one.
+    if (q.get('rooms') === '7plus') return 'a smaller HMO (6 rooms or fewer)';
+    if (!(num('roomRent') > 0)) return 'a room rent';
+  }
+  return null;
+}
+
+/** The card's verdict presentation. A scored deal shows its score (with colour) and
+ * the analyser's own reason line; an unscored LIVE deal never shows a bare dash — it
+ * either offers a one-tap score or names the input it's missing; a terminal deal
+ * shows its figure quietly. */
 export interface CardVerdict {
   scored: boolean;
   /** ds-good/marginal/walk when scored, ds-none otherwise. */
   cls: 'ds-good' | 'ds-marginal' | 'ds-walk' | 'ds-none';
-  /** The reason line (scored) or the honest can't-score prompt (unscored). */
   line: string;
+  /** 'none' = nothing to do (scored or terminal); 'score' = tap to score (opens the
+   * analyser, which backfills the score on open); 'add' = a required input is missing. */
+  action: 'none' | 'score' | 'add';
 }
 export function cardVerdict(d: BoardDeal): CardVerdict {
   if (d.current_score === null || !Number.isFinite(d.current_score)) {
-    return { scored: false, cls: 'ds-none', line: 'Re-open to score this' };
+    if (d.status !== 'live') return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
+    const missing = missingRequiredInput(d.strategy, d.url_params);
+    return missing
+      ? { scored: false, cls: 'ds-none', line: `Add ${missing} to score this`, action: 'add' }
+      : { scored: false, cls: 'ds-none', line: 'Tap to score this', action: 'score' };
   }
   const line = (d.verdict_line ?? '').trim() || cardFigure(d);
-  return { scored: true, cls: scoreClass(d.current_score), line };
+  return { scored: true, cls: scoreClass(d.current_score), line, action: 'none' };
 }
 
 /** A stage plus the deals sitting in it (freshest first). */

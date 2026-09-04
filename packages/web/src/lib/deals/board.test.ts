@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   cardFigure, parkedDeals, scoreClass, stageColumns,
-  daysInStage, dwellState, nextStepLine, todayLine, stageMeta, cardVerdict, boardCounts, counterLine, type BoardDeal,
+  daysInStage, dwellState, nextStepLine, todayLine, stageMeta, cardVerdict, missingRequiredInput, boardCounts, counterLine, type BoardDeal,
 } from './board';
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
@@ -118,18 +118,45 @@ describe('nextStepLine — an instruction (a verb), not a description', () => {
   });
 });
 
+describe('missingRequiredInput — names the input a deal needs before it can score', () => {
+  it('flags a missing price for any strategy', () => {
+    expect(missingRequiredInput('btl', 'postcode=CF37+1HR')).toBe('a price');
+  });
+  it('flags a missing rent for BTL/BRRRR, a room rent for HMO', () => {
+    expect(missingRequiredInput('btl', 'price=150000')).toBe('a rent');
+    expect(missingRequiredInput('brrrr', 'price=150000')).toBe('a rent');
+    expect(missingRequiredInput('hmo', 'price=150000')).toBe('a room rent');
+  });
+  it('is scoreable (null) when the required inputs are present; flip needs only a price (gdv pre-fills)', () => {
+    expect(missingRequiredInput('btl', 'price=150000&rent=1100')).toBeNull();
+    expect(missingRequiredInput('hmo', 'price=85000&roomRent=350')).toBeNull();
+    expect(missingRequiredInput('flip', 'price=150000')).toBeNull();
+  });
+  it('never promises a score for a sui-generis (7+ room) HMO the analyser refuses to score', () => {
+    expect(missingRequiredInput('hmo', 'price=85000&roomRent=350&rooms=7plus')).toBe('a smaller HMO (6 rooms or fewer)');
+  });
+});
+
 describe('cardVerdict — a verdict or an honest reason, never a bare dash', () => {
   it('a scored deal shows the analyser reason line + its colour', () => {
     const v = cardVerdict(mk({ current_score: 5.2, verdict_line: 'Just 6.5% back, short of the 12% you set' }));
-    expect(v).toEqual({ scored: true, cls: 'ds-walk', line: 'Just 6.5% back, short of the 12% you set' });
+    expect(v).toEqual({ scored: true, cls: 'ds-walk', line: 'Just 6.5% back, short of the 12% you set', action: 'none' });
   });
   it('a scored deal with no stored reason falls back to the figure (still a verdict, no dash)', () => {
     const v = cardVerdict(mk({ current_score: 8.4, verdict_line: null, headline_figure: '£312/mo' }));
-    expect(v).toEqual({ scored: true, cls: 'ds-good', line: '£312/mo' });
+    expect(v).toEqual({ scored: true, cls: 'ds-good', line: '£312/mo', action: 'none' });
   });
-  it('an unscored (migrated) deal says why it cannot score — never a dash', () => {
-    const v = cardVerdict(mk({ current_score: null, verdict_line: null, headline_figure: null, key_figure: '' }));
-    expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Re-open to score this' });
+  it('an unscored but SCOREABLE live deal offers a one-tap score — never a dash', () => {
+    const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000&rent=1100' }));
+    expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Tap to score this', action: 'score' });
+  });
+  it('an unscored deal MISSING an input names it', () => {
+    const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000' }));
+    expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Add a rent to score this', action: 'add' });
+  });
+  it('a terminal unscored deal shows its figure quietly, no prompt', () => {
+    const v = cardVerdict(mk({ current_score: null, verdict_line: null, status: 'done', stage: 'bought-it', headline_figure: 'ROI 6.5%' }));
+    expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'ROI 6.5%', action: 'none' });
   });
 });
 

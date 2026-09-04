@@ -419,14 +419,17 @@
 
 /* Parked/dead: tucked below the live board, reachable in one tap (P9 builds the
    full graveyard). */
+/* Parked / dead — a consistent CONTROLLED disclosure (cards render only when open,
+   the same on every screen). Quiet, tappable to re-open each card. */
 .board-parked { margin-top: var(--space-6); }
-.board-parked > summary {
-  cursor: pointer; color: var(--text-dim); font-size: var(--text-sm); font-weight: 600;
-  display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) 0;
+.board-parked-toggle {
+  cursor: pointer; color: var(--text-dim); font: inherit; font-size: var(--text-sm); font-weight: 600;
+  background: none; border: none; display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) 0; min-height: 40px;
 }
-.board-parked > summary:hover { color: var(--text); }
-.board-parked[open] > summary { margin-bottom: var(--space-3); }
-.board-parked .board-col-cards { max-width: 20rem; }
+.board-parked-toggle:hover, .board-parked-toggle:focus-visible { color: var(--text); outline: none; }
+.board-parked-caret { color: var(--text-dim); font-size: var(--text-xs); }
+.board-parked-cards { margin-top: var(--space-3); max-width: 22rem; }
 
 /* ---- Pipeline board P4: today line, next-step, ageing, card actions ---------- */
 /* The answer, not a list: ONE deal, ONE action, above the board. */
