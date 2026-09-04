@@ -350,7 +350,9 @@
 .map-a4-note { margin: var(--space-2) 0 0; }
 .map-chip { display: inline-block; margin: var(--space-2) 0; padding: 0.2rem 0.7rem; border-radius: 999px; font-size: var(--text-xs); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.18); }
 .comp-map .maplibregl-ctrl button { font-size: 1rem; line-height: 1; }
-.comp-map .maplibregl-ctrl button.map-reset-btn { width: auto; padding: 0 0.5rem; font-size: var(--text-xs); }
+/* MapLibre's control group is white and sets no text colour, so the label
+   inherited the page's white and was invisible (pre-existing; found in N3). */
+.comp-map .maplibregl-ctrl button.map-reset-btn { width: auto; padding: 0 0.5rem; font-size: var(--text-xs); color: var(--accent-ink); font-weight: 700; }
 
 /* plain-English state headings (S8.1) — legibility only, not a design change */
 .state-h { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-1); }
@@ -576,42 +578,73 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .sv-full { max-width: 72rem; margin: 0 auto var(--space-3); font-size: var(--text-base); line-height: 1.4; }
 .sv-jump { display: block; max-width: 72rem; margin: 0 auto; color: var(--accent); font-weight: 600; }
 
-/* ---------- Section overview strip (N2, features.sectionOverview) ----------
-   A map of the page, not tabs: it hides nothing and only jumps. Pinned right
-   under the sticky verdict bar; the chips are plain anchors, revealed one by
-   one as their sections appear (a chip for a section this strategy has not got
-   would be a dead link). */
-.section-strip {
+/* ---------- The pinned row: strategy switcher + section chips (N2, N3) -------
+   ONE row under the sticky verdict bar, so the whole pinned stack stays around
+   100px at 390px (bar 53 + row 49) rather than the ~150px three separate bars
+   would cost. The switcher stays put at the left edge while the chips scroll
+   past it, so the strategy you are in is always readable one-handed. */
+.pinned-row {
   position: sticky; top: var(--sticky-h, 0px); z-index: 29;
-  /* The space is reserved from the FIRST paint (the chips arrive as the page
-     fills in), so the strip appearing never pushes the page down. */
-  display: block; visibility: hidden;
-  min-height: calc(2rem + var(--space-2) * 2);
+  /* the switcher sits over the row's left edge, so the browser's own focus
+     scrolling has to clear it (the script measures and publishes the width) */
+  scroll-padding-left: var(--seg-w, 0px);
+  display: flex; align-items: stretch; gap: var(--space-2);
   overflow-x: auto; overflow-y: hidden;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  min-height: calc(2rem + var(--space-2) * 2);
   background: color-mix(in srgb, var(--bg-1) 92%, transparent);
   -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
   border-bottom: 1px solid var(--glass-border);
 }
-.section-strip::-webkit-scrollbar { display: none; }
-.section-strip.is-live { visibility: visible; }
-.section-strip.is-unstuck { position: static; }
-@media (max-height: 160px) { .section-strip { position: static; } }
+.pinned-row::-webkit-scrollbar { display: none; }
+.pinned-row.is-unstuck { position: relative; top: 0; }
+@media (max-height: 160px) { .pinned-row { position: relative; top: 0; } }
 @supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
-  .section-strip { background: var(--glass-bg-fallback); }
+  .pinned-row, .strategy-seg { background: var(--glass-bg-fallback); }
 }
 @supports not (background: color-mix(in srgb, red 50%, transparent)) {
-  .section-strip { background: var(--glass-bg-fallback); }
+  .pinned-row, .strategy-seg { background: var(--glass-bg-fallback); }
 }
 @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .section-strip { background: var(--glass-bg-fallback); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .pinned-row { background: var(--glass-bg-fallback); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .strategy-seg { background: var(--glass-bg-fallback); }
 }
-@media (pointer: coarse) { .section-strip { --glass-blur: 6px; } }
+@media (pointer: coarse) { .pinned-row { --glass-blur: 6px; } }
+
+/* The four strategies (N3): four links to four pages, held at the left edge. */
+.strategy-seg {
+  position: sticky; left: 0; z-index: 1;
+  display: flex; align-items: center; flex: 0 0 auto;
+  margin: var(--space-2) 0 var(--space-2) var(--space-5);
+  border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--bg-1);
+}
+/* the segments themselves clip the pill's corners, so a focus ring is never
+   cut off by the group's own overflow */
+.strategy-seg .seg:first-child { border-radius: 999px 0 0 999px; }
+.strategy-seg .seg:last-child { border-radius: 0 999px 999px 0; }
+/* when the switcher would swallow the row (200% text, tiny screens) it stops
+   pinning and scrolls with the chips instead of burying them */
+.pinned-row.seg-wide .strategy-seg { position: static; }
+.seg {
+  display: inline-flex; align-items: center; min-height: 2rem;
+  padding: var(--space-1) var(--space-3);
+  color: var(--accent); font-size: var(--text-xs); font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+}
+.seg + .seg { border-left: 1px solid var(--glass-border); }
+.seg-current { background: var(--accent); color: var(--accent-ink); }
+
+/* The section chips (N2), scrolling in the same row. */
+.section-strip { display: flex; align-items: center; flex: 0 0 auto; visibility: hidden; }
+.section-strip.is-live { visibility: visible; }
 .strip-row {
   display: flex; gap: var(--space-2); align-items: center;
   margin: 0; padding: var(--space-2) var(--space-5);
-  list-style: none; width: max-content; min-width: 100%;
+  list-style: none;
 }
+/* with the switcher present it already provides the left inset */
+.strategy-seg + .section-strip .strip-row { padding-left: 0; }
 .strip-chip {
   display: inline-flex; align-items: center; min-height: 2rem;
   padding: var(--space-1) var(--space-3); border-radius: 999px;
@@ -637,3 +670,39 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .comps-fold > .comps-summary::-webkit-details-marker { display: none; }
 .comps-fold > .comps-summary::before { content: '▸' / ''; color: var(--accent); }
 .comps-fold[open] > .comps-summary::before { content: '▾' / ''; }
+
+/* ---------- Comparables on a phone (N3, features.compsMobile) --------------
+   Below 640px each sale is a card: no sideways scrolling to tick one box, and
+   the tick is a thumb-sized target on the left where a thumb already is. The
+   table stays for wider screens — same sales, same order, same ticks. */
+.comp-cards { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.comp-cards[hidden] { display: none; }
+.comp-card {
+  display: flex; gap: var(--space-3); align-items: flex-start;
+  padding: var(--space-3); border: 1px solid var(--glass-border); border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.comp-card.is-out { opacity: 0.55; border-color: rgba(255, 255, 255, 0.15); }
+.comp-tick { display: flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; margin: -0.35rem 0 0 -0.35rem; }
+.comp-tick input { width: 1.35rem; height: 1.35rem; }
+.comp-body { flex: 1 1 auto; min-width: 0; }
+.comp-price { margin: 0; font-size: var(--text-lg); font-family: var(--font-display); font-weight: 700; }
+.comp-when { font-family: var(--font-body); font-size: var(--text-xs); font-weight: 500; color: var(--text-dim); }
+.comp-address { margin: 2px 0 var(--space-2); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.comp-address a { color: var(--text); }
+.comp-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin: 0 0 2px; font-size: var(--text-xs); color: var(--text-dim); }
+.comp-out { margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--verdict-amber); }
+
+/* The filters, folded behind one button that says how many are set. */
+.filter-sheet { margin-bottom: var(--space-3); }
+.filter-summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: var(--space-2);
+  min-height: 2.25rem; padding: var(--space-1) var(--space-4);
+  border: 1px solid var(--accent); border-radius: 999px;
+  color: var(--accent); font-size: var(--text-xs); font-weight: 700;
+}
+.filter-summary::-webkit-details-marker { display: none; }
+.filter-summary::before { content: '▸' / ''; }
+.filter-sheet[open] > .filter-summary::before { content: '▾' / ''; }
+.filter-sheet[open] > .filter-summary { margin-bottom: var(--space-3); }
+.filter-clear { background: none; border: 0; color: var(--text-dim); font-size: var(--text-xs); text-decoration: underline; cursor: pointer; margin-left: var(--space-3); padding: var(--space-2); }

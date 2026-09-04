@@ -13,13 +13,21 @@ import { STICKY_VERDICT } from '../../config/stickyVerdict';
 import { activeSectionId, chipScrollLeft, stackUnsticks } from '../../lib/analyserSections';
 
 const HEIGHT_VAR = SECTION_STRIP.heightVar;
+/** Beyond this share of the row the switcher stops pinning: at 200% text it
+ * would otherwise cover every chip behind it. */
+const SEG_MAX_SHARE = 0.6;
 
 export function startSectionStrip(): void {
-  const strip = document.querySelector<HTMLElement>('[data-section-strip]');
-  if (strip === null) return;
-  const row = strip.querySelector<HTMLElement>('.strip-row');
+  // The pinned ROW is the scroll container (it also holds the strategy
+  // switcher, which stays put at its left edge); the strip is the chips in it.
+  const rowEl = document.querySelector<HTMLElement>('[data-pinned-row]');
+  if (rowEl === null) return;
+  // The chips are optional (features.sectionOverview): a row holding only the
+  // strategy switcher still has to publish its height and un-stick.
+  const strip = rowEl.querySelector<HTMLElement>('[data-section-strip]');
+  const row = strip?.querySelector<HTMLElement>('.strip-row') ?? null;
   const chips = new Map<string, HTMLAnchorElement>();
-  for (const a of strip.querySelectorAll<HTMLAnchorElement>('[data-chip]')) {
+  for (const a of rowEl.querySelectorAll<HTMLAnchorElement>('[data-chip]')) {
     chips.set(a.dataset.chip ?? '', a);
   }
   const root = document.documentElement;
@@ -27,13 +35,23 @@ export function startSectionStrip(): void {
   let published = '';
   let lastActive: string | null = null;
 
+  /** The pinned switcher's width: the row's own scroll-padding clears it, and a
+   * switcher too wide for the row stops pinning rather than burying the chips. */
+  const publishSegment = (): void => {
+    const seg = rowEl.querySelector<HTMLElement>('.strategy-seg');
+    if (seg === null) return;
+    const wide = seg.getBoundingClientRect().width > rowEl.getBoundingClientRect().width * SEG_MAX_SHARE;
+    rowEl.classList.toggle('seg-wide', wide);
+    rowEl.style.setProperty('--seg-w', wide ? '0px' : `${Math.ceil(seg.getBoundingClientRect().width)}px`);
+  };
+
   const publishHeight = (): void => {
     // The bar publishes its own pinned height (0 when it has un-stuck); the two
     // pin together, so the share rule is applied to the pair, not to each.
     const barHeight = parseFloat(getComputedStyle(root).getPropertyValue(STICKY_VERDICT.heightVar)) || 0;
-    const height = live.length === 0 ? 0 : Math.ceil(strip.getBoundingClientRect().height);
+    const height = Math.ceil(rowEl.getBoundingClientRect().height);
     const off = height > 0 && stackUnsticks(barHeight, height, window.innerHeight);
-    strip.classList.toggle('is-unstuck', off);
+    rowEl.classList.toggle('is-unstuck', off);
     const next = off || height === 0 ? '0px' : `${height}px`;
     // only WRITE on a real change — the style attribute is watched below, and a
     // no-op write would wake the observer for ever
@@ -45,6 +63,11 @@ export function startSectionStrip(): void {
 
   /** Which sections exist right now? The analyser renders them as you fill it in. */
   const sync = (): void => {
+    publishSegment();
+    if (strip === null) {
+      publishHeight();
+      return;
+    }
     const present = ANALYSER_SECTIONS.filter((s) => document.getElementById(s.id) !== null).map((s) => s.id);
     if (present.join() !== live.join()) {
       live = present;
@@ -55,8 +78,8 @@ export function startSectionStrip(): void {
   };
 
   const spy = (): void => {
-    if (live.length === 0) return;
-    const stack = strip.getBoundingClientRect().bottom;
+    if (strip === null || live.length === 0) return;
+    const stack = rowEl.getBoundingClientRect().bottom;
     const tops = live
       .map((id) => ({ id, el: document.getElementById(id) }))
       .filter((s): s is { id: string; el: HTMLElement } => s.el !== null)
@@ -72,10 +95,13 @@ export function startSectionStrip(): void {
     const chip = active === null ? null : chips.get(active);
     const changed = active !== lastActive;
     lastActive = active;
-    if (chip && row && changed && !strip.contains(document.activeElement)) {
+    if (chip && row && changed && !rowEl.contains(document.activeElement)) {
       const c = chip.getBoundingClientRect();
-      const s = strip.getBoundingClientRect();
-      strip.scrollLeft = chipScrollLeft({ left: c.left - s.left, width: c.width }, { scrollLeft: strip.scrollLeft, width: s.width });
+      const s = rowEl.getBoundingClientRect();
+      // the switcher is pinned at the left edge of the row: never park a chip under it
+      const seg = rowEl.querySelector<HTMLElement>('.strategy-seg');
+      const inset = seg === null ? 0 : Math.ceil(seg.getBoundingClientRect().width);
+      rowEl.scrollLeft = chipScrollLeft({ left: c.left - s.left - inset, width: c.width }, { scrollLeft: rowEl.scrollLeft, width: s.width - inset });
     }
   };
 
@@ -98,7 +124,7 @@ export function startSectionStrip(): void {
   // inline custom property on <html>; without watching for that, the pair's
   // share of a short screen would be judged on a bar height of zero.
   new MutationObserver(schedule).observe(root, { attributes: true, attributeFilter: ['style'] });
-  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(schedule).observe(strip);
+  if (typeof ResizeObserver !== 'undefined') new ResizeObserver(schedule).observe(rowEl);
   document.addEventListener('scroll', schedule, { passive: true });
   window.addEventListener('resize', schedule);
 }

@@ -164,10 +164,15 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
 
       {ready && (
         <>
-          <StrategySwitcher
-            currentId={config?.id ?? null}
-            label={config ? 'Analyse this as…' : 'Analyse this property as…'}
-          />
+          {/* (N3) ONE switcher: pinned in the sticky stack when segmentedStrategy
+              is on AND this page has the stack (the four analysers), here in the
+              page otherwise (/comparables). Never both, never none. */}
+          {(!features.segmentedStrategy || config === null) && (
+            <StrategySwitcher
+              currentId={config?.id ?? null}
+              label={config ? 'Analyse this as…' : 'Analyse this property as…'}
+            />
+          )}
           {showVerdict && (() => {
             const Verdict = config?.verdictSlot ? VERDICTS[config.verdictSlot] : undefined;
             if (Verdict && config) {

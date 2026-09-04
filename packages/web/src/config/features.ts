@@ -31,6 +31,15 @@ export interface FeatureFlags {
    * back link, the comparables module is open as it always was. The maths and
    * assumptions accordions stay collapsed either way — they always were. */
   sectionOverview: boolean;
+  /** The four-strategy segmented switcher pinned in the analyser's sticky stack
+   * (N3). Off: the switcher stays where it was — a row of pills inside the page,
+   * above the verdict card. Either way it is ONE control, never two. */
+  segmentedStrategy: boolean;
+  /** Phone-first comparables (N3): a card per sale below 640px instead of the
+   * 11-column table, and the filters folded into one "Filters" sheet with a
+   * count of what is active. Off: the table and the open filter strip, as
+   * before. The map stays load-on-demand either way. */
+  compsMobile: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -38,6 +47,8 @@ export const features: FeatureFlags = {
   dealPipeline: true,
   stickyVerdict: true,
   sectionOverview: true,
+  segmentedStrategy: true,
+  compsMobile: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

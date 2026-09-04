@@ -25,7 +25,7 @@ const { config } = Astro.props;
   {/* ONE section overview strip for all four strategies, pinned under the bar
       on the same shared slot (features.sectionOverview). Plain anchors — the
       jumping never needs JavaScript. */}
-  <SectionStrip slot="sticky" />
+  <SectionStrip slot="sticky" currentId={config.id} />
   <h1 class="page-title">{config.name} analyser</h1>
   {/* Honest state, not a feature: the analysis itself runs in the browser, so
       with JavaScript off the form below cannot answer. Say so rather than

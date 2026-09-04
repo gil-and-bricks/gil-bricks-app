@@ -18,9 +18,13 @@ const ok = (c, m) => { console.log(`${c ? 'PASS' : 'FAIL'}: ${m}`); if (!c) fail
 const basemapFeatures = (page) => page.evaluate(() => {
   const el = document.querySelector('.comp-map'); if (!el?._map) return -1;
   const map = el._map;
-  const ids = map.getStyle().layers.filter((l) => l.source === 'protomaps').map((l) => l.id);
+  // a torn-down or context-lost map has no style: report it as zero rendered
+  // features so the check FAILS loudly instead of throwing and skipping the rest
+  const style = typeof map.getStyle === 'function' ? map.getStyle() : null;
+  if (!style?.layers) return -1;
+  const ids = style.layers.filter((l) => l.source === 'protomaps').map((l) => l.id);
   return map.queryRenderedFeatures({ layers: ids }).length;
-});
+}).catch(() => -1);
 
 const browser = await chromium.launch({ executablePath: CHROME });
 

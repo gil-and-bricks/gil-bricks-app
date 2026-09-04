@@ -47,3 +47,15 @@ export const SECTION_STRIP = {
   maths: 'How is this calculated?',
   assumptions: 'Assumptions — all editable',
 } as const;
+
+/**
+ * The strategy switcher pinned in the sticky stack (N3). The four names come
+ * from the strategy configs in @gil-bricks/core — never re-typed here.
+ */
+export const STRATEGY_SWITCHER = {
+  /** Accessible name of the switcher. It is a NAV of four links (four URLs),
+   * not a tablist: each strategy is its own page. */
+  navLabel: 'Analyse this property as',
+  /** Said only to screen readers, on the strategy you are already looking at. */
+  currentHint: 'current strategy',
+} as const;

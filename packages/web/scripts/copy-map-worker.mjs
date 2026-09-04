@@ -9,13 +9,19 @@
 import { copyFileSync, mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 // package.json is always resolvable; the dist files sit beside it.
 const distDir = join(dirname(require.resolve('maplibre-gl/package.json')), 'dist');
 
-mkdirSync('public/map/vendor', { recursive: true });
-for (const f of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs']) {
-  copyFileSync(join(distDir, f), `public/map/vendor/${f}`);
+// anchored to this script, never to the shell's cwd
+const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'map', 'vendor');
+mkdirSync(outDir, { recursive: true });
+// The stylesheet is copied too (N3): mapImpl loads it itself on FIRST MOUNT, so
+// a page where nobody opens the map never pays its 83KB. Importing it from the
+// module would make the bundler hoist a render-blocking <link> onto every page.
+for (const f of ['maplibre-gl-worker.mjs', 'maplibre-gl-shared.mjs', 'maplibre-gl.css']) {
+  copyFileSync(join(distDir, f), join(outDir, f));
 }
 console.log('map worker assets copied');

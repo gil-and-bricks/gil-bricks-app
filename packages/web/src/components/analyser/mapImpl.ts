@@ -18,7 +18,6 @@ import {
 import type { Feature, FeatureCollection, Point } from 'geojson';
 import type { IControl } from 'maplibre-gl';
 import { PMTiles, Protocol } from 'pmtiles';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Comp } from '@gil-bricks/core';
 import { circleRing, clusterForVariant, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
 import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
@@ -160,8 +159,24 @@ function circleGeoJson(data: MapData): Feature {
 
 const TYPE_WORDS: Record<string, string> = { D: 'Detached', S: 'Semi', T: 'Terraced', F: 'Flat', O: 'Other' };
 
+/** MapLibre's own stylesheet, self-hosted and fetched on FIRST MOUNT only —
+ * importing it here would make the bundler put an 83KB render-blocking <link>
+ * on every analyser page, map or no map (N3). */
+const MAP_CSS_HREF = '/map/vendor/maplibre-gl.css';
+function ensureMapCss(): void {
+  if (typeof document === 'undefined' || document.querySelector(`link[href="${MAP_CSS_HREF}"]`) !== null) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = MAP_CSS_HREF;
+  // a failed fetch removes the tag so the NEXT mount tries again, rather than
+  // leaving every future map unstyled behind a link that will never load
+  link.onerror = () => link.remove();
+  document.head.appendChild(link);
+}
+
 export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbacks = {}): MapHandle {
   ensureProtocol();
+  ensureMapCss();
   const LIME = cssToken('--accent');
   const INK = cssToken('--accent-ink');
   const LIME_FILL = cssTokenAlpha('--accent', 0.1);

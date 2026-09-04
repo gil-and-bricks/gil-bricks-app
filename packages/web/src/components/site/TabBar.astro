@@ -29,5 +29,11 @@ import { strategies } from '@gil-bricks/core';
       font-weight: 500;
       padding: var(--space-2) var(--space-3);
     }
+    /* Five destinations still have to fit a 320px screen without pushing the
+       page sideways (N3). */
+    @media (max-width: 400px) {
+      .tabbar { justify-content: space-between; padding-left: var(--space-1); padding-right: var(--space-1); }
+      .tabbar a { padding: var(--space-2); }
+    }
   }
 </style>

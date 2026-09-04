@@ -179,12 +179,25 @@ export function inlineCopyAstro(source: string): string[] {
   const body = template.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<script[\s\S]*?<\/script>/g, '');
   const noComments = body.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/<!--[\s\S]*?-->/g, '');
   const found: string[] = [];
-  // Expressions are replaced (not skipped) so text WRAPPED AROUND one still
-  // counts: `PropLaunch is made by {siteConfig.makerName}` is copy.
-  const flat = noComments.replace(/\{[^{}]*\}/g, ' ');
-  for (const m of flat.matchAll(/>([^<>]*?)</g)) {
-    const t = m[1].trim();
-    if (hasWords(t)) found.push(t.replace(/\s+/g, ' '));
+  // A text node may WRAP an expression (`PropLaunch is made by {siteConfig.makerName}`),
+  // so expressions are stripped from inside each text node — never from the whole
+  // template, which would swallow the markup (and the copy) nested inside a
+  // conditional. What is left is skipped if it still reads as code, not prose.
+  const CODE = /&&|\|\||=>|\?\?|===|\?\.|\$\{|\($|^\)/;
+  const stripExpressions = (text: string): string => {
+    let out = text;
+    for (let pass = 0; pass < 5; pass++) {
+      const next = out.replace(/\{[^{}]*\}/g, ' ');
+      if (next === out) break;
+      out = next;
+    }
+    // an expression that opens or closes across the node boundary
+    out = out.replace(/\{[^}]*$/, ' ').replace(/^[^{]*\}/, ' ');
+    return out.trim();
+  };
+  for (const m of noComments.matchAll(/>([^<>]*?)</g)) {
+    const t = stripExpressions(m[1]);
+    if (t !== '' && !CODE.test(t) && hasWords(t)) found.push(t.replace(/\s+/g, ' '));
   }
   const attrNames = Array.from(USER_FACING_ATTRS).join('|');
   for (const m of noComments.matchAll(new RegExp(`\\b(${attrNames})\\s*=\\s*(["'])([^"']*)\\2`, 'g'))) {

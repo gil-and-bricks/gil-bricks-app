@@ -100,4 +100,15 @@ import { AuthHeader } from '../auth/AuthHeader';
   @media (max-width: 640px) {
     nav { display: none; } /* the bottom tab bar takes over */
   }
+  /* A 320px phone (iPhone SE, and anyone at 400% zoom) must never scroll
+     sideways: the header's own row was 18px wider than the screen. Nothing is
+     dropped — the wordmark and the gaps give up the pixels. */
+  @media (max-width: 400px) {
+    .site-header { gap: var(--space-2); padding: var(--space-3) var(--space-3); }
+    .brand-logo { height: 30px; }
+    .brand-maker { font-size: 0.55rem; }
+    .header-right { gap: var(--space-2); }
+    .header-socials { gap: 0; }
+    .header-socials a { width: 1.75rem; height: 1.75rem; }
+  }
 </style>

@@ -13,6 +13,9 @@ import { CompMap } from './CompMap';
 import { hoveredCompId } from './mapSync';
 import { features } from '../../config/features';
 import { SECTION_STRIP } from '../../config/analyserSections';
+import { COMPARABLES } from '../../config/comparables';
+import { activeFilterCount, clearedFilters, wantsCards } from '../../lib/comparables';
+import { useViewportWidth } from './useViewportWidth';
 
 const AGE_LABEL = (c: Comp) => (c.newBuild ? 'New' : 'Existing');
 const TYPE_LABEL: Record<string, string> = { D: 'Detached', S: 'Semi-detached', T: 'Terraced', F: 'Flat', O: 'Other' };
@@ -57,17 +60,10 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   // Fold only where this module is EVIDENCE (the analyser), only once there is
   // something to fold, and never over a map someone deep-linked to.
   const perSqft = stats.typicalPpsqm === null ? null : `£${Math.round(stats.typicalPpsqm / sqmToSqft(1))}/sq ft`;
-  // The ?view=map deep link SEEDS the fold open once. After that the <details>
-  // owns its own state: re-asserting `open` on every render would slam it shut
-  // under anyone who switched the view back to the list.
-  const seedOpen = useRef(s.view === 'map');
-  const fold = folded && features.sectionOverview && result !== null && result.comps.length > 0
-    ? { line: SECTION_STRIP.compsSummary(stats.count, perSqft), open: seedOpen.current }
-    : null;
-
-  // The module's body, written ONCE: shown bare, or behind the fold's one line.
-  const body = (
-    <>
+  // The filters, written ONCE: folded behind one button at EVERY width while
+  // compsMobile is on (seven controls dominate a phone and clutter a desktop),
+  // or laid out as they always were when the flag is off.
+  const filterFields = (
         <div class="filter-strip" role="group" aria-label="Comparable filters">
           <label>Radius
             <select value={s.radius} onChange={(e) => update({ radius: (e.target as HTMLSelectElement).value as never })}>
@@ -108,7 +104,36 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               <input inputMode="numeric" placeholder="max" aria-label="Maximum price (£)" value={s.maxPrice} onInput={(e) => update({ maxPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
             </span>
           </label>
-        </div>
+          </div>
+  );
+
+  // A phone gets a card per sale; a desktop keeps the table. ONE of the two is
+  // built — never both — so a phone never carries an invisible 11-column table.
+  const cards = wantsCards(useViewportWidth(), features.compsMobile);
+  const filtersSet = activeFilterCount(s);
+
+  // The ?view=map deep link SEEDS the fold open once. After that the <details>
+  // owns its own state: re-asserting `open` on every render would slam it shut
+  // under anyone who switched the view back to the list.
+  const seedOpen = useRef(s.view === 'map');
+  const fold = folded && features.sectionOverview && result !== null && result.comps.length > 0
+    ? { line: SECTION_STRIP.compsSummary(stats.count, perSqft), open: seedOpen.current }
+    : null;
+
+  // The module's body, written ONCE: shown bare, or behind the fold's one line.
+  const body = (
+    <>
+        {features.compsMobile ? (
+        <details class="filter-sheet">
+          <summary class="filter-summary">
+            {filtersSet === 0 ? COMPARABLES.filters.label : COMPARABLES.filters.withCount(filtersSet)}
+          </summary>
+          {filtersSet > 0 && (
+            <button type="button" class="filter-clear" onClick={() => update(clearedFilters())}>{COMPARABLES.filters.clear}</button>
+          )}
+          {filterFields}
+        </details>
+      ) : filterFields}
 
         {result === null ? (
           <p class="hint">Waiting for a postcode…</p>
@@ -158,7 +183,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               >
                 Map
               </button>
-              {s.view === 'map' && <span class="hint">The table view carries the same data for keyboard and screen-reader use.</span>}
+              {s.view === 'map' && <span class="hint">The list view carries the same data for keyboard and screen-reader use.</span>}
             </div>
             {s.view === 'map' && comps.some((c) => !c.included) && (
               <span class="map-chip">{comps.filter((c) => !c.included).length} dimmed — excluded from the stats</span>
@@ -173,6 +198,38 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               />
             )}
             {s.view === 'list' && <p class="hint">Untick a row to leave it out — the stats recalculate instantly.</p>}
+            {cards && (
+              <ul class="comp-cards" aria-label={COMPARABLES.card.listLabel} hidden={s.view === 'map'}>
+                {comps.map((c) => {
+                  const address = [c.saon, c.paon, c.street].filter(Boolean).join(' ');
+                  return (
+                    <li class={c.included ? 'comp-card' : 'comp-card is-out'} key={c.id}>
+                      <label class="comp-tick">
+                        <input type="checkbox" checked={c.included} onChange={() => toggle(c.id)}
+                          aria-label={COMPARABLES.card.include(address)} />
+                      </label>
+                      <div class="comp-body">
+                        <p class="comp-price"><strong>{fmtMoney(c.price)}</strong> <span class="comp-when">{c.date}</span></p>
+                        <p class="comp-address"><a href={`/transaction?id=${encodeURIComponent(c.id.replace(/[{}]/g, ''))}`}>{address}</a></p>
+                        <p class="comp-meta">
+                          <span>{c.postcode}</span>
+                          <span>{TYPE_LABEL[c.type] ?? c.type}</span>
+                          <span>{TENURE_LABEL[c.tenure] ?? c.tenure}</span>
+                          <span>{AGE_LABEL(c)}</span>
+                        </p>
+                        <p class="comp-meta">
+                          <span>{c.floorAreaSqm !== null ? COMPARABLES.card.sqftValue(Math.round(sqmToSqft(c.floorAreaSqm))) : COMPARABLES.card.unknown}</span>
+                          <span>{c.ppsqm !== null ? COMPARABLES.card.perSqftValue(Math.round(c.ppsqm / sqmToSqft(1))) : COMPARABLES.card.unknown}</span>
+                          <span>{COMPARABLES.card.distanceValue(c.distanceMiles.toFixed(2))}</span>
+                        </p>
+                        {!c.included && <p class="comp-out">{COMPARABLES.card.excluded}</p>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {!cards && (
             <div class="table-wrap" hidden={s.view === 'map'}>
               <table class="comps-table">
                 <thead>
@@ -217,6 +274,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                 </tbody>
               </table>
             </div>
+            )}
           </>
         )}
     </>

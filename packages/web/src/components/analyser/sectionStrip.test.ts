@@ -16,6 +16,7 @@ const rect = (el: Element, r: Partial<DOMRect>): void => {
 };
 
 let strip: HTMLElement;
+let row: HTMLElement;
 const chip = (id: string) => document.querySelector<HTMLAnchorElement>(`[data-chip="${id}"]`)!;
 /** MutationObserver delivers on a microtask; the strip then re-syncs in a frame. */
 const flush = async (): Promise<void> => {
@@ -24,8 +25,11 @@ const flush = async (): Promise<void> => {
 
 beforeEach(() => {
   document.documentElement.style.cssText = '';
-  document.body.innerHTML = `<nav class="section-strip" data-section-strip><ul class="strip-row">${stripHtml}</ul></nav><main></main>`;
+  document.body.innerHTML = `<div class="pinned-row" data-pinned-row><nav class="strategy-seg"></nav><nav class="section-strip" data-section-strip><ul class="strip-row">${stripHtml}</ul></nav></div><main></main>`;
   strip = document.querySelector<HTMLElement>('.section-strip')!;
+  row = document.querySelector<HTMLElement>('.pinned-row')!;
+  // the ROW is what pins, and what the page's scroll-padding must clear
+  rect(row, { top: 0, bottom: 44, height: 44, left: 0, right: 390, width: 390 });
   rect(strip, { top: 0, bottom: 44, height: 44, left: 0, right: 390, width: 390 });
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => setTimeout(() => cb(0), 0) as unknown as number);
 });
@@ -48,11 +52,13 @@ describe('section overview strip — the enhancement layer (N2)', () => {
     expect(strip.classList.contains('is-live')).toBe(true);
   });
 
-  it('stays dark with nothing to jump to (no chips, no reserved height)', () => {
+  it('shows no chips with nothing to jump to, but still reserves the row (the switcher lives there)', () => {
     startSectionStrip();
     expect(document.querySelectorAll('.strip-chip:not([hidden])').length).toBe(0);
     expect(strip.classList.contains('is-live')).toBe(false);
-    expect(document.documentElement.style.getPropertyValue('--strip-h')).toBe('0px');
+    // the pinned row carries the strategy switcher from the first paint, so its
+    // height is reserved whether or not any section chip has appeared yet
+    expect(document.documentElement.style.getPropertyValue('--strip-h')).toBe('44px');
   });
 
   it('publishes its height so scroll-padding clears it, and marks what you are reading', () => {
@@ -74,7 +80,7 @@ describe('section overview strip — the enhancement layer (N2)', () => {
     document.documentElement.style.setProperty('--sticky-h', '53px');
     vi.stubGlobal('innerHeight', 260); // 53 + 44 = 97 of 260 = 37%
     startSectionStrip();
-    expect(strip.classList.contains('is-unstuck')).toBe(true);
+    expect(row.classList.contains('is-unstuck')).toBe(true);
     expect(document.documentElement.style.getPropertyValue('--strip-h')).toBe('0px');
   });
 
