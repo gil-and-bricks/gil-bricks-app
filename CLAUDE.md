@@ -24,6 +24,35 @@ Live at: https://gil-bricks-app.gil-782.workers.dev
 8. England & Wales ONLY — gate on ONSPD CTRY (E92000001 / W92000004); reject
    Scotland/NI gracefully.
 
+## Reversibility charter (HARD RULE — enforced by tests, not habit)
+Everything we build must be switchable off, or swapped for a different design,
+without unpicking the rest.
+1. Every new user-facing feature ships behind a NAMED flag in the ONE central
+   feature-flags config: packages/web/src/config/features.ts, documented in
+   docs/FEATURE_FLAGS.md (what it turns on / what off looks like). Flags live
+   nowhere else — not site.config.ts, not env vars, not components.
+2. No user-facing string, threshold, stage name, rate or brand value may be
+   hardcoded. They live in config: strategy thresholds in StrategyConfig,
+   rates in rates.json, stage/park/fact/board copy in src/config/pipeline.ts,
+   sticky-bar copy in src/config/stickyVerdict.ts, brand colours in tokens.css,
+   identity in site.config.ts. New components start at ZERO inline strings.
+3. Presentation changes never alter a number. All maths stays in
+   @gil-bricks/core; a UI component may format a figure, never compute one.
+4. Every sprint is ONE revertible commit: `git revert <sha>` must restore
+   the previous product with nothing dangling.
+5. Migrations are additive-only (new tables/columns/indexes) and never
+   destroy data. Turning a flag off hides a feature; it never deletes rows.
+Enforced by packages/web/src/config/reversibility.test.ts (flags-in-one-place
++ a positive control on the flag shapes, brand-hex-only-in-tokens,
+no-retyped-config-copy, no-thresholds-in-components, and an inline-copy
+RATCHET: existing files may only go down, new files are held to zero) and
+features.test.ts (every flag documented). The ratchet counts JSX/Astro text,
+user-facing attributes, unknown props on our own components and sentence-like
+literals — not every single string; docs/FEATURE_FLAGS.md states the scope.
+The baseline is grandfathered debt (617 strings / 35 files on 2026-09-04) —
+pay it down, never raise it. Page prose under src/pages and src/content is content, not config,
+and is out of the ratchet's scope on purpose.
+
 ## Stack
 - Astro (static-first), built to dist/, deployed as Cloudflare Workers static assets.
 - wrangler v4, wrangler.jsonc (NOT toml). Recent compatibility_date.

@@ -2,7 +2,8 @@
 
 We stopped here **on purpose** to come back with fresh eyes. This records exactly what
 is built and what is deliberately NOT, so nobody rebuilds finished work or half-builds
-the deferred work by accident. Everything is behind `siteConfig.features.dealPipeline`
+the deferred work by accident. Everything is behind `features.dealPipeline` (packages/web/src/config/features.ts — the ONE
+flags file; docs/FEATURE_FLAGS.md is the rollback sheet)
 (currently ON in production, gated on sign-in). Boundaries in CLAUDE.md are LOCKED:
 buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
 

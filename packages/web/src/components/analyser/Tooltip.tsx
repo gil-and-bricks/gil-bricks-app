@@ -1,11 +1,27 @@
 /** 'i' tooltip: hover + focus + tap, aria-describedby, dismissible
  * (Esc anywhere, tap outside, pointer-leave of the whole bubble). */
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
+import { STICKY_VERDICT } from '../../config/stickyVerdict';
 
 export function Tooltip({ text }: { text: string }) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  // Bubbles open upward by default; near the top of the screen there is no room
+  // (the sticky verdict bar paints above every card), so they flip downward.
+  const [below, setBelow] = useState(false);
   const wrapRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setBelow(false);
+      return;
+    }
+    const el = bubbleRef.current;
+    if (!el) return;
+    const stickyHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(STICKY_VERDICT.heightVar)) || 0;
+    setBelow(el.getBoundingClientRect().top < stickyHeight);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -43,7 +59,7 @@ export function Tooltip({ text }: { text: string }) {
         i
       </button>
       {open && (
-        <span role="tooltip" id={id} class="tip-bubble">
+        <span role="tooltip" id={id} ref={bubbleRef} class={below ? 'tip-bubble tip-below' : 'tip-bubble'}>
           {text}
         </span>
       )}

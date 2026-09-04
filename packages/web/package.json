@@ -34,6 +34,7 @@
     "preact": "^10.29.8"
   },
   "devDependencies": {
+    "@babel/parser": "^7.29.8",
     "@duckdb/node-api": "^1.5.5-r.4",
     "happy-dom": "^20.13.1",
     "playwright-core": "^1.62.1",

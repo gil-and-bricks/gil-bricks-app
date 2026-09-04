@@ -17,6 +17,9 @@ const { title, description, noindex = false } = Astro.props;
 
 <Base title={title} description={description} noindex={noindex}>
   <Header />
+  {/* "sticky" slot: a page may pin one slim bar here, between the header and the
+      content (N1: the analyser's sticky verdict bar). Empty on every other page. */}
+  <slot name="sticky" />
   <main class="page-wrap">
     <slot />
   </main>

@@ -74,8 +74,23 @@ function resetTiles(): void {
 }
 export { resetTiles };
 
-const LIME = '#dcff00';
-const INK = '#070014';
+/** Brand colours come from the CSS tokens at mount time — tokens.css is the ONE
+ * source (Reversibility charter); the token NAME is the only literal here. */
+function cssToken(name: string): string {
+  const v = typeof getComputedStyle === 'function' ? getComputedStyle(document.documentElement).getPropertyValue(name).trim() : '';
+  if (v === '') throw new Error(`CSS token ${name} is missing — tokens.css must be loaded before the map mounts`);
+  return v;
+}
+
+/** The same token as a translucent MapLibre colour (fills and halos) — so no
+ * copy of the brand colour is ever typed into this file. */
+function cssTokenAlpha(name: string, alpha: number): string {
+  const hex = cssToken(name);
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (m === null) throw new Error(`CSS token ${name} is not a 6-digit hex colour`);
+  const [r, g, b] = [m[1], m[2], m[3]].map((c) => parseInt(c, 16));
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 export interface MapData {
   subject: { lat: number; lng: number };
@@ -147,6 +162,11 @@ const TYPE_WORDS: Record<string, string> = { D: 'Detached', S: 'Semi', T: 'Terra
 
 export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbacks = {}): MapHandle {
   ensureProtocol();
+  const LIME = cssToken('--accent');
+  const INK = cssToken('--accent-ink');
+  const LIME_FILL = cssTokenAlpha('--accent', 0.1);
+  const LIME_WASH = cssTokenAlpha('--accent', 0.12);
+  const LIME_HALO = cssTokenAlpha('--accent', 0.35);
   const interactive = opts.interactive !== false;
   const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -247,7 +267,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
         type: 'geojson',
         data: (current.article4 ?? { type: 'FeatureCollection', features: [] }) as never,
       });
-      map.addLayer({ id: 'article4-fill', type: 'fill', source: 'article4', paint: { 'fill-color': 'rgba(220,255,0,0.10)' } });
+      map.addLayer({ id: 'article4-fill', type: 'fill', source: 'article4', paint: { 'fill-color': LIME_FILL } });
       map.addLayer({
         id: 'article4-line',
         type: 'line',
@@ -262,7 +282,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
         id: 'radius-fill',
         type: 'fill',
         source: 'radius',
-        paint: { 'fill-color': 'rgba(220,255,0,0.12)' },
+        paint: { 'fill-color': LIME_WASH },
       });
       map.addLayer({
         id: 'radius-line',
@@ -289,7 +309,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
         'circle-color': LIME,
         'circle-radius': ['step', ['get', 'point_count'], 14, 10, 18, 50, 22],
         'circle-stroke-width': 2,
-        'circle-stroke-color': 'rgba(220,255,0,0.35)',
+        'circle-stroke-color': LIME_HALO,
       },
     });
     map.addLayer({

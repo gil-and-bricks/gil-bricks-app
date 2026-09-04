@@ -2,12 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
 import { signSession } from './lib/jwt';
-import { siteConfig } from '../site.config';
+import { features } from '../config/features';
 
 // This suite tests the FLAT saved-deals path, which is the flag-OFF behaviour.
 // Pin the flag off so the suite is correct regardless of the committed default
 // (production ships it ON).
-beforeEach(() => { siteConfig.features.dealPipeline = false; });
+beforeEach(() => { features.dealPipeline = false; });
 
 /**
  * Stateful in-memory D1 stub interpreting exactly the SQL this Worker runs.

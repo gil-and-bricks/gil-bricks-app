@@ -132,3 +132,40 @@ export const FACT_TYPE_KEYS: readonly string[] = FACT_TYPES.map((f) => f.key);
 export function isFactType(key: string): boolean {
   return FACT_TYPE_KEYS.includes(key);
 }
+
+/**
+ * The board's own words (lib/deals/board.ts reads these; N1 moved them here so
+ * no user-facing string lives in code — Reversibility charter). Reword freely.
+ */
+export const BOARD_COPY = {
+  /** Dwell phrases appended to the stage's `todo`. */
+  dwell: {
+    today: 'today',
+    day: 'day',
+    days: 'days',
+    satHere: 'sat here',
+    noUpdate: 'no update',
+    goneCold: 'gone cold',
+  },
+  /** The input a strategy needs before it can be scored (the human name). */
+  missing: {
+    price: 'a price',
+    rent: 'a rent',
+    roomRent: 'a room rent',
+    tooManyRooms: 'a smaller HMO (6 rooms or fewer)',
+  },
+  /** An unscored live deal never shows a bare dash. */
+  addToScore: (missing: string) => `Add ${missing} to score this`,
+  tapToScore: 'Tap to score this',
+  /** The honest "nothing to do" lines. */
+  nothingToday: 'Nothing needs you today.',
+  tickingAlong: (n: number) => `Nothing needs you today. ${n} deal${n === 1 ? '' : 's'} ticking along.`,
+  /** The quiet counter: "3 of 100 live · 1 bought · 2 parked". */
+  counter: {
+    live: (live: number, cap: number) => `${live} of ${cap} live`,
+    bought: (n: number) => `${n} bought`,
+    parked: (n: number) => `${n} parked`,
+    separator: ' · ',
+  },
+} as const;
+

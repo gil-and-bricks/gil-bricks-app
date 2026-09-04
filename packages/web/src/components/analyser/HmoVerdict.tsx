@@ -8,7 +8,7 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseHmo, checkRoomSizes, scoreDeal, type HmoAnalysis, type HmoInputs, type RoomOccupancy, type DealScore } from '@gil-bricks/core';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
-import { siteConfig } from '../../site.config';
+import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams } from './state';
@@ -93,7 +93,7 @@ export function HmoVerdict({ config, comps, valuation }: {
         thresholds: requireThresholds(config),
       };
       analysis = analyseHmo(inputs);
-      if (siteConfig.features.dealScore) {
+      if (features.dealScore) {
         deal = scoreDeal('hmo', inputs, valuation ? { estimate: valuation.estimate, high: valuation.range.high } : undefined);
       }
     } catch (err) {
@@ -121,7 +121,7 @@ export function HmoVerdict({ config, comps, valuation }: {
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h">{config.name} verdict</h2>
+      <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
       <p class="hint">
         This works out the bricks-and-mortar value and room-by-room cashflow for small HMOs (up to 6 people).
         It does not estimate a commercial HMO valuation — those need a surveyor.
@@ -187,7 +187,7 @@ export function HmoVerdict({ config, comps, valuation }: {
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
-          <div class={`verdict-banner verdict-${analysis.verdict}`} role="status">
+          <div class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}

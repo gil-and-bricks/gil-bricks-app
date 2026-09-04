@@ -5,7 +5,7 @@
  * is always computed by the caller with @gil-bricks/core and passed in; these
  * helpers only persist and read. Stage/fact keys are validated against config.
  */
-import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE } from '../../config/pipeline';
+import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS } from '../../config/pipeline';
 
 /**
  * A deal can ONLY be born from an analysed listing (P2 boundary — enforced by
@@ -305,6 +305,12 @@ interface SeedSpec {
   score: number; figure: string; verdict: string; auction?: boolean; dead?: string;
   ageDays: number; params: string;
 }
+// Seed copy that the UI owns comes FROM config — never re-typed here.
+const parkReasonLabel = (key: string): string => {
+  const r = PARK_REASONS.find((p) => p.key === key);
+  if (!r) throw new Error(`Unknown park reason "${key}" in the dev seed`);
+  return r.label;
+};
 const DEV_SEED_SPECS: readonly SeedSpec[] = [
   { strategy: 'btl', title: 'Terraced · CF24 4AA · £185,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', score: 8.7, figure: '£312/mo', verdict: 'Cashflows £312/mo after tax and clears the lender stress test — the numbers stack up.', ageDays: 1, params: 'postcode=CF24+4AA&price=185000&type=T&rent=1150' },
   { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', score: 4.9, figure: 'ROI 6.5%', verdict: 'Just 6.5% back on the cash you’d put in — short of the 12.0% you set as your minimum.', ageDays: 12, params: 'postcode=SA1+6HW&price=85000&type=S&roomRent=350&refurbCost=40000' },
@@ -315,7 +321,7 @@ const DEV_SEED_SPECS: readonly SeedSpec[] = [
   { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', score: 8.9, figure: '£41,000 profit', verdict: '£41,000 profit before tax on a tidy refurb — a strong margin for the risk.', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=235000&refurbCost=30000' },
   { strategy: 'brrrr', title: 'Terraced · NP19 0AA · £128,000', sector: 'NP19 0', stage: 'nearly-there', status: 'live', score: 7.1, figure: '£3,000 left in', verdict: '£3,000 stays in after refinancing — close to all-out, and the rent covers it.', ageDays: 3, params: 'postcode=NP19+0AA&price=128000&type=T&rent=875&arv=175000&refurbCost=22000' },
   { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', score: 8.4, figure: '£350/mo', verdict: 'Completed — £350/mo after tax, comfortably above your minimum.', ageDays: 30, params: 'postcode=CF37+1HR&price=120000&type=T&rent=950' },
-  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', score: 3.8, figure: 'ROI 5.0%', verdict: 'Only 5.0% back on the cash — the numbers never worked at this price.', dead: 'Numbers don’t work', ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000' },
+  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', score: 3.8, figure: 'ROI 5.0%', verdict: 'Only 5.0% back on the cash — the numbers never worked at this price.', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000' },
 ];
 
 export async function seedDemoDeals(db: D1Database, userId: string): Promise<number> {

@@ -1,6 +1,7 @@
 ---
 import AppShell from '../../layouts/AppShell.astro';
 import { AnalyserApp } from '../../components/analyser/AnalyserApp';
+import { StickyVerdict } from '../../components/analyser/StickyVerdict';
 import { strategies } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
 
@@ -16,6 +17,10 @@ const { config } = Astro.props;
   {/* the comps engine needs these on every analysis — start them at HTML parse */}
   <link rel="preload" as="fetch" href={`${dataBase()}/manifest.json`} crossorigin />
   <link rel="preload" as="fetch" href={`${dataBase()}/sectors-index.json`} crossorigin />
+  {/* ONE sticky verdict bar for all four strategies — mounted on the shared shell
+      slot (features.stickyVerdict). It presents the mounted verdict island's
+      snapshot; it computes nothing. */}
+  <StickyVerdict client:idle slot="sticky" />
   <h1 class="page-title">{config.name} analyser</h1>
   <p class="page-sub">{config.tagline} {config.heroLine}</p>
   <AnalyserApp client:load strategyName={config.name} config={config} />

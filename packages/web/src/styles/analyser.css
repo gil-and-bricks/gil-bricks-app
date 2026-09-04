@@ -32,7 +32,7 @@
   color: var(--text); font: inherit; font-size: var(--text-sm);
 }
 .field .row { display: flex; gap: var(--space-2); }
-.field-error { color: #ff9d9d; font-size: var(--text-xs); margin: var(--space-1) 0 0; }
+.field-error { color: var(--verdict-walk); font-size: var(--text-xs); margin: var(--space-1) 0 0; }
 .field-hint, .hint { color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-1) 0 0; }
 .start-hint { text-align: center; padding: var(--space-6); font-size: var(--text-base); }
 /* Contextual YouTube help, near the verdict — help not promotion (E10). */
@@ -57,8 +57,8 @@
   padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor;
   vertical-align: middle; margin-left: var(--space-1); white-space: nowrap;
 }
-.prov-fact { color: #7ddf6a; }      /* from the listing / EPC — evidence */
-.prov-estimate { color: #ffc861; }  /* estimated / carried over — an assumption */
+.prov-fact { color: var(--verdict-good); }      /* from the listing / EPC — evidence */
+.prov-estimate { color: var(--verdict-amber); }  /* estimated / carried over — an assumption */
 .prov-typed { color: var(--text-dim); }
 .prov-settings { color: var(--text-dim); }
 .mini-btn {
@@ -82,6 +82,9 @@
   width: max-content; max-width: 16rem; font-size: var(--text-xs); color: var(--text);
   z-index: 20; text-transform: none; letter-spacing: normal;
 }
+/* No room above (the top of the page, or under the sticky verdict bar, which
+   paints above every card) — open downward instead of behind it. */
+.tip-bubble.tip-below { bottom: auto; top: calc(100% + 6px); }
 
 /* results */
 .big-figure { font-family: var(--font-display); font-weight: 800; font-size: var(--text-3xl); margin: 0; color: var(--accent); }
@@ -186,8 +189,8 @@
 .room-row { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); margin: var(--space-2) 0; }
 .room-row label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-dim); }
 .room-row input { width: 6rem; }
-.room-ok { color: #7ddf6a; font-size: var(--text-xs); }
-.room-fail { color: #ff9d9d; font-size: var(--text-xs); }
+.room-ok { color: var(--verdict-good); font-size: var(--text-xs); }
+.room-fail { color: var(--verdict-walk); font-size: var(--text-xs); }
 .licence-flag { border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); padding: var(--space-3); margin: var(--space-3) 0; }
 .licence-mandatory { border-color: var(--accent); }
 
@@ -494,3 +497,76 @@
 @media (max-width: 640px) {
   body { padding-bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ---------- Sticky verdict bar (N1, features.stickyVerdict) ----------
+   In the page flow (sticky, not fixed) between the header and the content, on
+   the shared shell — so it pins to the top only once the header scrolls away.
+   Hidden = visibility (never display) so its space stays and nothing reflows.
+   The expanded panel is absolutely positioned for the same reason. */
+/* WCAG 2.4.11: a focused control never lands under the bar. The extra space-2
+   is breathing room — sub-pixel scroll rounding can otherwise leave a heading
+   flush against the bar's border. */
+html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--space-2)); }
+.sv-anchor { height: 0; }
+.sticky-verdict {
+  position: sticky; top: 0; z-index: 30;
+  padding: var(--space-2) var(--space-5);
+  background: color-mix(in srgb, var(--bg-1) 92%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+@supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+  .sticky-verdict, .sv-panel { background: var(--glass-bg-fallback); }
+}
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .sticky-verdict, .sv-panel { background: var(--glass-bg-fallback); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .sticky-verdict, .sv-panel { background: var(--glass-bg-fallback); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (pointer: coarse) { .sticky-verdict { --glass-blur: 6px; } }
+.sticky-verdict.is-hidden { visibility: hidden; }
+/* Un-stuck = scrolls away with the page. It stays POSITIONED (relative, not
+   static) so the expanded panel keeps its containing block even where the
+   backdrop-filter is switched off (increased contrast / reduced transparency). */
+.sticky-verdict.is-unstuck { position: relative; }
+/* CSS-only backstop for the JS un-stick: a bar can never own a tiny viewport */
+@media (max-height: 160px) { .sticky-verdict { position: relative; } }
+.sticky-verdict.ds-good { --sv-tier: var(--verdict-good); }
+.sticky-verdict.ds-marginal { --sv-tier: var(--verdict-amber); }
+.sticky-verdict.ds-walk { --sv-tier: var(--verdict-walk); }
+.sv-main {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%; max-width: 72rem; margin: 0 auto; min-height: 2.25rem;
+  padding: 0; background: none; border: 0; color: var(--text);
+  font: inherit; text-align: left; cursor: pointer;
+}
+.sv-chip {
+  display: inline-flex; align-items: baseline; gap: 2px; flex: 0 0 auto;
+  padding: 2px 8px; border-radius: 8px; border: 1px solid var(--sv-tier, var(--glass-border));
+}
+.sv-chip strong { font-family: var(--font-display); font-weight: 800; font-size: var(--text-lg); line-height: 1.2; color: var(--sv-tier, var(--text)); }
+.sv-outof { color: var(--text-dim); font-size: var(--text-xs); }
+.sv-headline { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: 600; }
+.sv-chevron { flex: 0 0 auto; color: var(--accent); font-size: var(--text-sm); }
+/* One brief tint when the score moves — ONLY for people who have not asked for
+   reduced motion; everyone else gets the instant change (global.css also kills it). */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes sv-tint {
+    from { background-color: color-mix(in srgb, var(--sv-tier, var(--accent)) 45%, transparent); }
+    to { background-color: transparent; }
+  }
+  .sv-chip.is-changed { animation: sv-tint var(--sv-tint-ms, 250ms) ease-out 1; }
+}
+.sv-panel {
+  position: absolute; left: 0; right: 0; top: 100%;
+  padding: var(--space-3) var(--space-5) var(--space-4);
+  background: color-mix(in srgb, var(--bg-1) 96%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--glass-border);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.sv-panel[hidden] { display: none; }
+.sv-full { max-width: 72rem; margin: 0 auto var(--space-3); font-size: var(--text-base); line-height: 1.4; }
+.sv-jump { display: block; max-width: 72rem; margin: 0 auto; color: var(--accent); font-weight: 600; }

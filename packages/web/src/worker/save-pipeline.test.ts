@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
 import { signSession } from './lib/jwt';
-import { siteConfig } from '../site.config';
+import { features } from '../config/features';
 import { LIVE_CAP_MESSAGE } from '../config/pipeline';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
@@ -36,16 +36,16 @@ const save = async (headers: Record<string, string>, body: Record<string, unknow
 const count = (t: string, where = '') => (sqlite.prepare(`SELECT COUNT(*) n FROM ${t} ${where}`).get() as { n: number }).n;
 
 beforeEach(() => {
-  siteConfig.features.dealPipeline = false; // explicit baseline; flag-ON describes opt in. Robust to the committed default.
+  features.dealPipeline = false; // explicit baseline; flag-ON describes opt in. Robust to the committed default.
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   for (const m of MIGRATIONS) sqlite.exec(MIG(m));
   sqlite.prepare('INSERT INTO users (id, email, name, created_at) VALUES (?, ?, ?, ?)').run('u1', 'u1@t', 'T', '2026-01-01T00:00:00Z');
 });
-afterEach(() => { siteConfig.features.dealPipeline = false; });
+afterEach(() => { features.dealPipeline = false; });
 
 describe('save writes a pipeline deal (flag ON)', () => {
-  beforeEach(() => { siteConfig.features.dealPipeline = true; });
+  beforeEach(() => { features.dealPipeline = true; });
 
   it('writes a deal + opening stage entry + first verdict, and reports pipeline:true', async () => {
     const res = await save(await authed(), {});
@@ -139,7 +139,7 @@ describe('save writes a pipeline deal (flag ON)', () => {
 
 describe('flag OFF — nothing changes (today’s behaviour)', () => {
   it('saves to saved_deals only, writes NO pipeline deal, and returns no pipeline flag', async () => {
-    expect(siteConfig.features.dealPipeline).toBe(false);
+    expect(features.dealPipeline).toBe(false);
     const res = await save(await authed(), {});
     expect(res.status).toBe(200);
     const b = await res.json() as { ok: boolean; pipeline?: boolean };
@@ -151,7 +151,7 @@ describe('flag OFF — nothing changes (today’s behaviour)', () => {
   });
 
   it('deleting a saved deal ALSO removes its (migrated) pipeline row — even flag off — so no orphan leaks the cap', async () => {
-    expect(siteConfig.features.dealPipeline).toBe(false);
+    expect(features.dealPipeline).toBe(false);
     const h = await authed();
     // a migrated deal: a saved_deals row + a matching live deals row with the same id
     // (what the 0005 backfill produces), present even while the pipeline UI is off.
@@ -173,7 +173,7 @@ const list = async (headers: Record<string, string>) =>
 
 describe('the board list (GET /api/deals)', () => {
   it('flag ON returns pipeline board data — stage, score, figure, url_params + live count vs cap', async () => {
-    siteConfig.features.dealPipeline = true;
+    features.dealPipeline = true;
     const h = await authed();
     await save(h, { strategy: 'btl', url_params: 'postcode=CF37+1HR&price=150000' });
     await save(h, { strategy: 'flip', url_params: 'postcode=CF37+1HR&price=150000', headline_figure: '£30,000 profit', score: 3.4 });
@@ -195,7 +195,7 @@ describe('the board list (GET /api/deals)', () => {
   });
 
   it('a dead deal drops out of the live count but is still returned (board tucks it away)', async () => {
-    siteConfig.features.dealPipeline = true;
+    features.dealPipeline = true;
     const h = await authed();
     const first = await (await save(h, {})).json() as { id: string };
     sqlite.prepare("UPDATE deals SET stage = 'parked-dead', status = 'dead' WHERE id = ?").run(first.id);
@@ -205,7 +205,7 @@ describe('the board list (GET /api/deals)', () => {
   });
 
   it('flag OFF returns exactly today’s flat shape (no pipeline field)', async () => {
-    expect(siteConfig.features.dealPipeline).toBe(false);
+    expect(features.dealPipeline).toBe(false);
     const h = await authed();
     await save(h, {});
     const b = await (await list(h)).json() as { deals: Record<string, unknown>[]; max?: number; pipeline?: boolean };
@@ -220,7 +220,7 @@ const post = (headers: Record<string, string>, path: string, body: unknown) =>
   worker.fetch(new Request(`https://s.test${path}`, { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body: JSON.stringify(body) }), env());
 
 describe('P4 — moving and parking from the board (flag ON)', () => {
-  beforeEach(() => { siteConfig.features.dealPipeline = true; });
+  beforeEach(() => { features.dealPipeline = true; });
 
   it('moves a deal forward: writes stage_history and updates stage/status', async () => {
     const h = await authed();
@@ -301,7 +301,7 @@ describe('P4 — moving and parking from the board (flag ON)', () => {
 
 describe('P4 — move/park are inert with the flag OFF', () => {
   it('both endpoints 404 when the pipeline flag is off', async () => {
-    expect(siteConfig.features.dealPipeline).toBe(false);
+    expect(features.dealPipeline).toBe(false);
     const h = await authed();
     const id = '11111111-1111-4111-8111-111111111111';
     sqlite.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
@@ -313,7 +313,7 @@ describe('P4 — move/park are inert with the flag OFF', () => {
 });
 
 describe('P4.2 — backfill a deal score by id (flag ON)', () => {
-  beforeEach(() => { siteConfig.features.dealPipeline = true; });
+  beforeEach(() => { features.dealPipeline = true; });
 
   it('stores score/verdict_line/headline_figure on an owned deal, without creating a new one', async () => {
     const h = await authed();
@@ -340,7 +340,7 @@ describe('P4.2 — backfill a deal score by id (flag ON)', () => {
 
 describe('P4.2 — the score endpoint is inert with the flag OFF', () => {
   it('404s when the pipeline flag is off', async () => {
-    expect(siteConfig.features.dealPipeline).toBe(false);
+    expect(features.dealPipeline).toBe(false);
     const h = await authed();
     const id = '11111111-1111-4111-8111-111111111111';
     expect((await post(h, `/api/deals/${id}/score`, { score: 7 })).status).toBe(404);

@@ -16,8 +16,9 @@ const LIGHT: Record<DealScore['verdict'], { cls: string; dot: string }> = {
 export function DealScoreChip({ deal }: { deal: DealScore | null }) {
   if (!deal) return null;
   const l = LIGHT[deal.verdict];
-  // role="img" (not "status"): the existing verdict banner is the one polite
-  // live region that announces on recompute — a second live region here would
+  // role="img" (not "status"): there is exactly ONE polite live region on the
+  // page — the sticky verdict bar while features.stickyVerdict is on, the
+  // verdict banner when it is off. A second live region here would
   // double-announce and can drop messages. The full label carries score,
   // verdict AND headline so screen-reader users get the same summary sighted
   // users see. Score is formatted to match the visible "7.9".

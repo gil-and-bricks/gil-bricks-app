@@ -2,11 +2,12 @@
 import AppShell from '../layouts/AppShell.astro';
 import { DealBoard } from '../components/deals/DealBoard';
 import { siteConfig } from '../site.config';
+import { features } from '../config/features';
 
 // The board REPLACES the flat saved-deals list only when the pipeline flag is on.
 // While it's off there is no board surface — bounce to the account page (which
 // still shows today's saved-deals list, completely untouched).
-if (!siteConfig.features.dealPipeline) return Astro.redirect('/account');
+if (!features.dealPipeline) return Astro.redirect('/account');
 ---
 
 <AppShell title={`Your pipeline — ${siteConfig.siteName}`} description="Your deal pipeline — which of your deals needs you next." noindex>

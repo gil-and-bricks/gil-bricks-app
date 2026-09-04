@@ -6,18 +6,16 @@ import SectionHeading from '../components/SectionHeading.astro';
 import { siteConfig } from '../site.config';
 
 // Hidden internal reference — noindex, not linked from anywhere.
-const swatches = [
-  { name: '--accent', value: '#dcff00' },
-  { name: '--accent-ink', value: '#070014' },
-  { name: '--bg-0', value: '#070014' },
-  { name: '--bg-1', value: '#1d022f' },
-  { name: '--bg-2', value: '#230138' },
-  { name: '--bg-3', value: '#050008' },
-  { name: '--text', value: '#ffffff' },
-  { name: '--text-dim', value: 'rgba(255,255,255,0.7)' },
-  { name: '--glass-bg', value: 'rgba(255,255,255,0.05)' },
-  { name: '--glass-border', value: 'rgba(220,255,0,0.4)' },
-];
+// Swatch values are READ from tokens.css at build time (the one source —
+// Reversibility charter); only the token NAMES are listed here.
+import tokensCss from '../styles/tokens.css?raw';
+const tokenValue = (name: string): string => {
+  const m = new RegExp(`${name}\\s*:\\s*([^;]+);`).exec(tokensCss);
+  if (!m) throw new Error(`styleguide: token ${name} not found in tokens.css`);
+  return m[1].trim();
+};
+const swatches = ['--accent', '--accent-ink', '--bg-0', '--bg-1', '--bg-2', '--bg-3', '--text', '--text-dim', '--glass-bg', '--glass-border']
+  .map((name) => ({ name, value: tokenValue(name) }));
 const typeScale = [
   { token: '--text-xs', label: 'Extra small' },
   { token: '--text-sm', label: 'Small' },
@@ -74,8 +72,8 @@ const typeScale = [
 
     <SectionHeading>Contrast</SectionHeading>
     <p class="contrast-note">
-      Lime (#dcff00) is for text, borders, icons and button fills with
-      near-black text (#070014) — 18:1. Never put white text on a lime
+      Lime ({tokenValue('--accent')}) is for text, borders, icons and button fills with
+      near-black text ({tokenValue('--accent-ink')}) — 18:1. Never put white text on a lime
       background: at about 1.2:1 it fails WCAG. Body text is white or 70%
       white on the dark gradient; both pass AA on every gradient stop.
     </p>

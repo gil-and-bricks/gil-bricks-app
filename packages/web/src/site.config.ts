@@ -33,8 +33,7 @@ export interface SiteConfig {
   turnstileSiteKey: string;
   /** Current version of the T&C/consent text; bump when legal copy changes (S9). */
   consentVersion: string;
-  /** UI feature flags. `dealPipeline` gates the P1 pipeline — OFF until its UI ships (P-series); the flat saved-deals path stays untouched while false. */
-  features: { dealScore: boolean; dealPipeline: boolean };
+  // Feature flags do NOT live here — see src/config/features.ts (Reversibility charter).
 }
 
 export const siteConfig: SiteConfig = {
@@ -57,5 +56,4 @@ export const siteConfig: SiteConfig = {
   googleClientId: '548405055261-7h7g1bsbc6ouoa04470ohr3ifigjbbfp.apps.googleusercontent.com',
   turnstileSiteKey: '0x4AAAAAAEjDnxbmFpl9_C_M',
   consentVersion: '2026-08-31.2-placeholder',
-  features: { dealScore: true, dealPipeline: true },
 };

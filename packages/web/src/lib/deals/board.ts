@@ -6,7 +6,7 @@
  * extension speak one visual language. Tested in board.test.ts.
  */
 import { verdictForScore } from '@gil-bricks/core';
-import { PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
+import { BOARD_COPY, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
 
 /** One deal as the board needs it (from /api/deals when the flag is on). */
 export interface BoardDeal {
@@ -73,9 +73,10 @@ export function nextStepLine(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'st
   if (meta.todo === '') return '';
   const d = daysInStage(deal, now);
   const age = dwellState(deal, now);
-  const dwell = age === 'cold' ? `${d} days, gone cold`
-    : age === 'amber' ? `${d} days, no update`
-    : d === 0 ? 'today' : `${d} day${d === 1 ? '' : 's'} sat here`;
+  const c = BOARD_COPY.dwell;
+  const dwell = age === 'cold' ? `${d} ${c.days}, ${c.goneCold}`
+    : age === 'amber' ? `${d} ${c.days}, ${c.noUpdate}`
+    : d === 0 ? c.today : `${d} ${d === 1 ? c.day : c.days} ${c.satHere}`;
   return `${meta.todo} — ${dwell}`;
 }
 
@@ -86,13 +87,14 @@ export function nextStepLine(deal: Pick<BoardDeal, 'stage' | 'stage_since' | 'st
 export function missingRequiredInput(strategy: string, urlParams: string): string | null {
   const q = new URLSearchParams(urlParams);
   const num = (k: string): number => Number(q.get(k) ?? '');
-  if (!(num('price') > 0)) return 'a price';
-  if (strategy === 'btl' || strategy === 'brrrr') { if (!(num('rent') > 0)) return 'a rent'; }
+  const c = BOARD_COPY.missing;
+  if (!(num('price') > 0)) return c.price;
+  if (strategy === 'btl' || strategy === 'brrrr') { if (!(num('rent') > 0)) return c.rent; }
   if (strategy === 'hmo') {
     // Mirror the analyser's HMO readiness gate: a 7+ person (sui generis) HMO is
     // outside what the tool scores, so never promise a one-tap score for one.
-    if (q.get('rooms') === '7plus') return 'a smaller HMO (6 rooms or fewer)';
-    if (!(num('roomRent') > 0)) return 'a room rent';
+    if (q.get('rooms') === '7plus') return c.tooManyRooms;
+    if (!(num('roomRent') > 0)) return c.roomRent;
   }
   return null;
 }
@@ -115,8 +117,8 @@ export function cardVerdict(d: BoardDeal): CardVerdict {
     if (d.status !== 'live') return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
     const missing = missingRequiredInput(d.strategy, d.url_params);
     return missing
-      ? { scored: false, cls: 'ds-none', line: `Add ${missing} to score this`, action: 'add' }
-      : { scored: false, cls: 'ds-none', line: 'Tap to score this', action: 'score' };
+      ? { scored: false, cls: 'ds-none', line: BOARD_COPY.addToScore(missing), action: 'add' }
+      : { scored: false, cls: 'ds-none', line: BOARD_COPY.tapToScore, action: 'score' };
   }
   const line = (d.verdict_line ?? '').trim() || cardFigure(d);
   return { scored: true, cls: scoreClass(d.current_score), line, action: 'none' };
@@ -181,8 +183,9 @@ export function todayLine(deals: readonly BoardDeal[], now: number): TodayLine {
   const dwellPhrase = (d: BoardDeal): string => {
     const days = daysInStage(d, now);
     const age = dwellState(d, now);
-    const dp = days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'}`;
-    return `${dp}${age === 'cold' ? ', gone cold' : age === 'amber' ? ', no update' : ''}`;
+    const c = BOARD_COPY.dwell;
+    const dp = days === 0 ? c.today : `${days} ${days === 1 ? c.day : c.days}`;
+    return `${dp}${age === 'cold' ? `, ${c.goneCold}` : age === 'amber' ? `, ${c.noUpdate}` : ''}`;
   };
   const line = (d: BoardDeal): string => `${stageMeta(d.stage).todo} — ${d.title} · ${dwellPhrase(d)}`;
 
@@ -211,8 +214,8 @@ export function todayLine(deals: readonly BoardDeal[], now: number): TodayLine {
   // bought/parked deal is sitting right there (the "analyse a listing" call to action
   // belongs only to the genuinely-empty board, which the board renders separately).
   const n = live.length;
-  if (n === 0) return { text: 'Nothing needs you today.', dealId: null };
-  return { text: `Nothing needs you today. ${n} deal${n === 1 ? '' : 's'} ticking along.`, dealId: null };
+  if (n === 0) return { text: BOARD_COPY.nothingToday, dealId: null };
+  return { text: BOARD_COPY.tickingAlong(n), dealId: null };
 }
 
 /** Board tallies for the quiet counter. `live` is the only figure the 100-cap
@@ -229,8 +232,9 @@ export function boardCounts(deals: readonly BoardDeal[]): BoardCounts {
 /** The quiet counter line: live vs cap, plus terminal tallies so a bought/parked
  * deal is acknowledged as a result, not an absence. */
 export function counterLine(counts: BoardCounts, cap: number): string {
-  const parts = [`${counts.live} of ${cap} live`];
-  if (counts.done > 0) parts.push(`${counts.done} bought`);
-  if (counts.dead > 0) parts.push(`${counts.dead} parked`);
-  return parts.join(' · ');
+  const c = BOARD_COPY.counter;
+  const parts = [c.live(counts.live, cap)];
+  if (counts.done > 0) parts.push(c.bought(counts.done));
+  if (counts.dead > 0) parts.push(c.parked(counts.dead));
+  return parts.join(c.separator);
 }

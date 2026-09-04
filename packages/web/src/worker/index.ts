@@ -8,6 +8,7 @@
  * live only in env and are never logged or echoed.
  */
 import { siteConfig } from '../site.config';
+import { features } from '../config/features';
 import {
   AUTH_STATE_COOKIE,
   authStateCookie,
@@ -383,7 +384,7 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
     .first<{ id: string }>();
 
   // ---- P2: save into the deal PIPELINE (only when the flag is on) ----
-  if (siteConfig.features.dealPipeline) {
+  if (features.dealPipeline) {
     // A deal can ONLY be born from an analyser payload — parse+brand it here.
     const payload = parseAnalyserDeal(body, isDealStrategy);
     if (!payload) return json({ error: 'bad request' }, 400);
@@ -446,7 +447,7 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
   if (!user) return json({ error: 'not signed in' }, 401);
 
   // ---- P3: the pipeline board (only when the flag is on) ----
-  if (siteConfig.features.dealPipeline) {
+  if (features.dealPipeline) {
     // One row per deal, joined to saved_deals ONLY for its url_params (the analyser
     // link) — every deal has a matching saved_deals row (P2 dual-write; deleted
     // together). headline_figure is the board card's figure; key_figure is the
@@ -506,7 +507,7 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
 /** P4: move a deal to another progress stage (skipping allowed — it's the user's own
  * money). Writes deal_stage_history + updates the card's stage/status. Pipeline-only. */
 async function handleMoveDeal(request: Request, env: Env, dealId: string): Promise<Response> {
-  if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
+  if (!features.dealPipeline) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
   let body: { stage?: string };
@@ -527,7 +528,7 @@ async function handleMoveDeal(request: Request, env: Env, dealId: string): Promi
 /** P4.1/P4.2: backfill a deal's score (analyser computed it on open for a deal that
  * had none). Targets the deal by id — verdict fields only, never creates. */
 async function handleScoreDeal(request: Request, env: Env, dealId: string): Promise<Response> {
-  if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
+  if (!features.dealPipeline) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
   let body: { score?: number; verdict_line?: string; headline_figure?: string };
@@ -546,7 +547,7 @@ async function handleScoreDeal(request: Request, env: Env, dealId: string): Prom
 
 /** P4: park/kill a deal with a one-chip reason (P9 builds the full graveyard). */
 async function handleParkDeal(request: Request, env: Env, dealId: string): Promise<Response> {
-  if (!siteConfig.features.dealPipeline) return json({ error: 'not found' }, 404);
+  if (!features.dealPipeline) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
   let body: { reason?: string };
