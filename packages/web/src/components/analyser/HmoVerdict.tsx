@@ -184,6 +184,9 @@ export function HmoVerdict({ config, comps, valuation }: {
         </div>
       )}
 
+      {/* (N4) The answer: on a desktop this becomes the sticky results rail
+          beside the inputs; on a phone it is display:contents — no change. */}
+      <div class="verdict-results">
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
@@ -236,6 +239,7 @@ export function HmoVerdict({ config, comps, valuation }: {
           </div>
         </>
       )}
+      </div>
     </section>
   );
 }

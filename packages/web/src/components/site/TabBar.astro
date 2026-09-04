@@ -1,11 +1,53 @@
 ---
+/**
+ * The phone's bottom bar (N4, features.navV2). Five slots is the most a thumb
+ * can reach comfortably, so four are real destinations and the fifth — clearly
+ * labelled More — opens a sheet with everything that did not fit. Every label
+ * and destination is in config/nav.ts. Native <details>, so the sheet needs no
+ * JavaScript; a few lines of inline script only add the niceties (Escape, tap
+ * outside) that <details> does not give for free.
+ */
 import { strategies } from '@gil-bricks/core';
+import { features } from '../../config/features';
+import { NAV } from '../../config/nav';
 ---
 
-<nav class="tabbar" aria-label="Sections">
-  <a href="/area-data">Area</a>
-  {strategies.map((s) => <a href={`${s.route}/analyser`}>{s.shortName ?? s.name}</a>)}
-</nav>
+{features.navV2 ? (
+  <nav class="tabbar tabbar-v2" aria-label={NAV.mainLabel}>
+    <a href={NAV.analyse.href}>{NAV.analyse.label}</a>
+    {NAV.bottom.map((l) => <a href={l.href}>{l.label}</a>)}
+    <details class="more-sheet" data-more-sheet>
+      <summary aria-label={NAV.more.hint}>{NAV.more.label}</summary>
+      <div class="more-panel">
+        <ul>
+          {NAV.more.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+        </ul>
+      </div>
+    </details>
+  </nav>
+) : (
+  <nav class="tabbar" aria-label="Sections">
+    <a href="/area-data">Area</a>
+    {strategies.map((s) => <a href={`${s.route}/analyser`}>{s.shortName ?? s.name}</a>)}
+  </nav>
+)}
+
+<script is:inline>
+  {
+    const sheet = document.querySelector('[data-more-sheet]');
+    if (sheet) {
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sheet.open) {
+          sheet.open = false;
+          sheet.querySelector('summary').focus();
+        }
+      });
+      document.addEventListener('pointerdown', (e) => {
+        if (sheet.open && !sheet.contains(e.target)) sheet.open = false;
+      });
+    }
+  }
+</script>
 
 <style>
   .tabbar { display: none; }
@@ -35,5 +77,39 @@ import { strategies } from '@gil-bricks/core';
       .tabbar { justify-content: space-between; padding-left: var(--space-1); padding-right: var(--space-1); }
       .tabbar a { padding: var(--space-2); }
     }
+    /* Every tab is a 44px target (N4) — thumbs, not pixels. */
+    .tabbar-v2 a,
+    .tabbar-v2 > .more-sheet > summary {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-height: 2.75rem; min-width: 2.75rem;
+    }
+    .tabbar-v2 > .more-sheet > summary {
+      list-style: none; cursor: pointer;
+      color: var(--text-dim); font-size: var(--text-xs); font-weight: 500;
+      padding: var(--space-2) var(--space-3); gap: 4px;
+    }
+    .tabbar-v2 > .more-sheet > summary::-webkit-details-marker { display: none; }
+    .tabbar-v2 > .more-sheet > summary::after { content: '▴' / ''; color: var(--accent); }
+    .more-sheet[open] > summary { color: var(--accent); }
+    .more-sheet[open] > summary::after { content: '▾' / ''; }
+    /* The sheet sits above the bar, never over the thumb that opened it. */
+    .more-panel {
+      position: fixed; left: 0; right: 0;
+      bottom: calc(3.9rem + env(safe-area-inset-bottom));
+      /* a short screen (400% zoom) must still be able to reach every link */
+      max-height: calc(100dvh - 5rem - env(safe-area-inset-bottom));
+      overflow-y: auto; overscroll-behavior: contain;
+      background: var(--glass-bg-fallback);
+      border-top: 1px solid var(--glass-border);
+      box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
+      padding: var(--space-2) var(--space-3) var(--space-3);
+    }
+    .more-panel ul { list-style: none; margin: 0; padding: 0; }
+    .more-panel a {
+      display: flex; align-items: center; min-height: 2.75rem;
+      padding: var(--space-2) var(--space-3); border-radius: 10px;
+      color: var(--text); font-size: var(--text-sm); font-weight: 600;
+    }
+    .more-panel a:hover, .more-panel a:focus-visible { background: rgba(220, 255, 0, 0.08); }
   }
 </style>

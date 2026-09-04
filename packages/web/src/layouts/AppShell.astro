@@ -4,6 +4,7 @@ import Header from '../components/site/Header.astro';
 import Footer from '../components/site/Footer.astro';
 import TabBar from '../components/site/TabBar.astro';
 import { LoginWall } from '../components/auth/LoginWall';
+import { features } from '../config/features';
 import { Content as TermsContent } from '../content/legal/terms.md';
 import '../styles/analyser.css';
 
@@ -17,12 +18,17 @@ const { title, description, noindex = false } = Astro.props;
 
 <Base title={title} description={description} noindex={noindex}>
   <Header />
-  {/* "sticky" slot: a page may pin one slim bar here, between the header and the
-      content (N1: the analyser's sticky verdict bar). Empty on every other page. */}
-  <slot name="sticky" />
-  <main class="page-wrap">
-    <slot />
-  </main>
+  {/* One wrapper so the pinned things and the page can become a two-column grid
+      on a desktop (N4) without any page knowing about it. On a phone it is a
+      plain block and nothing changes. */}
+  <div class="shell-body" data-split={features.desktopSplit ? '' : undefined}>
+    {/* "sticky" slot: a page may pin one slim bar here, between the header and
+        the content (N1: the analyser's sticky verdict bar). Empty elsewhere. */}
+    <slot name="sticky" />
+    <main class="page-wrap">
+      <slot />
+    </main>
+  </div>
   <Footer />
   <TabBar />
   {/* Terms text for the login wall — server-rendered once, cloned by the modal. */}

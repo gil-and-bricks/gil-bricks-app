@@ -105,6 +105,9 @@ export function BtlVerdict({ config, comps, valuation }: {
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {!rentOk && <p class="hint">Add the monthly rent to get a verdict.</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
+      {/* (N4) The answer: on a desktop this becomes the sticky results rail
+          beside the inputs; on a phone it is display:contents — no change. */}
+      <div class="verdict-results">
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
@@ -143,6 +146,7 @@ export function BtlVerdict({ config, comps, valuation }: {
           </div>
         </>
       )}
+      </div>
     </section>
   );
 }

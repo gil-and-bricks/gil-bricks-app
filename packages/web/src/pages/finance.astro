@@ -1,0 +1,17 @@
+---
+import AppShell from '../layouts/AppShell.astro';
+import { COMING_SOON } from '../config/nav';
+import { siteConfig } from '../site.config';
+
+const page = COMING_SOON.finance;
+---
+
+<AppShell title={`${page.title} — ${siteConfig.siteName}`} description={page.tagline}>
+  <h1 class="page-title">{page.title}</h1>
+  <p class="page-sub">{page.tagline}</p>
+  <section class="glass card coming-soon">
+    <h2>Not built yet</h2>
+    {page.body.map((para) => <p>{para}</p>)}
+    <p><a class="btn-primary" href={page.cta.href}>{page.cta.label}</a></p>
+  </section>
+</AppShell>

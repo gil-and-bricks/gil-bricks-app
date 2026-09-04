@@ -40,6 +40,15 @@ export interface FeatureFlags {
    * count of what is active. Off: the table and the open filter strip, as
    * before. The map stays load-on-demand either way. */
   compsMobile: boolean;
+  /** The desktop analyser layout (N4): inputs and assumptions on the left, a
+   * sticky results rail (verdict, figures, costs) on the right, and the section
+   * overview as a vertical list beside the page. Pure CSS over the same DOM —
+   * off means the single-column page at every width, exactly as before. */
+  desktopSplit: boolean;
+  /** The grouped header and the five-item bottom bar with a More sheet (N4).
+   * Off: the flat header list (Area Data + four strategies) and the old
+   * five-strategy bottom bar. The /tools and /finance pages exist either way. */
+  navV2: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -49,6 +58,8 @@ export const features: FeatureFlags = {
   sectionOverview: true,
   segmentedStrategy: true,
   compsMobile: true,
+  desktopSplit: true,
+  navV2: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

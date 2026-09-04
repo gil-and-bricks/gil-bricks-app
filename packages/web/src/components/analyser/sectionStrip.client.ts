@@ -10,7 +10,7 @@
  */
 import { ANALYSER_SECTIONS, SECTION_STRIP } from '../../config/analyserSections';
 import { STICKY_VERDICT } from '../../config/stickyVerdict';
-import { activeSectionId, chipScrollLeft, stackUnsticks } from '../../lib/analyserSections';
+import { activeSectionId, chipScrollLeft, pinnedStackPx, stackUnsticks } from '../../lib/analyserSections';
 
 const HEIGHT_VAR = SECTION_STRIP.heightVar;
 /** Beyond this share of the row the switcher stops pinning: at 200% text it
@@ -45,11 +45,15 @@ export function startSectionStrip(): void {
     rowEl.style.setProperty('--seg-w', wide ? '0px' : `${Math.ceil(seg.getBoundingClientRect().width)}px`);
   };
 
+  /** The desktop rail sits BESIDE the page, so it costs the top nothing. CSS
+   * owns the breakpoint and tells us which shape the row is in. */
+  const isVertical = (): boolean => getComputedStyle(rowEl).getPropertyValue('--pinned').trim() === 'vertical';
+
   const publishHeight = (): void => {
     // The bar publishes its own pinned height (0 when it has un-stuck); the two
     // pin together, so the share rule is applied to the pair, not to each.
     const barHeight = parseFloat(getComputedStyle(root).getPropertyValue(STICKY_VERDICT.heightVar)) || 0;
-    const height = Math.ceil(rowEl.getBoundingClientRect().height);
+    const height = isVertical() ? 0 : Math.ceil(rowEl.getBoundingClientRect().height);
     const off = height > 0 && stackUnsticks(barHeight, height, window.innerHeight);
     rowEl.classList.toggle('is-unstuck', off);
     const next = off || height === 0 ? '0px' : `${height}px`;
@@ -79,7 +83,10 @@ export function startSectionStrip(): void {
 
   const spy = (): void => {
     if (strip === null || live.length === 0) return;
-    const stack = rowEl.getBoundingClientRect().bottom;
+    // What the pinned stack actually costs the TOP of the page — 0 for the
+    // desktop side rail, which sits beside the page and hides nothing. Reading
+    // the row's own box would put the line half a screen down.
+    const stack = pinnedStackPx();
     const tops = live
       .map((id) => ({ id, el: document.getElementById(id) }))
       .filter((s): s is { id: string; el: HTMLElement } => s.el !== null)
