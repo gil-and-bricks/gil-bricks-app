@@ -12,8 +12,8 @@ import { StickyVerdict } from './StickyVerdict';
  * happy-dom and drives it the way a phone would: a verdict arrives, the rent
  * field takes focus, the score moves, the flag is turned off.
  */
-const snap = (score: number | null, headline = 'Cashflows £120/mo after tax; ROI clears your 8%.') =>
-  ({ score, headline, criteriaJson: '{}', boardFigure: '£120/mo' });
+const snap = (score: number | null, headline = 'Cashflows £120/mo after tax; ROI clears your 8%.', lever: string | null = null) =>
+  ({ score, headline, criteriaJson: '{}', lever, boardFigure: '£120/mo' });
 
 /** Every change runs inside Preact's act(): re-renders AND effects flush synchronously. */
 const set = (v: ReturnType<typeof snap> | null) => act(() => { verdictSnapshot.value = v; });
@@ -126,6 +126,19 @@ describe('StickyVerdict island', () => {
     act(() => { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
     expect(btn.getAttribute('aria-expanded')).toBe('false');
     expect(panel.hidden).toBe(true);
+  });
+
+  it('announces the lever line too, when the analyser found one (N2)', () => {
+    mount();
+    set(snap(6.4, 'ROI is 5.9%, short of your 8%.', 'A £8,000 lower price or £45 more rent would turn this Green.'));
+    advance(STICKY_VERDICT.announceDelayMs);
+    expect(live()?.textContent).toBe(
+      'Deal score 6.4 out of 10 — marginal. ROI is 5.9%, short of your 8%. A £8,000 lower price or £45 more rent would turn this Green.',
+    );
+    // the lever moving is itself a change worth hearing
+    set(snap(6.4, 'ROI is 5.9%, short of your 8%.', 'A £6,000 lower price would turn this Green.'));
+    advance(STICKY_VERDICT.announceDelayMs);
+    expect(live()?.textContent).toContain('A £6,000 lower price would turn this Green.');
   });
 
   it('hydrating while a field already has focus starts hidden (the island mounts late)', () => {

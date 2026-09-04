@@ -37,6 +37,7 @@ function StickyVerdictBar() {
   const snap = verdictSnapshot.value;
   const score = snap !== null && typeof snap.score === 'number' && Number.isFinite(snap.score) ? snap.score : null;
   const headline = (snap?.headline ?? '').trim();
+  const lever = (snap?.lever ?? '').trim();
   const has = score !== null;
 
   const [open, setOpen] = useState(false);
@@ -155,10 +156,10 @@ function StickyVerdictBar() {
       setSpoken('');
       return;
     }
-    const text = announcement(score, headline);
+    const text = announcement(score, headline, lever);
     const t = setTimeout(() => setSpoken(text), STICKY_VERDICT.announceDelayMs);
     return () => clearTimeout(t);
-  }, [score, headline]);
+  }, [score, headline, lever]);
 
   // Expanded panel: Escape, a tap outside, or focus moving out of the bar closes
   // it. Escape only takes focus back to the toggle when focus was INSIDE the bar

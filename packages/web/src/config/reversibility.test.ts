@@ -201,7 +201,7 @@ export function inlineCopyAstro(source: string): string[] {
  * here is held to ZERO. Never raise a number: put the string in config instead.
  */
 const INLINE_COPY_BASELINE: Record<string, number> = {
-  'components/analyser/Accordion.tsx': 4,
+  'components/analyser/Accordion.tsx': 3,
   'components/analyser/ActionBar.tsx': 19,
   'components/analyser/AnalyserApp.tsx': 16,
   'components/analyser/Article4Flag.tsx': 3,
@@ -213,7 +213,7 @@ const INLINE_COPY_BASELINE: Record<string, number> = {
   'components/analyser/FlipVerdict.tsx': 38,
   'components/analyser/GdvModule.tsx': 1,
   'components/analyser/HmoVerdict.tsx': 40,
-  'components/analyser/StrategyInputs.tsx': 2,
+  'components/analyser/StrategyInputs.tsx': 1,
   'components/analyser/StrategySwitcher.tsx': 1,
   'components/analyser/SubjectForm.tsx': 31,
   'components/analyser/Tooltip.tsx': 1,

@@ -1,0 +1,32 @@
+---
+/**
+ * The section overview strip (N2) — a map of the page, never tabs: it hides
+ * nothing, it only jumps. Server-rendered so the chips are plain anchors that
+ * need no JavaScript to work; the script beside it only reveals the chips whose
+ * sections exist, tracks which one you are reading, and keeps the pinned stack
+ * from eating a small screen. Every word comes from config/analyserSections.ts.
+ */
+import { ANALYSER_SECTIONS, SECTION_STRIP } from '../../config/analyserSections';
+import { features } from '../../config/features';
+---
+
+{features.sectionOverview && (
+  <nav class="section-strip" aria-label={SECTION_STRIP.navLabel} data-section-strip>
+    <ul class="strip-row">
+      {ANALYSER_SECTIONS.map((s) => (
+        <li>
+          <a class="strip-chip" href={`#${s.id}`} data-chip={s.id} hidden>{s.label}</a>
+        </li>
+      ))}
+    </ul>
+  </nav>
+)}
+
+{/* No JavaScript: the analyser renders no sections to jump to, so the strip
+    reserves nothing at all. (The chips themselves never needed script.) */}
+<noscript><style>.section-strip { display: none; }</style></noscript>
+
+<script>
+  import { startSectionStrip } from './sectionStrip.client';
+  startSectionStrip();
+</script>

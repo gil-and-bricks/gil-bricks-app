@@ -104,12 +104,12 @@ export function BrrrrVerdict({ config, comps, valuation }: {
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), boardFigure: analysis.outcomeVerdict }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: analysis.outcomeVerdict }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
     verdictSnapshot.value = nextSnapshot;
-  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}` : null]);
+  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}` : null]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
@@ -132,7 +132,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
-          <div class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
+          <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
@@ -143,7 +143,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
               </p>
             )}
           </div>
-          <div class="tiles">
+          <div class="tiles" id="sec-figures">
             <div class="tile tile-hero">
               <p class="tile-label">The outcome</p>
               <p class="tile-value">{analysis.outcomeVerdict}</p>
@@ -166,7 +166,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
                 note: 'compare it with our estimate before believing it',
               }} />
             <Tile label="Refinance loan" value={fmtMoney(analysis.refiLoan.value)} breakdown={analysis.refiLoan.breakdown} />
-            <Tile label="Cash invested" value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
+            <Tile id="sec-costs" label="Cash invested" value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
             {analysis.bridging && (
               <Tile label="Bridging cost" value={fmtMoney(analysis.bridging.interest + analysis.bridging.arrangement + analysis.bridging.exit)} breakdown={analysis.bridging.breakdown} />
             )}
@@ -185,13 +185,14 @@ export function BrrrrVerdict({ config, comps, valuation }: {
   );
 }
 
-function Tile({ label, value, breakdown }: {
+function Tile({ id, label, value, breakdown }: {
+  id?: string;
   label: string;
   value: string;
   breakdown: import('@gil-bricks/core').Breakdown;
 }) {
   return (
-    <div class="tile">
+    <div class="tile" id={id}>
       <p class="tile-label">{label}</p>
       <p class="tile-value">{value}</p>
       <MathsAccordion breakdown={breakdown} />

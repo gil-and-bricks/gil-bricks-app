@@ -1,7 +1,7 @@
 /** 'i' tooltip: hover + focus + tap, aria-describedby, dismissible
  * (Esc anywhere, tap outside, pointer-leave of the whole bubble). */
 import { useEffect, useId, useRef, useState } from 'preact/hooks';
-import { STICKY_VERDICT } from '../../config/stickyVerdict';
+import { pinnedStackPx } from '../../lib/analyserSections';
 
 export function Tooltip({ text }: { text: string }) {
   const id = useId();
@@ -19,8 +19,7 @@ export function Tooltip({ text }: { text: string }) {
     }
     const el = bubbleRef.current;
     if (!el) return;
-    const stickyHeight = parseFloat(getComputedStyle(document.documentElement).getPropertyValue(STICKY_VERDICT.heightVar)) || 0;
-    setBelow(el.getBoundingClientRect().top < stickyHeight);
+    setBelow(el.getBoundingClientRect().top < pinnedStackPx());
   }, [open]);
 
   useEffect(() => {

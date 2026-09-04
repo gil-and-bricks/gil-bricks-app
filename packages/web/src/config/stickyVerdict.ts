@@ -28,7 +28,10 @@ export const STICKY_VERDICT = {
     jump: 'Jump to the full verdict',
     /** What the screen reader hears when the verdict changes — the whole verdict,
      * never a bare number. `score` is already formatted ("7.9"). */
-    announce: (score: string, verdict: string, headline: string): string =>
-      `Deal score ${score} out of 10 — ${verdict}. ${headline}`,
+    /** The whole verdict in one sentence: score, tier, the binding headline and —
+     * when the analyser found one — the lever, the most useful line we produce
+     * ("A £8,000 lower price would turn this Green"). Never a bare number. */
+    announce: (score: string, verdict: string, headline: string, lever: string): string =>
+      `Deal score ${score} out of 10 — ${verdict}. ${headline}${lever === '' ? '' : ` ${lever}`}`,
   },
 } as const;

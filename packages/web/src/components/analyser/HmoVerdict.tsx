@@ -112,12 +112,12 @@ export function HmoVerdict({ config, comps, valuation }: {
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), boardFigure: `ROI ${fmtPct(analysis.roi.value)}` }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: `ROI ${fmtPct(analysis.roi.value)}` }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
     verdictSnapshot.value = nextSnapshot;
-  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}` : null]);
+  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}` : null]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
@@ -187,7 +187,7 @@ export function HmoVerdict({ config, comps, valuation }: {
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
-          <div class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
+          <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
@@ -216,7 +216,7 @@ export function HmoVerdict({ config, comps, valuation }: {
             </p>
           </Accordion>
 
-          <div class="tiles">
+          <div class="tiles" id="sec-figures">
             <div class="tile tile-hero">
               <p class="tile-label">Return on investment</p>
               <p class="tile-value">{fmtPct(analysis.roi.value)}</p>
@@ -224,7 +224,7 @@ export function HmoVerdict({ config, comps, valuation }: {
             </div>
             <Tile label="Cashflow after tax" value={`${fmtMoney(analysis.cashflowAfterTax.value)}/mo`} breakdown={analysis.cashflowAfterTax.breakdown} />
             <Tile label="Gross room income" value={`${fmtMoney(analysis.grossIncome.value)}/yr`} breakdown={analysis.grossIncome.breakdown} />
-            <Tile label="Operating costs" value={`${fmtMoney(analysis.operatingCosts.value)}/yr`} breakdown={analysis.operatingCosts.breakdown} />
+            <Tile id="sec-costs" label="Operating costs" value={`${fmtMoney(analysis.operatingCosts.value)}/yr`} breakdown={analysis.operatingCosts.breakdown} />
             <Tile label="Net operating income" value={`${fmtMoney(analysis.noi.value)}/yr`} breakdown={analysis.noi.breakdown} />
             <Tile label="Gross yield" value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
             <Tile label="Net yield" value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />
@@ -240,13 +240,14 @@ export function HmoVerdict({ config, comps, valuation }: {
   );
 }
 
-function Tile({ label, value, breakdown }: {
+function Tile({ id, label, value, breakdown }: {
+  id?: string;
   label: string;
   value: string;
   breakdown: import('@gil-bricks/core').Breakdown;
 }) {
   return (
-    <div class="tile">
+    <div class="tile" id={id}>
       <p class="tile-label">{label}</p>
       <p class="tile-value">{value}</p>
       <MathsAccordion breakdown={breakdown} />

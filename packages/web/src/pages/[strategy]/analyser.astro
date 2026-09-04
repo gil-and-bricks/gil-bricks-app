@@ -2,6 +2,7 @@
 import AppShell from '../../layouts/AppShell.astro';
 import { AnalyserApp } from '../../components/analyser/AnalyserApp';
 import { StickyVerdict } from '../../components/analyser/StickyVerdict';
+import SectionStrip from '../../components/analyser/SectionStrip.astro';
 import { strategies } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
 
@@ -21,7 +22,20 @@ const { config } = Astro.props;
       slot (features.stickyVerdict). It presents the mounted verdict island's
       snapshot; it computes nothing. */}
   <StickyVerdict client:idle slot="sticky" />
+  {/* ONE section overview strip for all four strategies, pinned under the bar
+      on the same shared slot (features.sectionOverview). Plain anchors — the
+      jumping never needs JavaScript. */}
+  <SectionStrip slot="sticky" />
   <h1 class="page-title">{config.name} analyser</h1>
+  {/* Honest state, not a feature: the analysis itself runs in the browser, so
+      with JavaScript off the form below cannot answer. Say so rather than
+      leaving a form that silently does nothing. */}
+  <noscript>
+    <p class="hint noscript-note">
+      This analyser works out the numbers in your browser, so it needs JavaScript switched on.
+      Everything below is still readable, but it won't calculate until you enable it.
+    </p>
+  </noscript>
   <p class="page-sub">{config.tagline} {config.heroLine}</p>
   <AnalyserApp client:load strategyName={config.name} config={config} />
 </AppShell>

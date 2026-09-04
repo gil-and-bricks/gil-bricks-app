@@ -28,7 +28,7 @@ export function Article4Flag({ lat, lng, country }: { lat: number; lng: number; 
   }
   const tone = flag.state === 'inside' ? (flag.mentionsHmo ? 'a4-warn' : 'a4-note') : 'a4-clear';
   return (
-    <div class={`a4-card ${tone}`} role="status">
+    <div id="sec-area" class={`a4-card ${tone}`} role="status">
       <p class="a4-headline">
         <span aria-hidden="true">{flag.state === 'inside' ? '⚠︎ ' : ''}</span>
         {flag.headline}

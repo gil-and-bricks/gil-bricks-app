@@ -6,6 +6,7 @@ import { Tooltip } from './Tooltip';
 import { Accordion } from './Accordion';
 import { ProvBadge } from './ProvBadge';
 import { markEdited } from './provenance';
+import { SECTION_STRIP } from '../../config/analyserSections';
 
 function Field({ f }: { f: StrategyField }) {
   const v = strategyParams.value[f.key] ?? f.default;
@@ -30,14 +31,14 @@ function Field({ f }: { f: StrategyField }) {
 export function StrategyInputs({ visible, assumptions }: { visible: StrategyField[]; assumptions: StrategyField[] }) {
   return (
     <>
-      <div class="subject-form">
+      <div class="subject-form" id="sec-inputs">
         {visible
           .filter((f) => !f.showWhen || (strategyParams.value[f.showWhen.key] ?? '') === f.showWhen.value)
           .map((f) => <Field f={f} />)}
       </div>
       {assumptions.length > 0 && (
         <div class="assumptions">
-          <Accordion label="Assumptions — all editable">
+          <Accordion label={SECTION_STRIP.assumptions}>
             <div class="subject-form">
               {assumptions.map((f) => <Field f={f} />)}
             </div>

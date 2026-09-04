@@ -18,10 +18,10 @@ export function formatScore(score: number): string {
   return score.toFixed(1);
 }
 
-/** The full spoken verdict for the polite live region: score, tier AND the
- * verdict line — never a bare number. */
-export function announcement(score: number, headline: string): string {
-  return STICKY_VERDICT.copy.announce(formatScore(score), verdictForScore(score), headline.trim());
+/** The full spoken verdict for the polite live region: score, tier, the verdict
+ * line AND the lever when there is one (N2) — never a bare number. */
+export function announcement(score: number, headline: string, lever: string | null = null): string {
+  return STICKY_VERDICT.copy.announce(formatScore(score), verdictForScore(score), headline.trim(), (lever ?? '').trim());
 }
 
 /** The shape of a focus target the bar cares about (a DOM element, or a test double). */

@@ -25,6 +25,13 @@ describe('sticky verdict — pure decisions (N1)', () => {
     expect(announcement(2, 'x')).toContain('walk away');
   });
 
+  it('carries the lever sentence when there is one, and adds nothing when there is not (N2)', () => {
+    expect(announcement(6.4, 'ROI is 5.9%, short of your 8%.', ' A £8,000 lower price would turn this Green. '))
+      .toBe('Deal score 6.4 out of 10 — marginal. ROI is 5.9%, short of your 8%. A £8,000 lower price would turn this Green.');
+    expect(announcement(6.4, 'ROI is 5.9%.', null)).toBe('Deal score 6.4 out of 10 — marginal. ROI is 5.9%.');
+    expect(announcement(6.4, 'ROI is 5.9%.', '   ')).toBe('Deal score 6.4 out of 10 — marginal. ROI is 5.9%.');
+  });
+
   it('hides for text-entry controls only (keyboard summoners), never selects/buttons', () => {
     expect(isTextEntry({ tagName: 'INPUT', type: 'number' })).toBe(true);
     expect(isTextEntry({ tagName: 'input', type: 'text' })).toBe(true);

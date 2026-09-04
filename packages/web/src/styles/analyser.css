@@ -97,7 +97,12 @@
 
 /* accordion */
 .accordion { margin-top: var(--space-2); }
-.accordion-btn { background: none; border: none; color: var(--accent); font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) 0; }
+/* Native <details> (N2): collapsed by default, no JavaScript, find-in-page can
+   open it. The marker is the browser's own triangle, restyled to the lime. */
+.accordion-btn { color: var(--accent); font-size: var(--text-xs); cursor: pointer; padding: var(--space-1) 0; list-style: none; display: flex; align-items: center; gap: var(--space-2); }
+.accordion-btn::-webkit-details-marker { display: none; }
+.accordion-btn::before { content: '+' / ''; font-weight: 700; line-height: 1; }
+.accordion[open] > .accordion-btn::before { content: '−' / ''; }
 .accordion-body { border-left: 2px solid var(--accent); padding-left: var(--space-3); margin: var(--space-2) 0; font-size: var(--text-sm); }
 .maths { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-3); margin: 0; }
 .maths dt { color: var(--text-dim); }
@@ -506,7 +511,7 @@
 /* WCAG 2.4.11: a focused control never lands under the bar. The extra space-2
    is breathing room — sub-pixel scroll rounding can otherwise leave a heading
    flush against the bar's border. */
-html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--space-2)); }
+html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var(--space-2)); }
 .sv-anchor { height: 0; }
 .sticky-verdict {
   position: sticky; top: 0; z-index: 30;
@@ -570,3 +575,65 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--space-2)); }
 .sv-panel[hidden] { display: none; }
 .sv-full { max-width: 72rem; margin: 0 auto var(--space-3); font-size: var(--text-base); line-height: 1.4; }
 .sv-jump { display: block; max-width: 72rem; margin: 0 auto; color: var(--accent); font-weight: 600; }
+
+/* ---------- Section overview strip (N2, features.sectionOverview) ----------
+   A map of the page, not tabs: it hides nothing and only jumps. Pinned right
+   under the sticky verdict bar; the chips are plain anchors, revealed one by
+   one as their sections appear (a chip for a section this strategy has not got
+   would be a dead link). */
+.section-strip {
+  position: sticky; top: var(--sticky-h, 0px); z-index: 29;
+  /* The space is reserved from the FIRST paint (the chips arrive as the page
+     fills in), so the strip appearing never pushes the page down. */
+  display: block; visibility: hidden;
+  min-height: calc(2rem + var(--space-2) * 2);
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+  background: color-mix(in srgb, var(--bg-1) 92%, transparent);
+  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--glass-border);
+}
+.section-strip::-webkit-scrollbar { display: none; }
+.section-strip.is-live { visibility: visible; }
+.section-strip.is-unstuck { position: static; }
+@media (max-height: 160px) { .section-strip { position: static; } }
+@supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
+  .section-strip { background: var(--glass-bg-fallback); }
+}
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .section-strip { background: var(--glass-bg-fallback); }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .section-strip { background: var(--glass-bg-fallback); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (pointer: coarse) { .section-strip { --glass-blur: 6px; } }
+.strip-row {
+  display: flex; gap: var(--space-2); align-items: center;
+  margin: 0; padding: var(--space-2) var(--space-5);
+  list-style: none; width: max-content; min-width: 100%;
+}
+.strip-chip {
+  display: inline-flex; align-items: center; min-height: 2rem;
+  padding: var(--space-1) var(--space-3); border-radius: 999px;
+  border: 1px solid var(--glass-border); color: var(--text-dim);
+  font-size: var(--text-xs); font-weight: 600; text-decoration: none; white-space: nowrap;
+}
+.strip-chip[aria-current='true'] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+.strip-chip[hidden] { display: none; }
+
+/* JS-off honesty note (N2) — quiet, above the form it explains. */
+.noscript-note { border: 1px solid var(--glass-border); border-radius: 12px; padding: var(--space-3); margin-bottom: var(--space-4); }
+
+/* The quiet way back to the inputs after a jump (N2). */
+.back-to-inputs { margin: calc(var(--space-2) * -1) 0 var(--space-4); font-size: var(--text-xs); }
+.back-to-inputs a { color: var(--text-dim); text-decoration: none; }
+.back-to-inputs a:hover, .back-to-inputs a:focus-visible { color: var(--accent); }
+
+/* The comparables evidence, folded behind one line (N2). */
+.comps-fold > .comps-summary {
+  cursor: pointer; list-style: none; display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) 0; font-weight: 600; color: var(--text);
+}
+.comps-fold > .comps-summary::-webkit-details-marker { display: none; }
+.comps-fold > .comps-summary::before { content: '▸' / ''; color: var(--accent); }
+.comps-fold[open] > .comps-summary::before { content: '▾' / ''; }

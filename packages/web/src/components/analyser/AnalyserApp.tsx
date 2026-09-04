@@ -24,6 +24,8 @@ const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict, BrrrrVerdict, 
 import { ValuationCard } from './ValuationCard';
 import { CompsModule } from './CompsModule';
 import { ActionBar } from './ActionBar';
+import { features } from '../../config/features';
+import { SECTION_STRIP } from '../../config/analyserSections';
 
 interface Results {
   comps: ComparablesResult | null;
@@ -148,7 +150,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           <button type="button" class="arrived-x" aria-label="Dismiss" onClick={() => setArrivedDismissed(true)}>✕</button>
         </p>
       )}
-      <section class="glass card">
+      <section class="glass card" id="sec-property">
         <h2>The property</h2>
         <SubjectForm postcodeError={postcodeError} />
       </section>
@@ -179,6 +181,14 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             );
           })()}
 
+          {/* (N2) The quiet way back up after jumping down the page — one shared
+              affordance, so all four strategies get it from this shell. */}
+          {showVerdict && features.sectionOverview && (
+            <p class="back-to-inputs">
+              <a href="#sec-inputs"><span aria-hidden="true">↑</span> {SECTION_STRIP.backToInputs}</a>
+            </p>
+          )}
+
           {/* Contextual help, not promotion — a free walkthrough for THIS strategy.
               Config-driven via youtubeFor (coreConfig.youtube), never a pop-up (E10). */}
           {showVerdict && config?.id && (
@@ -200,7 +210,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           ) : (
             <>
               <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} />
-              <CompsModule result={results.comps} article4={config?.id === 'hmo'} />
+              <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>
           )}

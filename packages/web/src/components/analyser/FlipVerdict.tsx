@@ -104,12 +104,12 @@ export function FlipVerdict({ config, comps, valuation }: {
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), boardFigure: `${fmtMoney(analysis.profitAfterTax.value)} profit` }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: `${fmtMoney(analysis.profitAfterTax.value)} profit` }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
     verdictSnapshot.value = nextSnapshot;
-  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}` : null]);
+  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}` : null]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
@@ -127,7 +127,7 @@ export function FlipVerdict({ config, comps, valuation }: {
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
-          <div class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
+          <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
@@ -139,7 +139,7 @@ export function FlipVerdict({ config, comps, valuation }: {
             )}
           </div>
           <p class="hint">Buy-refurb-sell for profit is normally taxed as trading income, not capital gains. This is not tax advice — check with an accountant.</p>
-          <div class="tiles">
+          <div class="tiles" id="sec-figures">
             <div class="tile tile-hero">
               <p class="tile-label">Project return after tax ({isLtd ? 'company' : 'personal'})</p>
               <p class="tile-value">{fmtPct(analysis.roiAfterTax.value)}</p>
@@ -165,7 +165,7 @@ export function FlipVerdict({ config, comps, valuation }: {
               </div>
             </div>
             <Tile label="Profit after tax" value={fmtMoney(analysis.profitAfterTax.value)} breakdown={analysis.profitAfterTax.breakdown} />
-            <Tile label="Total cost in" value={fmtMoney(analysis.totalCostIn.value)} breakdown={analysis.totalCostIn.breakdown} />
+            <Tile id="sec-costs" label="Total cost in" value={fmtMoney(analysis.totalCostIn.value)} breakdown={analysis.totalCostIn.breakdown} />
             <Tile label="Cash invested" value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
             {analysis.financeCosts && (
               <Tile label="Finance costs" value={fmtMoney(analysis.financeCosts.value)} breakdown={analysis.financeCosts.breakdown} />
@@ -196,13 +196,14 @@ export function FlipVerdict({ config, comps, valuation }: {
   );
 }
 
-function Tile({ label, value, breakdown }: {
+function Tile({ id, label, value, breakdown }: {
+  id?: string;
   label: string;
   value: string;
   breakdown: import('@gil-bricks/core').Breakdown;
 }) {
   return (
-    <div class="tile">
+    <div class="tile" id={id}>
       <p class="tile-label">{label}</p>
       <p class="tile-value">{value}</p>
       <MathsAccordion breakdown={breakdown} />

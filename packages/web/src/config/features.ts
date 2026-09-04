@@ -25,12 +25,19 @@ export interface FeatureFlags {
    * change. Off: no bar; the verdict card is the only place the score shows and
    * its banner is the polite live region again. Needs dealScore. */
   stickyVerdict: boolean;
+  /** The section overview strip on the analyser pages (N2): a scrollable row of
+   * jump chips under the sticky bar, plus the "back to inputs" link and the
+   * comparables module folded behind its one-line summary. Off: no strip, no
+   * back link, the comparables module is open as it always was. The maths and
+   * assumptions accordions stay collapsed either way — they always were. */
+  sectionOverview: boolean;
 }
 
 export const features: FeatureFlags = {
   dealScore: true,
   dealPipeline: true,
   stickyVerdict: true,
+  sectionOverview: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

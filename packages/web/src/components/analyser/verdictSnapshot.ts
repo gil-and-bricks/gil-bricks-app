@@ -12,6 +12,10 @@ export interface VerdictSnapshot {
    * user's voice, referencing their own criteria. Shown as the card's verdict. */
   headline: string;
   criteriaJson: string;
+  /** The analyser's "one change away" sentence when there is one (N2): a screen
+   * reader hears it with the score, because it is the most useful line we make.
+   * null when the deal has no single lever. */
+  lever: string | null;
   /** The ONE strategy-appropriate figure the pipeline board card shows (P3):
    * BTL monthly cashflow, BRRRR money left in, Flip profit, HMO ROI — the
    * analyser's own display string, so the card can never contradict the deal. */

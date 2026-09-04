@@ -92,12 +92,12 @@ export function BtlVerdict({ config, comps, valuation }: {
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), boardFigure: `${fmtMoney(analysis.cashflowAfterTax.value)}/mo` }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: `${fmtMoney(analysis.cashflowAfterTax.value)}/mo` }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
     verdictSnapshot.value = nextSnapshot;
-  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}` : null]);
+  }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}` : null]);
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
@@ -108,7 +108,7 @@ export function BtlVerdict({ config, comps, valuation }: {
       {deal && <DealScoreChip deal={deal} />}
       {analysis && (
         <>
-          <div class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
+          <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
             {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
@@ -120,12 +120,12 @@ export function BtlVerdict({ config, comps, valuation }: {
               </p>
             )}
           </div>
-          <div class="tiles">
+          <div class="tiles" id="sec-figures">
             <Tile label="ROI" value={fmtPct(analysis.roi.value)} breakdown={analysis.roi.breakdown} />
             <Tile label="Gross yield" value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
             <Tile label="Net yield" value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />
             <Tile label="Cashflow after tax" value={`${fmtMoney(analysis.cashflowAfterTax.value)}/mo`} breakdown={analysis.cashflowAfterTax.breakdown} />
-            <Tile label={`Cash in (incl. ${taxName})`} value={fmtMoney(analysis.cashIn.value)} breakdown={analysis.cashIn.breakdown}>
+            <Tile id="sec-costs" label={`Cash in (incl. ${taxName})`} value={fmtMoney(analysis.cashIn.value)} breakdown={analysis.cashIn.breakdown}>
               <div class="bands">
                 <p class="field-hint">{taxName}: {fmtMoney(analysis.stampDuty.value.tax)}</p>
                 {analysis.stampDuty.value.bands.filter((b) => b.tax > 0).map((b) => (
@@ -147,14 +147,15 @@ export function BtlVerdict({ config, comps, valuation }: {
   );
 }
 
-function Tile({ label, value, breakdown, children }: {
+function Tile({ id, label, value, breakdown, children }: {
+  id?: string;
   label: string;
   value: string;
   breakdown: import('@gil-bricks/core').Breakdown;
   children?: preact.ComponentChildren;
 }) {
   return (
-    <div class="tile">
+    <div class="tile" id={id}>
       <p class="tile-label">{label}</p>
       <p class="tile-value">{value}</p>
       {children}
