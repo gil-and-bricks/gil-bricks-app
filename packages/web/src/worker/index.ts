@@ -26,8 +26,8 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { canAddLiveDeal, countLiveDeals, deleteDeal, getOwnedDeal, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, setDealScore, upsertPipelineDeal } from './lib/pipeline';
-import { DEAD_STAGE, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
+import { canAddLiveDeal, countLiveDeals, deleteDeal, deleteFact, getOwnedDeal, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactVerdict } from './lib/pipeline';
+import { DEAD_STAGE, isFactType, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
 export interface Env {
@@ -504,7 +504,22 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // the deals table), NOT a recount of the joined rows — so the board's "N of 100"
     // can never disagree with an at-cap 409 at save time.
     const liveCount = await countLiveDeals(env.DB, user.sub);
-    return json({ pipeline: true, deals, liveCount, cap: MAX_LIVE_DEALS });
+    // P5: the facts travel with the board so the browser can apply them and
+    // re-score with core — the server never scores anything itself.
+    const factRows = features.dealFacts ? await listFacts(env.DB, user.sub) : [];
+    const facts = factRows.map((r) => {
+      let value: number | null = null;
+      let note: string | null = null;
+      try {
+        const parsed = JSON.parse(r.value_json) as { value?: unknown; note?: unknown };
+        value = typeof parsed.value === 'number' ? parsed.value : null;
+        note = typeof parsed.note === 'string' ? parsed.note : null;
+      } catch {
+        /* a malformed row is shown as a fact with no number rather than lost */
+      }
+      return { id: r.id, deal_id: r.deal_id, fact_type: r.fact_type, value, note, entered_at: r.entered_at };
+    });
+    return json({ pipeline: true, deals, facts, liveCount, cap: MAX_LIVE_DEALS });
   }
 
   // ---- flag OFF: exactly today's flat saved-deals list ----
@@ -715,9 +730,9 @@ async function handleScoreDeal(request: Request, env: Env, dealId: string): Prom
   if (!features.dealPipeline) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
-  let body: { score?: number; verdict_line?: string; headline_figure?: string };
+  let body: { score?: number; verdict_line?: string; headline_figure?: string; criteria_json?: string; evidence_json?: string };
   try {
-    body = (await request.json()) as { score?: number; verdict_line?: string; headline_figure?: string };
+    body = (await request.json()) as typeof body;
   } catch {
     return json({ error: 'bad request' }, 400);
   }
@@ -726,6 +741,93 @@ async function handleScoreDeal(request: Request, env: Env, dealId: string): Prom
   const verdictLine = String(body?.verdict_line ?? '').slice(0, 160).trim();
   const headlineFigure = String(body?.headline_figure ?? '').slice(0, 60).trim();
   const ok = await setDealScore(env.DB, user.sub, dealId, score, verdictLine, headlineFigure);
+  if (!ok) return json({ error: 'not found' }, 404);
+  // P5: EVERY re-score leaves a snapshot behind — the score, what it was judged
+  // against and the evidence at that moment. P6 reads this history, so it has to
+  // be complete from the very first fact.
+  const v = readFactVerdict(body as Record<string, unknown>);
+  if (v === 'bad' || v === undefined) return json({ error: 'bad request' }, 400);
+  await recordVerdict(env.DB, dealId, { score, criteriaJson: v.criteriaJson, evidenceJson: v.evidenceJson });
+  return json({ ok: true });
+}
+
+/**
+ * P5 — a fact arrives. The deal learns something: a builder's quote, a survey
+ * finding, a down-valuation. The SERVER only stores it; the browser re-scores
+ * with @gil-bricks/core and posts the new verdict back, so there is exactly one
+ * pathway into the maths.
+ */
+
+/**
+ * The re-score a fact carries with it (P5). The BROWSER runs @gil-bricks/core and
+ * sends what it got; the server stores it beside the fact in one batch, so a card
+ * can never show a score the database does not hold. Invalid JSON is refused
+ * rather than stored — a snapshot P6 cannot parse is worse than no snapshot.
+ */
+function readFactVerdict(body: Record<string, unknown>): FactVerdict | undefined | 'bad' {
+  if (body.score === undefined || body.score === null) return undefined;
+  const score = typeof body.score === 'number' && Number.isFinite(body.score) ? body.score : null;
+  if (score === null || score < 0 || score > 10) return 'bad';
+  const json = (v: unknown): string | null => {
+    if (typeof v !== 'string' || v.length > 4000) return null;
+    try {
+      JSON.parse(v);
+      return v;
+    } catch {
+      return null;
+    }
+  };
+  const criteriaJson = json(body.criteria_json) ?? '{}';
+  const evidenceJson = json(body.evidence_json) ?? '{}';
+  return {
+    score,
+    verdictLine: String(body.verdict_line ?? '').slice(0, 160).trim(),
+    headlineFigure: String(body.headline_figure ?? '').slice(0, 60).trim(),
+    criteriaJson,
+    evidenceJson,
+  };
+}
+
+async function handleAddFact(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.dealFacts) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const owned = await getOwnedDeal(env.DB, user.sub, dealId);
+  if (!owned) return json({ error: 'not found' }, 404);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const factType = typeof body.fact_type === 'string' ? body.fact_type : '';
+  if (!isFactType(factType)) return json({ error: 'unknown fact type' }, 400);
+  const raw = body.value;
+  const value = typeof raw === 'number' && Number.isFinite(raw) ? Math.round(raw) : null;
+  if (value !== null && (value < 0 || value > 100_000_000)) return json({ error: 'bad request' }, 400);
+  const note = String(body.note ?? '').slice(0, 200).trim();
+  const verdict = readFactVerdict(body);
+  if (verdict === 'bad') return json({ error: 'bad request' }, 400);
+  const id = await recordFact(env.DB, dealId, factType, JSON.stringify({ value, note: note === '' ? null : note }), verdict);
+  return json({ id });
+}
+
+/** P5 — remove a fact entered wrongly. The browser re-scores without it. */
+async function handleDeleteFact(request: Request, env: Env, dealId: string, factId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.dealFacts) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  // The score the deal goes back to travels with the delete, so removing a fact
+  // and putting the score back are one write, not two.
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    /* no body is fine: a fact that moved nothing needs no re-score */
+  }
+  const verdict = readFactVerdict(body);
+  if (verdict === 'bad') return json({ error: 'bad request' }, 400);
+  const ok = await deleteFact(env.DB, user.sub, dealId, factId, verdict);
   return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
 }
 
@@ -817,6 +919,10 @@ export default {
       if (pk && method === 'POST') return handleParkDeal(request, env, pk[1]);
       const sc = /^\/api\/deals\/([0-9a-f-]{36})\/score$/.exec(pathname);
       if (sc && method === 'POST') return handleScoreDeal(request, env, sc[1]);
+      const fa = /^\/api\/deals\/([0-9a-f-]{36})\/facts$/.exec(pathname);
+      if (fa && method === 'POST') return handleAddFact(request, env, fa[1]);
+      const fd = /^\/api\/deals\/([0-9a-f-]{36})\/facts\/([0-9a-f-]{36})$/.exec(pathname);
+      if (fd && method === 'DELETE') return handleDeleteFact(request, env, fd[1], fd[2]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

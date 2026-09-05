@@ -12,7 +12,11 @@ import { useEffect, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
+import { features } from '../../config/features';
 import { dealHref } from '../../lib/deals/deal';
+import { DealFacts } from './DealFacts';
+import { applyFacts, factMoves, factNotes, factTypeFor, type DealFact } from '../../lib/deals/facts';
+import { scoreFromParams } from '../../lib/deals/scoreFromParams';
 import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
 import { ALL_STAGES, BOARD_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
 
@@ -28,10 +32,15 @@ export function DealBoard() {
   const [parkingId, setParkingId] = useState('');
   const [dragId, setDragId] = useState('');
   const [dropStage, setDropStage] = useState('');
-  const [pending, setPending] = useState<Set<string>>(new Set());
+  // How many writes are in flight PER DEAL. A count, not a flag: a card with two
+  // overlapping writes must stay locked until the last one lands (P5 review).
+  const [pending, setPending] = useState<Record<string, number>>({});
   const [showParked, setShowParked] = useState(false);
-  const setBusy = (id: string, on: boolean) =>
-    setPending((prev) => { const n = new Set(prev); if (on) n.add(id); else n.delete(id); return n; });
+  /** P5: every fact on every deal, applied in the browser before re-scoring. */
+  const [facts, setFacts] = useState<DealFact[]>([]);
+  const isBusy = (id: string): boolean => (pending[id] ?? 0) > 0;
+  const setBusy = (id: string, on: boolean): void =>
+    setPending((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + (on ? 1 : -1)) }));
 
   useEffect(() => {
     void loadMe().then((v) => {
@@ -41,9 +50,10 @@ export function DealBoard() {
           if (!r.ok) throw new Error(String(r.status));
           return r.json();
         })
-        .then((b: { deals: BoardDeal[]; cap: number }) => {
+        .then((b: { deals: BoardDeal[]; cap: number; facts?: DealFact[] }) => {
           setDeals(b.deals);
           setCap(b.cap);
+          setFacts(b.facts ?? []);
         })
         .catch(() => setDeals('error'));
     });
@@ -55,7 +65,7 @@ export function DealBoard() {
   // restores exactly that deal's prior stage — nothing else. One write per deal
   // at a time (a card is locked while its write is in flight).
   const moveTo = async (deal: BoardDeal, toStage: string) => {
-    if (deal.stage === toStage || !Array.isArray(deals) || pending.has(deal.id)) return;
+    if (deal.stage === toStage || !Array.isArray(deals) || isBusy(deal.id)) return;
     const before = { stage: deal.stage, status: deal.status, stage_since: deal.stage_since };
     const stageSince = new Date().toISOString();
     const fromIdx = STAGE_ORDER.indexOf(deal.stage);
@@ -83,7 +93,7 @@ export function DealBoard() {
   };
 
   const park = async (deal: BoardDeal, reason: string) => {
-    if (!Array.isArray(deals) || pending.has(deal.id)) return;
+    if (!Array.isArray(deals) || isBusy(deal.id)) return;
     const before = { stage: deal.stage, status: deal.status, stage_since: deal.stage_since };
     setParkingId('');
     setBusy(deal.id, true);
@@ -98,6 +108,101 @@ export function DealBoard() {
     } catch {
       setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
       setNote({ id: deal.id, text: BOARD_COPY.card.parkFailed });
+    } finally {
+      setBusy(deal.id, false);
+    }
+  };
+
+  /** The facts on one deal, oldest first. */
+  const factsFor = (dealId: string): DealFact[] => facts.filter((f) => f.deal_id === dealId);
+
+  /** The deal's params AS THE FACTS LEAVE THEM — this is the truth from now on. */
+  const paramsFor = (deal: BoardDeal): string => applyFacts(deal.strategy, deal.url_params, factsFor(deal.id));
+
+  /**
+   * P5 — the re-score, run in the BROWSER with @gil-bricks/core. No maths happens
+   * here: scoreFromParams makes the same engine calls the analyser makes. It
+   * returns what to send WITH the fact, so the fact and the score it caused are
+   * one write — a card can never show a score the database does not hold.
+   */
+  const rescoreBody = (deal: BoardDeal, dealFacts: DealFact[]): Record<string, unknown> | null => {
+    const params = applyFacts(deal.strategy, deal.url_params, dealFacts);
+    try {
+      const scored = scoreFromParams(deal.strategy, params);
+      return {
+        score: scored.score,
+        verdict_line: scored.verdict,
+        headline_figure: scored.figure,
+        // The snapshot P6 reads: what it was judged against, and what was known.
+        // `source` tells P6 which shape this is: a save writes thresholds and
+        // assumptions, a fact re-score writes the params it scored.
+        criteria_json: JSON.stringify({ source: 'fact-rescore', params }),
+        evidence_json: JSON.stringify({ facts: dealFacts.map((f) => ({ type: f.fact_type, value: f.value, at: f.entered_at })) }),
+      };
+    } catch {
+      return null; // not enough inputs to score — the card keeps saying so
+    }
+  };
+
+  /** Put the re-scored figures on the card, once the server has stored them. */
+  const applyScore = (dealId: string, body: Record<string, unknown> | null): void => {
+    if (!body) return;
+    setDeals((cur) => (Array.isArray(cur)
+      ? cur.map((d) => (d.id === dealId
+        ? { ...d, current_score: body.score as number, headline_figure: body.headline_figure as string, verdict_line: body.verdict_line as string }
+        : d))
+      : cur));
+  };
+
+  const addFact = async (deal: BoardDeal, factType: string, value: number | null, note: string): Promise<boolean> => {
+    if (isBusy(deal.id)) return false; // one write per deal at a time
+    setBusy(deal.id, true);
+    try {
+      const moves = factMoves(factType, deal.strategy);
+      // The fact we are about to add, scored the way the analyser would score it.
+      const provisional: DealFact = { id: 'pending', deal_id: deal.id, fact_type: factType, value, note, entered_at: new Date().toISOString() };
+      const body = moves ? rescoreBody(deal, [...factsFor(deal.id), provisional]) : null;
+      const res = await fetch(`/api/deals/${deal.id}/facts`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ fact_type: factType, value, note, ...(body ?? {}) }),
+      });
+      if (!res.ok) return false;
+      const { id } = (await res.json()) as { id: string };
+      setFacts((cur) => [...cur, { ...provisional, id }]);
+      applyScore(deal.id, body);
+      const label = factTypeFor(factType)?.label ?? factType;
+      setNote({ id: deal.id, text: body ? BOARD_COPY.card.factAdded(label) : BOARD_COPY.card.factFlagged(label) });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      setBusy(deal.id, false);
+    }
+  };
+
+  const removeFact = async (deal: BoardDeal, factId: string): Promise<boolean> => {
+    if (isBusy(deal.id)) return false;
+    setBusy(deal.id, true);
+    try {
+      const gone = factsFor(deal.id).find((f) => f.id === factId);
+      const left = factsFor(deal.id).filter((f) => f.id !== factId);
+      // A fact that moved nothing put no score out of place, so removing it
+      // re-scores nothing and never claims it did.
+      const moved = gone !== undefined && factMoves(gone.fact_type, deal.strategy);
+      const body = moved ? rescoreBody(deal, left) : null;
+      const res = await fetch(`/api/deals/${deal.id}/facts/${factId}`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body ?? {}),
+      });
+      if (!res.ok) return false;
+      setFacts((cur) => cur.filter((f) => f.id !== factId));
+      applyScore(deal.id, body);
+      setNote({ id: deal.id, text: body ? BOARD_COPY.card.factRemoved : BOARD_COPY.card.factDropped });
+      return true;
+    } catch {
+      return false;
     } finally {
       setBusy(deal.id, false);
     }
@@ -160,7 +265,7 @@ export function DealBoard() {
     const verdict = cardVerdict(d);
     const step = nextStepLine(d, now);
     const auctionWarn = d.is_auction && d.stage === 'offer-in';
-    const busy = pending.has(d.id);
+    const busy = isBusy(d.id);
     return (
       <div
         key={d.id}
@@ -170,7 +275,9 @@ export function DealBoard() {
         onDragStart={(e) => { setDragId(d.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
         onDragEnd={() => { setDragId(''); setDropStage(''); }}
       >
-        <a class="dc-title" href={dealHref(d.strategy, d.url_params, verdict.action === 'score' ? d.id : undefined)}>{d.title}</a>
+        {/* The link carries the FACT-CORRECTED params: once a quote exists, the
+            analyser opens on the quote, not the original guess (P5). */}
+        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined)}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
             <span class={`board-score ${verdict.cls}`} aria-label={BOARD_COPY.card.scoreLabel((d.current_score as number).toFixed(1))}>
@@ -192,6 +299,24 @@ export function DealBoard() {
         {step !== '' && <p class={`dc-step step-${age}`}>{step}</p>}
 
         {note && note.id === d.id && <p class="dc-note" role="status">{note.text}</p>}
+
+        {features.dealFacts && (
+          <DealFacts
+            dealId={d.id}
+            dealTitle={d.title}
+            strategy={d.strategy}
+            facts={factsFor(d.id)}
+            busy={busy}
+            onAdd={(t, val, n) => addFact(d, t, val, n)}
+            onRemove={(id) => removeFact(d, id)}
+          />
+        )}
+
+        {/* A fact that cannot move this strategy's maths says why, and never
+            invents a cost (P5). */}
+        {features.dealFacts && factNotes(d.strategy, factsFor(d.id)).map((n) => (
+          <p class="dc-fact-note" role="note">{n.label}: {n.note}</p>
+        ))}
 
         {d.status === 'live' && (
           <>

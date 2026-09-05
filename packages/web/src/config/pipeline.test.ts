@@ -38,11 +38,21 @@ describe('pipeline config (P1)', () => {
     expect(isDealStatus('paused')).toBe(false);
   });
 
-  it('seeds exactly the eight fact types', () => {
+  it('seeds exactly the eight fact types — numbers first, flags last (P5)', () => {
     expect(FACT_TYPE_KEYS).toEqual([
-      'builder-quote', 'survey-finding', 'down-valuation', 'covenant', 'short-lease', 'service-charge', 'ground-rent', 'auction-fees',
+      'builder-quote', 'survey-finding', 'down-valuation', 'auction-fees', 'service-charge', 'ground-rent', 'short-lease', 'covenant',
     ]);
     for (const f of FACT_TYPES) expect(f.label.length).toBeGreaterThan(0);
+    // A number fact must say what it changes; a flag must say why it matters.
+    for (const f of FACT_TYPES) {
+      if (f.kind === 'number') {
+        expect(f.numberLabel, f.key).toBeTruthy();
+        expect(Object.keys(f.applies ?? {}).length, f.key).toBeGreaterThan(0);
+      } else {
+        expect(f.flagNote, f.key).toBeTruthy();
+        expect(f.applies, `${f.key} must never invent a cost`).toBeUndefined();
+      }
+    }
     expect(isFactType('builder-quote')).toBe(true);
     expect(isFactType('vibes')).toBe(false);
   });

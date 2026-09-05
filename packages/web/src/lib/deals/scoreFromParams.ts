@@ -1,17 +1,23 @@
 /**
- * Scoring for the DEV SEED (D2) — dev-only, but it must not lie.
+ * ONE way to score a deal from its own URL params (D2, generalised in P5).
  *
- * The seeded board used to carry hand-written scores and verdict sentences the
- * engine could never produce, so a card and the analyser it links to disagreed
- * for ever (opening a scored deal does not re-score it). This module runs the
- * SAME @gil-bricks/core calls each verdict island runs, from the same URL
- * params and the same StrategyConfig defaults, so a seeded card says exactly
- * what its analyser will say.
+ * This runs the SAME @gil-bricks/core calls each verdict island runs, from the
+ * same params and the same StrategyConfig defaults, so a board card, a re-score
+ * after a fact, and the analyser page all produce the same number. There is no
+ * second pathway into the maths and NO FORMULA LIVES HERE — every figure comes
+ * back from core.
  *
- * The one honest difference: a seeded score is computed with NO valuation,
- * because there is no sold-price fetch at seed time. That is precisely what the
- * analyser produces on a page whose comparables have not loaded a valuation, so
- * it is reproducible rather than invented.
+ * Two callers: the dev seed (so a seeded card cannot disagree with its own
+ * analyser) and the fact re-score (so a builder's quote of £48,000 scores
+ * exactly as £48,000 typed into the analyser would).
+ *
+ * WHAT THIS CANNOT SEE, said plainly. It scores from the URL alone, so it is
+ * exactly the analyser page BEFORE its comparables land and before anyone
+ * measures a room:
+ *  - no sold-price evidence, so that component scores as unknown;
+ *  - HMO room sizes are unmeasured (they live in the page, never in the URL);
+ *  - the country comes from the postcode area, not from ONSPD.
+ * Nothing here is invented — it is the same engine on less evidence.
  */
 import {
   analyseBtl,
@@ -24,8 +30,11 @@ import {
   strategies,
   type StrategyConfig,
 } from '@gil-bricks/core';
+// The board figure uses the analyser's OWN copy functions, so the card cannot
+// word a figure differently from the page it links to.
+import { BTL_COPY, FLIP_COPY, HMO_COPY } from '../../config/verdicts';
 
-export interface SeedScore {
+export interface ParamScore {
   score: number;
   /** The board's headline figure, in the same shape a real save writes. */
   figure: string;
@@ -58,22 +67,31 @@ function reader(config: StrategyConfig, params: URLSearchParams) {
   };
 }
 
+/** A field's own default from the StrategyConfig — config data, never a formula. */
+const defaultOf = (config: StrategyConfig, key: string): string =>
+  String([...config.strategyInputs, ...config.assumptions].find((f) => f.key === key)?.default ?? '');
+
 const thresholdsOf = (config: StrategyConfig): Record<string, number> =>
   (config as unknown as { thresholds: Record<string, number> }).thresholds;
 
 /**
- * Score one seeded deal exactly as its analyser would, with no valuation.
+ * Score a deal exactly as its analyser would, with no valuation.
  * Every strategy is a purchase in Wales or England; the country comes from the
  * postcode's own prefix so the tax is the one the analyser would charge.
  */
-export function seedScoreFor(strategy: string, urlParams: string): SeedScore {
+export function scoreFromParams(strategy: string, urlParams: string): ParamScore {
   const params = new URLSearchParams(urlParams);
   const config = configFor(strategy);
   const { num, str } = reader(config, params);
+  const configDefault = (key: string): string => defaultOf(config, key);
   const price = Number(params.get('price') ?? 0);
   const postcode = (params.get('postcode') ?? '').toUpperCase();
-  // Welsh postcode areas, the same set the sector data is built from.
-  const welsh = /^(CF|LD|LL|NP|SA|SY|HR|CH|WR)/.test(postcode.trim());
+  // The analyser reads CTRY from ONSPD (comps.subject.country). There is no
+  // ONSPD lookup here, so this uses the postcode areas that lie ENTIRELY in
+  // Wales; the cross-border ones (CH, HR, SY, WR) are mostly England and are
+  // treated as England. A cross-border property therefore re-scores on SDLT
+  // where the analyser would use LTT — see docs/PIPELINE_STATUS.md.
+  const welsh = /^(CF|LD|LL|NP|SA)\d/.test(postcode.trim());
   const country = welsh ? 'W92000004' : 'E92000001';
   const taxBasis = str('taxBasis') === '' ? 'additional' : str('taxBasis');
   const buyingAs = str('buyingAs') === '' ? 'basic' : str('buyingAs');
@@ -87,7 +105,7 @@ export function seedScoreFor(strategy: string, urlParams: string): SeedScore {
     } as never;
     const a = analyseBtl(inputs);
     const d = scoreDeal('btl', inputs);
-    return { score: d.score, figure: `ROI ${fmtPct(a.roi.value)}`, verdict: d.headline };
+    return { score: d.score, figure: BTL_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline };
   }
 
   if (strategy === 'flip') {
@@ -103,14 +121,18 @@ export function seedScoreFor(strategy: string, urlParams: string): SeedScore {
     } as never;
     const a = analyseFlip(inputs);
     const d = scoreDeal('flip', inputs);
-    return { score: d.score, figure: `${fmtMoney(a.profitAfterTax.value)} profit after tax`, verdict: d.headline };
+    return { score: d.score, figure: FLIP_COPY.savedHeadline(fmtMoney(a.profitAfterTax.value)), verdict: d.headline };
   }
 
   if (strategy === 'brrrr') {
+    // EXACTLY as BrrrrVerdict maps it: the picker holds a number or the word
+    // 'custom', and 'custom' means read the number the person typed instead.
+    const ltvRaw = str('ltv');
+    const ltvPct = ltvRaw === 'custom' ? num('ltvCustom') : Number(ltvRaw) || Number(configDefault('ltv'));
     const inputs = {
       price, country, refurb: num('refurbCost'), arv: num('arv'),
       funding: str('funding') === 'cash' ? 'cash' : 'bridging', bridgeMonths: num('bridgeMonths'),
-      monthlyRent: num('rent'), ltvPct: num('ltv') > 0 ? num('ltv') : 75, buyingAs,
+      monthlyRent: num('rent'), ltvPct, buyingAs,
       selfManaged: str('mgmt') === 'self', bridgeLoanPct: num('bridgeLoanPct'),
       bridgeRatePctMonth: num('bridgeRate'), arrangementPct: num('arrangementPct'), exitPct: num('exitPct'),
       legals: num('legals'), refiLegals: num('refiLegals'), voidWeeks: num('voidWeeks'),
@@ -138,5 +160,5 @@ export function seedScoreFor(strategy: string, urlParams: string): SeedScore {
   } as never;
   const a = analyseHmo(inputs);
   const d = scoreDeal('hmo', inputs);
-  return { score: d.score, figure: `ROI ${fmtPct(a.roi.value)}`, verdict: d.headline };
+  return { score: d.score, figure: HMO_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline };
 }

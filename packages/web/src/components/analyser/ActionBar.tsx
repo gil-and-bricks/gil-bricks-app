@@ -38,7 +38,9 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
       if (v === null) return; // signed out — leave it; don't nag
       await fetch(`/api/deals/${id}/score`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ score: snap.score, verdict_line: snap.headline, headline_figure: snap.boardFigure }),
+        // the snapshot carries what it was judged against, so the history this
+        // writes is as complete as the one a save writes (P5).
+        body: JSON.stringify({ score: snap.score, verdict_line: snap.headline, headline_figure: snap.boardFigure, criteria_json: snap.criteriaJson }),
       }).catch(() => {});
     })();
   }, [snap]);

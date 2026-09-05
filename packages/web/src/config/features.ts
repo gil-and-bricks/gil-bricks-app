@@ -59,6 +59,12 @@ export interface FeatureFlags {
    * pages themselves render their explanation without the calculator. */
   toolsSection: boolean;
 
+  /** Facts and re-scoring on a saved deal (P5): the deal learns a builder's
+   * quote, a survey finding, a down-valuation, and re-runs the SAME maths the
+   * analyser runs. Off: no fact control, no fact list, no /api/deals/:id/facts,
+   * and a deal keeps the score it was saved with. */
+  dealFacts: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -87,6 +93,7 @@ export const features: FeatureFlags = {
   desktopSplit: true,
   navV2: true,
   bridgingFinance: true,
+  dealFacts: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,

@@ -117,17 +117,137 @@ export const LIVE_CAP_MESSAGE =
 export interface FactType {
   key: string;
   label: string;
+  /**
+   * NUMBER facts move the maths. FLAG facts cannot: a covenant is not a number,
+   * so it marks the deal and says what to check, and never invents a cost (P5).
+   */
+  kind: 'number' | 'flag';
+  /** What the number is, in the operator's words — the field's own label. */
+  numberLabel?: string;
+  /** One line under the field: where the number comes from. */
+  hint?: string;
+  /**
+   * Which ANALYSER INPUT this fact becomes, per strategy, and how. 'replace'
+   * overwrites the assumption; 'add' stacks on top of it. A strategy missing
+   * from this map cannot be re-scored by this fact — the deal is flagged
+   * instead, with `noEffect` saying so. `shownAs` is the analyser's OWN label
+   * for that input, so an added cost can say where it will turn up.
+   */
+  applies?: Record<string, { param: string; mode: 'replace' | 'add'; shownAs?: string }>;
+  /** Said on the deal when the fact carries no maths for THIS strategy. */
+  noEffect?: string;
+  /** Said on the deal for a flag fact: why it matters and what to check. */
+  flagNote?: string;
 }
+
+/**
+ * THE FACTS A DEAL CAN LEARN (P5). Each says in plain English what it changes
+ * and how. Adding one is an entry here plus nothing else: the sheet, the
+ * re-score and the deal's fact list all read this list.
+ *
+ * The param names are the analyser's own URL keys, so a fact becomes exactly
+ * the same input a person could have typed — there is no second pathway into
+ * the maths, and no formula lives here.
+ */
+/**
+ * Said when a fact cannot re-score THIS deal. A comparables deal has no strategy
+ * maths at all; a scored deal can still meet a fact its strategy has no input
+ * for. Neither invents a cost — they say plainly what happened (P5).
+ */
+export const FACT_NO_MATHS = 'This deal has no strategy maths, so nothing re-scores. The fact is kept here.';
+export const FACT_NO_EFFECT = 'This does not change this deal’s maths. It is kept here so you do not lose it.';
+
 export const FACT_TYPES: readonly FactType[] = [
-  { key: 'builder-quote', label: 'Builder’s quote' },
-  { key: 'survey-finding', label: 'Survey finding' },
-  { key: 'down-valuation', label: 'Down-valuation' },
-  { key: 'covenant', label: 'Covenant' },
-  { key: 'short-lease', label: 'Short lease' },
-  { key: 'service-charge', label: 'Service charge' },
-  { key: 'ground-rent', label: 'Ground rent' },
-  { key: 'auction-fees', label: 'Auction fees' },
-] as const;
+  {
+    key: 'builder-quote',
+    label: 'Builder’s quote',
+    kind: 'number',
+    numberLabel: 'The quote (£)',
+    hint: 'The real number replaces your refurb guess.',
+    applies: {
+      btl: { param: 'refurbCost', mode: 'replace' },
+      brrrr: { param: 'refurbCost', mode: 'replace' },
+      flip: { param: 'refurbCost', mode: 'replace' },
+      hmo: { param: 'refurbCost', mode: 'replace' },
+    },
+  },
+  {
+    key: 'survey-finding',
+    label: 'Survey finding',
+    kind: 'number',
+    numberLabel: 'Extra work it found (£)',
+    hint: 'Added to the refurb budget.',
+    applies: {
+      btl: { param: 'refurbCost', mode: 'add' },
+      brrrr: { param: 'refurbCost', mode: 'add' },
+      flip: { param: 'refurbCost', mode: 'add' },
+      hmo: { param: 'refurbCost', mode: 'add' },
+    },
+  },
+  {
+    key: 'down-valuation',
+    label: 'Down-valuation',
+    kind: 'number',
+    numberLabel: 'The valuer’s figure (£)',
+    hint: 'Replaces the end value you assumed.',
+    applies: {
+      brrrr: { param: 'arv', mode: 'replace' },
+      flip: { param: 'gdv', mode: 'replace' },
+    },
+    noEffect: 'There is no end value in this strategy, so this cannot re-score it. It still matters to your lender.',
+  },
+  {
+    key: 'auction-fees',
+    label: 'Auction fees',
+    kind: 'number',
+    numberLabel: 'The fees (£)',
+    hint: 'Added to your buying costs.',
+    applies: {
+      btl: { param: 'legals', mode: 'add', shownAs: 'Legal & survey costs' },
+      brrrr: { param: 'legals', mode: 'add', shownAs: 'Legal & survey costs' },
+      flip: { param: 'legals', mode: 'add', shownAs: 'Purchase legals & survey' },
+      hmo: { param: 'legals', mode: 'add', shownAs: 'Legal & survey costs' },
+    },
+  },
+  {
+    key: 'service-charge',
+    label: 'Service charge',
+    kind: 'number',
+    numberLabel: 'Cost a year (£)',
+    hint: 'Added to the yearly running costs.',
+    applies: {
+      btl: { param: 'insurance', mode: 'add', shownAs: 'Landlord insurance' },
+      brrrr: { param: 'insurance', mode: 'add', shownAs: 'Landlord insurance' },
+      hmo: { param: 'compliancePerYear', mode: 'add', shownAs: 'Compliance costs' },
+    },
+    noEffect: 'A flip is sold, not let, so a yearly charge does not change the deal maths. Budget for it while you hold it.',
+  },
+  {
+    key: 'ground-rent',
+    label: 'Ground rent',
+    kind: 'number',
+    numberLabel: 'Cost a year (£)',
+    hint: 'Added to the yearly running costs.',
+    applies: {
+      btl: { param: 'insurance', mode: 'add', shownAs: 'Landlord insurance' },
+      brrrr: { param: 'insurance', mode: 'add', shownAs: 'Landlord insurance' },
+      hmo: { param: 'compliancePerYear', mode: 'add', shownAs: 'Compliance costs' },
+    },
+    noEffect: 'A flip is sold, not let, so a yearly charge does not change the deal maths. Budget for it while you hold it.',
+  },
+  {
+    key: 'short-lease',
+    label: 'Short lease',
+    kind: 'flag',
+    flagNote: 'A short lease can stop a lender lending and costs money to extend. Get the exact years left and a premium estimate before you offer.',
+  },
+  {
+    key: 'covenant',
+    label: 'Covenant',
+    kind: 'flag',
+    flagNote: 'A covenant can restrict letting, building or selling. Ask your solicitor what it says before you spend anything.',
+  },
+];
 export const FACT_TYPE_KEYS: readonly string[] = FACT_TYPES.map((f) => f.key);
 export function isFactType(key: string): boolean {
   return FACT_TYPE_KEYS.includes(key);
@@ -189,6 +309,24 @@ export const BOARD_COPY = {
     parkReasonsLabel: (title: string) => `Why are you parking ${title}?`,
     keepIt: 'Keep it',
     skippedStage: 'Skipped a stage — your call.',
+    /** P5 — the fact flow, from the card. Short: this is used in a hallway. */
+    factsOpen: 'What happened?',
+    factsHeading: (title: string) => `What happened with ${title}?`,
+    factSave: 'Save',
+    factSaving: 'Saving…',
+    factCancel: 'Cancel',
+    factNoteLabel: 'Note (optional)',
+    factAdded: (label: string) => `${label} added — re-scored.`,
+    factFlagged: (label: string) => `${label} added — it flags the deal.`,
+    factFailed: 'That did not save. Try again.',
+    factNeedsNumber: 'Type the number first.',
+    factLandsIn: (line: string) => `It shows in “${line}” in the analyser.`,
+    factRemoved: 'Fact removed — score put back.',
+    factDropped: 'Fact removed.',
+    factsListHeading: 'What this deal has learned',
+    factRemove: 'Remove',
+    factRemoveLabel: (label: string) => `Remove ${label}`,
+    factOn: (date: string) => `added ${date}`,
     /** Said back after a successful move or park — the card jumps columns, so
      *  without this nothing confirmed anything happened (D1). */
     moved: (stage: string): string => `Moved to ${stage}.`,

@@ -5,7 +5,9 @@
  * is always computed by the caller with @gil-bricks/core and passed in; these
  * helpers only persist and read. Stage/fact keys are validated against config.
  */
-import { seedScoreFor } from './seedScore';
+import { scoreFromParams } from '../../lib/deals/scoreFromParams';
+import { applyFacts, type DealFact } from '../../lib/deals/facts';
+import { features } from '../../config/features';
 import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES } from '../../config/pipeline';
 
 /**
@@ -156,14 +158,80 @@ export async function stageHistory(db: D1Database, dealId: string): Promise<Stag
 }
 
 /** Record a fact that has arrived, and touch the deal so it sorts as fresh. */
-export async function recordFact(db: D1Database, dealId: string, factType: string, valueJson: string): Promise<void> {
+/**
+ * The re-score that travels WITH a fact (P5). The fact and the score it produces
+ * are written in ONE batch, so the card can never show a score the database does
+ * not have, and a fact can never exist without the snapshot it caused.
+ */
+export interface FactVerdict {
+  score: number;
+  verdictLine: string;
+  headlineFigure: string;
+  criteriaJson: string;
+  evidenceJson: string;
+}
+
+/** The statements that apply a re-score: the deal's own row, then its history. */
+function verdictStatements(db: D1Database, dealId: string, v: FactVerdict, at: string): D1PreparedStatement[] {
+  return [
+    db.prepare('UPDATE deals SET current_score = ?, verdict_line = ?, headline_figure = ?, updated_at = ? WHERE id = ?')
+      .bind(v.score, v.verdictLine, v.headlineFigure, at, dealId),
+    db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), dealId, v.score, v.criteriaJson, v.evidenceJson, at),
+  ];
+}
+
+export async function recordFact(
+  db: D1Database, dealId: string, factType: string, valueJson: string, verdict?: FactVerdict,
+): Promise<string> {
   if (!isFactType(factType)) throw new Error(`unknown fact type: ${factType}`);
   const now = new Date().toISOString();
+  const id = crypto.randomUUID();
   await db.batch([
     db.prepare('INSERT INTO deal_facts (id, deal_id, fact_type, value_json, entered_at) VALUES (?, ?, ?, ?, ?)')
-      .bind(crypto.randomUUID(), dealId, factType, valueJson, now),
+      .bind(id, dealId, factType, valueJson, now),
     db.prepare('UPDATE deals SET updated_at = ? WHERE id = ?').bind(now, dealId),
+    ...(verdict ? verdictStatements(db, dealId, verdict, now) : []),
   ]);
+  return id;
+}
+
+export interface FactRow {
+  id: string;
+  deal_id: string;
+  fact_type: string;
+  value_json: string;
+  entered_at: string;
+}
+
+/** Every fact on a user's deals, oldest first — the board applies them itself. */
+export async function listFacts(db: D1Database, userId: string): Promise<FactRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT f.id, f.deal_id, f.fact_type, f.value_json, f.entered_at
+         FROM deal_facts f JOIN deals d ON d.id = f.deal_id
+        WHERE d.user_id = ? ORDER BY f.entered_at`,
+    )
+    .bind(userId)
+    .all<FactRow>();
+  return rows.results;
+}
+
+/** Delete one fact the person entered wrongly. Ownership is checked by join. */
+export async function deleteFact(
+  db: D1Database, userId: string, dealId: string, factId: string, verdict?: FactVerdict,
+): Promise<boolean> {
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned) return false;
+  const res = await db.prepare('DELETE FROM deal_facts WHERE id = ? AND deal_id = ?').bind(factId, dealId).run();
+  if ((res.meta?.changes ?? 0) === 0) return false;
+  const now = new Date().toISOString();
+  // The score goes back in the SAME batch the fact leaves in.
+  await db.batch([
+    db.prepare('UPDATE deals SET updated_at = ? WHERE id = ?').bind(now, dealId),
+    ...(verdict ? verdictStatements(db, dealId, verdict, now) : []),
+  ]);
+  return true;
 }
 
 /**
@@ -308,6 +376,12 @@ interface SeedSpec {
   auction?: boolean;
   /** Park reason, for the one dead deal. */
   dead?: string;
+  /**
+   * Facts that arrived after the deal was born (P5). The seed applies them the
+   * way the board does, so a seeded card shows the fact-corrected score — test
+   * data that lies costs hours later.
+   */
+  facts?: readonly { type: string; value: number | null; note?: string; daysAgo: number }[];
 }
 // Seed copy that the UI owns comes FROM config — never re-typed here.
 const parkReasonLabel = (key: string): string => {
@@ -319,13 +393,24 @@ const DEV_SEED_SPECS: readonly SeedSpec[] = [
   { strategy: 'btl', title: 'Terraced · CF24 4AA · £150,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', ageDays: 1, params: 'postcode=CF24+4AA&price=150000&type=T&rent=1400' },
   { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', ageDays: 12, params: 'postcode=SA1+6HW&price=85000&type=S&roomRent=500&refurbCost=40000&rooms=5' },
   { strategy: 'flip', title: 'Detached · NP20 1AA · £240,000', sector: 'NP20 1', stage: 'going-to-view', status: 'live', ageDays: 9, params: 'postcode=NP20+1AA&price=240000&type=D&gdv=340000&refurbCost=35000' },
-  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £120,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', ageDays: 5, params: 'postcode=CF11+9AB&price=120000&type=T&rent=1150&arv=250000&refurbCost=25000' },
-  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&price=135000&type=F&rent=1100' },
-  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', ageDays: 12, params: 'postcode=SA2+0AA&price=220000&type=T&roomRent=650&refurbCost=45000&rooms=6' },
-  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=250000&refurbCost=30000' },
-  { strategy: 'brrrr', title: 'Terraced · CF37 1HR · £95,000', sector: 'CF37 1', stage: 'nearly-there', status: 'live', ageDays: 3, params: 'postcode=CF37+1HR&price=95000&type=T&rent=1000&arv=185000&refurbCost=18000' },
+  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £105,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', ageDays: 5, params: 'postcode=CF11+9AB&price=105000&type=T&rent=1250&arv=200000&refurbCost=30000' },
+  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&price=135000&type=F&rent=1100',
+    facts: [
+      { type: 'auction-fees', value: 3200, note: 'Buyer premium plus the pack', daysAgo: 5 },
+      { type: 'service-charge', value: 1400, note: 'Yearly, from the management pack', daysAgo: 4 },
+    ] },
+  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', ageDays: 12, params: 'postcode=SA2+0AA&price=220000&type=T&roomRent=650&refurbCost=45000&rooms=6',
+    facts: [{ type: 'survey-finding', value: 4500, note: 'Damp in the rear bedroom', daysAgo: 3 }] },
+  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=250000&refurbCost=30000',
+    facts: [
+      { type: 'builder-quote', value: 38000, note: 'Two quotes, took the lower', daysAgo: 6 },
+      { type: 'covenant', value: null, note: 'No trade from the property', daysAgo: 2 },
+    ] },
+  { strategy: 'brrrr', title: 'Terraced · CF37 1HR · £95,000', sector: 'CF37 1', stage: 'nearly-there', status: 'live', ageDays: 3, params: 'postcode=CF37+1HR&price=95000&type=T&rent=1000&arv=185000&refurbCost=18000',
+    facts: [{ type: 'down-valuation', value: 175000, daysAgo: 1 }] },
   { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', ageDays: 30, params: 'postcode=CF37+1HR&price=120000&type=T&rent=950' },
-  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000' },
+  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000',
+    facts: [{ type: 'builder-quote', value: 78000, note: 'Full rewire and a new roof', daysAgo: 12 }] },
 ];
 
 export async function seedDemoDeals(db: D1Database, userId: string): Promise<number> {
@@ -335,9 +420,22 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
   for (const s of DEV_SEED_SPECS) {
     const id = crypto.randomUUID();
     const created = new Date(Date.now() - s.ageDays * day).toISOString();
+    // Facts the deal has already collected, oldest first (P5). With the flag off
+    // they are not seeded at all, so a seeded card never shows a score that comes
+    // from something the board cannot show you.
+    const facts: DealFact[] = [...(features.dealFacts ? s.facts ?? [] : [])]
+      .sort((a, b) => b.daysAgo - a.daysAgo)
+      .map((fx) => ({
+        // a real UUID: the delete route only accepts one, and a seeded fact
+        // must be as removable as a typed one.
+        id: crypto.randomUUID(), deal_id: id, fact_type: fx.type,
+        value: fx.value, note: fx.note ?? null,
+        entered_at: new Date(Date.now() - fx.daysAgo * day).toISOString(),
+      }));
     // The SEED IS SCORED BY THE ENGINE (D2): a card must say what the analyser
     // it links to says, or the operator spends hours chasing a phantom bug.
-    const { score, figure, verdict } = seedScoreFor(s.strategy, s.params);
+    // With the facts applied (P5), because the fact is the truth from then on.
+    const { score, figure, verdict } = scoreFromParams(s.strategy, applyFacts(s.strategy, s.params, facts));
     // A deal that has advanced has a history and a later updated_at — a real one
     // could not look otherwise, so the seed does not either.
     const order = PROGRESS_STAGES.map((st) => st.key);
@@ -345,7 +443,11 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
     const stages = upto >= 0 ? order.slice(0, upto + 1) : [...order, s.stage];
     const step = s.ageDays > 0 ? (s.ageDays * day) / (stages.length + 1) : 0;
     const movedAt = (i: number): string => new Date(Date.parse(created) + step * (i + 1)).toISOString();
-    const updated = stages.length > 1 ? movedAt(stages.length - 2) : created;
+    // A fact always touches the deal, so a seeded deal cannot be older than its
+    // own newest fact — recordFact makes that impossible for a real one.
+    const lastMove = stages.length > 1 ? movedAt(stages.length - 2) : created;
+    const newestFact = facts.length > 0 ? facts[facts.length - 1].entered_at : created;
+    const updated = Date.parse(newestFact) > Date.parse(lastMove) ? newestFact : lastMove;
     stmts.push(
       db.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .bind(id, userId, s.strategy, s.title, s.params, figure, created),
@@ -356,6 +458,26 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
       stmts.push(
         db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, ?, ?, ?)')
           .bind(crypto.randomUUID(), id, i === 0 ? null : stages[i - 1], to, i === 0 ? created : movedAt(i - 1)),
+      );
+    });
+    // A verdict snapshot when the deal was born, then one per fact — the same
+    // history a real deal would have, so P6 has something true to read.
+    const snapshot = (at: string, upTo: number): D1PreparedStatement => {
+      const applied = applyFacts(s.strategy, s.params, facts.slice(0, upTo));
+      return db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
+        .bind(
+          crypto.randomUUID(), id, scoreFromParams(s.strategy, applied).score,
+          JSON.stringify({ params: applied }),
+          JSON.stringify({ facts: facts.slice(0, upTo).map((fx) => ({ type: fx.fact_type, value: fx.value, at: fx.entered_at })) }),
+          at,
+        );
+    };
+    stmts.push(snapshot(created, 0));
+    facts.forEach((fx, i) => {
+      stmts.push(
+        db.prepare('INSERT INTO deal_facts (id, deal_id, fact_type, value_json, entered_at) VALUES (?, ?, ?, ?, ?)')
+          .bind(fx.id, id, fx.fact_type, JSON.stringify({ value: fx.value, note: fx.note ?? '' }), fx.entered_at),
+        snapshot(fx.entered_at, i + 1),
       );
     });
   }

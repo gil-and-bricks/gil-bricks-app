@@ -1,7 +1,8 @@
-# Deal pipeline — where we stopped (P4.2, 2026-09-04)
+# Deal pipeline — where we are (P5, 2026-09-05)
 
-We stopped here **on purpose** to come back with fresh eyes. This records exactly what
-is built and what is deliberately NOT, so nobody rebuilds finished work or half-builds
+P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
+called them deliberately deferred is gone. This records exactly what is built and what
+is deliberately NOT, so nobody rebuilds finished work or half-builds
 the deferred work by accident. Everything is behind `features.dealPipeline` (packages/web/src/config/features.ts — the ONE
 flags file; docs/FEATURE_FLAGS.md is the rollback sheet)
 (currently ON in production, gated on sign-in). Boundaries in CLAUDE.md are LOCKED:
@@ -31,13 +32,20 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   missing input); opening it scores it via the real analyser pipeline and persists the
   score to that deal by id. Auction warning at Offer in.
 - **Dev seed set (P4.2):** `/dev/seed` + `/dev/seed/clear`, dev-only (impossible in
-  production), a realistic spread for judging design.
+  production), a realistic spread for judging design — with realistic FACTS on five of
+  the ten deals (P5), so a seeded card shows a fact-corrected score.
+- **Facts + re-scoring (P5)** — BUILT. Eight fact types in `src/config/pipeline.ts`
+  (`FACT_TYPES`); adding one is two taps and one number on the card. `applyFacts`
+  (packages/web/src/lib/deals/facts.ts) turns facts into the analyser inputs they
+  represent, then `scoreFromParams` (src/lib/deals/scoreFromParams.ts) re-scores in the
+  BROWSER with the same @gil-bricks/core calls the analyser runs — no new formula, proved
+  by facts.test.ts (a quote of £48,000 scores exactly as £48,000 typed, per strategy).
+  Every re-score POSTs a `deal_verdicts` snapshot (score + criteria + evidence). Facts are
+  listed on the card and deletable; deleting restores the previous score. Non-numeric
+  facts (covenant, short lease) flag and explain — they never invent a cost. Behind
+  `features.dealFacts`. Adding a fact type is a config edit, never code.
 
 ## Deliberately NOT built yet (return with fresh eyes — do not half-build)
-- **Facts + re-scoring as evidence arrives** — the spine: a builder's quote / survey
-  finding / down-valuation lands, the deal RE-SCORES (reusing @gil-bricks/core, no new
-  formulas), and a new `deal_verdicts` snapshot records the change. Tables exist
-  (`deal_facts`, config `FACT_TYPES`); the capture UI + re-score trigger do not.
 - **Verdict-change messaging** — "this dropped from Green to Amber because the survey
   found damp" when a fact moves the score.
 - **Evidence chips** — showing which inputs were listing / EPC / estimated / typed on
@@ -47,7 +55,8 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
 - **Extension reminders + calendar export** — nudges for a chased offer / booked viewing.
 - **Chain-risk card at Offer accepted** — surfacing chain/searches risk in the legal phase.
 
-## Why we stopped
-The board now answers "what needs me?" and is usable end-to-end. The next layer
-(facts → re-scoring) is the real depth and deserves a fresh, deliberate design pass
-rather than being bolted on. Pick up from "Facts + re-scoring" above.
+## Where to pick up
+The board answers "what needs me?", and a deal now re-scores itself as the facts land.
+The next layer is P6: reading the `deal_verdicts` history back — "this dropped from Green
+to Amber because the survey found damp". The history is complete from the first fact, on
+seeded deals too, so P6 has something true to read.
