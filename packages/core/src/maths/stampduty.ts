@@ -6,7 +6,7 @@
  */
 import { assertNonNegative, type Breakdown, type WithBreakdown } from './breakdown';
 import { fmtMoney, fmtPct } from './format';
-import { pickEffective, rates, today, type Band, type BandTable } from './rates';
+import { pickEffective, rates, today, type Band, type BandTable, type RateSource } from './rates';
 
 export type StampCountry = 'E92000001' | 'W92000004';
 export type BuyerType = 'standard' | 'additional' | 'firstTimeBuyer';
@@ -27,6 +27,10 @@ export interface StampDutyResult {
   bands: BandLine[];
   /** Which regime applied, e.g. "SDLT additional-property rates". */
   regime: string;
+  /** The effectiveFrom date of the band table used, straight from rates.json. */
+  effectiveFrom: string;
+  /** Where those rates were read from, so a page can cite them. */
+  source: RateSource;
 }
 
 /** Marginal tax over a band table: each slice of the price at its band's rate. */
@@ -110,7 +114,12 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
   }
 
   const lines = bandTax(inputs.price, table.bands);
-  const tax = lines.reduce((a, l) => a + l.tax, 0);
+  // HMRC round the amount down to the nearest pound (SDLT manual SDLTM00050:
+  // "The amount calculated is round down to the nearest pound."), so a price
+  // whose slices leave pennies must not come out £1 above the official
+  // calculator. The Welsh Revenue Authority publish no rounding rule; the same
+  // rounding is applied there, which can only ever understate by pennies.
+  const tax = Math.floor(lines.reduce((a, l) => a + l.tax, 0));
   const taxed = lines.filter((l) => l.tax > 0);
   const substituted =
     taxed.length === 0
@@ -123,5 +132,5 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
     result: fmtMoney(tax),
     note,
   };
-  return { value: { tax, bands: lines, regime }, breakdown };
+  return { value: { tax, bands: lines, regime, effectiveFrom: table.effectiveFrom, source: table.source }, breakdown };
 }

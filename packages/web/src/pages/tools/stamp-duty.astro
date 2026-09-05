@@ -1,0 +1,26 @@
+---
+/**
+ * The stamp duty / LTT calculator (T2). Public, indexable, never gated — and
+ * it makes no network request at all: the bands ship in the bundle.
+ */
+import ToolShell from '../../layouts/ToolShell.astro';
+import { StampDutyTool } from '../../components/tools/StampDutyTool';
+import { STAMP, TOOLS } from '../../config/tools';
+import { features } from '../../config/features';
+import { siteConfig } from '../../site.config';
+
+// Flag off: the tool does not render, so the page must not stand here asking a
+// question it cannot answer. Same pattern as /deals.
+if (!features.toolsSection) return Astro.redirect('/tools');
+
+const entry = TOOLS.find((t) => t.slug === STAMP.slug);
+---
+
+<ToolShell
+  title={`${STAMP.h1} — free stamp duty calculator | ${siteConfig.siteName}`}
+  h1={STAMP.h1}
+  description={entry?.description ?? STAMP.intro}
+  how={STAMP.howBody}
+>
+  <StampDutyTool client:load />
+</ToolShell>

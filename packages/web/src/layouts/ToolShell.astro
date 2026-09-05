@@ -18,7 +18,7 @@ import { Content as TermsContent } from '../content/legal/terms.md';
 // The shared card, button and field styles live here — a tool page looks like
 // the rest of the site because it uses the same stylesheet.
 import '../styles/analyser.css';
-import { TOOLS_COPY } from '../config/tools';
+import { TOOLS, TOOLS_COPY } from '../config/tools';
 import { siteConfig } from '../site.config';
 
 interface Props {
@@ -31,7 +31,11 @@ interface Props {
 const { title, h1, description, how } = Astro.props;
 const store = siteConfig.chromeStoreUrl.trim();
 // On the index itself, a link back to the index is noise.
-const onIndex = Astro.url.pathname.replace(/\/$/, '') === '/tools';
+const here = Astro.url.pathname.replace(/\/$/, '');
+const onIndex = here === '/tools';
+// Every other switched-on tool, straight from the registry: adding one still
+// costs an entry and a page, and the cross-links come free.
+const others = TOOLS.filter((t) => t.enabled && `/tools/${t.slug}` !== here);
 const canonical = new URL(Astro.url.pathname, siteConfig.liveUrl).toString();
 const schema = {
   '@context': 'https://schema.org',
@@ -64,6 +68,20 @@ const schema = {
 
     <p class="hint tool-disclaimer">{TOOLS_COPY.disclaimer}</p>
 
+    {!onIndex && others.length > 0 && (
+      <nav class="tool-others" aria-labelledby="tool-others-h">
+        <h2 id="tool-others-h" class="state-h">{TOOLS_COPY.othersHeading}</h2>
+        <ul class="tool-list">
+          {others.map((t) => (
+            <li class="glass card tool-card">
+              <h3><a href={`/tools/${t.slug}`}>{t.title}</a></h3>
+              <p class="hint">{t.description}</p>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    )}
+
     {/* For the visitor who has never heard of us: one line and two links. */}
     <section class="glass card tool-intro">
       <p>{TOOLS_COPY.footer.lead(siteConfig.siteName)}</p>
@@ -76,8 +94,8 @@ const schema = {
   </main>
   <Footer />
   <TabBar />
-  {/* The same sign-in wall the rest of the site has: the optional "save this"
-      needs it, and without it that button would do nothing. */}
+  {/* The header's own "Log in" button lives on these pages too, and it opens
+      this wall — without it mounted, that button would do nothing here. */}
   <template id="legal-terms"><TermsContent /></template>
   <LoginWall client:idle />
   <script type="application/ld+json" set:html={JSON.stringify(schema)} />

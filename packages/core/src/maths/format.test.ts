@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtMoneyInput, moneyCaret, parseMoneyInput } from './format';
+import { fmtDate, fmtMoneyInput, moneyCaret, parseMoneyInput } from './format';
 
 describe('money as it is typed (F1)', () => {
   it('reads back what the extension already showed: separators and a £', () => {
@@ -44,5 +44,17 @@ describe('the caret stays where you are typing', () => {
     const formatted = fmtMoneyInput(raw); // £150,000
     expect(formatted).toBe('£150,000');
     expect(moneyCaret(typed, 5, formatted)).toBeLessThan(formatted.length);
+  });
+});
+
+describe('fmtDate', () => {
+  it('writes an ISO date the way a person reads it', () => {
+    expect(fmtDate('2025-04-01')).toBe('1 April 2025');
+    expect(fmtDate('2024-12-11')).toBe('11 December 2024');
+  });
+
+  it('hands back anything that is not an ISO date untouched', () => {
+    expect(fmtDate('soon')).toBe('soon');
+    expect(fmtDate('2025-04')).toBe('2025-04');
   });
 });

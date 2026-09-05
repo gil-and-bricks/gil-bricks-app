@@ -46,8 +46,9 @@ describe('SDLT — first-time buyers', () => {
   it('£500,000 → £10,000; a pound more loses the relief entirely', () => {
     expect(stampDuty({ price: 500000, country: E, buyerType: 'firstTimeBuyer' }).value.tax).toBe(10000);
     const r = stampDuty({ price: 500001, country: E, buyerType: 'firstTimeBuyer' });
-    // standard: 2%×125,000 + 5%×250,001 = 2,500 + 12,500.05
-    expect(r.value.tax).toBeCloseTo(15000.05, 2);
+    // standard: 2%×125,000 + 5%×250,001 = 2,500 + 12,500.05, rounded DOWN
+    // to the nearest pound the way HMRC do it (SDLTM00050)
+    expect(r.value.tax).toBe(15000);
     expect(r.value.regime).toBe('SDLT standard rates');
     expect(r.breakdown.note).toMatch(/no first-time-buyer relief/);
   });

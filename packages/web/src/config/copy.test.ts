@@ -18,7 +18,7 @@ import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
 import { BRIDGING } from './bridging';
 import { NAV } from './nav';
-import { EQUITY, TOOLS, TOOLS_COPY } from './tools';
+import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
 
 const SRC = fileURLToPath(new URL('../', import.meta.url));
@@ -92,9 +92,17 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
       { key: 'EQUITY.asOf', text: EQUITY.asOf('2026-06', 'England') },
       { key: 'EQUITY.form.monthHint', text: EQUITY.form.monthHint('2026-06') },
       { key: 'TOOLS_COPY.footer.lead', text: TOOLS_COPY.footer.lead('PropLaunch') },
+      { key: 'STAMP.answer', text: STAMP.answer('£6,250', '1.5%', 'stamp duty') },
+      { key: 'STAMP.none', text: STAMP.none('stamp duty') },
+      { key: 'STAMP.asOf', text: STAMP.asOf('1 April 2025') },
+      { key: 'STAMP.source', text: STAMP.source('https://www.gov.uk/stamp-duty-land-tax/residential-property-rates') },
+      { key: 'STAMP.bandLabel', text: STAMP.bandLabel('£125,000', '£250,000') },
+      { key: 'YIELD.answer', text: YIELD.answer('4.6%', '7.5%', '2.9%') },
+      { key: 'YIELD.negative', text: YIELD.negative('7.5%') },
     ];
     const strings = [
-      ...flatten(TOOLS, 'TOOLS'), ...flatten(TOOLS_COPY, 'TOOLS_COPY'), ...flatten(EQUITY, 'EQUITY'), ...built,
+      ...flatten(TOOLS, 'TOOLS'), ...flatten(TOOLS_COPY, 'TOOLS_COPY'), ...flatten(EQUITY, 'EQUITY'),
+      ...flatten(STAMP, 'STAMP'), ...flatten(YIELD, 'YIELD'), ...built,
     ];
     const long = strings
       .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)

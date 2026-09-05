@@ -1,0 +1,24 @@
+---
+/**
+ * The rental yield calculator (T2). Public, indexable, never gated, and net is
+ * the headline: the costs that make the difference are on screen, not hidden.
+ */
+import ToolShell from '../../layouts/ToolShell.astro';
+import { RentalYieldTool } from '../../components/tools/RentalYieldTool';
+import { YIELD, TOOLS } from '../../config/tools';
+import { features } from '../../config/features';
+import { siteConfig } from '../../site.config';
+
+if (!features.toolsSection) return Astro.redirect('/tools');
+
+const entry = TOOLS.find((t) => t.slug === YIELD.slug);
+---
+
+<ToolShell
+  title={`${YIELD.h1} — free rental yield calculator | ${siteConfig.siteName}`}
+  h1={YIELD.h1}
+  description={entry?.description ?? YIELD.intro}
+  how={YIELD.howBody}
+>
+  <RentalYieldTool client:load />
+</ToolShell>

@@ -26,6 +26,8 @@ const PAGES = [
   ['/bridging-finance', 'bridging'],
   ['/tools', 'tools'],
   ['/tools/equity', 'equity'],
+  ['/tools/stamp-duty', 'stamp'],
+  ['/tools/rental-yield', 'yield'],
   ['/extension', 'extension'],
   ['/start', 'start'],
   ['/account', 'account'],

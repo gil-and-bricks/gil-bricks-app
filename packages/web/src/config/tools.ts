@@ -23,6 +23,18 @@ export interface ToolEntry {
 
 export const TOOLS: readonly ToolEntry[] = [
   {
+    slug: 'stamp-duty',
+    title: 'What stamp duty will I pay?',
+    description: 'Stamp duty or Welsh LTT on a purchase, with every band shown.',
+    enabled: true,
+  },
+  {
+    slug: 'rental-yield',
+    title: 'What yield does this give me?',
+    description: 'Gross and net yield on a rental, with the costs that make the difference.',
+    enabled: true,
+  },
+  {
     slug: 'equity',
     title: 'How much equity do I have?',
     description: 'Estimate what your home is worth now and how much of it is yours.',
@@ -36,6 +48,8 @@ export const TOOLS_COPY = {
   indexTagline: 'Small calculators. One question each, answered in seconds.',
   /** Shown when every tool is switched off. */
   empty: 'No tools are switched on right now.',
+  /** Heading over the links to the other tools. */
+  othersHeading: 'Other tools',
   /** The expander every tool uses to show its working. */
   howHeading: 'How this works',
   /** The three lines of the maths panel. */
@@ -46,8 +60,9 @@ export const TOOLS_COPY = {
     analyser: 'Try the deal analyser',
     extension: 'Get the Chrome side panel',
   },
-  /** Said on every tool page, near the answer. */
-  disclaimer: 'An estimate from public data. It is not a valuation and no lender will accept it.',
+  /** Said on EVERY tool page, so it stays true of all of them. What each tool
+   *  cannot do is said inside its own answer, in its own words. */
+  disclaimer: 'These are estimates, not advice. Check anything that matters with a professional.',
 } as const;
 
 /** The equity calculator. */
@@ -104,16 +119,116 @@ export const EQUITY = {
     line: 'Thinking of using some of that equity to invest? The analyser tells you whether a specific property stacks up.',
     cta: 'Open the deal analyser',
   },
-  /** Offered AFTER the answer. Skip it and nothing is ever sent to us. */
-  save: {
-    heading: 'Keep this?',
-    body: 'One tap with Google stores this estimate on your account.',
-    /** Honest, because nothing lists saved answers back to you yet. */
-    note: 'There is no page for saved answers yet.',
-    signedIn: 'Save this estimate',
-    saving: 'Saving…',
-    saved: 'Stored on your account.',
-    failed: 'That did not save. Your answer is still on screen.',
-  },
   howBody: 'We move what you paid by the official house price index, from your month to the latest published. Then we take off what you owe.',
+} as const;
+
+/**
+ * The stamp duty / LTT calculator (T2). Every rate comes from rates.json via
+ * @gil-bricks/core, so this file holds words only — never a rate, never a
+ * threshold, never a band.
+ */
+export const STAMP = {
+  slug: 'stamp-duty',
+  h1: 'What stamp duty will I pay?',
+  intro: 'Three answers and the tax is worked out.',
+  form: {
+    price: 'What you are paying',
+    country: 'Where the property is',
+    countries: [
+      { value: 'E92000001', label: 'England or Northern Ireland' },
+      { value: 'W92000004', label: 'Wales' },
+    ],
+    buyer: 'What this purchase is',
+    buyers: [
+      { value: 'firstTimeBuyer', label: 'My first home' },
+      { value: 'standard', label: 'Moving home' },
+      { value: 'additional', label: 'An additional property' },
+    ],
+    // This stops the commonest wrong entry: someone buying their next home
+    // before the old one sells pays the additional rates and reclaims later.
+    buyerHint: 'An additional property is a buy-to-let or a second home. It also counts if you have not sold your old home yet.',
+    submit: 'Work out my stamp duty',
+  },
+  errors: { price: 'Enter what you are paying.' },
+  /** The answer, naming the number and the effective rate. */
+  answer: (tax: string, rate: string, taxName: string): string =>
+    `You pay ${tax} in ${taxName} — ${rate} of the price.`,
+  /** When the whole price sits in the 0% band. */
+  none: (taxName: string): string => `No ${taxName} to pay on this price.`,
+  taxNames: { E92000001: 'stamp duty', W92000004: 'land transaction tax' },
+  figures: { tax: 'Tax to pay', rate: 'Effective rate', regime: 'Rates applied' },
+  /** Said once, plainly, next to the answer. */
+  limits: [
+    'Homes only: not mixed use, not companies, not ATED.',
+    'It does not cover Scotland or the extra rate for non-UK residents.',
+    'It is a calculator, not tax advice.',
+  ],
+  /** The line that stops this being a stale calculator. */
+  asOf: (from: string): string => `Rates effective from ${from}.`,
+  source: (url: string): string => `Rates from ${url}`,
+  /** The maths table headings. */
+  table: { band: 'Band', slice: 'Taxed in it', rate: 'Rate', tax: 'Tax', running: 'Running total', total: 'Total' },
+  bandLabel: (from: string, to: string | null): string => (to === null ? `Above ${from}` : `${from} to ${to}`),
+  onward: {
+    line: 'Buying to let? The analyser puts this tax into the deal and tells you if it still works.',
+    cta: 'Open the deal analyser',
+  },
+  howBody: 'Each slice of the price is taxed at its own band rate. We add the slices up, straight from the published bands.',
+} as const;
+
+/**
+ * The rental yield calculator (T2). Net is the number that matters, and the
+ * costs behind it are the user's to set — we never claim to know them.
+ */
+export const YIELD = {
+  slug: 'rental-yield',
+  h1: 'What yield does this give me?',
+  intro: 'Two numbers to start. The costs below are yours to change.',
+  form: {
+    price: 'What you are paying',
+    rent: 'Monthly rent',
+    costsHeading: 'Running costs',
+    costsHint: 'Our starting figures. Change any of them.',
+    management: 'Letting agent (% of rent)',
+    maintenance: 'Maintenance (% of price a year)',
+    insurance: 'Landlord insurance (£ a year)',
+    voids: 'Empty weeks a year',
+    groundRent: 'Ground rent or service charge (£ a year)',
+    submit: 'Work out my yield',
+  },
+  errors: {
+    price: 'Enter what you are paying.',
+    rent: 'Enter the monthly rent.',
+    blank: 'Fill this in, or put 0.',
+    negative: 'This cannot be below zero.',
+    voids: 'Use 52 weeks or fewer.',
+    /** Shown beside the button when the fault is hidden in the costs section. */
+    inCosts: 'Check the running costs: something is missing.',
+  },
+  /** The answer names both figures and the gap between them. */
+  answer: (net: string, gross: string, gap: string): string =>
+    `Net yield is ${net}. Gross is ${gross} — the ${gap} difference is your running costs.`,
+  negative: (gross: string): string =>
+    `The costs are bigger than the rent, so the net yield is below zero. Gross is ${gross}.`,
+  figures: { net: 'Net yield', gross: 'Gross yield', costs: 'Running costs a year' },
+  limits: [
+    'Net is the number that matters. Gross ignores every cost.',
+    'The rent and the costs are yours: we do not know them.',
+    'Neither figure includes a mortgage, and neither is a promise.',
+    'Both divide by the price. The analyser uses your all-in cost.',
+  ],
+  /** The maths panel rows. The cost labels drop the unit: the panel shows £. */
+  table: { rent: 'Annual rent', total: 'Total running costs', gross: 'Gross yield', net: 'Net yield' },
+  costLines: {
+    management: 'Letting agent',
+    maintenance: 'Maintenance',
+    insurance: 'Landlord insurance',
+    voids: 'Empty weeks',
+    groundRent: 'Ground rent or service charge',
+  },
+  onward: {
+    line: 'Yield is step one. The analyser adds the mortgage, the stress test and the tax.',
+    cta: 'Open the buy-to-let analyser',
+  },
+  howBody: 'Gross yield is a year of rent over the price. Net takes your running costs off the rent first.',
 } as const;

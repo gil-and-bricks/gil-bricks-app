@@ -829,8 +829,25 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 /* .tool-list, NOT .tool-cards: that class is the homepage's card grid (line 142). */
 .tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
 .tool-list .tool-card { margin-bottom: 0; }
-.tool-card h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
-.tool-card h2 a { color: var(--accent); text-decoration: none; }
+.tool-card h2, .tool-card h3 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
+.tool-card h2 a, .tool-card h3 a { color: var(--accent); text-decoration: none; }
+.tool-others { margin: var(--space-5) 0; }
+.tool-others .state-h { margin: 0 0 var(--space-3); }
+.tool-costs { margin-bottom: var(--space-4); }
+.tool-bands { width: 100%; border-collapse: collapse; font-size: var(--text-xs); }
+.tool-bands th, .tool-bands td { padding: 6px 8px; text-align: right; border-bottom: 1px solid var(--glass-border); white-space: nowrap; }
+.tool-bands th[scope='row'] { text-align: left; font-weight: 500; color: var(--text-dim); }
+.tool-bands thead th { text-align: right; color: var(--text-dim); font-weight: 600; }
+.tool-bands tfoot th { text-align: right; }
+.tool-bands tfoot td { font-family: var(--font-display); font-weight: 700; }
+.tool-scroll { overflow-x: auto; }
+/* The yield working has long labels AND long formulas: side by side they
+   squeeze the numbers into a sliver on a phone, so stack them there. */
+@media (max-width: 560px) {
+  .tool-answer .maths { grid-template-columns: 1fr; gap: 0; }
+  .tool-answer .maths dt { margin-top: var(--space-2); }
+  .tool-answer .maths dd { margin-bottom: 2px; }
+}
 .tool-page .tool-form .subject-form { margin-bottom: var(--space-5); }
 .tool-month { border: 0; margin: 0 0 var(--space-4); padding: 0; }
 .tool-month legend { padding: 0; margin-bottom: var(--space-2); font-size: var(--text-sm); color: var(--text); }

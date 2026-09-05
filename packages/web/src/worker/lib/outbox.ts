@@ -85,19 +85,6 @@ export async function pushToKit(
       if (res.status === 204) return { ok: true };
       return { ok: false, error: `kit unsubscribe HTTP ${res.status}` };
     }
-    if (row.action.startsWith('tool-')) {
-      // A saved tool answer, from someone who HAS consented to marketing: the
-      // person is upserted into Kit, exactly like a subscribe. NO tag is sent —
-      // the action here is our own record of why the row exists, and Kit's own
-      // automations do the segmenting.
-      const up = await fetchImpl(`${KIT_API}/subscribers`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ email_address: row.email, first_name: row.first_name }),
-      });
-      if (up.status === 200 || up.status === 201 || up.status === 202) return { ok: true };
-      return { ok: false, error: `kit subscribe HTTP ${up.status}` };
-    }
     if (row.action === 'bridging-qualified' || row.action === 'bridging-not-yet') {
       const tagId = row.action === 'bridging-qualified' ? tags.qualified : tags.notYet;
       if (tagId.trim() === '') return { ok: false, error: `kit tag id not configured for ${row.action}` };

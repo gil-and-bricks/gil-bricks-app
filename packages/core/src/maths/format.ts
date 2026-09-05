@@ -54,3 +54,15 @@ export function moneyCaret(display: string, caret: number, formatted: string): n
   }
   return formatted.length;
 }
+
+/**
+ * An ISO date as a person reads it: "2025-04-01" → "1 April 2025". Used where
+ * a date is shown to someone rather than compared — the stamp duty tool's
+ * "rates effective from" line, above all.
+ */
+export function fmtDate(iso: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    .format(new Date(Date.UTC(y, m - 1, d)));
+}

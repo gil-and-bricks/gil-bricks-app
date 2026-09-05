@@ -49,3 +49,4 @@ export * from './listing';
 
 // Tools (T1): pure leaf maths a standalone tool page may import.
 export * from './tools/equity';
+export * from './tools/rentalYield';
