@@ -30,6 +30,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   - **The tools copy sat outside the copy gate.** copy.test.ts covers it now, including the sentences the tool builds at run time; two strings were over the limit and were cut.
   - **`.tool-cards` was already the homepage's class.** The new list is `.tool-list`.
 - **Verify:** 341 tests (web) + 357 (core); typecheck; all three builds; the answer matches the hand calculation to the pound; the save writes `tool_saves` and a `tool-equity` Kit row; `npm run verify:copy` covers both new pages; 390px with zero overflow; 19 keyboard stops with the whole tool reachable; Lighthouse 100/100/100/100 on the tool page.
+- **Live, verified in production** (gil-bricks-app.gil-782.workers.dev): /tools and /tools/equity both **100 / 100 / 100 / 100** on mobile Lighthouse (LCP 1.5s); the answer works with no sign-in; `POST /api/tools/save` is 401 signed out; migrations 0009 and 0010 applied to remote D1 (0009 had been applied by hand in F1 and was not recorded — the migrations table matches the database again).
 - **Commit message:** `feat(tools): tools framework and HPI-indexed equity calculator`
 
 ## 2026-09-04 — Sprint F1: the extension is live, money reads as money, and the bridging enquiry (deployed)
