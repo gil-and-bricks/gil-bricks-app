@@ -56,7 +56,7 @@ export const TOOLS_COPY = {
   maths: { formula: 'Formula', numbers: 'Your numbers', result: 'Result' },
   /** The quiet footer that introduces the product to a first-time visitor. */
   footer: {
-    lead: (siteName: string): string => `${siteName} checks UK property deals against real sold prices. Free.`,
+    lead: (siteName: string): string => `${siteName} checks England and Wales property deals against real sold prices. Free.`,
     analyser: 'Try the deal analyser',
     extension: 'Get the Chrome side panel',
   },

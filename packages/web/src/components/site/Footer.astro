@@ -1,12 +1,20 @@
 ---
 import { OGL_ATTRIBUTION } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
+import { FOOTER } from '../../config/nav';
 ---
 
 <footer class="site-footer">
   <p class="footer-maker">
     <span>{siteConfig.siteName} is made by</span>
     <img src="/brand/gil-and-bricks-wordmark.png" alt={siteConfig.makerName} width="88" height="50" decoding="async" loading="lazy" />
+  </p>
+  <p class="footer-contact">
+    {FOOTER.contactLead}
+    <a href={siteConfig.socials.instagram} target="_blank" rel="noopener noreferrer">{FOOTER.instagram}</a>
+    <a href={siteConfig.socials.youtube} target="_blank" rel="noopener noreferrer">{FOOTER.youtube}</a>
+    <a href="/terms">{FOOTER.terms}</a>
+    <a href="/privacy">{FOOTER.privacy}</a>
   </p>
   <p>{OGL_ATTRIBUTION}</p>
   <p>
@@ -28,6 +36,8 @@ import { siteConfig } from '../../site.config';
 </script>
 
 <style>
+  .footer-contact { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+  .footer-contact a { color: var(--accent); }
   .site-footer {
     max-width: 72rem;
     margin: var(--space-8) auto 0;

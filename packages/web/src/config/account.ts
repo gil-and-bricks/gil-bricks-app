@@ -97,6 +97,8 @@ export const LOGIN_WALL = {
   copied: 'Copied ✓',
   /** The scrollable terms box, and the tick that accepts it. */
   termsAria: 'Terms and disclaimer',
+  /** The way out of the scrolling box: the whole document, on its own page. */
+  readFull: 'Read the full terms and disclaimer',
   acceptTerms: 'I accept the terms & disclaimer above',
   /** CONSENT: unticked by default, worded exactly as it is on /account. */
   marketing: 'Send me property deals & updates by email',

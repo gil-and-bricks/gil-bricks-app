@@ -117,7 +117,9 @@ export const COMPARABLES = {
     existing: 'existing',
     nonStandardSale: '· non-standard sale',
     landRegistryLink: 'View at Land Registry',
-    zooplaLink: 'View sold history on Zoopla',
+    zooplaLink: 'Look this street up on Zoopla',
+    /** The way out of an error state — a dead end is not an answer (D2). */
+    backToComps: 'Search sold comparables',
     rightmoveLink: 'Search on Rightmove',
   },
 } as const;

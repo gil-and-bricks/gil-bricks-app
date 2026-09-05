@@ -211,7 +211,7 @@ export const strategies: StrategyConfig[] = [
     id: 'hmo',
     name: 'HMO',
     route: '/hmo',
-    tagline: 'Room-by-room income against the real local evidence.',
+    tagline: 'Room income you enter, against the price the sold data supports.',
     heroLine: 'Analyse a small HMO deal on real sold prices — no guesswork.',
     strategyInputs: [
       {

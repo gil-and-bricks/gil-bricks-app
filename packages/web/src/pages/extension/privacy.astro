@@ -2,7 +2,7 @@
 import AppShell from '../../layouts/AppShell.astro';
 import { siteConfig } from '../../site.config';
 
-const updated = '3 September 2026';
+const updated = '5 September 2026';
 ---
 
 <AppShell
@@ -14,9 +14,10 @@ const updated = '3 September 2026';
     <p class="legal-updated">Last updated: {updated}</p>
 
     <p>
-      This policy covers two things: the <strong>{siteConfig.siteName} Chrome extension</strong> (the side panel that
-      scores a property listing) and the <strong>{siteConfig.siteName} website</strong> (where you can sign in and save
-      deals). It’s written in plain English and describes what the software actually does.
+      This policy covers the <strong>{siteConfig.siteName} Chrome extension</strong> (the side panel that scores a
+      property listing), and summarises the website account it can hand a deal to. The website's full policy is at
+      <a href="/privacy">/privacy</a> and is the authority for everything the website does; this page never contradicts
+      it. Both are written in plain English and describe what the software actually does.
     </p>
 
     <h2>The Chrome extension</h2>
@@ -36,8 +37,8 @@ const updated = '3 September 2026';
       </li>
       <li>
         <strong>What goes over the network.</strong> To score a deal, the panel looks up recent sold prices for the
-        property’s <em>postcode area</em> from our public data store (hosted on Cloudflare). That request includes the
-        postcode area of the property you’re viewing and, like any web request, your device’s IP address — but
+        property’s <em>postcode sector</em> (about 2,000 addresses) from our public data store (hosted on Cloudflare). That request includes the
+        postcode sector of the property you’re viewing and, like any web request, your device’s IP address — but
         <em>not</em> the listing’s text, exact address, or price. When the panel opens it also refreshes its own
         reading settings from that same Cloudflare data store (a fixed file — your IP only, nothing about the page).
         If you open the measure tool, the panel loads the listing’s floor-plan image from the portal into your browser
@@ -65,7 +66,8 @@ const updated = '3 September 2026';
       <li>The <strong>deals you save</strong>: the figures you entered, a label you give the deal, and which strategy it’s for. (A deal you save may include a postcode or address you typed in.)</li>
     </ul>
     <p>
-      We do <strong>not</strong> store a password (sign-in is handled by Google), a phone number, or any payment details.
+      We do <strong>not</strong> store a password (sign-in is handled by Google) or any payment details. One page asks for a
+      phone number — the bridging finance enquiry, because the outcome of that enquiry is a phone call. Nowhere else does.
     </p>
     <p>
       <strong>Where it’s stored.</strong> Your account and saved deals are held in a Cloudflare database created in
@@ -75,9 +77,10 @@ const updated = '3 September 2026';
 
     <h2>Marketing email</h2>
     <p>
-      We send marketing email only if you tick the box. If you do, your <strong>email address and first name</strong>
-      are sent to our email provider (Kit) so we can email you — and nothing else about you is. If you don’t tick it,
-      nothing about you is ever sent to Kit. You can turn it off any time in your account, which tells Kit to unsubscribe you.
+      Every email is sent by our provider, Kit — this app sends none. Kit receives your <strong>email address and first
+      name</strong> in three cases: you tick the marketing box, you send a bridging enquiry, or you ask one of the free
+      tools to email you its breakdown (which also sends the figures from that answer). Otherwise nothing about you
+      reaches Kit. You can turn marketing off any time in your account, which tells Kit to unsubscribe you.
     </p>
 
     <h2>Signup security</h2>
@@ -89,9 +92,9 @@ const updated = '3 September 2026';
 
     <h2>Cookies</h2>
     <p>
-      The website sets only two cookies, both strictly necessary and both hidden from page scripts: one keeps you
-      signed in, and one is a short-lived security cookie used only during sign-in. There are no advertising or tracking
-      cookies, so there’s no cookie banner to click through.
+      We set two cookies, both strictly necessary and both hidden from page scripts: one keeps you signed in for 30 days,
+      and one is a short-lived security cookie used only during sign-in. Cloudflare’s Turnstile human-check sets its own
+      when it runs. There are no advertising or tracking cookies, so there’s no cookie banner to click through.
     </p>
 
     <h2>Who else sees anything</h2>
@@ -108,9 +111,9 @@ const updated = '3 September 2026';
 
     <h2>Deleting your account</h2>
     <p>
-      In your account page you can delete your account. That permanently removes your account record and every deal
-      you saved from our database, and signs you out. If you were opted into marketing, it also queues an unsubscribe
-      to Kit, which marks you unsubscribed there. This can’t be undone.
+      In your account page you can delete your account. That permanently removes your account record, every deal you
+      saved, everything in your pipeline, any bridging enquiry you sent and anything a tool queued for your email address,
+      and signs you out. If you were opted into marketing, it also queues an unsubscribe to Kit. This can’t be undone.
     </p>
 
     <h2>Contact</h2>

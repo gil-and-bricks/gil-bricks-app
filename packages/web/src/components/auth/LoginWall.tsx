@@ -163,6 +163,7 @@ export function LoginWall() {
         ) : (
           <>
             <div class="wall-terms" ref={termsRef} tabindex={0} aria-label={LOGIN_WALL.termsAria} />
+            <a class="wall-terms-link" href="/terms" target="_blank" rel="noopener noreferrer">{LOGIN_WALL.readFull}</a>
             <label class="wall-check">
               <input type="checkbox" checked={accepted} onChange={(e) => setAccepted((e.target as HTMLInputElement).checked)} />
               <span>{LOGIN_WALL.acceptTerms}</span>

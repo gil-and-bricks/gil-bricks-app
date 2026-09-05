@@ -67,7 +67,7 @@ export const COPY = {
     article4: 'Article 4 areas from the national planning dataset (England). Coverage is patchy — check with the council.',
     /** When the map itself cannot render: the honest pointer at the table,
      * and the button that tries the map once more. */
-    mapBroken: "The map couldn't display here — the table below has every sale.",
+    mapBroken: "The map couldn't display here — the table below has every sale we hold.",
     mapRetry: 'Try the map again',
     /** Accessible name of the map, naming the equivalent the table gives. */
     mapLabel: 'Map of comparable sales — the table view carries the same data',
@@ -94,7 +94,7 @@ export const COPY = {
     signInToSave: 'Your saved deals live here once you sign in. It’s free and takes one tap.',
     signedUp: 'You’re on the list. Untick any time.',
     deleteWarning: 'Deletes your account and saved deals, and unsubscribes you. This can’t be undone.',
-    loginWhy: 'Free forever — sign in to save deals and share them.',
+    loginWhy: 'Free to use — sign in to save deals and share them.',
     cookiesOff: 'Signing in needs cookies switched on. Your analysis stays in this link — copy it.',
     checkFailed: 'The human check didn’t load. Signing in still works; a new account needs it — reload to retry.',
     dealsSignIn: 'Your deals live here once you sign in. It’s free and takes one tap.',
@@ -109,6 +109,13 @@ export const COPY = {
     desktopNote: 'Chrome on a desktop or laptop. It isn’t available on phones.',
     homeLead: 'On a computer? The free Chrome side panel scores any Rightmove or Zoopla listing as you browse.',
     seeMore: 'See what it does',
+  },
+  /** The page you get for a URL that does not exist. */
+  notFound: {
+    title: 'That page is not here',
+    body: 'The link may be old, or mistyped. Everything still works from here.',
+    home: 'Go to the homepage',
+    analyser: 'Open the deal analyser',
   },
   /** One sold record. */
   transaction: {

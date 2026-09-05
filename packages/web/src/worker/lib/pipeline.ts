@@ -5,7 +5,8 @@
  * is always computed by the caller with @gil-bricks/core and passed in; these
  * helpers only persist and read. Stage/fact keys are validated against config.
  */
-import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS } from '../../config/pipeline';
+import { seedScoreFor } from './seedScore';
+import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES } from '../../config/pipeline';
 
 /**
  * A deal can ONLY be born from an analysed listing (P2 boundary — enforced by
@@ -302,8 +303,11 @@ export async function upsertPipelineDeal(
  */
 interface SeedSpec {
   strategy: string; title: string; sector: string; stage: string; status: string;
-  score: number; figure: string; verdict: string; auction?: boolean; dead?: string;
   ageDays: number; params: string;
+  /** Auction listings carry their own warning on the board. */
+  auction?: boolean;
+  /** Park reason, for the one dead deal. */
+  dead?: string;
 }
 // Seed copy that the UI owns comes FROM config — never re-typed here.
 const parkReasonLabel = (key: string): string => {
@@ -312,16 +316,16 @@ const parkReasonLabel = (key: string): string => {
   return r.label;
 };
 const DEV_SEED_SPECS: readonly SeedSpec[] = [
-  { strategy: 'btl', title: 'Terraced · CF24 4AA · £185,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', score: 8.7, figure: '£312/mo', verdict: 'Cashflows £312/mo after tax and clears the lender stress test — the numbers stack up.', ageDays: 1, params: 'postcode=CF24+4AA&price=185000&type=T&rent=1150' },
-  { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', score: 4.9, figure: 'ROI 6.5%', verdict: 'Just 6.5% back on the cash you’d put in — short of the 12.0% you set as your minimum.', ageDays: 12, params: 'postcode=SA1+6HW&price=85000&type=S&roomRent=350&refurbCost=40000' },
-  { strategy: 'flip', title: 'Detached · NP20 1AA · £240,000', sector: 'NP20 1', stage: 'going-to-view', status: 'live', score: 6.8, figure: '£28,000 profit', verdict: '£28,000 profit before tax — a fair cushion, but one overrun eats into it.', ageDays: 9, params: 'postcode=NP20+1AA&price=240000&type=D&gdv=300000&refurbCost=35000' },
-  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £150,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', score: 8.2, figure: 'All money out + £4,500', verdict: 'Refinance pulls all your cash back out with £4,500 to spare — a clean BRRRR.', ageDays: 5, params: 'postcode=CF11+9AB&price=150000&type=T&rent=1000&arv=210000&refurbCost=30000' },
-  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', score: 6.4, figure: '£210/mo', verdict: '£210/mo after tax — it works, but it’s thin for a flat with a service charge.', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&price=135000&type=F&rent=850' },
-  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', score: 5.2, figure: 'ROI 9.0%', verdict: 'Just 9.0% back on the cash you’d put in — under the 12.0% that makes an HMO worth the work.', ageDays: 12, params: 'postcode=SA2+0AA&price=220000&type=T&roomRent=420&refurbCost=45000' },
-  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', score: 8.9, figure: '£41,000 profit', verdict: '£41,000 profit before tax on a tidy refurb — a strong margin for the risk.', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=235000&refurbCost=30000' },
-  { strategy: 'brrrr', title: 'Terraced · NP19 0AA · £128,000', sector: 'NP19 0', stage: 'nearly-there', status: 'live', score: 7.1, figure: '£3,000 left in', verdict: '£3,000 stays in after refinancing — close to all-out, and the rent covers it.', ageDays: 3, params: 'postcode=NP19+0AA&price=128000&type=T&rent=875&arv=175000&refurbCost=22000' },
-  { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', score: 8.4, figure: '£350/mo', verdict: 'Completed — £350/mo after tax, comfortably above your minimum.', ageDays: 30, params: 'postcode=CF37+1HR&price=120000&type=T&rent=950' },
-  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', score: 3.8, figure: 'ROI 5.0%', verdict: 'Only 5.0% back on the cash — the numbers never worked at this price.', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000' },
+  { strategy: 'btl', title: 'Terraced · CF24 4AA · £150,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', ageDays: 1, params: 'postcode=CF24+4AA&price=150000&type=T&rent=1400' },
+  { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', ageDays: 12, params: 'postcode=SA1+6HW&price=85000&type=S&roomRent=500&refurbCost=40000&rooms=5' },
+  { strategy: 'flip', title: 'Detached · NP20 1AA · £240,000', sector: 'NP20 1', stage: 'going-to-view', status: 'live', ageDays: 9, params: 'postcode=NP20+1AA&price=240000&type=D&gdv=340000&refurbCost=35000' },
+  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £120,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', ageDays: 5, params: 'postcode=CF11+9AB&price=120000&type=T&rent=1150&arv=250000&refurbCost=25000' },
+  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&price=135000&type=F&rent=1100' },
+  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', ageDays: 12, params: 'postcode=SA2+0AA&price=220000&type=T&roomRent=650&refurbCost=45000&rooms=6' },
+  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=250000&refurbCost=30000' },
+  { strategy: 'brrrr', title: 'Terraced · CF37 1HR · £95,000', sector: 'CF37 1', stage: 'nearly-there', status: 'live', ageDays: 3, params: 'postcode=CF37+1HR&price=95000&type=T&rent=1000&arv=185000&refurbCost=18000' },
+  { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', ageDays: 30, params: 'postcode=CF37+1HR&price=120000&type=T&rent=950' },
+  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000' },
 ];
 
 export async function seedDemoDeals(db: D1Database, userId: string): Promise<number> {
@@ -330,13 +334,30 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
   const stmts: D1PreparedStatement[] = [];
   for (const s of DEV_SEED_SPECS) {
     const id = crypto.randomUUID();
-    const at = new Date(Date.now() - s.ageDays * day).toISOString();
+    const created = new Date(Date.now() - s.ageDays * day).toISOString();
+    // The SEED IS SCORED BY THE ENGINE (D2): a card must say what the analyser
+    // it links to says, or the operator spends hours chasing a phantom bug.
+    const { score, figure, verdict } = seedScoreFor(s.strategy, s.params);
+    // A deal that has advanced has a history and a later updated_at — a real one
+    // could not look otherwise, so the seed does not either.
+    const order = PROGRESS_STAGES.map((st) => st.key);
+    const upto = order.indexOf(s.stage);
+    const stages = upto >= 0 ? order.slice(0, upto + 1) : [...order, s.stage];
+    const step = s.ageDays > 0 ? (s.ageDays * day) / (stages.length + 1) : 0;
+    const movedAt = (i: number): string => new Date(Date.parse(created) + step * (i + 1)).toISOString();
+    const updated = stages.length > 1 ? movedAt(stages.length - 2) : created;
     stmts.push(
       db.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, userId, s.strategy, s.title, s.params, s.figure, at),
+        .bind(id, userId, s.strategy, s.title, s.params, figure, created),
       db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, s.score, s.figure, s.verdict, s.auction ? 1 : 0, s.status, s.dead ?? null, 'dev-seed', at, at),
+        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, score, figure, verdict, s.auction ? 1 : 0, s.status, s.dead ?? null, 'dev-seed', created, updated),
     );
+    stages.forEach((to, i) => {
+      stmts.push(
+        db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, ?, ?, ?)')
+          .bind(crypto.randomUUID(), id, i === 0 ? null : stages[i - 1], to, i === 0 ? created : movedAt(i - 1)),
+      );
+    });
   }
   await db.batch(stmts);
   return DEV_SEED_SPECS.length;

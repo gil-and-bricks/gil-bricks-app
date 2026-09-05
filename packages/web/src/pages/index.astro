@@ -1,58 +1,99 @@
 ---
+/**
+ * The homepage (D2). It SHOWS a Deal Score rather than describing one: the
+ * example below is scored at build time by @gil-bricks/core — the same engine
+ * the analyser runs — so the number here can never drift from the product.
+ * Every word comes from src/config/home.ts.
+ */
 import AppShell from '../layouts/AppShell.astro';
 import { siteConfig } from '../site.config';
-import { strategies } from '@gil-bricks/core';
-
-const cards = [
-  {
-    href: '/area-data',
-    title: 'Area Data',
-    blurb: 'Sold prices, trend, activity and deprivation for any postcode.',
-  },
-  ...strategies.map((s) => ({
-    href: `${s.route}/analyser`,
-    title: s.name,
-    blurb: s.tagline,
-  })),
-];
+import { analyseBtl, scoreDeal, strategies, fmtPct, type BtlInputs } from '@gil-bricks/core';
+import { HOME } from '../config/home';
 import { COPY } from '../config/copy';
+import { features } from '../config/features';
+
 const store = siteConfig.chromeStoreUrl.trim();
+
+// The worked example, from the strategy's OWN defaults so it stays honest if
+// they are tuned. No maths here: the engine returns the score and the words.
+const btl = strategies.find((s) => s.id === 'btl');
+const def = (key: string): number => {
+  const field = [...(btl?.strategyInputs ?? []), ...(btl?.assumptions ?? [])].find((f) => f.key === key);
+  return Number(field?.default ?? 0);
+};
+const exampleInputs = {
+  price: HOME.example.inputs.price,
+  country: HOME.example.inputs.country,
+  monthlyRent: HOME.example.inputs.monthlyRent,
+  depositPct: def('deposit'),
+  ratePct: def('rate'),
+  buyingAs: 'basic',
+  selfManaged: false,
+  voidWeeks: def('voidWeeks'),
+  agentPct: def('agentPct'),
+  maintPct: def('maintPct'),
+  insurancePerYear: def('insurance'),
+  legals: def('legals'),
+  refurb: def('refurbCost'),
+  stressRatePct: def('stressRate'),
+  taxBasis: 'additional',
+  thresholds: (btl as unknown as { thresholds: Record<string, number> }).thresholds,
+} as unknown as BtlInputs;
+const analysis = analyseBtl(exampleInputs);
+const deal = scoreDeal('btl', exampleInputs);
+const tier = deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ? 'ds-marginal' : 'ds-walk';
 ---
 
-<AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={siteConfig.tagline}>
+<AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={HOME.lead}>
   <section class="home-hero">
     <h1>{siteConfig.siteName}</h1>
     <p class="hero-maker">by {siteConfig.makerName}</p>
-    <p class="tagline">{siteConfig.tagline}</p>
+    <p class="tagline">{HOME.lead}</p>
+    <p class="home-sub">{HOME.sub}</p>
     <form class="home-search glass card" action="/area-data" method="get">
-      <label for="home-pc">Start with a postcode</label>
+      <label for="home-pc">{HOME.search.label}</label>
       <div class="home-search-row">
-        <input id="home-pc" name="pc" required placeholder="e.g. CF37 1DL" autocomplete="postal-code" />
-        <button type="submit" class="btn-primary">See area data</button>
+        <input id="home-pc" name="pc" required placeholder={HOME.search.placeholder} autocomplete="postal-code" />
+        <button type="submit" class="btn-primary">{HOME.search.submit}</button>
       </div>
     </form>
   </section>
 
-  <section class="tool-cards home-cards" aria-label="Tools">
-    {cards.map((c) => (
-      <a class="glass card" href={c.href}>
-        <h2>{c.title}</h2>
-        <p class="hint">{c.blurb}</p>
-      </a>
-    ))}
+  {/* The product doing its job, not a description of it. */}
+  <section class="glass card home-example" aria-labelledby="home-example-h">
+    <h2 id="home-example-h">{HOME.example.heading}</h2>
+    <p class="hint">{HOME.example.subject}</p>
+    <div class={`deal-score ${tier}`}>
+      <span class="ds-score"><strong>{deal.score.toFixed(1)}</strong><span class="ds-outof">/10</span></span>
+      <span class="ds-verdict">{deal.verdict}</span>
+      <span class="ds-headline">{deal.headline}</span>
+    </div>
+    <dl class="tool-figures home-figures">
+      <div><dt>{HOME.example.labels.roi}</dt><dd>{fmtPct(analysis.roi.value)}</dd></div>
+      <div><dt>{HOME.example.labels.yield}</dt><dd>{fmtPct(analysis.grossYield.value)}</dd></div>
+    </dl>
+    <p class="hint">{HOME.example.note}</p>
+    <p><a class="btn-primary" href="/buy-to-let/analyser">{HOME.example.cta}</a></p>
   </section>
 
-  <section class="glass card home-chooser">
-    <p><strong>Not sure which strategy?</strong> Take the 60-second chooser.</p>
-    <a class="btn-secondary" href="/start">Point me at the right tool</a>
+  <section class="home-does" aria-labelledby="home-does-h">
+    <h2 id="home-does-h">{HOME.does.heading}</h2>
+    <ul class="tool-list">
+      {HOME.does.items.map((item) => (
+        <li class="glass card tool-card">
+          <h3>{item.title}</h3>
+          <p class="hint">{item.body}</p>
+        </li>
+      ))}
+    </ul>
   </section>
 
-  {/* Desktop-only: the extension is a Chrome side panel, so it's promoted to
-      desktop visitors and hidden on phones (it isn't available there) — E11. */}
-  <section class="glass card home-extension">
+  {/* The extension is published, so it is promoted, not buried. */}
+  <section class="glass card home-extension" aria-labelledby="home-ext-h">
     <div>
-      <p>{COPY.extension.homeLead}</p>
-      <p class="hint">{COPY.extension.desktopNote}</p>
+      <h2 id="home-ext-h">{HOME.extension.heading}</h2>
+      <p>{HOME.extension.body}</p>
+      <p class="hint">{HOME.extension.note}</p>
     </div>
     <div class="home-extension-cta">
       {store !== '' && (
@@ -60,11 +101,30 @@ const store = siteConfig.chromeStoreUrl.trim();
           <img src="/brand/chrome-web-store-badge.png" alt={COPY.extension.badgeAlt} width="206" height="58" />
         </a>
       )}
-      <a class="btn-secondary" href="/extension">{COPY.extension.seeMore}</a>
+      <a class="btn-secondary" href="/extension">{HOME.extension.more}</a>
     </div>
   </section>
 
-  <p class="home-trust">
-    England &amp; Wales · Sold prices from HM Land Registry · Floor areas from EPC · Index from UK HPI · No asking prices, no scraping
-  </p>
+  <section class="home-strategies" aria-labelledby="home-strat-h">
+    <h2 id="home-strat-h">{HOME.strategies.heading}</h2>
+    <ul class="tool-list home-strategy-list">
+      {strategies.map((s) => (
+        <li class="glass card tool-card">
+          <h3><a href={`${s.route}/analyser`}>{s.name}</a></h3>
+          <p class="hint">{s.tagline}</p>
+        </li>
+      ))}
+    </ul>
+    <p class="home-chooser-line">{HOME.chooser.body} <a href="/start">{HOME.chooser.cta}</a></p>
+  </section>
+
+  {features.toolsSection && (
+    <section class="glass card home-tools" aria-labelledby="home-tools-h">
+      <h2 id="home-tools-h">{HOME.tools.heading}</h2>
+      <p>{HOME.tools.body}</p>
+      <p><a class="btn-secondary" href="/tools">{HOME.tools.cta}</a></p>
+    </section>
+  )}
+
+  <p class="home-trust">{HOME.trust}</p>
 </AppShell>

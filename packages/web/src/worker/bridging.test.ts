@@ -11,7 +11,7 @@ import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
 import { signSession } from './lib/jwt';
 import { features } from '../config/features';
-import { BRIDGING_RULES } from '../config/bridging';
+import { BRIDGING_RULES, BROKER } from '../config/bridging';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
 const MIGRATIONS = [
@@ -55,7 +55,11 @@ const rows = <T>(sql: string): T[] => sqlite.prepare(sql).all() as T[];
 /** Turnstile and Kit are both network: the test owns them. */
 let turnstileOk = true;
 let kitOk = true;
+/** The endpoint is shut until the broker is real, so the tests make him real. */
+const REAL_BROKER = { name: 'Test Broker', email: 'broker@test.test', inbox: 'inbox@test.test', kitTagQualified: '1', kitTagNotYet: '2' };
+const savedBroker = { ...BROKER } as Record<string, string>;
 beforeEach(() => {
+  Object.assign(BROKER as unknown as Record<string, string>, REAL_BROKER);
   features.bridgingFinance = true;
   turnstileOk = true;
   kitOk = true;
@@ -72,6 +76,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => {
+  Object.assign(BROKER as unknown as Record<string, string>, savedBroker);
   vi.unstubAllGlobals();
   features.bridgingFinance = true;
 });
@@ -153,5 +158,14 @@ describe('POST /api/bridging (F1)', () => {
     expect(Object.keys(row)).not.toContain('url_params');
     expect(Object.keys(row)).not.toContain('score');
     expect(JSON.stringify(row)).not.toContain('CF37');
+  });
+});
+
+describe('the endpoint is shut until the broker is real (D2)', () => {
+  it('refuses an enquiry — and stores no phone number — while his details are placeholders', async () => {
+    Object.assign(BROKER as unknown as Record<string, string>, savedBroker);
+    const res = await send(QUALIFIED, await authed());
+    expect(res.status).toBe(404);
+    expect(rows("SELECT * FROM bridging_enquiries").length).toBe(0);
   });
 });

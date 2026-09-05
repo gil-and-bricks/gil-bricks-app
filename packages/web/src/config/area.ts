@@ -110,7 +110,7 @@ export const AREA_COPY = {
     label: 'How is the typical price worked out?',
     /** `setAside` is dropped from each end; `middle` is what gets averaged. */
     body: (sales: number, setAside: number, middle: number): string =>
-      `We list every sale in the sector from the last 12 months in price order, set aside the cheapest quarter and the dearest quarter, and average the rest. With ${sales} sales that means setting aside ${setAside} from each end and averaging the middle ${middle}. Statisticians call this the interquartile mean — it stops one mansion or one bargain dragging the number around.`,
+      `We list every standard sale in the sector from the last 12 months in price order, set aside the cheapest quarter and the dearest quarter, and average the rest. With ${sales} sales that means setting aside ${setAside} from each end and averaging the middle ${middle}. Statisticians call this the interquartile mean — it stops one mansion or one bargain dragging the number around.`,
   },
 
   /** The collapsed map of where the mile's sales happened. */

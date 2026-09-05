@@ -288,7 +288,9 @@
 .home-extension { margin-top: var(--space-4); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-extension p { margin: 0 0 var(--space-1); }
 .home-extension .hint { margin: 0; }
-@media (max-width: 640px) { .home-extension { display: none; } }
+/* The panel is desktop-only, but a phone visitor should still know it exists —
+   the block says so in its own words (D2). */
+@media (max-width: 640px) { .home-extension .store-badge { display: none; } }
 .home-trust { text-align: center; color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-6) 0; }
 
 /* live layers (S5.2) */
@@ -309,8 +311,13 @@
 .wall { max-width: 26rem; width: 100%; position: relative; }
 .wall-close { position: absolute; top: 0.6rem; right: 0.8rem; background: none; border: none; color: var(--text-dim); font-size: 1.4rem; cursor: pointer; }
 .wall h2[tabindex="-1"]:focus { outline: none; }
-.wall-terms { max-height: 9rem; overflow-y: auto; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: var(--space-3); font-size: var(--text-xs); color: var(--text-dim); margin: var(--space-3) 0; }
+/* The terms are a real document now (D2): a 9rem porthole was not reasonable
+   notice, so the box is taller, the fade says it scrolls, and the wall links to
+   the full page. */
+.wall-terms { max-height: min(22rem, 45vh); overflow-y: auto; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; padding: var(--space-3); font-size: var(--text-xs); color: var(--text-dim); margin: var(--space-3) 0; }
 .wall-terms h1 { font-size: var(--text-sm); color: var(--text); }
+.wall-terms { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5rem), transparent); }
+.wall-terms-link { display: inline-block; margin: 0 0 var(--space-2); color: var(--accent); font-size: var(--text-sm); }
 .wall-check { display: flex; gap: var(--space-2); align-items: flex-start; margin: var(--space-3) 0; font-size: var(--text-sm); cursor: pointer; }
 .wall-check input { accent-color: var(--accent); margin-top: 0.2rem; }
 .wall-turnstile { margin: var(--space-3) 0; min-height: 0; }
@@ -733,11 +740,6 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .filter-sheet[open] > .filter-summary { margin-bottom: var(--space-3); }
 .filter-clear { background: none; border: 0; color: var(--text-dim); font-size: var(--text-xs); text-decoration: underline; cursor: pointer; margin-left: var(--space-3); padding: var(--space-2); }
 
-/* Honest placeholder pages (N4): the nav never points at a blank screen. */
-.coming-soon h2 { color: var(--text-dim); font-size: var(--text-sm); text-transform: uppercase; letter-spacing: 0.06em; }
-.coming-soon p { margin: 0 0 var(--space-3); }
-.coming-soon .btn-primary { display: inline-block; margin-top: var(--space-2); }
-
 /* The results wrapper is invisible below the desktop breakpoint: its children
    flow exactly as they did before N4. */
 .verdict-results { display: contents; }
@@ -821,6 +823,21 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
   .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip[aria-current='true'] { background: rgba(220, 255, 0, 0.12); color: var(--accent); border: 0; }
   .shell-body[data-split]:has(.pinned-row) > main.page-wrap { padding-left: var(--space-5); }
 }
+
+/* ---------- The homepage (D2) ------------------------------------------- */
+.home-sub { color: var(--text-dim); margin: 0 0 var(--space-4); max-width: 44rem; }
+.home-example { margin-top: var(--space-5); }
+.home-example .deal-score { margin-top: var(--space-3); }
+.home-figures { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); margin-top: var(--space-3); }
+.home-does, .home-strategies { margin-top: var(--space-6); }
+.home-does h2, .home-strategies h2 { margin-bottom: var(--space-3); }
+/* The card lists go WIDE on a big screen — one column each was the pre-D2 grid
+   collapsing after the markup changed. */
+.home-does .tool-list, .home-strategy-list { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+.home-chooser-line { margin-top: var(--space-4); color: var(--text-dim); }
+.home-chooser-line a { color: var(--accent); }
+.home-tools { margin-top: var(--space-5); }
+.home-trust { margin-top: var(--space-6); color: var(--text-dim); font-size: var(--text-xs); }
 
 /* Google's Chrome Web Store badge — its own artwork, never restyled. */
 .store-badge { display: inline-flex; line-height: 0; }

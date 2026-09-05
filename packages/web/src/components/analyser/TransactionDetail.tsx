@@ -57,6 +57,8 @@ export function TransactionDetail() {
       <section class="glass card">
         <h3 class="state-h">{COPY.transaction.failedTitle}</h3>
         <p class="field-error" role="alert">{msg}</p>
+        {/* Never a dead end: there is always a way back to the comparables. */}
+        <p><a class="btn-secondary" href="/comparables">{COMPARABLES.transaction.backToComps}</a></p>
       </section>
     );
   }

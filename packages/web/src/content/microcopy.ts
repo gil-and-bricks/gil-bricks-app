@@ -26,7 +26,7 @@ export const microcopy: Record<string, string> = {
   'subject.parking': 'Off-street parking spaces, like a drive or garage. Context only.',
 
   // --- Area Data ---
-  'area.soldPrices': 'The middle of what actually sold near here recently — not asking prices, which are often higher.',
+  'area.soldPrices': 'The middle of the standard sales near here recently — not asking prices, and not repossessions.',
   'area.priceTrend':
     'The official UK House Price Index for the whole country. It shows the trend, not this exact street.',
   'area.marketActivity': 'How many homes actually completed a sale each month here, from HM Land Registry records.',
@@ -35,7 +35,7 @@ export const microcopy: Record<string, string> = {
   'area.crime': 'Crimes the police recorded near this postcode in one month, from the official police.uk data.',
   'area.flood':
     'Flood warnings in force right now only. It says nothing about the long-term flood risk of the property.',
-  'area.whereSold': 'Every sale within a mile shown on the map. Tap a dot to see that sale.',
+  'area.whereSold': 'Every standard sale within a mile, on the map. Tap a dot to see that sale.',
 
   // --- Comparables ---
   'comps.typical':
@@ -43,7 +43,7 @@ export const microcopy: Record<string, string> = {
   'comps.range80':
     '8 in 10 nearby sales fell in this range — the cheapest tenth and dearest tenth are left out.',
   'comps.persqft':
-    'Price per square foot — a fair way to compare homes of different sizes.',
+    'Price per square foot, from the sales that have an EPC floor area — not every sale has one.',
 
   // --- Account ---
   'account.marketing': 'Property tips and updates by email. Untick any time.',

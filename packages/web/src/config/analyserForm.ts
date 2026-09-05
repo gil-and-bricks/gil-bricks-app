@@ -90,12 +90,13 @@ export const ANALYSER_SHELL = {
   /** The verdict card when a strategy has no verdict island yet. */
   verdictRegionLabel: 'Strategy verdict',
   verdictHeading: (strategyName: string): string => `${strategyName} verdict`,
-  /** The free YouTube walkthrough for this strategy — help, never promotion. */
+  /** The YouTube channel — help, never promotion. It is the channel, not a
+   *  per-strategy walkthrough, so the label says what it is (D2). */
   youtube: {
     lead: (strategyName: string): string => `New to ${strategyName}?`,
-    link: 'Watch the free walkthrough →',
+    link: 'Watch on YouTube →',
     ariaLabel: (strategyName: string): string =>
-      `Watch the free walkthrough for ${strategyName} on YouTube (opens a new tab)`,
+      `Watch ${strategyName} videos on our YouTube channel (opens a new tab)`,
   },
 } as const;
 
@@ -118,10 +119,9 @@ export const ACTION_BAR = {
   /** The quiet line beside the buttons. The link sits between `before` and `after`,
    *  so the spaces at their edges are part of the sentence — keep them. */
   hint: {
-    pdfSoon: 'PDF export — coming soon.',
     pipelineBefore: 'It’s in your ',
     pipelineLink: 'pipeline',
-    pipelineAfter: ' — it’ll re-score as facts land.',
+    pipelineAfter: ' — move it along as the deal progresses.',
     myDealsBefore: 'Saved to ',
     myDealsLink: 'My deals',
     myDealsAfter: '.',

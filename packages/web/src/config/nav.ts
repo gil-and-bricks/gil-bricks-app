@@ -20,6 +20,15 @@ export interface NavLink {
  * the pre-navV2 header. ONE entry, read by both, so a rename lands everywhere. */
 const AREA_DATA: NavLink = { label: 'Area Data', href: '/area-data' };
 
+/** The footer's own links: the contact route both legal pages point at. */
+export const FOOTER = {
+  contactLead: 'Questions, or a data request?',
+  instagram: 'Instagram',
+  youtube: 'YouTube',
+  terms: 'Terms',
+  privacy: 'Privacy',
+} as const;
+
 export const NAV = {
   /** Accessible name of the main navigation, in the header and the bottom bar. */
   mainLabel: 'Main',

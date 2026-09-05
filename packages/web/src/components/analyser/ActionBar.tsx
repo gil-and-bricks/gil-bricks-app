@@ -162,8 +162,6 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           )
         ) : saveNote !== '' ? (
           saveNote
-        ) : features.pdfExport ? (
-          ACTION_BAR.hint.pdfSoon
         ) : (
           ''
         )}

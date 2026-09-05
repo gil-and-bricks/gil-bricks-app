@@ -1,0 +1,23 @@
+---
+/**
+ * The 404 page (D2). A mistyped URL or an old link used to land on a blank
+ * white page with no header and no way back. This is a real page with the
+ * site's own chrome and two ways onward.
+ */
+import AppShell from '../layouts/AppShell.astro';
+import { COPY } from '../config/copy';
+import { siteConfig } from '../site.config';
+---
+
+<AppShell title={`${COPY.notFound.title} — ${siteConfig.siteName}`} description={COPY.notFound.body}>
+  <h1 class="page-title">{COPY.notFound.title}</h1>
+  <p class="page-sub">{COPY.notFound.body}</p>
+  <p class="notfound-links">
+    <a class="btn-primary" href="/">{COPY.notFound.home}</a>
+    <a class="btn-secondary" href="/buy-to-let/analyser">{COPY.notFound.analyser}</a>
+  </p>
+</AppShell>
+
+<style>
+  .notfound-links { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+</style>

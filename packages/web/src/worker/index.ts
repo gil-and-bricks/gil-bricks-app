@@ -9,7 +9,7 @@
  */
 import { siteConfig } from '../site.config';
 import { features } from '../config/features';
-import { BRIDGING_RULES, BROKER } from '../config/bridging';
+import { BRIDGING_RULES, BROKER, brokerReady } from '../config/bridging';
 import { captureReady, KIT_FIELDS } from '../config/capture';
 import { qualify, isComplete, loanAmount, phoneDigits, type Enquiry } from '../lib/bridging';
 import {
@@ -624,6 +624,9 @@ async function handleToolLead(request: Request, env: Env): Promise<Response> {
  */
 async function handleBridgingEnquiry(request: Request, env: Env): Promise<Response> {
   if (!features.bridgingFinance) return json({ error: 'not found' }, 404);
+  // The form does not render until the broker is real, so the endpoint must not
+  // accept a phone number either — no collection without somewhere to send it.
+  if (!brokerReady()) return json({ error: 'not open' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
 

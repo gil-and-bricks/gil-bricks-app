@@ -7,7 +7,11 @@
     "directory": "./dist",
     "binding": "ASSETS",
     // Only auth/API paths hit the Worker — every page stays a static asset.
-    "run_worker_first": ["/auth/*", "/api/*"]
+    // /dev/* is here too: with not_found_handling on, a Worker route that is not
+    // listed would be swallowed by the 404 page before the Worker ever saw it.
+    "run_worker_first": ["/auth/*", "/api/*", "/dev/*"],
+    // A mistyped or stale URL gets the site's own 404 page, not a blank screen (D2).
+    "not_found_handling": "404-page"
   },
   "triggers": {
     // Kit outbox safety net — the inline push handles the common case.
