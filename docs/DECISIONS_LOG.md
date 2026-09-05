@@ -21,6 +21,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   - **"Moving home" was sending people to the wrong table.** Anyone buying their next home before the old one sells pays the additional rates and reclaims later; the hint said only "buy-to-let or a second home". It now says "It also counts if you have not sold your old home yet."
   - **The new copy was outside the copy gate** — the same hole T1 fixed. copy.test.ts covers STAMP and YIELD now, including the sentences built at run time, and a positive control proves the gate can see them.
   - **The maths panel was 62px wide on a phone**, wrapping "(£10,200 − £4,005) ÷ £150,000 × 100" over seven lines. It stacks under 560px.
+- **Live, verified in production:** /tools/stamp-duty, /tools/rental-yield and /tools/equity all score **100 / 100 / 100 / 100** on mobile Lighthouse; both new tools answer with **zero network requests after page load**; `POST /api/tools/save` is now a **404**; the three sprint cases read exactly as they do locally.
 - **Commit message:** `feat(tools): stamp duty and rental yield calculators, remove dead save`
 
 ## 2026-09-05 — Sprint T1: the tools framework and the HPI equity calculator (deployed)
