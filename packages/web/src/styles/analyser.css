@@ -904,6 +904,51 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .tool-intro-links { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0 0; }
 .tool-intro-links a { display: inline-flex; align-items: center; min-height: 2.75rem; }
 
+/* ---------- The credit page (T3, features.creditPage) ---------------------
+   The AD marker is loud on purpose: the ASA asks for an affiliate link to be
+   identifiable as advertising on the page, so it sits at the top and again on
+   the disclosure, in brand lime with near-black text. */
+.ad-marker { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-6) 0 0; color: var(--text-dim); font-size: var(--text-sm); }
+.ad-badge {
+  display: inline-block; background: var(--accent); color: var(--accent-ink);
+  border-radius: 6px; padding: 0.1rem 0.45rem; font-weight: 800;
+  font-size: var(--text-xs); letter-spacing: 0.06em;
+}
+.credit-disclosure { border-color: var(--accent); }
+.credit-disclosure h2 { display: flex; align-items: center; gap: var(--space-2); }
+.credit-lines { margin: 0 0 var(--space-4); padding-left: var(--space-5); }
+.credit-lines li { margin-bottom: var(--space-2); }
+.credit-cta { margin: 0 0 var(--space-2); }
+.credit-not-live { border-top: 1px solid var(--glass-border); padding-top: var(--space-3); }
+.credit-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; }
+
+/* ---------- The post-answer capture offer (T3, features.toolCapture) -------
+   Inside the answer card, BELOW the answer, visually quieter than it: an offer
+   never outranks the thing the person came for. */
+.tool-capture {
+  margin-top: var(--space-5); padding-top: var(--space-4);
+  border-top: 1px solid var(--glass-border);
+}
+.tool-capture .state-h { margin: 0 0 var(--space-2); }
+.tool-capture p { margin: 0 0 var(--space-2); }
+.capture-consent { display: flex; align-items: flex-start; gap: var(--space-2); margin: var(--space-3) 0; font-size: var(--text-sm); }
+.capture-consent input { margin-top: 0.2rem; width: 1.15rem; height: 1.15rem; accent-color: var(--accent); flex: 0 0 auto; }
+.capture-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.capture-typed { display: grid; gap: var(--space-2); }
+.capture-typed label { font-size: var(--text-sm); color: var(--text-dim); }
+.capture-typed input {
+  width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
+  color: var(--text); font: inherit; font-size: var(--text-sm);
+}
+.capture-turnstile { min-height: 0; }
+.capture-small { font-size: var(--text-xs); margin-top: var(--space-3); }
+.capture-dismiss {
+  background: none; border: 0; padding: var(--space-2) 0; color: var(--text-dim);
+  font: inherit; font-size: var(--text-sm); text-decoration: underline; cursor: pointer;
+}
+.capture-dismiss:hover { color: var(--text); }
+
 /* ---------- Hover states (D1) -------------------------------------------
    Nothing on the page reacted to a mouse. These reuse the existing focus
    colours, so a pointer gets the same signal a keyboard already had. */

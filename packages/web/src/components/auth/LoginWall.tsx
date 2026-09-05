@@ -12,7 +12,11 @@ import { cookiesBlocked } from '../../lib/auth/session';
 
 declare global {
   interface Window {
-    turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string };
+    turnstile?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+      /** A token is single-use: a retry needs a fresh one (T3 review). */
+      reset: (widgetId?: string) => void;
+    };
   }
 }
 

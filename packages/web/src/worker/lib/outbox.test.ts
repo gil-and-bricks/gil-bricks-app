@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_ATTEMPTS, pushToKit, shouldAttempt } from './outbox';
+import { CAPTURE_TOOLS } from '../../config/capture';
 
 const jsonRes = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -76,5 +77,29 @@ describe('pushToKit', () => {
       throw new Error('down');
     }) as unknown as typeof fetch);
     expect(r).toEqual({ ok: false, error: 'kit unreachable' });
+  });
+});
+
+describe('a tool lead (T3) carries the person’s own figures to Kit', () => {
+  // The tag ids are empty until the operator fills them in, so these drive the
+  // push with an explicit stand-in via the module the action reads from.
+  it('refuses to push when the tool has no Kit tag configured', async () => {
+    const equity = CAPTURE_TOOLS.find((t) => t.slug === 'equity') as { kitTag: string; kitAutomation: string };
+    const tag = equity.kitTag;
+    equity.kitTag = '';
+    let called = 0;
+    const r = await pushToKit(
+      { email: 'a@b.c', first_name: '', action: 'lead-equity', fields_json: '{}' },
+      'k',
+      (async () => { called += 1; return jsonRes({}, 200); }) as unknown as typeof fetch,
+    );
+    expect(r.ok).toBe(false);
+    expect(called, 'nothing is sent to Kit for a tool that cannot deliver').toBe(0);
+    equity.kitTag = tag;
+  });
+
+  it('an unknown action is still refused, not silently swallowed', async () => {
+    const r = await pushToKit({ email: 'a@b.c', first_name: '', action: 'lead-' }, 'k', (async () => jsonRes({}, 200)) as unknown as typeof fetch);
+    expect(r.ok).toBe(false);
   });
 });

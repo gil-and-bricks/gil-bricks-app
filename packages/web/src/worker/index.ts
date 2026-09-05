@@ -10,6 +10,7 @@
 import { siteConfig } from '../site.config';
 import { features } from '../config/features';
 import { BRIDGING_RULES, BROKER } from '../config/bridging';
+import { captureReady, KIT_FIELDS } from '../config/capture';
 import { qualify, isComplete, loanAmount, phoneDigits, type Enquiry } from '../lib/bridging';
 import {
   AUTH_STATE_COOKIE,
@@ -95,6 +96,11 @@ async function handleLogin(request: Request, url: URL): Promise<Response> {
   auth.searchParams.set('code_challenge', challenge);
   auth.searchParams.set('code_challenge_method', 'S256');
   return redirect(auth.toString(), [authStateCookie(payload)]);
+}
+
+/** A deliberately plain address check: one @, a dot in the domain, no spaces. */
+function isEmail(v: string): boolean {
+  return /^[^\s@]+@[^\s@.]+\.[^\s@]{2,}$/.test(v) && v.length <= 254;
 }
 
 async function verifyTurnstile(token: string, secret: string, ip: string | null): Promise<boolean> {
@@ -225,8 +231,12 @@ async function enqueueKit(env: Env, userId: string | null, email: string, firstN
   await env.DB.batch([
     // ONLY the consent actions supersede each other — a pending bridging
     // notification is a different thing and must still be delivered.
+    // An UNSUBSCRIBE also retires a pending tool lead (T3): someone who has
+    // just withdrawn must not then be emailed a breakdown by a queued row.
     env.DB.prepare(
-      "UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND action IN ('subscribe','unsubscribe')",
+      action === 'unsubscribe'
+        ? "UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND (action IN ('subscribe','unsubscribe') OR action LIKE 'lead-%')"
+        : "UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND action IN ('subscribe','unsubscribe')",
     ).bind(email),
     env.DB.prepare(
       "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
@@ -238,7 +248,7 @@ async function enqueueKit(env: Env, userId: string | null, email: string, firstN
 /** One push attempt for a queued row; updates its status. Never throws. */
 async function attemptKitRow(
   env: Env,
-  row: { id: string; email: string; first_name: string; action: string; attempts: number },
+  row: { id: string; email: string; first_name: string; action: string; attempts: number; fields_json?: string | null },
   nowMs = Date.now(),
 ): Promise<void> {
   const attemptTs = new Date(nowMs).toISOString();
@@ -335,6 +345,9 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
   const unsubId = consent?.marketing_consent === 1 ? crypto.randomUUID() : null;
   const stmts = [
     env.DB.prepare('DELETE FROM kit_outbox WHERE user_id = ?').bind(user.sub),
+    // A tool lead from this address predates any account (user_id NULL) and
+    // carries their figures — "delete everything" has to mean it too (T3).
+    env.DB.prepare("DELETE FROM kit_outbox WHERE email = ? AND action LIKE 'lead-%'").bind(user.email),
     env.DB.prepare("UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending'").bind(user.email),
   ];
   if (unsubId) {
@@ -526,6 +539,79 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
 
 
 /**
+ * T3 — a tool lead: the person saw their answer, then asked for it by email.
+ *
+ * THE ANSWER WAS NEVER GATED. This runs only after they have it, only if they
+ * ticked the box, and only for a tool whose Kit tag and automation are real —
+ * `captureReady` refuses anything else rather than promising an email nobody
+ * set up. Two ways in: a signed-in person (the sign-in IS the human check) or a
+ * typed address, which must pass Turnstile.
+ *
+ * D1 first, Kit second, and the app itself never sends the email.
+ */
+async function handleToolLead(request: Request, env: Env): Promise<Response> {
+  if (!features.toolsSection || !features.toolCapture) return json({ error: 'not found' }, 404);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const str = (k: string): string => (typeof body[k] === 'string' ? (body[k] as string).trim() : '');
+  const tool = str('tool');
+  if (!captureReady(tool)) return json({ error: 'not offered' }, 404);
+  // No pre-ticked boxes anywhere, and no row without one.
+  if (body.consent !== true) return json({ error: 'consent required' }, 400);
+
+  const user = await currentUser(request, env);
+  const typed = str('email');
+  let email: string;
+  let firstName: string;
+  if (typed !== '') {
+    // They typed one, so that is the address — being signed in does not
+    // override "use another email". A typed address always passes the check.
+    if (!isEmail(typed)) return json({ error: 'bad email' }, 400);
+    const human = await verifyTurnstile(str('turnstile'), env.TURNSTILE_SECRET, request.headers.get('CF-Connecting-IP'));
+    if (!human) return json({ error: 'human check failed' }, 403);
+    email = typed.toLowerCase();
+    // Never blank an existing Kit subscriber's name: send one only if we have it.
+    firstName = user && user.email.toLowerCase() === email ? (user.name.split(' ')[0] ?? '') : '';
+  } else {
+    if (!user) return json({ error: 'bad email' }, 400);
+    // Signed in with no typing: we already have the address, and the sign-in
+    // is the human check.
+    email = user.email;
+    firstName = user.name.split(' ')[0] ?? '';
+  }
+
+  // Their own figures, exactly as the page showed them. Capped so a crafted
+  // body cannot post an essay into Kit.
+  const fields: Record<string, string> = {
+    [KIT_FIELDS.headline]: str('headline').slice(0, 200),
+    [KIT_FIELDS.detail]: str('detail').slice(0, 400),
+    [KIT_FIELDS.maths]: str('maths').slice(0, 600),
+  };
+  // The consent line promises "occasional property emails", so for someone with
+  // an account this IS their marketing consent and the account has to say so —
+  // otherwise deleting the account would never tell Kit to unsubscribe them.
+  if (user && user.email.toLowerCase() === email) {
+    await env.DB.prepare(
+      'UPDATE users SET marketing_consent = 1, consent_ts = ?, consent_version = ? WHERE id = ? AND marketing_consent = 0',
+    ).bind(new Date().toISOString(), siteConfig.consentVersion, user.sub).run();
+  }
+
+  const now = new Date().toISOString();
+  const id = crypto.randomUUID();
+  const action = `lead-${tool}`;
+  await env.DB.prepare(
+    "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at, fields_json) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)",
+  ).bind(id, user?.sub ?? null, email, firstName, action, now, JSON.stringify(fields)).run();
+  // one inline attempt so the common case is instant; failure waits for the cron
+  await attemptKitRow(env, { id, email, first_name: firstName, action, attempts: 0, fields_json: JSON.stringify(fields) });
+  return json({ queued: true });
+}
+
+/**
  * F1 — a bridging enquiry. Sign-in gated (we already have their name and
  * email, so we never ask), Turnstile-checked, and QUALIFIED SERVER-SIDE with
  * the same pure rules the browser used, so nothing can be talked past by
@@ -664,9 +750,18 @@ async function handleParkDeal(request: Request, env: Env, dealId: string): Promi
  * work); unsubscribes retry forever. LIMIT 100 so rows inside their backoff
  * window can't starve ready ones (volume is one row per consent event).
  */
+/** Days a delivered lead's figures are kept before the row is pruned (T3). */
+const LEAD_RETENTION_DAYS = 90;
+
 async function processOutbox(env: Env, nowMs = Date.now()): Promise<void> {
+  // A tool lead carries someone's own figures and, on the typed path, an
+  // address with no account behind it. Once Kit has it (or it has given up),
+  // there is no reason to keep it — so it is pruned, not kept for ever.
+  await env.DB.prepare(
+    "DELETE FROM kit_outbox WHERE action LIKE 'lead-%' AND status IN ('sent','failed','superseded') AND created_at < ?",
+  ).bind(new Date(nowMs - LEAD_RETENTION_DAYS * 86400_000).toISOString()).run();
   const pending = await env.DB.prepare(
-    "SELECT id, email, first_name, action, attempts, last_attempt, created_at FROM kit_outbox WHERE status = 'pending' ORDER BY created_at LIMIT 100",
+    "SELECT id, email, first_name, action, attempts, last_attempt, created_at, fields_json FROM kit_outbox WHERE status = 'pending' ORDER BY created_at LIMIT 100",
   ).all<OutboxRow>();
   for (const row of pending.results) {
     if (row.attempts >= MAX_ATTEMPTS && row.action !== 'unsubscribe') {
@@ -706,6 +801,7 @@ export default {
     if (pathname === '/api/me' && method === 'GET') return handleMe(request, env);
     if (pathname === '/api/consent' && method === 'POST') return handleConsent(request, env);
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);
+    if (pathname === '/api/tools/lead' && method === 'POST') return handleToolLead(request, env);
     if (pathname === '/api/bridging' && method === 'POST') return handleBridgingEnquiry(request, env);
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);

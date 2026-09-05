@@ -13,6 +13,8 @@ import { fmtMoney, fmtPct, rentalCostDefaults, rentalYield, type RentalYieldResu
 import { YIELD, TOOLS_COPY } from '../../config/tools';
 import { features } from '../../config/features';
 import { MoneyField } from './MoneyField';
+import { ToolCapture } from './ToolCapture';
+import { LEAD_LINES } from '../../config/capture';
 
 const FIELD = {
   price: 'price', rent: 'rent', management: 'management', maintenance: 'maintenance',
@@ -218,6 +220,16 @@ export function RentalYieldTool() {
             {YIELD.onward.line}{' '}
             <a href="/buy-to-let/analyser">{YIELD.onward.cta}</a>
           </p>
+
+          {/* Offered AFTER the answer, never before it, and skippable (T3). */}
+          <ToolCapture
+            slug={YIELD.slug}
+            figures={{
+              headline: LEAD_LINES.yield.headline(fmtPct(answer.net)),
+              detail: LEAD_LINES.yield.detail(fmtPct(answer.gross), fmtMoney(answer.totalCosts)),
+              maths: `${answer.breakdowns.gross.substituted} = ${answer.breakdowns.gross.result}; ${answer.breakdowns.net.substituted} = ${answer.breakdowns.net.result}`,
+            }}
+          />
         </section>
       )}
     </>

@@ -24,6 +24,7 @@ const PAGES = [
   ['/comparables?postcode=SA1+6HW', 'comps'],
   ['/deals', 'deals'],
   ['/bridging-finance', 'bridging'],
+  ['/credit', 'credit'],
   ['/tools', 'tools'],
   ['/tools/equity', 'equity'],
   ['/tools/stamp-duty', 'stamp'],

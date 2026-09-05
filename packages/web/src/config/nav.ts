@@ -9,6 +9,7 @@
  * as the segmented switcher, so grouping them in the header buries nothing.
  */
 import { brokerReady } from './bridging';
+import { features } from './features';
 
 export interface NavLink {
   label: string;
@@ -78,6 +79,7 @@ export const NAV = {
     links: [
       { label: 'Bridging finance', href: '/bridging-finance' },
       { label: 'Sold comparables', href: '/comparables' },
+      { label: 'Credit', href: '/credit' },
       { label: 'Account', href: '/account' },
       { label: 'Where should I start?', href: '/start' },
       { label: 'Privacy', href: '/privacy' },
@@ -93,5 +95,8 @@ export const NAV = {
  * a dead end. The page itself stays reachable by URL.
  */
 const bridgingReady = (l: NavLink): boolean => l.href !== '/bridging-finance' || brokerReady();
-export const primaryLinks = (): NavLink[] => NAV.primary.filter(bridgingReady);
-export const moreLinks = (): NavLink[] => NAV.more.links.filter(bridgingReady);
+/** The credit page only exists while its flag is on (T3). */
+const flagged = (l: NavLink): boolean => l.href !== '/credit' || features.creditPage;
+const shown = (l: NavLink): boolean => bridgingReady(l) && flagged(l);
+export const primaryLinks = (): NavLink[] => NAV.primary.filter(shown);
+export const moreLinks = (): NavLink[] => NAV.more.links.filter(shown);

@@ -18,6 +18,7 @@
  */
 
 import { BROKER } from '../../config/bridging';
+import { captureFor, KIT_FIELDS } from '../../config/capture';
 
 const KIT_API = 'https://api.kit.com/v4';
 
@@ -25,10 +26,12 @@ export interface OutboxRow {
   id: string;
   email: string;
   first_name: string;
-  action: string; // 'subscribe' | 'unsubscribe'
+  action: string; // 'subscribe' | 'unsubscribe' | 'bridging-*' | 'lead-<tool>'
   attempts: number;
   last_attempt: string | null;
   created_at: string;
+  /** T3: the person's own figures, as Kit custom fields. Leads only. */
+  fields_json?: string | null;
 }
 
 export const MAX_ATTEMPTS = 5;
@@ -56,7 +59,7 @@ export type PushResult =
 
 /** One attempt against Kit. Never throws; never logs the key or full bodies. */
 export async function pushToKit(
-  row: Pick<OutboxRow, 'email' | 'first_name' | 'action'>,
+  row: Pick<OutboxRow, 'email' | 'first_name' | 'action'> & { fields_json?: string | null },
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
   tags: { qualified: string; notYet: string } = { qualified: BROKER.kitTagQualified, notYet: BROKER.kitTagNotYet },
@@ -97,6 +100,36 @@ export async function pushToKit(
         return { ok: false, error: `kit subscribe HTTP ${up.status}` };
       }
       const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tagId)}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email }),
+      });
+      if (res.status === 200 || res.status === 201 || res.status === 202) return { ok: true };
+      return { ok: false, error: `kit tag HTTP ${res.status}` };
+    }
+    if (row.action.startsWith('lead-')) {
+      // T3: a tool lead. The person asked for THEIR figures by email, so the
+      // subscriber carries them as custom fields and the tool's own tag tells
+      // Kit which automation sends it. The app still sends no email itself.
+      const slug = row.action.slice('lead-'.length);
+      const tool = captureFor(slug);
+      if (!tool || tool.kitTag.trim() === '') return { ok: false, error: `kit tag id not configured for ${row.action}` };
+      let fields: Record<string, string> = {};
+      try {
+        const parsed = row.fields_json === null || row.fields_json === undefined ? {} : JSON.parse(row.fields_json);
+        if (parsed !== null && typeof parsed === 'object') fields = parsed as Record<string, string>;
+      } catch {
+        fields = {};
+      }
+      const up = await fetchImpl(`${KIT_API}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email, first_name: row.first_name, fields: { ...fields, [KIT_FIELDS.tool]: slug } }),
+      });
+      if (!(up.status === 200 || up.status === 201 || up.status === 202)) {
+        return { ok: false, error: `kit subscribe HTTP ${up.status}` };
+      }
+      const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tool.kitTag)}/subscribers`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ email_address: row.email }),

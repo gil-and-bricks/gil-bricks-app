@@ -59,6 +59,19 @@ export interface FeatureFlags {
    * pages themselves render their explanation without the calculator. */
   toolsSection: boolean;
 
+  /** The post-answer capture path on the tools (T3): the offer to email the
+   * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
+   * off = no offer block at all, and the tools make no server call. Each tool
+   * also needs its own Kit tag and a live automation (src/config/capture.ts),
+   * without which its offer stays hidden even with this flag on. */
+  toolCapture: boolean;
+
+  /** The credit page (T3) at /credit — the one paid partnership, disclosure
+   * first. Off: /credit redirects home and the link leaves the nav and the
+   * bridging page. The affiliate URL is separate: with it empty the page still
+   * teaches the insight and shows no button (src/config/credit.ts). */
+  creditPage: boolean;
+
   /** PDF export of a result (D1). Off: no PDF button and no "coming soon"
    * caption anywhere — an unbuilt feature is hidden, never shown disabled. */
   pdfExport: boolean;
@@ -75,6 +88,8 @@ export const features: FeatureFlags = {
   navV2: true,
   bridgingFinance: true,
   toolsSection: true,
+  toolCapture: true,
+  creditPage: true,
   pdfExport: false,
 };
 

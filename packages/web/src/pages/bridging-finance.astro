@@ -7,13 +7,22 @@
  */
 import AppShell from '../layouts/AppShell.astro';
 import { BridgingEnquiry } from '../components/finance/BridgingEnquiry';
-import { BRIDGING } from '../config/bridging';
+import { BRIDGING, BRIDGING_CREDIT } from '../config/bridging';
+import { features } from '../config/features';
 import { siteConfig } from '../site.config';
 ---
 
 <AppShell title={`${BRIDGING.title} — ${siteConfig.siteName}`} description={BRIDGING.tagline}>
   <h1 class="page-title">{BRIDGING.title}</h1>
   <p class="page-sub">{BRIDGING.tagline}</p>
+
+  {features.creditPage && (
+    <section class="glass card">
+      <h2>{BRIDGING_CREDIT.heading}</h2>
+      <p>{BRIDGING_CREDIT.body}</p>
+      <p><a href="/credit">{BRIDGING_CREDIT.cta}</a></p>
+    </section>
+  )}
 
   <section class="glass card">
     <h2>{BRIDGING.what.heading}</h2>

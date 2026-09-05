@@ -13,6 +13,8 @@ import { fmtDate, fmtMoney, fmtPct, stampDuty, type BuyerType, type StampCountry
 import { STAMP, TOOLS_COPY } from '../../config/tools';
 import { features } from '../../config/features';
 import { MoneyField } from './MoneyField';
+import { ToolCapture } from './ToolCapture';
+import { LEAD_LINES } from '../../config/capture';
 
 const FIELD = { price: 'price', country: 'country', buyer: 'buyer' } as const;
 
@@ -168,6 +170,20 @@ export function StampDutyTool() {
             {STAMP.onward.line}{' '}
             <a href="/buy-to-let/analyser">{STAMP.onward.cta}</a>
           </p>
+
+          {/* Offered AFTER the answer, never before it, and skippable (T3). */}
+          <ToolCapture
+            slug={STAMP.slug}
+            figures={{
+              headline: LEAD_LINES.stampDuty.headline(fmtMoney(answer.result.tax), taxName),
+              detail: LEAD_LINES.stampDuty.detail(
+                fmtPct(effectiveRate),
+                answer.result.regime,
+                fmtDate(answer.result.effectiveFrom),
+              ),
+              maths: rows.map((r) => `${r.label}: ${fmtPct(r.rate)} on ${fmtMoney(r.slice)} = ${fmtMoney(r.tax)}`).join('; '),
+            }}
+          />
         </section>
       )}
     </>

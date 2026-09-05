@@ -43,6 +43,17 @@ export const BRIDGING_NOT_OPEN = {
   body: 'The introduction goes live once the broker details are set up. Nothing is collected until then.',
 } as const;
 
+/**
+ * The credit page, linked from here because credit is the first hurdle before
+ * any finance conversation (T3). One line, no hype, and the credit page carries
+ * its own disclosure.
+ */
+export const BRIDGING_CREDIT = {
+  heading: 'Before any lender: your credit file',
+  body: 'Different lenders check different credit agencies, and most people only ever see one.',
+  cta: 'Why one score is not the whole picture',
+} as const;
+
 /** Tunable qualification thresholds — change here, never in code. */
 export const BRIDGING_RULES = {
   /** Below this the lenders a broker would use will not write the loan. */

@@ -37,11 +37,12 @@ describe('the toolbar badge says when there is a deal to read', () => {
     expect(calls.options).toEqual([{ tabId: 7, enabled: true }]);
   });
 
-  it('clears the badge on a search page, where there is nothing to analyse', () => {
+  it('clears the badge AND the tooltip on a search page, where there is nothing to analyse', () => {
     const { api, calls } = fakeChrome();
     applyTab(api, 7, 'https://www.rightmove.co.uk/property-for-sale/find.html?searchType=SALE');
     expect(calls.badgeText).toEqual([{ tabId: 7, text: '' }]);
-    expect(calls.titles).toEqual([]);
+    // going back from a listing to a search must not leave "Deal found" behind
+    expect(calls.titles).toEqual([{ tabId: 7, title: BADGE.idle }]);
     // still a portal page, so the panel itself stays available
     expect(calls.options).toEqual([{ tabId: 7, enabled: true }]);
   });

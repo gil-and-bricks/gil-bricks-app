@@ -1,0 +1,105 @@
+---
+/**
+ * The credit page (T3) — the ONE paid partnership on this site.
+ *
+ * The order on the page is deliberate and is the whole reason it is not
+ * grubby: the insight first, then the disclosure IN FULL, then the link. The
+ * "AD" marker sits at the top where nobody can miss it, which is what the ASA
+ * asks for. Every word is in src/config/credit.ts, and with no affiliate URL
+ * the page teaches the insight and shows no button at all.
+ */
+import AppShell from '../layouts/AppShell.astro';
+import { CREDIT, creditLinkReady, creditVideoReady } from '../config/credit';
+import { features } from '../config/features';
+import { siteConfig } from '../site.config';
+
+if (!features.creditPage) return Astro.redirect('/');
+
+const linkLive = creditLinkReady();
+const videoLive = creditVideoReady();
+---
+
+<AppShell title={`${CREDIT.title} — ${siteConfig.siteName}`} description={CREDIT.intro}>
+  <p class="ad-marker"><span class="ad-badge">{CREDIT.adLabel}</span> {CREDIT.adLabelFull}</p>
+  <h1 class="page-title">{CREDIT.title}</h1>
+  <p class="page-sub">{CREDIT.intro}</p>
+
+  <section class="glass card">
+    <h2>{CREDIT.insight.heading}</h2>
+    {CREDIT.insight.body.map((line) => <p>{line}</p>)}
+    <h3 class="state-h">{CREDIT.insight.storyHeading}</h3>
+    {CREDIT.insight.story.map((line) => <p>{line}</p>)}
+  </section>
+
+  <section class="glass card">
+    <h2>{CREDIT.whyHere.heading}</h2>
+    {CREDIT.whyHere.body.map((line) => <p>{line}</p>)}
+  </section>
+
+  {/* DISCLOSURE FIRST — above the link, never in small print. */}
+  <section class="glass card credit-disclosure" aria-labelledby="credit-disclosure-h">
+    <h2 id="credit-disclosure-h">
+      <span class="ad-badge">{CREDIT.adLabel}</span> {CREDIT.disclosure.heading}
+    </h2>
+    <ul class="credit-lines">
+      {CREDIT.disclosure.lines.map((line) => <li>{line}</li>)}
+    </ul>
+
+    {linkLive ? (
+      <>
+        <p class="credit-cta">
+          <a class="btn-primary" href={CREDIT.affiliateUrl} rel="sponsored nofollow noopener" target="_blank">{CREDIT.cta.label}</a>
+        </p>
+        <p class="hint">{CREDIT.cta.note}</p>
+      </>
+    ) : (
+      <div class="credit-not-live">
+        <h3 class="state-h">{CREDIT.notLive.heading}</h3>
+        <p class="hint">{CREDIT.notLive.body}</p>
+      </div>
+    )}
+  </section>
+
+  <section class="glass card">
+    <h2>{CREDIT.video.heading}</h2>
+    {videoLive ? (
+      <div class="credit-video" data-video={CREDIT.video.url} data-title={CREDIT.video.heading}>
+        <button type="button" class="btn-secondary" data-play>{CREDIT.video.load}</button>
+        <p class="hint">{CREDIT.video.note}</p>
+      </div>
+    ) : (
+      <p class="hint">{CREDIT.video.placeholder}</p>
+    )}
+  </section>
+
+  <ul class="tool-limits">
+    {CREDIT.limits.map((line) => <li>{line}</li>)}
+  </ul>
+</AppShell>
+
+<script is:inline>
+  {
+    // Click to load: nothing reaches YouTube until the person presses play.
+    const box = document.querySelector('.credit-video');
+    const btn = box?.querySelector('[data-play]');
+    if (box && btn) {
+      btn.addEventListener('click', () => {
+        const url = box.getAttribute('data-video') || '';
+        const id = (url.match(/[?&]v=([\w-]{6,})/)
+          || url.match(/youtu\.be\/([\w-]{6,})/)
+          || url.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/)
+          || [])[1];
+        // Any other shape: open it rather than sit there doing nothing.
+        if (!id) { window.open(url, '_blank', 'noopener'); return; }
+        const frame = document.createElement('iframe');
+        frame.src = `https://www.youtube-nocookie.com/embed/${id}`;
+        frame.title = box.getAttribute('data-title') || '';
+        frame.loading = 'lazy';
+        frame.allow = 'accelerometer; clipboard-write; encrypted-media; picture-in-picture';
+        frame.setAttribute('allowfullscreen', '');
+        frame.className = 'credit-frame';
+        btn.replaceWith(frame);
+      });
+    }
+  }
+</script>

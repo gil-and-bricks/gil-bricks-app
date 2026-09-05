@@ -6,12 +6,21 @@ We keep this simple and honest.
 form — because the outcome of that enquiry is a phone call. Nowhere else on
 the site asks for a phone number, and we never use it for marketing.
 
+**If you ask a tool to email you its breakdown:** we store the email address
+you gave (or the one on your account), the figures already on your screen and
+which tool you used, so Kit can send that email. You have to tick the box; the
+answer itself never needs an email. You do not need an account for this, and we
+create none. Unsubscribe from any email Kit sends and it stops. We delete the
+queued record within 90 days of it being sent, and deleting your account
+removes any of these queued for your address.
+
 **What we store when you sign in:** your email address, name and avatar from
 Google, when you created the account, and whether you ticked the marketing
 box (with when and which version of this text you saw). When you save a
 deal we also store its title, the analyser settings behind it, and its
-headline figure — that's what "My deals" is. The tools at /tools work entirely in your
-browser: nothing you type into them is sent to us.
+headline figure — that's what "My deals" is. The tools at /tools work in your
+browser: nothing you type into them reaches us unless you ask us to email you
+the breakdown, which is described above.
 
 **When you delete your account** everything above goes, including our own
 message queue about you. If you had consented to emails, one record keeps
@@ -29,10 +38,11 @@ exactly what it is — there is no UK-only residency option.)
 - **Cloudflare** — hosts the site, the database and the Turnstile
   human-check on account creation.
 - **Kit** — our email provider. We pass Kit your email address and first name
-  in two situations: if you tick the marketing box, and if you send a bridging
+  in three situations: if you tick the marketing box, if you send a bridging
   enquiry (so the broker's notification and your follow-up email can be sent —
-  the app itself never sends email). Untick the box, or delete your account,
-  and we tell Kit to unsubscribe you.
+  the app itself never sends email), and if you ask one of the tools to email
+  you its breakdown. Untick the box, or delete your account, and we tell Kit to
+  unsubscribe you.
 - **The bridging broker** — only if you send a bridging enquiry and tick the
   consent box on that form. The lawful basis is **your consent**, given by
   that tick, and we record when you gave it. We pass on: your name and email

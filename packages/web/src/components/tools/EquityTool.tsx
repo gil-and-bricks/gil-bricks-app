@@ -10,6 +10,8 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { equityFromHpi, fmtMoney, fmtPct, getUkhpi, type EquityResult } from '@gil-bricks/core';
 import { MoneyField } from './MoneyField';
+import { ToolCapture } from './ToolCapture';
+import { LEAD_LINES } from '../../config/capture';
 import { EQUITY, TOOLS_COPY } from '../../config/tools';
 import { features } from '../../config/features';
 
@@ -214,6 +216,20 @@ export function EquityTool() {
             {EQUITY.onward.line}{' '}
             <a href="/buy-to-let/analyser">{EQUITY.onward.cta}</a>
           </p>
+
+          {/* Offered AFTER the answer, never before it, and skippable (T3). */}
+          <ToolCapture
+            slug={EQUITY.slug}
+            figures={{
+              headline: LEAD_LINES.equity.headline(fmtMoney(answer.result.equity)),
+              detail: LEAD_LINES.equity.detail(
+                fmtMoney(answer.result.value),
+                fmtMoney(answer.owed),
+                answer.owed === 0 ? EQUITY.figures.noLoan : fmtPct(answer.result.ltv),
+              ),
+              maths: `${answer.result.breakdown.substituted} = ${answer.result.breakdown.result}`,
+            }}
+          />
 
         </section>
       )}

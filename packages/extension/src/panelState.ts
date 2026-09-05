@@ -16,6 +16,8 @@ import { isSupportedUrl } from './supported';
 
 export const BADGE = {
   text: '•',
+  /** The default tooltip, restored when a tab leaves a listing. */
+  idle: '',
   background: '#dcff00',
   /** Near-black on lime — never white on lime (brand rule). */
   textColour: '#070014',
@@ -52,7 +54,9 @@ export function applyTab(api: ChromeLike, tabId: number, url?: string): void {
     .catch((e) => console.error('[gil&bricks] setOptions failed', e));
   const listing = isListingUrl(url);
   void api.action.setBadgeText({ tabId, text: listing ? BADGE.text : '' }).catch(() => undefined);
-  if (listing) void api.action.setTitle({ tabId, title: BADGE.onListing }).catch(() => undefined);
+  // The tooltip must be cleared as well as set: leaving a listing (the back
+  // button, a search) otherwise kept "Deal found" on a tab with no deal.
+  void api.action.setTitle({ tabId, title: listing ? BADGE.onListing : BADGE.idle }).catch(() => undefined);
 }
 
 /**
