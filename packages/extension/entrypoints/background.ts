@@ -1,11 +1,15 @@
 import { defineBackground } from '#imports';
-import { isSupportedUrl } from '../src/supported';
+import { OPEN_PANEL_MESSAGE } from '../src/opener';
+import { applyTab, openPanelFor, paintBadgeStyle, type ChromeLike } from '../src/panelState';
 
 /**
  * Background service worker (MV3, module).
  *
- * - The panel opens ONLY on a user gesture (the toolbar icon) — we set
- *   openPanelOnActionClick and never call sidePanel.open() ourselves.
+ * - The panel opens ONLY on a user gesture: the toolbar icon (openPanelOnActionClick)
+ *   or the content script's own in-page button, whose click is forwarded here.
+ *   Chrome permits no third way — a panel cannot open on page load (D1).
+ * - On a LISTING page the toolbar icon wears a lime dot and says what a click
+ *   will do, which is the loudest signal Chrome allows without a gesture.
  * - The panel is ENABLED only on Rightmove/Zoopla tabs and DISABLED everywhere
  *   else. Because we hold no "tabs" permission, tab.url is populated only for
  *   tabs we have host access to (the two portals), so unsupported tabs resolve
@@ -29,11 +33,21 @@ export default defineBackground({
       .setOptions({ enabled: false })
       .catch((e) => console.error('[gil&bricks] baseline setOptions failed', e));
 
-    const apply = (tabId: number, url?: string): void => {
-      chrome.sidePanel
-        .setOptions({ tabId, path: 'sidepanel.html', enabled: isSupportedUrl(url) })
-        .catch((e) => console.error('[gil&bricks] setOptions failed', e));
-    };
+    const api = chrome as unknown as ChromeLike;
+    // The badge is the "we can read this page" signal. Colours set once.
+    paintBadgeStyle(api);
+
+    const apply = (tabId: number, url?: string): void => applyTab(api, tabId, url);
+
+    // The one legal route to opening the panel from the page: the person clicks
+    // OUR button in the page, the content script forwards that gesture here, and
+    // we open the panel for that tab. Chrome refuses if the gesture did not
+    // survive the hop; the page says what to do instead rather than sit dead.
+    chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+      if (!msg || msg.type !== OPEN_PANEL_MESSAGE) return false;
+      void openPanelFor(api, sender.tab?.id).then(sendResponse);
+      return true; // async reply
+    });
 
     // Sweep already-open tabs at install and browser start so the currently
     // active tab is gated immediately (no "tabs" permission needed: query returns

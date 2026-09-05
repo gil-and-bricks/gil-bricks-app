@@ -6,6 +6,7 @@
  * with the future extension. This component only presents; it computes nothing.
  */
 import type { DealScore } from '@gil-bricks/core';
+import { DEAL_SCORE_COPY } from '../../config/misc';
 
 const LIGHT: Record<DealScore['verdict'], { cls: string; dot: string }> = {
   good: { cls: 'ds-good', dot: '●' },
@@ -26,7 +27,7 @@ export function DealScoreChip({ deal }: { deal: DealScore | null }) {
     <div
       class={`deal-score ${l.cls}`}
       role="img"
-      aria-label={`Deal score ${deal.score.toFixed(1)} out of 10 — ${deal.verdict}. ${deal.headline}`}
+      aria-label={DEAL_SCORE_COPY.ariaLabel(deal.score.toFixed(1), deal.verdict, deal.headline)}
     >
       <span class="ds-score">
         <strong>{deal.score.toFixed(1)}</strong>
@@ -48,7 +49,7 @@ export function BindingConstraintNote({ deal }: { deal: DealScore | null }) {
   // broken English for money-left-in / room-size and was redundant here.
   return (
     <p class="binding-note">
-      <span class="binding-label">What’s holding it back:</span> {bc.plainExplanation}
+      <span class="binding-label">{DEAL_SCORE_COPY.bindingLead}</span> {bc.plainExplanation}
     </p>
   );
 }

@@ -1,8 +1,11 @@
 /**
  * Quiz mechanism — the CONTENT lives in src/config/quiz.json (operator-owned,
  * see docs/QUIZ_OPERATOR_GUIDE.md). This file only validates and scores;
- * editing questions/weights/results never touches code.
+ * editing questions/weights/results never touches code. The messages it prints
+ * when a file is wrong live in src/config/misc.ts (QUIZ_JSON_ERRORS).
  */
+import { QUIZ_JSON_ERRORS as ERR } from '../../config/misc';
+
 export const STRATEGY_IDS = ['btl', 'flip', 'brrrr', 'hmo'] as const;
 export type StrategyId = (typeof STRATEGY_IDS)[number];
 
@@ -35,38 +38,38 @@ export function validateQuiz(q: unknown): Quiz {
     throw new Error(`quiz.json problem: ${msg}`);
   };
   const quiz = q as Partial<Quiz>;
-  if (quiz.version !== 1) fail('"version" must be 1');
-  if (!quiz.intro?.title || !quiz.intro?.body) fail('"intro" needs a title and a body');
-  if (!Array.isArray(quiz.questions) || quiz.questions.length === 0) fail('"questions" must be a non-empty list');
+  if (quiz.version !== 1) fail(ERR.version);
+  if (!quiz.intro?.title || !quiz.intro?.body) fail(ERR.intro);
+  if (!Array.isArray(quiz.questions) || quiz.questions.length === 0) fail(ERR.questions);
   const qIds = new Set<string>();
   for (const question of quiz.questions ?? []) {
-    if (!question.id) fail('every question needs an "id"');
-    if (qIds.has(question.id)) fail(`question id "${question.id}" is used twice`);
+    if (!question.id) fail(ERR.questionMissingId);
+    if (qIds.has(question.id)) fail(ERR.questionDuplicateId(question.id));
     qIds.add(question.id);
-    if (!question.prompt) fail(`question "${question.id}" needs a "prompt"`);
-    if (question.type !== 'single') fail(`question "${question.id}": only type "single" is supported`);
-    if (!Array.isArray(question.options) || question.options.length < 2) fail(`question "${question.id}" needs at least two options`);
+    if (!question.prompt) fail(ERR.questionMissingPrompt(question.id));
+    if (question.type !== 'single') fail(ERR.questionType(question.id));
+    if (!Array.isArray(question.options) || question.options.length < 2) fail(ERR.questionTooFewOptions(question.id));
     const oIds = new Set<string>();
     for (const option of question.options) {
-      if (!option.id) fail(`an option in question "${question.id}" is missing its "id"`);
-      if (oIds.has(option.id)) fail(`option id "${option.id}" is used twice in question "${question.id}"`);
+      if (!option.id) fail(ERR.optionMissingId(question.id));
+      if (oIds.has(option.id)) fail(ERR.optionDuplicateId(question.id, option.id));
       oIds.add(option.id);
-      if (!option.label) fail(`option "${question.id}.${option.id}" needs a "label"`);
+      if (!option.label) fail(ERR.optionMissingLabel(question.id, option.id));
       for (const s of STRATEGY_IDS) {
         if (typeof option.weights?.[s] !== 'number') {
-          fail(`option "${question.id}.${option.id}" is missing a number weight for "${s}"`);
+          fail(ERR.optionMissingWeight(question.id, option.id, s));
         }
       }
     }
   }
-  if (quiz.scoring?.method !== 'sum') fail('"scoring.method" must be "sum"');
+  if (quiz.scoring?.method !== 'sum') fail(ERR.scoringMethod);
   const tb = quiz.scoring?.tieBreak ?? [];
   if ([...STRATEGY_IDS].sort().join() !== [...tb].sort().join()) {
-    fail('"scoring.tieBreak" must list each of btl, flip, brrrr, hmo exactly once');
+    fail(ERR.tieBreak);
   }
   for (const s of STRATEGY_IDS) {
     if (!quiz.results?.[s]?.headline || !quiz.results?.[s]?.body) {
-      fail(`"results.${s}" needs a headline and a body`);
+      fail(ERR.result(s));
     }
   }
   return quiz as Quiz;

@@ -39,7 +39,7 @@ Character count: **117 / 132** (within limit).
 ```
 PropLaunch turns any Rightmove or Zoopla listing into a clear investment decision, right in a Chrome side panel next to the page you're viewing.
 
-Open a listing, open the panel, and it reads the price, type and size and scores the property as a deal — with a plain 0–10 Deal Score, the headline reason, and the single thing holding it back. You answer at most one or two figures (like the rent) and it's done.
+Open a listing and PropLaunch puts a small button in the corner of the page (and a dot on the toolbar icon); one click opens the panel. It reads the price, type and size and scores the property as a deal — with a plain 0–10 Deal Score, the headline reason, and the single thing holding it back. You answer at most one or two figures (like the rent) and it's done.
 
 FOUR STRATEGIES, ONE PANEL
 - Buy-to-Let — rent cover, cashflow, return on cash and price vs sold evidence

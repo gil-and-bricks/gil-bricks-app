@@ -1,4 +1,4 @@
-# Terms & disclaimer (placeholder — final wording lands in a later sprint)
+# Terms & disclaimer
 
 **This is a research tool, not advice.** Everything on this site is worked
 out from official open data (HM Land Registry sold prices, EPC floor areas,

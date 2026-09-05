@@ -70,3 +70,9 @@ export async function storageAvailable(): Promise<boolean> {
     return false;
   }
 }
+
+// D1: "Hide" on the in-page button means hide — the choice is remembered here,
+// and the panel's Settings screen carries the switch that brings it back
+// ("Show the button on listings"), so it is never a one-way door.
+export const getOpenerHidden = () => getLocal<boolean>('gb:opener-hidden', false);
+export const setOpenerHidden = (hidden: boolean) => setLocal('gb:opener-hidden', hidden);

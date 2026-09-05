@@ -1,5 +1,5 @@
 {
-  "_note": "PLACEHOLDER — questions and weights to be set by the operator. Edit this file only; see docs/QUIZ_OPERATOR_GUIDE.md. No code changes needed.",
+  "_note": "Questions and weights are the operator's to set. Edit this file only; see docs/QUIZ_OPERATOR_GUIDE.md. No code changes needed.",
   "version": 1,
   "intro": {
     "title": "Which strategy fits you?",
@@ -8,7 +8,7 @@
   "questions": [
     {
       "id": "goal",
-      "prompt": "What's your main goal? (PLACEHOLDER)",
+      "prompt": "What's your main goal?",
       "tooltip": "There is no wrong answer — this just points you at a starting tool.",
       "type": "single",
       "options": [
@@ -20,7 +20,7 @@
     },
     {
       "id": "time",
-      "prompt": "How hands-on do you want to be? (PLACEHOLDER)",
+      "prompt": "How hands-on do you want to be?",
       "type": "single",
       "options": [
         { "id": "handsoff", "label": "As hands-off as possible", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 0 } },
@@ -30,7 +30,7 @@
     },
     {
       "id": "refurb",
-      "prompt": "How do you feel about refurbs? (PLACEHOLDER)",
+      "prompt": "How do you feel about refurbs?",
       "type": "single",
       "options": [
         { "id": "avoid", "label": "Rather avoid them", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 0 } },
@@ -40,7 +40,7 @@
     },
     {
       "id": "capital",
-      "prompt": "How long can your money stay in a deal? (PLACEHOLDER)",
+      "prompt": "How long can your money stay in a deal?",
       "type": "single",
       "options": [
         { "id": "years", "label": "Years — it's an investment", "weights": { "btl": 1, "flip": 0, "brrrr": 0, "hmo": 1 } },
@@ -50,9 +50,9 @@
   ],
   "scoring": { "method": "sum", "tieBreak": ["btl", "brrrr", "flip", "hmo"] },
   "results": {
-    "btl": { "headline": "Start with Buy to Let (PLACEHOLDER)", "body": "Steady, well-understood, and our analyser checks the numbers against real sold prices." },
-    "flip": { "headline": "Start with Flips (PLACEHOLDER)", "body": "Buy, refurbish, sell — the analyser stress-tests your margin before you offer." },
-    "brrrr": { "headline": "Start with BRRRR (PLACEHOLDER)", "body": "Refinance-led investing — see whether your money really comes back out." },
-    "hmo": { "headline": "Start with a small HMO (PLACEHOLDER)", "body": "Room-by-room income — with the legal size and licensing checks built in." }
+    "btl": { "headline": "Start with Buy to Let", "body": "Steady, well-understood, and our analyser checks the numbers against real sold prices." },
+    "flip": { "headline": "Start with Flips", "body": "Buy, refurbish, sell — the analyser stress-tests your margin before you offer." },
+    "brrrr": { "headline": "Start with BRRRR", "body": "Refinance-led investing — see whether your money really comes back out." },
+    "hmo": { "headline": "Start with a small HMO", "body": "Room-by-room income — with the legal size and licensing checks built in." }
   }
 }

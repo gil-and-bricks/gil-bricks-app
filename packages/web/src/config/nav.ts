@@ -8,14 +8,41 @@
  * in @gil-bricks/core (one source), and on the analyser pages they stay visible
  * as the segmented switcher, so grouping them in the header buries nothing.
  */
+import { brokerReady } from './bridging';
+
 export interface NavLink {
   label: string;
   href: string;
 }
 
+/** Area Data is listed twice: in the header's top-level row, and on its own in
+ * the pre-navV2 header. ONE entry, read by both, so a rename lands everywhere. */
+const AREA_DATA: NavLink = { label: 'Area Data', href: '/area-data' };
+
 export const NAV = {
   /** Accessible name of the main navigation, in the header and the bottom bar. */
   mainLabel: 'Main',
+  /** The wordmark in the top-left: what a screen reader hears, and the quiet
+   * maker credit under it. The NAMES come from site.config.ts (golden rule 4);
+   * only the joining words are here. */
+  brand: {
+    label: (siteName: string, makerName: string): string => `${siteName} by ${makerName} — home`,
+    by: 'by',
+  },
+  /** The two social icons in the header. The LINKS live in site.config.ts;
+   * these are the words a screen reader and a hover tooltip get. */
+  socials: {
+    instagram: {
+      title: 'Instagram',
+      label: (makerName: string): string => `${makerName} on Instagram (opens a new tab)`,
+    },
+    youtube: {
+      title: 'YouTube',
+      label: (makerName: string): string => `${makerName} on YouTube (opens a new tab)`,
+    },
+  },
+  /** The one destination the pre-navV2 header lists beside the four strategies. */
+  areaData: AREA_DATA,
   /** The header's "Analyse" grouping — the four strategies live inside it. */
   analyse: {
     label: 'Analyse',
@@ -27,7 +54,7 @@ export const NAV = {
   },
   /** Top-level destinations, in header order, after the Analyse grouping. */
   primary: [
-    { label: 'Area Data', href: '/area-data' },
+    AREA_DATA,
     { label: 'Tools', href: '/tools' },
     { label: 'Bridging finance', href: '/bridging-finance' },
   ] as NavLink[],
@@ -50,6 +77,7 @@ export const NAV = {
     hint: 'More places to go',
     links: [
       { label: 'Bridging finance', href: '/bridging-finance' },
+      { label: 'Sold comparables', href: '/comparables' },
       { label: 'Account', href: '/account' },
       { label: 'Where should I start?', href: '/start' },
       { label: 'Privacy', href: '/privacy' },
@@ -58,3 +86,12 @@ export const NAV = {
   },
 } as const;
 
+/**
+ * The nav as it should actually be rendered (D1). Bridging finance is a top-level
+ * destination only while the broker's details are set: until then the page says
+ * "enquiries are not open yet", and sending people to that from the main nav is
+ * a dead end. The page itself stays reachable by URL.
+ */
+const bridgingReady = (l: NavLink): boolean => l.href !== '/bridging-finance' || brokerReady();
+export const primaryLinks = (): NavLink[] => NAV.primary.filter(bridgingReady);
+export const moreLinks = (): NavLink[] => NAV.more.links.filter(bridgingReady);

@@ -101,9 +101,9 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
     <>
       {broken && (
         <p class="hint map-fallback" role="alert">
-          The map couldn't display here — the table below has every sale.{' '}
+          {COPY.comps.mapBroken}{' '}
           <button type="button" class="linklike" onClick={manualRetry}>
-            Try the map again
+            {COPY.comps.mapRetry}
           </button>
         </p>
       )}
@@ -111,7 +111,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
         class="comp-map"
         ref={el}
         hidden={broken}
-        aria-label="Map of comparable sales — the table view carries the same data"
+        aria-label={COPY.comps.mapLabel}
         role="application"
       />
       {article4 && a4 && a4.features.length > 0 && !broken && (

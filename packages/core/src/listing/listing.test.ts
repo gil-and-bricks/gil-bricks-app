@@ -11,6 +11,7 @@ import {
   postcodeToSector,
   ENGLAND_WALES_ONLY_MESSAGE,
   portalForUrl,
+  isListingUrl,
   type NormalisedListing,
   type Portal,
 } from './index';
@@ -315,5 +316,30 @@ describe('remote config artifact stays identical to the shipped fallback', () =>
 describe('no portal network calls in the whole run', () => {
   it('made zero fetch calls', () => {
     expect(netCalls).toBe(0);
+  });
+});
+
+describe('isListingUrl — what the toolbar badge and the in-page opener key off', () => {
+  it('says yes on a real listing detail page, either portal', () => {
+    expect(isListingUrl('https://www.rightmove.co.uk/properties/123456789')).toBe(true);
+    expect(isListingUrl('https://www.rightmove.co.uk/properties/123456789#/?channel=RES_BUY')).toBe(true);
+    expect(isListingUrl('https://www.rightmove.co.uk/property-for-sale/property-98765432.html')).toBe(true);
+    expect(isListingUrl('https://www.zoopla.co.uk/for-sale/details/12345678/')).toBe(true);
+    expect(isListingUrl('https://www.zoopla.co.uk/new-homes/details/11112222')).toBe(true);
+  });
+
+  it('says no on a RENTAL listing — every strategy here buys, so a monthly rent is not an asking price', () => {
+    expect(isListingUrl('https://www.zoopla.co.uk/to-rent/details/87654321/')).toBe(false);
+    expect(isListingUrl('https://www.rightmove.co.uk/property-to-rent/property-98765432.html')).toBe(false);
+  });
+
+  it('says no on searches, home pages and anywhere else', () => {
+    expect(isListingUrl('https://www.rightmove.co.uk/')).toBe(false);
+    expect(isListingUrl('https://www.rightmove.co.uk/property-for-sale/find.html?searchType=SALE')).toBe(false);
+    expect(isListingUrl('https://www.zoopla.co.uk/for-sale/property/swansea/')).toBe(false);
+    expect(isListingUrl('https://www.zoopla.co.uk/')).toBe(false);
+    expect(isListingUrl('https://www.onthemarket.com/details/12345678/')).toBe(false);
+    expect(isListingUrl('not a url')).toBe(false);
+    expect(isListingUrl(undefined)).toBe(false);
   });
 });

@@ -5,15 +5,15 @@ import type { ComponentChildren } from 'preact';
 import type { Breakdown } from '@gil-bricks/core';
 import { SECTION_STRIP } from '../../config/analyserSections';
 
-export function MathsAccordion({ breakdown }: { breakdown: Breakdown }) {
+export function MathsAccordion({ breakdown, label }: { breakdown: Breakdown; label?: string }) {
   return (
-    <Accordion label={SECTION_STRIP.maths}>
+    <Accordion label={label ?? SECTION_STRIP.maths}>
       <dl class="maths">
-        <dt>Formula</dt>
+        <dt>{SECTION_STRIP.mathsRows.formula}</dt>
         <dd>{breakdown.formula}</dd>
-        <dt>Your numbers</dt>
+        <dt>{SECTION_STRIP.mathsRows.numbers}</dt>
         <dd>{breakdown.substituted}</dd>
-        <dt>Result</dt>
+        <dt>{SECTION_STRIP.mathsRows.result}</dt>
         <dd>{breakdown.result}</dd>
       </dl>
       <p class="maths-note">{breakdown.note}</p>

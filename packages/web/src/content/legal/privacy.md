@@ -1,4 +1,4 @@
-# Privacy (placeholder — final wording lands in a later sprint)
+# Privacy
 
 We keep this simple and honest.
 

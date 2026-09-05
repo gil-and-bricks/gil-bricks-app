@@ -36,14 +36,21 @@ address bar, then the pin next to PropLaunch, so its icon always shows.
 
 ## Open the panel
 
-1. Go to any Rightmove or Zoopla page (for example a property listing).
-2. Click the **PropLaunch icon** in the toolbar. The side panel opens on the
-   right and shows the Deal Score for the listing.
+Open any Rightmove or Zoopla **listing** and you get two signals:
 
-On any other site (say google.com), the icon is greyed out / the panel is
-disabled on purpose — the tool only offers itself on Rightmove and Zoopla.
+1. A small **PropLaunch** button appears in the bottom-right of the listing.
+   Click it and the panel opens. "Hide" removes it, and we remember that.
+2. The toolbar icon wears a **lime dot** and its tooltip says a deal was found.
+   Clicking the icon opens the panel too.
 
-The panel only ever opens when **you** click the icon. It never pops up on its own.
+On a search page there is no button and no dot — there is nothing to score yet.
+On any other site the panel is disabled on purpose: the tool only offers itself
+on Rightmove and Zoopla.
+
+**Chrome will not let any extension open a side panel by itself.** The API only
+accepts a real click — the toolbar icon, a keyboard shortcut, a context menu, or
+a button like ours on the page. So the panel cannot pop up as a listing loads;
+the button and the dot are the loudest signals Chrome allows.
 
 ## Reload after a rebuild
 

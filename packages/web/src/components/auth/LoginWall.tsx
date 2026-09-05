@@ -5,6 +5,7 @@
  * human check (server-verified only when an account is CREATED).
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { LOGIN_WALL } from '../../config/account';
 import { COPY } from '../../config/copy';
 import { siteConfig } from '../../site.config';
 import { cookiesBlocked } from '../../lib/auth/session';
@@ -145,26 +146,26 @@ export function LoginWall() {
           straight back inside */}
       <div class="wall-guard" tabindex={0} onFocus={() => focusEdge('last')} />
       <div class="glass card wall" role="dialog" aria-modal="true" aria-labelledby="wall-title">
-        <button type="button" class="wall-close" aria-label="Close" onClick={() => setOpen(false)}>×</button>
-        <h2 id="wall-title" ref={headingRef} tabindex={-1}>Sign in to {siteConfig.siteName}</h2>
+        <button type="button" class="wall-close" aria-label={LOGIN_WALL.closeAria} onClick={() => setOpen(false)}>×</button>
+        <h2 id="wall-title" ref={headingRef} tabindex={-1}>{LOGIN_WALL.title(siteConfig.siteName)}</h2>
         <p class="hint">{COPY.account.loginWhy}</p>
 
         {blocked ? (
           <>
-            <h3 class="state-h">Turn on cookies to sign in</h3>
+            <h3 class="state-h">{LOGIN_WALL.cookiesHeading}</h3>
             <p>{COPY.account.cookiesOff}</p>
-            <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+            <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? LOGIN_WALL.copied : LOGIN_WALL.copyLink}</button>
           </>
         ) : (
           <>
-            <div class="wall-terms" ref={termsRef} tabindex={0} aria-label="Terms and disclaimer" />
+            <div class="wall-terms" ref={termsRef} tabindex={0} aria-label={LOGIN_WALL.termsAria} />
             <label class="wall-check">
               <input type="checkbox" checked={accepted} onChange={(e) => setAccepted((e.target as HTMLInputElement).checked)} />
-              <span>I accept the terms &amp; disclaimer above</span>
+              <span>{LOGIN_WALL.acceptTerms}</span>
             </label>
             <label class="wall-check">
               <input type="checkbox" checked={marketing} onChange={(e) => setMarketing((e.target as HTMLInputElement).checked)} />
-              <span>Send me property deals &amp; updates by email</span>
+              <span>{LOGIN_WALL.marketing}</span>
             </label>
             <div class="wall-turnstile" ref={widgetRef} />
             {tsError && (
@@ -177,9 +178,9 @@ export function LoginWall() {
                 <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
                 <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
               </svg>
-              <span>Continue with Google</span>
+              <span>{LOGIN_WALL.google}</span>
             </button>
-            {!accepted && <p id="wall-accept-first" class="hint">Tick the terms box to continue.</p>}
+            {!accepted && <p id="wall-accept-first" class="hint">{LOGIN_WALL.acceptFirst}</p>}
           </>
         )}
       </div>

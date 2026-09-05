@@ -1,6 +1,7 @@
 /** The BRRRR verdict island — config + @gil-bricks/core (strategy-calc/brrrr) only. */
 import { keyFigure } from './keyFigure';
 import { COPY } from '../../config/copy';
+import { BRRRR_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -8,6 +9,7 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseBrrrr, scoreDeal, type BrrrrAnalysis, type BrrrrStrategyInputs, type DealScore } from '@gil-bricks/core';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { leverIsRedundant } from './leverDedupe';
 import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
@@ -114,7 +116,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
+      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
@@ -134,48 +136,48 @@ export function BrrrrVerdict({ config, comps, valuation }: {
           <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
-            {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
+            {!leverIsRedundant(analysis.lever, deal?.bindingConstraint?.plainExplanation) && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && arv > 0 && (
               <p class="verdict-crosscheck">
-                Your end value {fmtMoney(arv)} vs our estimate {fmtMoney(valuation.estimate)} ({fmtMoney(valuation.range.low)}–{fmtMoney(valuation.range.high)}).
-                {arv > valuation.range.high && ' Ambitious — get a broker’s opinion before relying on it.'}
+                {BRRRR_COPY.crosscheck(fmtMoney(arv), fmtMoney(valuation.estimate), fmtMoney(valuation.range.low), fmtMoney(valuation.range.high))}
+                {arv > valuation.range.high && BRRRR_COPY.crosscheckAmbitious}
               </p>
             )}
           </div>
           <div class="tiles" id="sec-figures">
-            <div class="tile tile-hero">
-              <p class="tile-label">The outcome</p>
+            <div class={`tile tile-hero${deal ? ` tier-${deal.verdict === 'good' ? 'good' : deal.verdict === 'marginal' ? 'marginal' : 'walk'}` : ''}`}>
+              <p class="tile-label">{BRRRR_COPY.outcomeLabel}</p>
               <p class="tile-value">{analysis.outcomeVerdict}</p>
               <MathsAccordion breakdown={analysis.outcomeBreakdown} />
             </div>
-            <Tile label="Max price for all money out"
-              value={analysis.maxPriceAllOut !== null ? fmtMoney(analysis.maxPriceAllOut) : 'Not reachable'}
+            <Tile label={BRRRR_COPY.tiles.maxPriceAllOut}
+              value={analysis.maxPriceAllOut !== null ? fmtMoney(analysis.maxPriceAllOut) : VERDICT_COPY.notReachable}
               breakdown={{
-                label: 'Max price for all money out', formula: 'the highest price at which money left in is £0, solved against the same maths',
-                substituted: `end value ${fmtMoney(arv)}, ${fmtPct(ltvPct)} LTV, your fees and refurb`,
-                result: analysis.maxPriceAllOut !== null ? fmtMoney(analysis.maxPriceAllOut) : 'no price achieves it',
-                note: 'your ceiling for offers if pulling everything out matters',
+                label: BRRRR_COPY.maxPriceMaths.label, formula: BRRRR_COPY.maxPriceMaths.formula,
+                substituted: BRRRR_COPY.maxPriceMaths.substituted(fmtMoney(arv), fmtPct(ltvPct)),
+                result: analysis.maxPriceAllOut !== null ? fmtMoney(analysis.maxPriceAllOut) : BRRRR_COPY.maxPriceMaths.unreachable,
+                note: BRRRR_COPY.maxPriceMaths.note,
               }} />
-            <Tile label="End value needed for all money out"
-              value={analysis.arvNeededAllOut !== null ? fmtMoney(analysis.arvNeededAllOut) : 'Not reachable'}
+            <Tile label={BRRRR_COPY.tiles.arvNeededAllOut}
+              value={analysis.arvNeededAllOut !== null ? fmtMoney(analysis.arvNeededAllOut) : VERDICT_COPY.notReachable}
               breakdown={{
-                label: 'End value needed', formula: 'the smallest end value at which money left in is £0',
-                substituted: `price ${fmtMoney(Number(s.price))}, ${fmtPct(ltvPct)} LTV, your fees and refurb`,
-                result: analysis.arvNeededAllOut !== null ? fmtMoney(analysis.arvNeededAllOut) : 'no end value achieves it',
-                note: 'compare it with our estimate before believing it',
+                label: BRRRR_COPY.arvNeededMaths.label, formula: BRRRR_COPY.arvNeededMaths.formula,
+                substituted: BRRRR_COPY.arvNeededMaths.substituted(fmtMoney(Number(s.price)), fmtPct(ltvPct)),
+                result: analysis.arvNeededAllOut !== null ? fmtMoney(analysis.arvNeededAllOut) : BRRRR_COPY.arvNeededMaths.unreachable,
+                note: BRRRR_COPY.arvNeededMaths.note,
               }} />
-            <Tile label="Refinance loan" value={fmtMoney(analysis.refiLoan.value)} breakdown={analysis.refiLoan.breakdown} />
-            <Tile id="sec-costs" label="Cash invested" value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
+            <Tile label={BRRRR_COPY.tiles.refiLoan} value={fmtMoney(analysis.refiLoan.value)} breakdown={analysis.refiLoan.breakdown} />
+            <Tile id="sec-costs" label={BRRRR_COPY.tiles.cashInvested} value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
             {analysis.bridging && (
-              <Tile label="Bridging cost" value={fmtMoney(analysis.bridging.interest + analysis.bridging.arrangement + analysis.bridging.exit)} breakdown={analysis.bridging.breakdown} />
+              <Tile label={BRRRR_COPY.tiles.bridging} value={fmtMoney(analysis.bridging.interest + analysis.bridging.arrangement + analysis.bridging.exit)} breakdown={analysis.bridging.breakdown} />
             )}
-            <Tile label="Cashflow after tax" value={`${fmtMoney(analysis.cashflowAfterTax.value)}/mo`} breakdown={analysis.cashflowAfterTax.breakdown} />
-            <Tile label="Return on money left in"
-              value={analysis.roiOnLeftIn.value !== null ? fmtPct(analysis.roiOnLeftIn.value) : 'Effectively infinite'}
+            <Tile label={BRRRR_COPY.tiles.cashflowAfterTax} value={`${fmtMoney(analysis.cashflowAfterTax.value)}${VERDICT_COPY.perMonth}`} breakdown={analysis.cashflowAfterTax.breakdown} />
+            <Tile label={BRRRR_COPY.tiles.roiOnLeftIn}
+              value={analysis.roiOnLeftIn.value !== null ? fmtPct(analysis.roiOnLeftIn.value) : BRRRR_COPY.infiniteReturn}
               breakdown={analysis.roiOnLeftIn.breakdown} />
-            <Tile label="Gross yield on total cost" value={fmtPct(analysis.grossYieldOnCost.value)} breakdown={analysis.grossYieldOnCost.breakdown} />
-            <Tile label={`Rent-covers-mortgage test (ICR ${Math.round(analysis.icr.threshold * 100)}%)`}
-              value={`${fmtRatio(analysis.icr.value)} — ${analysis.icr.passes ? 'passes' : 'fails'}`}
+            <Tile label={BRRRR_COPY.tiles.grossYieldOnCost} value={fmtPct(analysis.grossYieldOnCost.value)} breakdown={analysis.grossYieldOnCost.breakdown} />
+            <Tile label={VERDICT_COPY.icrLabel(Math.round(analysis.icr.threshold * 100))}
+              value={VERDICT_COPY.icrResult(fmtRatio(analysis.icr.value), analysis.icr.passes ? VERDICT_COPY.icrPasses : VERDICT_COPY.icrFails)}
               breakdown={analysis.icr.breakdown} />
           </div>
         </>

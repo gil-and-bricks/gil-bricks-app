@@ -1,5 +1,6 @@
 /** /account island: profile, My deals, marketing-consent toggle, delete account. */
 import { useEffect, useState } from 'preact/hooks';
+import { ACCOUNT } from '../../config/account';
 import { COPY } from '../../config/copy';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
@@ -16,7 +17,7 @@ interface Deal {
 }
 
 const strategyBadge = (id: string): string =>
-  id === 'comparables' ? 'Comps' : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
+  id === 'comparables' ? ACCOUNT.deals.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
 
 const dealUrl = (d: Deal): string => {
   const route = strategies.find((s) => s.id === d.strategy)?.route;
@@ -71,7 +72,7 @@ export function AccountApp() {
       setDeals((cur) => (Array.isArray(cur) ? cur.filter((x) => x.id !== d.id) : cur));
       setDealNote('');
     } else {
-      setDealNote(`Couldn't delete "${d.title}" — please try again.`);
+      setDealNote(ACCOUNT.deals.deleteFailed(d.title));
     }
     setConfirmDelete('');
   };
@@ -88,9 +89,9 @@ export function AccountApp() {
   if (v === null) {
     return (
       <div class="glass card">
-        <h3 class="state-h">Sign in to see your deals</h3>
+        <h3 class="state-h">{ACCOUNT.signedOut.heading}</h3>
         <p class="hint">{COPY.account.signInToSave}</p>
-        <button type="button" class="btn-primary" onClick={openLoginWall}>Log in</button>
+        <button type="button" class="btn-primary" onClick={openLoginWall}>{ACCOUNT.signedOut.logIn}</button>
       </div>
     );
   }
@@ -105,10 +106,10 @@ export function AccountApp() {
       });
       if (res.ok) {
         me.value = { ...v, marketingConsent: !v.marketingConsent };
-        setNote(!v.marketingConsent ? COPY.account.signedUp : 'Marketing emails off.');
-      } else setNote('That did not save — please try again.');
+        setNote(!v.marketingConsent ? COPY.account.signedUp : ACCOUNT.profile.marketingOff);
+      } else setNote(ACCOUNT.profile.saveFailed);
     } catch {
-      setNote('That did not save — please try again.');
+      setNote(ACCOUNT.profile.saveFailed);
     }
     setBusy(false);
   };
@@ -121,9 +122,9 @@ export function AccountApp() {
         location.href = '/';
         return;
       }
-      setNote('Delete failed — please try again.');
+      setNote(ACCOUNT.deleteAccount.failed);
     } catch {
-      setNote('Delete failed — please try again.');
+      setNote(ACCOUNT.deleteAccount.failed);
     }
     setBusy(false);
   };
@@ -131,7 +132,7 @@ export function AccountApp() {
   return (
     <>
       <div class="glass card">
-        <h2>Your account</h2>
+        <h2>{ACCOUNT.profile.heading}</h2>
         <p>
           {v.avatar !== '' && <img class="auth-avatar" src={v.avatar} alt="" width="36" height="36" referrerpolicy="no-referrer" onError={(e) => ((e.target as HTMLImageElement).hidden = true)} />}{' '}
           <strong>{v.name || v.email}</strong>
@@ -140,23 +141,23 @@ export function AccountApp() {
         </p>
         <label class="wall-check">
           <input type="checkbox" checked={v.marketingConsent} disabled={busy} onChange={toggleMarketing} />
-          <span>Send me property deals &amp; updates by email</span>
+          <span>{ACCOUNT.profile.marketing}</span>
         </label>
         {note !== '' && <p class="hint" role="status">{note}</p>}
         <form method="post" action="/auth/logout">
-          <button type="submit" class="btn-secondary">Log out</button>
+          <button type="submit" class="btn-secondary">{ACCOUNT.profile.logOut}</button>
         </form>
       </div>
 
       {features.dealPipeline ? (
         <div class="glass card">
-          <h2>My deals</h2>
-          <p class="hint">Your deals live in your <a href="/deals">pipeline</a> now — it shows which one needs you next.</p>
-          <a class="btn-primary" href="/deals">Open my pipeline</a>
+          <h2>{ACCOUNT.pipeline.heading}</h2>
+          <p class="hint">{ACCOUNT.pipeline.lead}{' '}<a href="/deals">{ACCOUNT.pipeline.link}</a>{' '}{ACCOUNT.pipeline.tail}</p>
+          <a class="btn-primary" href="/deals">{ACCOUNT.pipeline.cta}</a>
         </div>
       ) : (
       <div class="glass card">
-        <h2>My deals</h2>
+        <h2>{ACCOUNT.deals.heading}</h2>
         {dealNote !== '' && <p class="hint" role="alert">{dealNote}</p>}
         {deals === null ? (
           <div aria-hidden="true">
@@ -164,10 +165,10 @@ export function AccountApp() {
             <div class="skeleton sk-line short" />
           </div>
         ) : deals === 'error' ? (
-          <p class="hint" role="alert">Couldn't load your deals just now — refresh the page to retry.</p>
+          <p class="hint" role="alert">{ACCOUNT.deals.loadFailed}</p>
         ) : deals.length === 0 ? (
           <p class="hint">
-            Nothing saved yet. Run a property through any <a href="/">analyser</a> and press Save — it'll appear here.
+            {ACCOUNT.deals.emptyLead}{' '}<a href="/">{ACCOUNT.deals.emptyLink}</a>{' '}{ACCOUNT.deals.emptyTail}
           </p>
         ) : (
           <ul class="deals-list">
@@ -184,23 +185,23 @@ export function AccountApp() {
                   </div>
                 </div>
                 <div class="deal-actions">
-                  <a class="btn-secondary" href={dealUrl(d)}>Open</a>
-                  <button type="button" class="btn-secondary" onClick={() => void shareDeal(d)}>Share</button>
+                  <a class="btn-secondary" href={dealUrl(d)}>{ACCOUNT.deals.open}</a>
+                  <button type="button" class="btn-secondary" onClick={() => void shareDeal(d)}>{ACCOUNT.deals.share}</button>
                   {confirmDelete === d.id ? (
                     <>
                       <button
                         type="button"
                         class="btn-secondary"
-                        aria-label={`Yes, delete ${d.title}`}
+                        aria-label={ACCOUNT.deals.confirmAria(d.title)}
                         ref={(el) => el?.focus()}
                         onClick={() => void deleteDeal(d)}
                       >
-                        Sure?
+                        {ACCOUNT.deals.confirm}
                       </button>
-                      <button type="button" class="btn-secondary" aria-label={`Keep ${d.title}`} onClick={() => setConfirmDelete('')}>Keep</button>
+                      <button type="button" class="btn-secondary" aria-label={ACCOUNT.deals.keepAria(d.title)} onClick={() => setConfirmDelete('')}>{ACCOUNT.deals.keep}</button>
                     </>
                   ) : (
-                    <button type="button" class="btn-secondary" aria-label={`Delete ${d.title}`} onClick={() => setConfirmDelete(d.id)}>Delete</button>
+                    <button type="button" class="btn-secondary" aria-label={ACCOUNT.deals.deleteAria(d.title)} onClick={() => setConfirmDelete(d.id)}>{ACCOUNT.deals.delete}</button>
                   )}
                 </div>
               </li>
@@ -211,15 +212,15 @@ export function AccountApp() {
       )}
 
       <div class="glass card">
-        <h2>Delete my account</h2>
+        <h2>{ACCOUNT.deleteAccount.heading}</h2>
         <p class="hint">{COPY.account.deleteWarning}</p>
         {!confirming ? (
-          <button type="button" class="btn-secondary" onClick={() => setConfirming(true)}>Delete my account</button>
+          <button type="button" class="btn-secondary" onClick={() => setConfirming(true)}>{ACCOUNT.deleteAccount.start}</button>
         ) : (
           <>
-            <p><strong>Are you sure?</strong> This deletes everything.</p>
-            <button type="button" class="btn-secondary" disabled={busy} onClick={deleteAccount}>Yes — delete everything</button>{' '}
-            <button type="button" class="btn-secondary" onClick={() => setConfirming(false)}>Keep my account</button>
+            <p><strong>{ACCOUNT.deleteAccount.sureLead}</strong>{' '}{ACCOUNT.deleteAccount.sureTail}</p>
+            <button type="button" class="btn-secondary" disabled={busy} onClick={deleteAccount}>{ACCOUNT.deleteAccount.confirm}</button>{' '}
+            <button type="button" class="btn-secondary" onClick={() => setConfirming(false)}>{ACCOUNT.deleteAccount.cancel}</button>
           </>
         )}
       </div>

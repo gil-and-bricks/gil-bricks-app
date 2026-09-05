@@ -38,13 +38,20 @@ export const SECTION_STRIP = {
   /** One-line summary the comparables module folds behind. */
   compsSummary: (count: number, typicalPerSqft: string | null): string =>
     typicalPerSqft === null
-      ? `${count} comparable ${count === 1 ? 'sale' : 'sales'} · tap to explore`
-      : `${count} comparable ${count === 1 ? 'sale' : 'sales'} · typical ${typicalPerSqft} · tap to explore`,
+      ? `${count} comparable ${count === 1 ? 'sale' : 'sales'} · open to explore`
+      : `${count} comparable ${count === 1 ? 'sale' : 'sales'} · typical ${typicalPerSqft} · open to explore`,
   /** The CSS custom property carrying the strip's pinned height, so anything
    * else that must clear the pinned stack (tooltips) reads it from here. */
   heightVar: '--strip-h',
   /** Native <details> labels for the workings that fold away. */
   maths: 'How is this calculated?',
+  /** When two workings share a card, the second names its own figure. */
+  mathsFor: (what: string): string => `How is ${what} calculated?`,
+  /** The three rows inside the show-the-maths accordion, in this order. The
+   * figures beside them come from @gil-bricks/core — these are only the
+   * labels. (The standalone tools print the same three words from their own
+   * config, so a tool page never has to import the analyser's.) */
+  mathsRows: { formula: 'Formula', numbers: 'Your numbers', result: 'Result' },
   assumptions: 'Assumptions — all editable',
 } as const;
 

@@ -6,6 +6,7 @@
  * and the user's own edits. Nothing here is stored or transmitted.
  */
 import { signal } from '@preact/signals';
+import { PROVENANCE_LABELS } from '../../config/misc';
 
 export type ProvSource = 'listing' | 'epc' | 'typed' | 'settings' | 'carried';
 
@@ -14,13 +15,7 @@ export type ProvSource = 'listing' | 'epc' | 'typed' | 'settings' | 'carried';
  * typed) we genuinely can't recover across the URL — never claimed as a fact.
  * ("Estimated from sold data" is shown authoritatively by the Valuation card,
  * with its maths, so we don't duplicate — and never guess — it on a field.) */
-export const PROV_LABEL: Record<ProvSource, string> = {
-  listing: 'from the listing',
-  epc: 'from EPC data',
-  typed: 'you typed it',
-  settings: 'your saved settings',
-  carried: 'brought from the extension',
-};
+export const PROV_LABEL: Record<ProvSource, string> = PROVENANCE_LABELS;
 
 // Captured ONCE at load from the arriving URL.
 let arrivedKeys = new Set<string>();

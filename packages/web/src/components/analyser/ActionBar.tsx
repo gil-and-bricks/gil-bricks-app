@@ -6,6 +6,8 @@ import { verdictSnapshot } from './verdictSnapshot';
 import { evidenceSnapshot, isAuctionArrival, isFromExtension } from './provenance';
 import { state, strategyParams, toQuery } from './state';
 import { fmtMoney, postcodeToSector } from '@gil-bricks/core';
+import { features } from '../../config/features';
+import { ACTION_BAR } from '../../config/analyserForm';
 
 /** Subject fields whose provenance is worth snapshotting as evidence. */
 const EVIDENCE_SUBJECT_KEYS = ['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon'] as const;
@@ -105,11 +107,11 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
         setSaveNote(((await res.json()) as { error: string }).error);
       } else {
         setSaveState('idle');
-        setSaveNote("That didn't save — please try again.");
+        setSaveNote(ACTION_BAR.saveFailed);
       }
     } catch {
       setSaveState('idle');
-      setSaveNote("That didn't save — please try again.");
+      setSaveNote(ACTION_BAR.saveFailed);
     }
   };
 
@@ -139,27 +141,31 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
 
   return (
     <div class="action-bar">
-      <button type="button" class="btn-primary" onClick={share}>Share on WhatsApp</button>
-      <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? 'Copied ✓' : 'Copy link'}</button>
+      <button type="button" class="btn-primary" onClick={share}>{ACTION_BAR.buttons.share}</button>
+      <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? ACTION_BAR.buttons.copied : ACTION_BAR.buttons.copyLink}</button>
       {saveState === 'saved' ? (
-        <a class="btn-secondary save-done" href="/account">{savedToPipeline ? 'In your pipeline ✓' : 'Saved ✓ — view in My deals'}</a>
+        <a class="btn-secondary save-done" href="/deals">{savedToPipeline ? ACTION_BAR.saved.inPipeline : ACTION_BAR.saved.inMyDeals}</a>
       ) : (
         <button type="button" class="btn-secondary" disabled={saveState === 'saving'} onClick={saveDeal}>
-          {saveState === 'saving' ? 'Saving…' : 'Save'}
+          {saveState === 'saving' ? ACTION_BAR.buttons.saving : ACTION_BAR.buttons.save}
         </button>
       )}
-      <button type="button" class="btn-secondary" disabled aria-describedby="pdf-soon">PDF</button>
+      {features.pdfExport && (
+        <button type="button" class="btn-secondary" disabled aria-describedby="pdf-soon">{ACTION_BAR.buttons.pdf}</button>
+      )}
       <span id="pdf-soon" class="hint" role="status">
         {saveState === 'saved' ? (
           savedToPipeline ? (
-            <>It’s in your <a href="/account">pipeline</a> — it’ll re-score as facts land.</>
+            <>{ACTION_BAR.hint.pipelineBefore}<a href="/deals">{ACTION_BAR.hint.pipelineLink}</a>{ACTION_BAR.hint.pipelineAfter}</>
           ) : (
-            <>Saved to <a href="/account">My deals</a>.</>
+            <>{ACTION_BAR.hint.myDealsBefore}<a href="/deals">{ACTION_BAR.hint.myDealsLink}</a>{ACTION_BAR.hint.myDealsAfter}</>
           )
         ) : saveNote !== '' ? (
           saveNote
+        ) : features.pdfExport ? (
+          ACTION_BAR.hint.pdfSoon
         ) : (
-          'PDF export — coming soon.'
+          ''
         )}
       </span>
     </div>

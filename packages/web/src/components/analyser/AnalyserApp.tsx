@@ -27,6 +27,7 @@ import { CompsModule } from './CompsModule';
 import { ActionBar } from './ActionBar';
 import { features } from '../../config/features';
 import { SECTION_STRIP } from '../../config/analyserSections';
+import { ANALYSER_SHELL } from '../../config/analyserForm';
 
 interface Results {
   comps: ComparablesResult | null;
@@ -60,9 +61,17 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
       }
     }
     let seq = 0;
+    // The postcode an error belongs to. Without this, editing SA1 6HW into
+    // something incomplete left "We don't know SA1 6HW" on screen naming a
+    // postcode that is no longer in the box (D1).
+    let erroredFor: string | null = null;
     const dispose = effect(() => {
       const s = state.value;
       bump((n) => n + 1);
+      if (erroredFor !== null && erroredFor !== s.postcode) {
+        erroredFor = null;
+        setPostcodeError(null);
+      }
       if (!(showVerdict ? isReady(s) : isCompsReady(s))) return;
       const mySeq = ++seq;
       const run = async () => {
@@ -123,8 +132,10 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
         } catch (err) {
           if (mySeq !== seq) return;
           if (err instanceof ComparablesError && err.kind === 'OutsideEnglandWales') {
+            erroredFor = s.postcode;
             setPostcodeError(COPY.analyser.outsideEnglandWales);
           } else if (err instanceof ComparablesError && err.kind === 'UnknownPostcode') {
+            erroredFor = s.postcode;
             setPostcodeError(err.message);
           } else {
             setError(COPY.analyser.loadFailed);
@@ -148,11 +159,11 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
       {showArrived && (
         <p class="arrived-note" role="status">
           <span>{COPY.analyser.fromExtension}</span>
-          <button type="button" class="arrived-x" aria-label="Dismiss" onClick={() => setArrivedDismissed(true)}>✕</button>
+          <button type="button" class="arrived-x" aria-label={ANALYSER_SHELL.dismissArrived} onClick={() => setArrivedDismissed(true)}>✕</button>
         </p>
       )}
       <section class="glass card" id="sec-property">
-        <h2>The property</h2>
+        <h2>{ANALYSER_SHELL.propertyHeading}</h2>
         <SubjectForm postcodeError={postcodeError} />
       </section>
 
@@ -171,7 +182,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           {(!features.segmentedStrategy || config === null) && (
             <StrategySwitcher
               currentId={config?.id ?? null}
-              label={config ? 'Analyse this as…' : 'Analyse this property as…'}
+              label={config ? ANALYSER_SHELL.switchStrategy : ANALYSER_SHELL.switchStrategyFromComps}
             />
           )}
           {showVerdict && (() => {
@@ -180,8 +191,8 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
               return <Verdict config={config} comps={results.comps} valuation={results.valuation} />;
             }
             return (
-              <section class="glass card verdict-slot" aria-label="Strategy verdict">
-                <h2>{strategyName} verdict</h2>
+              <section class="glass card verdict-slot" aria-label={ANALYSER_SHELL.verdictRegionLabel}>
+                <h2>{ANALYSER_SHELL.verdictHeading(strategyName)}</h2>
                 <p class="hint">{COPY.analyser.noVerdictYet}</p>
               </section>
             );
@@ -199,14 +210,14 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
               Config-driven via youtubeFor (coreConfig.youtube), never a pop-up (E10). */}
           {showVerdict && config?.id && (
             <p class="yt-help">
-              New to {config.name}?{' '}
+              {ANALYSER_SHELL.youtube.lead(config.name)}{' '}
               <a
                 href={youtubeFor(config.id)}
                 target="_blank"
                 rel="noopener noreferrer"
-                aria-label={`Watch the free walkthrough for ${config.name} on YouTube (opens a new tab)`}
+                aria-label={ANALYSER_SHELL.youtube.ariaLabel(config.name)}
               >
-                Watch the free walkthrough →
+                {ANALYSER_SHELL.youtube.link}
               </a>
             </p>
           )}

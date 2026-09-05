@@ -134,8 +134,10 @@ export function isFactType(key: string): boolean {
 }
 
 /**
- * The board's own words (lib/deals/board.ts reads these; N1 moved them here so
- * no user-facing string lives in code — Reversibility charter). Reword freely.
+ * The board's own words (lib/deals/board.ts writes the lines; the board SCREEN,
+ * components/deals/DealBoard.tsx, reads `screen` and `card`. N1 moved the lines
+ * here and N5 the screen's own buttons and states, so no user-facing string
+ * lives in code — Reversibility charter). Reword freely.
  */
 export const BOARD_COPY = {
   /** Dwell phrases appended to the stage's `todo`. */
@@ -166,6 +168,33 @@ export const BOARD_COPY = {
     bought: (n: number) => `${n} bought`,
     parked: (n: number) => `${n} parked`,
     separator: ' · ',
+  },
+  /** The whole-board states: signed out, broken, or nothing sent over yet. The
+   *  sentence under each heading is COPY.account (src/config/copy.ts). */
+  screen: {
+    signInHeading: 'Sign in to see your pipeline',
+    signInButton: 'Log in',
+    loadFailed: 'Couldn’t load your pipeline just now — refresh the page to retry.',
+    emptyHeading: 'No deals yet',
+  },
+  /** One deal card: its score badge, its stage picker, its park chips, and the
+   *  one line it says back after a move or a park. */
+  card: {
+    /** Read aloud for the score badge — the figure is already on screen. */
+    scoreLabel: (score: string) => `Deal score ${score} out of 10`,
+    /** The comparables badge; every other strategy carries its own short name. */
+    compsBadge: 'Comps',
+    moveLabel: (title: string) => `Move ${title} to a stage`,
+    park: 'Park',
+    parkReasonsLabel: (title: string) => `Why are you parking ${title}?`,
+    keepIt: 'Keep it',
+    skippedStage: 'Skipped a stage — your call.',
+    /** Said back after a successful move or park — the card jumps columns, so
+     *  without this nothing confirmed anything happened (D1). */
+    moved: (stage: string): string => `Moved to ${stage}.`,
+    parked: (reason: string): string => `Parked — ${reason}.`,
+    moveFailed: 'That didn’t move — put back. Try again.',
+    parkFailed: 'That didn’t save — put back. Try again.',
   },
 } as const;
 

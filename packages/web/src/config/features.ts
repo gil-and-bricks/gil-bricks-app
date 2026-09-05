@@ -58,6 +58,10 @@ export interface FeatureFlags {
    * config/tools.ts. Off: /tools shows nothing is switched on, and the tool
    * pages themselves render their explanation without the calculator. */
   toolsSection: boolean;
+
+  /** PDF export of a result (D1). Off: no PDF button and no "coming soon"
+   * caption anywhere — an unbuilt feature is hidden, never shown disabled. */
+  pdfExport: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -71,6 +75,7 @@ export const features: FeatureFlags = {
   navV2: true,
   bridgingFinance: true,
   toolsSection: true,
+  pdfExport: false,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

@@ -36,7 +36,7 @@
 .field-hint, .hint { color: var(--text-dim); font-size: var(--text-xs); margin: var(--space-1) 0 0; }
 .start-hint { text-align: center; padding: var(--space-6); font-size: var(--text-base); }
 /* Contextual YouTube help, near the verdict — help not promotion (E10). */
-.yt-help { color: var(--text-dim); font-size: var(--text-sm); margin: var(--space-2) 0 0; text-align: center; }
+.yt-help { color: var(--text-dim); font-size: var(--text-sm); margin: var(--space-2) 0 var(--space-4); }
 .yt-help a { color: var(--accent); font-weight: 600; }
 
 /* Arrived-from-extension confirmation (E11) — quiet, one line, dismissible. */
@@ -69,7 +69,7 @@
 .assumptions { grid-column: 1 / -1; }
 
 /* tooltip */
-.tip-wrap { position: relative; display: inline-flex; }
+.tip-wrap { position: relative; display: inline-flex; align-items: center; }
 .tip-btn {
   width: 1.05rem; height: 1.05rem; border-radius: 50%; border: 1px solid var(--accent);
   color: var(--accent); background: transparent; font-size: 0.65rem; font-weight: 700;
@@ -126,8 +126,8 @@
 
 /* actions */
 .action-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-5) 0; }
-.btn-primary { background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: var(--radius-btn); padding: var(--space-3) var(--space-5); font: inherit; font-weight: 500; cursor: pointer; }
-.btn-secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-btn); padding: var(--space-3) var(--space-5); font: inherit; cursor: pointer; }
+.btn-primary { display: inline-block; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: var(--radius-btn); padding: var(--space-3) var(--space-5); font: inherit; font-weight: 500; cursor: pointer; text-align: center; }
+.btn-secondary { display: inline-block; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-btn); padding: var(--space-3) var(--space-5); font: inherit; cursor: pointer; text-align: center; }
 .btn-secondary:disabled { opacity: 0.4; cursor: default; }
 
 /* skeletons */
@@ -169,9 +169,21 @@
 .deal-score .ds-light { font-size: var(--text-lg); line-height: 1; }
 .deal-score .ds-verdict { font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: var(--text-sm); }
 .deal-score .ds-headline { flex: 1 1 100%; color: var(--text); font-size: var(--text-base); font-weight: 600; }
+.deal-score.ds-good { --v-tier: var(--verdict-good); }
+.deal-score.ds-marginal { --v-tier: var(--verdict-amber); }
+.deal-score.ds-walk { --v-tier: var(--verdict-walk); }
 .deal-score.ds-good .ds-light { color: var(--verdict-good); }
 .deal-score.ds-marginal .ds-light { color: var(--verdict-amber); }
 .deal-score.ds-walk .ds-light { color: var(--verdict-walk); }
+/* The box wears the verdict's colour, not the brand lime (D1). */
+.deal-score { border-color: var(--v-tier, var(--accent)); background: color-mix(in srgb, var(--v-tier, var(--accent)) 8%, transparent); }
+.deal-score .ds-score strong { color: var(--v-tier, var(--accent)); }
+.deal-score .ds-verdict { color: var(--v-tier, var(--accent)); }
+/* A hero figure that is bad news is not printed in the good-news colour. */
+.tile-hero.tier-walk { border-color: var(--verdict-walk); background: color-mix(in srgb, var(--verdict-walk) 8%, transparent); }
+.tile-hero.tier-walk .tile-value { color: var(--verdict-walk); }
+.tile-hero.tier-marginal { border-color: var(--verdict-amber); background: color-mix(in srgb, var(--verdict-amber) 8%, transparent); }
+.tile-hero.tier-marginal .tile-value { color: var(--verdict-amber); }
 /* The single binding constraint, inside the verdict card. */
 .binding-note { margin: var(--space-2) 0 0; color: var(--text); font-size: var(--text-sm); }
 .binding-note .binding-label { font-weight: 700; }
@@ -203,7 +215,7 @@
 .switcher { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-4); }
 .switcher-label { color: var(--text-dim); font-size: var(--text-sm); margin-right: var(--space-1); }
 .pill { border: 1px solid rgba(255,255,255,0.25); border-radius: 999px; padding: 0.35rem 0.9rem; font-size: var(--text-sm); color: var(--text); text-decoration: none; }
-.pill:hover { border-color: var(--accent); color: var(--accent); }
+.pill:not(.pill-current):hover { border-color: var(--accent); color: var(--accent); }
 .pill-current { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 
 /* quiz */
@@ -251,6 +263,9 @@
   /* sticky bottom must clear the fixed .tabbar (z-index 10, ~3.2rem tall
      + safe-area) or the lower pill row sits under it and taps mis-hit */
   .area-strip { position: sticky; bottom: calc(3.4rem + env(safe-area-inset-bottom, 0px)); z-index: 5; }
+  /* The sticky strip sat on top of the map's licence attribution, which we are
+     required to show. Give the map room to clear it (D1). */
+  #area-map-body { padding-bottom: 3.5rem; }
 }
 
 /* deprivation 1-10 scale */
@@ -317,7 +332,8 @@
 
 /* map (S7.1) */
 .view-toggle { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0; flex-wrap: wrap; }
-.view-toggle .pill { cursor: pointer; background: transparent; font: inherit; }
+.view-toggle .pill { cursor: pointer; font: inherit; }
+.view-toggle .pill:not(.pill-current) { background: transparent; }
 .comp-map { height: 60vh; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0; }
 .mini-map { height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0 var(--space-4); }
 @media (max-width: 640px) {
@@ -570,10 +586,12 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .sv-panel {
   position: absolute; left: 0; right: 0; top: 100%;
   padding: var(--space-3) var(--space-5) var(--space-4);
-  background: color-mix(in srgb, var(--bg-1) 96%, transparent);
-  -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
+  /* Opaque on purpose: at 96% the pinned row showed through and its chips
+     could be tapped through the panel (D1). */
+  background: var(--bg-1);
   border-bottom: 1px solid var(--glass-border);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  z-index: 31;
 }
 .sv-panel[hidden] { display: none; }
 .sv-full { max-width: 72rem; margin: 0 auto var(--space-3); font-size: var(--text-base); line-height: 1.4; }
@@ -593,6 +611,10 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
   overflow-x: auto; overflow-y: hidden;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
   min-height: calc(2rem + var(--space-2) * 2);
+  /* The row scrolls: fade the right edge so the cut reads as "more this way"
+     rather than as a chip that got chopped (D1). */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
   background: color-mix(in srgb, var(--bg-1) 92%, transparent);
   -webkit-backdrop-filter: blur(var(--glass-blur)); backdrop-filter: blur(var(--glass-blur));
   border-bottom: 1px solid var(--glass-border);
@@ -652,7 +674,10 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
   border: 1px solid var(--glass-border); color: var(--text-dim);
   font-size: var(--text-xs); font-weight: 600; text-decoration: none; white-space: nowrap;
 }
-.strip-chip[aria-current='true'] { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
+/* A section chip is a place on THIS page; a strategy pill changes the page.
+   They shared a lime fill and read as the same control (D1), so the current
+   section is now tinted-and-outlined and the filled pill means strategy. */
+.strip-chip[aria-current='true'] { color: var(--accent); background: rgba(220, 255, 0, 0.12); border-color: var(--accent); }
 .strip-chip[hidden] { display: none; }
 
 /* JS-off honesty note (N2) — quiet, above the form it explains. */
@@ -685,7 +710,7 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 }
 .comp-card.is-out { opacity: 0.55; border-color: rgba(255, 255, 255, 0.15); }
 .comp-tick { display: flex; align-items: center; justify-content: center; min-width: 2.75rem; min-height: 2.75rem; margin: -0.35rem 0 0 -0.35rem; }
-.comp-tick input { width: 1.35rem; height: 1.35rem; }
+.comp-tick input { width: 1.35rem; height: 1.35rem; accent-color: var(--accent); }
 .comp-body { flex: 1 1 auto; min-width: 0; }
 .comp-price { margin: 0; font-size: var(--text-lg); font-family: var(--font-display); font-weight: 700; }
 .comp-when { font-family: var(--font-body); font-size: var(--text-xs); font-weight: 500; color: var(--text-dim); }
@@ -725,27 +750,24 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
         sticky rail on the right, so it never scrolls out of sight;
      2. the section overview becomes a vertical list beside the page. */
 @media (min-width: 1024px) {
-  [data-split] .analyser > .glass.card:has(> .verdict-results) {
+  /* Only split the card once the rail HAS an answer in it: before that the
+     page reserved a 480px empty column beside the inputs (D1). */
+  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 30rem);
     column-gap: var(--space-6);
     align-items: start;
   }
-  [data-split] .analyser > .glass.card:has(> .verdict-results) > * { grid-column: 1; }
-  [data-split] .analyser > .glass.card:has(> .verdict-results) > h2 { grid-column: 1 / -1; }
-  [data-split] .analyser > .glass.card:has(> .verdict-results) > .verdict-results {
+  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) > * { grid-column: 1; }
+  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) > h2 { grid-column: 1 / -1; }
+  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) > .verdict-results {
     display: block;
     grid-column: 2;
     grid-row: 2 / span 50;          /* every row the inputs occupy */
-    position: sticky;
-    top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var(--space-4));
-    /* Only a rail TALLER than the screen scrolls inside itself, and when it
-       does the scrollbar is visible — a figure must never hide behind an
-       invisible scroll. */
-    max-height: calc(100vh - var(--sticky-h, 0px) - var(--space-7));
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-gutter: stable;
+    /* NOT sticky and NOT its own scroller (D1): pinning it clipped the lower
+       figures behind a nested scrollbar people never found. The column simply
+       sits beside the inputs and scrolls with the page. */
+    position: static;
   }
   /* The figures keep their own minimum width (13rem) inside the rail — forcing
      two narrower columns broke the tiles that hold a two-column comparison. */
@@ -757,13 +779,25 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 /* The section overview as a vertical list beside the page. The switcher stacks
    with it: on a wide screen the sidebar IS the navigation. */
 @media (min-width: 1100px) {
-  .shell-body[data-split]:has(.pinned-row) { display: grid; grid-template-columns: 12rem minmax(0, 1fr); align-items: start; }
+  /* ONE column box for the whole page (D1): the grid sits inside the same
+     72rem the header and footer use, so those four regions share an edge, and
+     the main column no longer shrink-wraps — opening the comparables table used
+     to shove the H1 and every card 42px sideways. */
+  .shell-body[data-split]:has(.pinned-row) {
+    display: grid; grid-template-columns: 12rem minmax(0, 1fr); align-items: start;
+    max-width: 72rem; margin-inline: auto; padding-inline: var(--space-5);
+  }
+  .shell-body[data-split]:has(.pinned-row) > main.page-wrap {
+    margin-inline: 0; max-width: none; padding-inline: 0;
+  }
   /* Islands are display:contents, so their CHILDREN are the grid items: place
      everything full-width first, then the two real columns. */
   .shell-body[data-split]:has(.pinned-row) > *,
   .shell-body[data-split]:has(.pinned-row) > astro-island > * { grid-column: 1 / -1; }
   .shell-body[data-split]:has(.pinned-row) > main.page-wrap { grid-column: 2; }
   .shell-body[data-split]:has(.pinned-row) > .pinned-row {
+    /* The mobile row's right-edge fade must not follow it into the sidebar. */
+    -webkit-mask-image: none; mask-image: none;
     --pinned: vertical;
     grid-column: 1;
     position: sticky; top: calc(var(--sticky-h, 0px) + var(--space-4));
@@ -785,7 +819,7 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
   .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-row { flex-direction: column; align-items: stretch; padding: 0; gap: var(--space-1); }
   .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip { border: 0; padding: var(--space-2) var(--space-3); border-radius: 8px; }
   .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip[aria-current='true'] { background: rgba(220, 255, 0, 0.12); color: var(--accent); border: 0; }
-  .shell-body[data-split]:has(.pinned-row) > main.page-wrap { padding-right: var(--space-5); }
+  .shell-body[data-split]:has(.pinned-row) > main.page-wrap { padding-left: var(--space-5); }
 }
 
 /* Google's Chrome Web Store badge — its own artwork, never restyled. */
@@ -869,3 +903,41 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .tool-disclaimer { margin: var(--space-3) 0 var(--space-5); }
 .tool-intro-links { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0 0; }
 .tool-intro-links a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+
+/* ---------- Hover states (D1) -------------------------------------------
+   Nothing on the page reacted to a mouse. These reuse the existing focus
+   colours, so a pointer gets the same signal a keyboard already had. */
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-secondary:hover:not(:disabled) { background: rgba(220, 255, 0, 0.08); }
+  /* :not() on the filled states — colouring a lime-filled pill's text lime
+     makes the label vanish (D1 review). */
+  .strip-chip:not([aria-current='true']):hover,
+  .seg:not(.seg-current):hover,
+  .view-toggle .pill:not(.pill-current):hover,
+  .accordion-btn:hover, .sort-btn:hover { color: var(--accent); }
+  .dc-title:hover { color: var(--accent); }
+  .tip-btn:hover { border-color: var(--accent); color: var(--accent); }
+}
+
+/* ---------- Fixes from the D1 walkthrough ------------------------------- */
+/* The deal-card title and inline links were Chrome's default blue. */
+.dc-title { color: var(--text); text-decoration: none; }
+.dc-title:visited { color: var(--text); }
+main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: var(--accent); }
+/* A tap target you can actually hit, without growing the 17px dot. */
+.tip-btn { position: relative; }
+.tip-btn::after { content: ''; position: absolute; inset: -0.6rem; }
+/* Flip's tax comparison: each column sizes to its own content, and the marker
+   sits on the first line of a label that wraps. */
+.tax-compare { align-items: start; }
+.tax-compare .accordion-btn { align-items: flex-start; }
+/* The quiz's Back link sat on top of the lime CTA at 390px. */
+.quiz-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
+/* The map's own controls were default white boxes on a dark map. */
+/* MapLibre's own stylesheet is appended at map mount, AFTER this file, so these
+   need a container class to outrank it (D1 review). */
+.comp-map .maplibregl-ctrl-group { background: var(--glass-bg-fallback); border: 1px solid var(--glass-border); }
+.comp-map .maplibregl-ctrl-group button { color: var(--accent); }
+.comp-map .maplibregl-ctrl-attrib, .comp-map .maplibregl-ctrl-attrib.maplibregl-compact { background-color: rgba(7, 0, 20, 0.82); color: var(--text); }
+.comp-map .maplibregl-ctrl-attrib a { color: var(--text); }

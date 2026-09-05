@@ -21,6 +21,7 @@ import { PMTiles, Protocol } from 'pmtiles';
 import type { Comp } from '@gil-bricks/core';
 import { circleRing, clusterForVariant, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
 import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
+import { MAP_COPY } from '../../config/misc';
 import { fmtMoney } from '@gil-bricks/core';
 import { sqmToSqft } from '@gil-bricks/core';
 
@@ -157,8 +158,6 @@ function circleGeoJson(data: MapData): Feature {
   };
 }
 
-const TYPE_WORDS: Record<string, string> = { D: 'Detached', S: 'Semi', T: 'Terraced', F: 'Flat', O: 'Other' };
-
 /** MapLibre's own stylesheet, self-hosted and fetched on FIRST MOUNT only —
  * importing it here would make the bundler put an 83KB render-blocking <link>
  * on every analyser page, map or no map (N3). */
@@ -238,7 +237,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
   map.addControl(
     new AttributionControl({
       compact: true,
-      customAttribution: 'Sold data © Crown copyright, OGL v3',
+      customAttribution: MAP_COPY.attribution,
     }),
     'bottom-right',
   );
@@ -251,10 +250,10 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
         div.className = 'maplibregl-ctrl maplibregl-ctrl-group';
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.title = 'Reset view';
-        btn.setAttribute('aria-label', 'Reset the map view');
+        btn.title = MAP_COPY.reset.tooltip;
+        btn.setAttribute('aria-label', MAP_COPY.reset.ariaLabel);
         btn.className = 'map-reset-btn';
-        btn.textContent = 'Reset';
+        btn.textContent = MAP_COPY.reset.button;
         btn.addEventListener('click', () => fitToData());
         div.appendChild(btn);
         return div;
@@ -429,10 +428,10 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
         .setHTML(
           `<p class="map-popup-price">${esc(p.label)}</p>` +
             `<p class="map-popup-line">${esc(p.address)}${p.town ? `, ${esc(p.town)}` : ''}</p>` +
-            `<p class="map-popup-line">${esc(p.date)} · ${esc(TYPE_WORDS[String(p.type)] ?? p.type)} · ${p.tenure === 'F' ? 'Freehold' : 'Leasehold'}${
+            `<p class="map-popup-line">${esc(p.date)} · ${esc(MAP_COPY.typeWords[String(p.type)] ?? p.type)} · ${p.tenure === 'F' ? MAP_COPY.freehold : MAP_COPY.leasehold}${
               p.persqft !== null ? ` · £${esc(p.persqft)}/sqft` : ''
             }</p>` +
-            `<p class="map-popup-link"><a href="/transaction?id=${encodeURIComponent(String(p.id))}">Details →</a></p>`,
+            `<p class="map-popup-link"><a href="/transaction?id=${encodeURIComponent(String(p.id))}">${MAP_COPY.details}</a></p>`,
         )
         .addTo(map);
     });

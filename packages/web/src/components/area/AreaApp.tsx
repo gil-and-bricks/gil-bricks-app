@@ -5,6 +5,7 @@
  * The 1-mile comparison reuses the ONE ComparablesEngine.
  */
 import type * as preact from 'preact';
+import { AREA_COPY } from '../../config/area';
 import { COPY } from '../../config/copy';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { computeStats, findComparables, type ComparablesResult } from '@gil-bricks/core';
@@ -52,8 +53,8 @@ function ExtLink({ href, children }: { href: string; children: preact.ComponentC
   return (
     <a href={href} target="_blank" rel="noopener">
       {children}
-      <span aria-hidden="true"> ↗</span>
-      <span class="sr-only"> (opens in a new tab)</span>
+      <span aria-hidden="true">{AREA_COPY.externalLink.icon}</span>
+      <span class="sr-only">{AREA_COPY.externalLink.newTab}</span>
     </a>
   );
 }
@@ -149,7 +150,7 @@ export function AreaApp() {
       const message =
         err instanceof ComparablesError
           ? err.message
-          : 'Something went wrong loading the data — please try again in a moment.';
+          : AREA_COPY.errors.loadFailed;
       setView({ kind: 'error', message });
     }
   };
@@ -170,15 +171,15 @@ export function AreaApp() {
   return (
     <div class="area">
       <form class="area-search glass card" action="/area-data" method="get" onSubmit={submit}>
-        <label for="area-pc">Postcode</label>
+        <label for="area-pc">{AREA_COPY.search.label}</label>
         <div class="area-search-row">
-          <input id="area-pc" name="pc" value={pc} placeholder="e.g. CF37 1DL" onInput={(e) => setPc((e.target as HTMLInputElement).value)} />
-          <button type="submit" class="btn-primary">See area data</button>
+          <input id="area-pc" name="pc" required value={pc} placeholder={AREA_COPY.search.placeholder} onInput={(e) => setPc((e.target as HTMLInputElement).value)} />
+          <button type="submit" class="btn-primary">{AREA_COPY.search.submit}</button>
         </div>
       </form>
 
       <p class="sr-only" role="status">
-        {view.kind === 'loading' ? 'Loading area data…' : view.kind === 'ready' ? 'Area data loaded.' : ''}
+        {view.kind === 'loading' ? AREA_COPY.status.loading : view.kind === 'ready' ? AREA_COPY.status.loaded : ''}
       </p>
 
       {view.kind === 'loading' && (
@@ -201,7 +202,7 @@ export function AreaApp() {
 }
 
 function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood }: Ready) {
-  const countryName = subject.country === 'W92000004' ? 'Wales' : 'England';
+  const countryName = subject.country === 'W92000004' ? AREA_COPY.countries.wales : AREA_COPY.countries.england;
   const town = sector ? modalTown(sector.sales) : null;
   const asOf = monthLabel(manifest.ppdMonth);
   const stats = sector?.stats ?? null;
@@ -210,7 +211,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
   // deprivation — strictly the index matching the sector's country
   const decile = subject.country === 'W92000004' ? entry?.wimdDecile : entry?.imdDecile;
   const coverage = subject.country === 'W92000004' ? entry?.wimdCoverage : entry?.imdCoverage;
-  const depSource = subject.country === 'W92000004' ? 'Welsh Index of Multiple Deprivation 2025' : 'Index of Multiple Deprivation 2025';
+  const depSource = subject.country === 'W92000004' ? AREA_COPY.deprivation.sourceWales : AREA_COPY.deprivation.sourceEngland;
 
   // HPI trend — country level (honest label; no local granularity yet)
   const index = ukhpi.index[subject.country];
@@ -242,13 +243,13 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
           {town ? ` · ${titleCase(town)}` : ''}
         </h2>
         <p class="hint">
-          <span class="badge">{countryName}</span> Sold data to {asOf} · postcode {subject.postcode}
+          <span class="badge">{countryName}</span> {AREA_COPY.header.soldDataTo} {asOf} {AREA_COPY.header.postcode} {subject.postcode}
         </p>
       </div>
 
       {sector === null && (
         <div class="glass card">
-          <h3>No recorded sales here in the last 12 months</h3>
+          <h3>{AREA_COPY.noSales.heading}</h3>
           <p>
             {COPY.area.thinMarket}{' '}
             <a href={`/comparables?postcode=${encodeURIComponent(subject.postcode)}`}>{COPY.area.thinMarketCta}</a>.
@@ -258,40 +259,40 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       {thin && stats && (
         <div class="glass card area-thin">
-          <strong>Thin market:</strong> only {stats.count} recorded {stats.count === 1 ? 'sale' : 'sales'} in the last 12
-          months — treat every number here with caution.
+          <strong>{AREA_COPY.thinMarket.label}</strong>{' '}
+          {AREA_COPY.thinMarket.body(stats.count)}
         </div>
       )}
 
       {stats && (
         <div class="glass card">
           <h3>
-            Sold prices in {subject.sectorId} <Tooltip text={tip('area.soldPrices')} />
+            {AREA_COPY.soldPrices.heading} {subject.sectorId} <Tooltip text={tip('area.soldPrices')} />
           </h3>
           <p class="big-figure">{fmtMoney(stats.typicalPrice)}</p>
           <p class="count-line">
-            typical sold price from {stats.count} {stats.count === 1 ? 'sale' : 'sales'}
+            {AREA_COPY.soldPrices.count(stats.count)}
             {stats.count >= 3 && (
               <>
-                {' '}· 80% sold between {fmtMoney(stats.p10Price)} and {fmtMoney(stats.p90Price)}
+                {' '}{AREA_COPY.soldPrices.spread(fmtMoney(stats.p10Price), fmtMoney(stats.p90Price))}
               </>
             )}
             {perSqft !== null && (
               <>
-                {' '}· typical <strong>£{perSqft}/sqft</strong> <Tooltip text={tip('comps.persqft')} />
+                {' '}{AREA_COPY.soldPrices.perSqftLead} <strong>{AREA_COPY.soldPrices.perSqft(perSqft)}</strong> <Tooltip text={tip('comps.persqft')} />
               </>
             )}
           </p>
           {entry?.typicalPriceByType && (
             <table class="area-types">
-              <caption class="area-types-caption">Typical price by property type</caption>
+              <caption class="area-types-caption">{AREA_COPY.propertyTypes.caption}</caption>
               <thead>
-                <tr><th scope="col">Detached</th><th scope="col">Semi</th><th scope="col">Terraced</th><th scope="col">Flat</th></tr>
+                <tr><th scope="col">{AREA_COPY.propertyTypes.detached}</th><th scope="col">{AREA_COPY.propertyTypes.semi}</th><th scope="col">{AREA_COPY.propertyTypes.terraced}</th><th scope="col">{AREA_COPY.propertyTypes.flat}</th></tr>
               </thead>
               <tbody>
                 <tr>
                   {(['D', 'S', 'T', 'F'] as const).map((t) => (
-                    <td>{entry.typicalPriceByType![t] !== null ? fmtMoney(entry.typicalPriceByType![t]!) : <span class="hint">not enough sales</span>}</td>
+                    <td>{entry.typicalPriceByType![t] !== null ? fmtMoney(entry.typicalPriceByType![t]!) : <span class="hint">{AREA_COPY.propertyTypes.notEnough}</span>}</td>
                   ))}
                 </tr>
               </tbody>
@@ -303,23 +304,19 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
                 {COPY.area.wideSweep}
               </span>
             ) : mile === 'failed' ? (
-              <span class="area-vs-wait">The 1-mile comparison isn't available right now — everything above still is.</span>
+              <span class="area-vs-wait">{AREA_COPY.surroundings.failed}</span>
             ) : vsMile !== null ? (
               <>
-                {vsMile === 0 ? 'In line with' : `${Math.abs(vsMile)}% ${vsMile > 0 ? 'above' : 'below'}`} the surrounding
-                mile (typical {fmtMoney(mileTypical!)} from {around.length} sales in {aroundSectors} nearby{' '}
-                {aroundSectors === 1 ? 'sector' : 'sectors'}, this sector excluded).
+                {vsMile === 0 ? AREA_COPY.surroundings.inLine : AREA_COPY.surroundings.difference(Math.abs(vsMile), vsMile > 0)}{' '}
+                {AREA_COPY.surroundings.body(fmtMoney(mileTypical!), around.length, aroundSectors)}
               </>
             ) : (
-              <span class="area-vs-wait">Not enough sales in the surrounding mile for a fair comparison.</span>
+              <span class="area-vs-wait">{AREA_COPY.surroundings.notEnough}</span>
             )}
           </p>
-          <Accordion label="How is the typical price worked out?">
+          <Accordion label={AREA_COPY.typicalMaths.label}>
             <p>
-              We list every sale in the sector from the last 12 months in price order, set aside the cheapest quarter and
-              the dearest quarter, and average the rest. With {stats.count} sales that means setting aside {drop} from
-              each end and averaging the middle {stats.count - 2 * drop}. Statisticians call this the interquartile mean —
-              it stops one mansion or one bargain dragging the number around.
+              {AREA_COPY.typicalMaths.body(stats.count, drop, stats.count - 2 * drop)}
             </p>
           </Accordion>
         </div>
@@ -331,24 +328,24 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card">
         <h3>
-          Price trend — {countryName} <Tooltip text={tip('area.priceTrend')} />
+          {AREA_COPY.trend.heading} {countryName} <Tooltip text={tip('area.priceTrend')} />
         </h3>
         {series.length >= 2 ? (
           <>
-            <TrendLine series={series} label={`${countryName} UK HPI over 5 years`} />
+            <TrendLine series={series} label={AREA_COPY.trend.chartLabel(countryName)} />
             <p class="count-line">
               {chg1 !== null && (
                 <>
-                  1 year: <strong>{chg1 > 0 ? '+' : ''}{chg1}%</strong>
+                  {AREA_COPY.trend.oneYear} <strong>{chg1 > 0 ? '+' : ''}{chg1}%</strong>
                 </>
               )}
               {chg1 !== null && chg5 !== null && ' · '}
               {chg5 !== null && (
                 <>
-                  5 years (total): <strong>{chg5 > 0 ? '+' : ''}{chg5}%</strong>
+                  {AREA_COPY.trend.fiveYears} <strong>{chg5 > 0 ? '+' : ''}{chg5}%</strong>
                 </>
               )}
-              {' '}· UK HPI to {monthLabel(ukhpi.ukhpiMonth)}
+              {' '}{AREA_COPY.trend.asOfLead} {monthLabel(ukhpi.ukhpiMonth)}
             </p>
             <p class="hint">
               {COPY.area.hpiScope(countryName)}
@@ -362,14 +359,14 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
       {entry?.salesByMonth && (
         <div class="glass card">
           <h3>
-            Market activity <Tooltip text={tip('area.marketActivity')} />
+            {AREA_COPY.activity.heading} <Tooltip text={tip('area.marketActivity')} />
           </h3>
           <Sparkline counts={entry.salesByMonth} asOf={manifest.ppdMonth} />
           <p class="count-line">
-            {entry.salesByMonth.reduce((a, b) => a + b, 0)} sales in the 12 months to {asOf}
-            {entry.newBuildShare !== undefined && <>{' '}· {Math.round(entry.newBuildShare * 100)}% new build</>}
+            {entry.salesByMonth.reduce((a, b) => a + b, 0)} {AREA_COPY.activity.salesTo} {asOf}
+            {entry.newBuildShare !== undefined && <>{' '}{AREA_COPY.activity.newBuild(Math.round(entry.newBuildShare * 100))}</>}
             {entry.freeholdShare !== undefined && (
-              <>{' '}· {Math.round(entry.freeholdShare * 100)}% freehold / {100 - Math.round(entry.freeholdShare * 100)}% leasehold</>
+              <>{' '}{AREA_COPY.activity.tenure(Math.round(entry.freeholdShare * 100), 100 - Math.round(entry.freeholdShare * 100))}</>
             )}
           </p>
         </div>
@@ -377,11 +374,11 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card">
         <h3>
-          Deprivation <Tooltip text={tip('area.deprivation')} />
+          {AREA_COPY.deprivation.heading} <Tooltip text={tip('area.deprivation')} />
         </h3>
         {decile !== undefined && decile !== null ? (
           <>
-            <div class="dep-scale" role="img" aria-label={`Decile ${decile} of 10 — ${decileWords(decile)}`}>
+            <div class="dep-scale" role="img" aria-label={AREA_COPY.deprivation.scaleLabel(decile, decileWords(decile))}>
               {Array.from({ length: 10 }, (_, i) => (
                 <span class={i + 1 === decile ? 'dep-cell dep-on' : 'dep-cell'} aria-hidden="true">
                   {i + 1}
@@ -389,12 +386,11 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
               ))}
             </div>
             <p>
-              This sector is {decileWords(decile)} of {countryName} (decile {decile} of 10, where 1 is the most deprived
-              tenth and 10 the least).
+              {AREA_COPY.deprivation.sentence(decileWords(decile), countryName, decile)}
             </p>
             <p class="hint">
-              Source: {depSource}
-              {coverage !== undefined && coverage < 0.9 && <> · based on {Math.round(coverage * 100)}% of postcodes here</>}
+              {AREA_COPY.deprivation.sourceLead} {depSource}
+              {coverage !== undefined && coverage < 0.9 && <>{' '}{AREA_COPY.deprivation.coverage(Math.round(coverage * 100))}</>}
               . {COPY.area.deprivationScope}
             </p>
           </>
@@ -405,21 +401,21 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card layer-card">
         <h3>
-          Crime <Tooltip text={tip('area.crime')} />
+          {AREA_COPY.crime.heading} <Tooltip text={tip('area.crime')} />
         </h3>
-        <span class="sr-only" role="status">{crime === 'loading' ? 'Loading crime data…' : ''}</span>
+        <span class="sr-only" role="status">{crime === 'loading' ? AREA_COPY.crime.loading : ''}</span>
         {crime === 'loading' ? (
           <div aria-hidden="true">
             <div class="skeleton sk-line" />
             <div class="skeleton sk-line short" />
           </div>
         ) : crime === 'failed' ? (
-          <p class="hint">Crime data unavailable right now (police.uk).</p>
+          <p class="hint">{AREA_COPY.crime.unavailable}</p>
         ) : (
           <>
             <p class="count-line">
-              <strong>{crime.total}</strong> incidents recorded in {monthLabel(crime.month)} within{' '}
-              {crime.radiusMiles === 1 ? '1 mile' : 'roughly half a mile'} of this postcode
+              <strong>{crime.total}</strong>{' '}
+              {AREA_COPY.crime.summary(monthLabel(crime.month), crime.radiusMiles === 1 ? AREA_COPY.crime.oneMile : AREA_COPY.crime.halfMile)}
             </p>
             {crime.radiusMiles === 0.5 && (
               <p class="hint">{COPY.area.crimeHalfMile}</p>
@@ -434,7 +430,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
               </ul>
             )}
             <p class="hint">
-              {COPY.area.crimeScope} Crime data: data.police.uk (OGL v3).
+              {COPY.area.crimeScope} {AREA_COPY.crime.attribution}
             </p>
           </>
         )}
@@ -442,32 +438,32 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
 
       <div class="glass card layer-card">
         <h3>
-          Flood <Tooltip text={tip('area.flood')} />
+          {AREA_COPY.flood.heading} <Tooltip text={tip('area.flood')} />
         </h3>
-        <span class="sr-only" role="status">{flood === 'loading' ? 'Loading flood data…' : ''}</span>
+        <span class="sr-only" role="status">{flood === 'loading' ? AREA_COPY.flood.loading : ''}</span>
         {flood === 'loading' ? (
           <div aria-hidden="true">
             <div class="skeleton sk-line" />
             <div class="skeleton sk-line short" />
           </div>
         ) : flood === 'failed' ? (
-          <p class="hint">Live flood data unavailable right now (Environment Agency).</p>
+          <p class="hint">{AREA_COPY.flood.unavailable}</p>
         ) : flood === 'wales' ? (
           <p>
-            Live flood alerts for Wales are published by Natural Resources Wales —{' '}
-            <ExtLink href={OFFICIAL_LINKS.floodAlertsWales}>see live alerts (NRW)</ExtLink>
+            {AREA_COPY.flood.walesLead}{' '}
+            <ExtLink href={OFFICIAL_LINKS.floodAlertsWales}>{AREA_COPY.flood.walesLink}</ExtLink>
             .
           </p>
         ) : flood.length === 0 ? (
           <>
-            <p>No current flood alerts in this area.</p>
+            <p>{AREA_COPY.flood.none}</p>
             <p class="hint">{COPY.area.floodSource}</p>
           </>
         ) : (
           <>
             <p>
-              <strong>{flood.length}</strong> current flood {flood.length === 1 ? 'alert' : 'alerts'} in or near this
-              area (within about 3 miles):
+              <strong>{flood.length}</strong>{' '}
+              {AREA_COPY.flood.alerts(flood.length)}
             </p>
             <ul class="crime-list">
               {flood.map((a) => (
@@ -480,42 +476,42 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
           </>
         )}
         <p class="hint">
-          Long-term risk is a different question —{' '}
+          {AREA_COPY.flood.longTermLead}{' '}
           <ExtLink href={subject.country === 'W92000004' ? OFFICIAL_LINKS.floodRiskWales : OFFICIAL_LINKS.floodRiskEngland}>
-            check long-term flood risk for this postcode ({subject.country === 'W92000004' ? 'NRW' : 'GOV.UK'})
+            {AREA_COPY.flood.longTermLink(subject.country === 'W92000004' ? AREA_COPY.official.authorityWales : AREA_COPY.official.authorityEngland)}
           </ExtLink>
           .
         </p>
       </div>
 
       <div class="glass card">
-        <h3>Official checks</h3>
+        <h3>{AREA_COPY.official.heading}</h3>
         <ul class="checks-list">
           <li>
             <ExtLink href={subject.country === 'W92000004' ? OFFICIAL_LINKS.floodRiskWales : OFFICIAL_LINKS.floodRiskEngland}>
-              Long-term flood risk checker ({subject.country === 'W92000004' ? 'NRW' : 'GOV.UK'})
+              {AREA_COPY.official.floodRisk(subject.country === 'W92000004' ? AREA_COPY.official.authorityWales : AREA_COPY.official.authorityEngland)}
             </ExtLink>
           </li>
           <li>
-            <ExtLink href={OFFICIAL_LINKS.councilTaxBands}>Council tax band checker (GOV.UK)</ExtLink>
+            <ExtLink href={OFFICIAL_LINKS.councilTaxBands}>{AREA_COPY.official.councilTax}</ExtLink>
           </li>
           <li>
-            <ExtLink href={OFFICIAL_LINKS.findLocalCouncil}>Find your local council — HMO and licensing questions (GOV.UK)</ExtLink>
+            <ExtLink href={OFFICIAL_LINKS.findLocalCouncil}>{AREA_COPY.official.findCouncil}</ExtLink>
           </li>
           <li>
-            <ExtLink href={OFFICIAL_LINKS.landRegistrySoldPrices}>Sold prices (HM Land Registry)</ExtLink>
+            <ExtLink href={OFFICIAL_LINKS.landRegistrySoldPrices}>{AREA_COPY.official.landRegistry}</ExtLink>
           </li>
         </ul>
-        <p class="hint">These are official services — we link, we don't copy.</p>
+        <p class="hint">{AREA_COPY.official.note}</p>
       </div>
 
-      <nav class="glass card area-strip" aria-label="Analyse a property here">
-        <span class="area-strip-label">Analyse a property here as</span>
+      <nav class="glass card area-strip" aria-label={AREA_COPY.analyse.navLabel}>
+        <span class="area-strip-label">{AREA_COPY.analyse.label}</span>
         <span class="area-strip-links">
           {strategies.map((s) => (
             <a class="pill" href={`${s.route}/analyser?postcode=${encodeURIComponent(subject.postcode)}`}>{s.name}</a>
           ))}
-          <a class="pill" href={`/comparables?postcode=${encodeURIComponent(subject.postcode)}`}>Sold comparables</a>
+          <a class="pill" href={`/comparables?postcode=${encodeURIComponent(subject.postcode)}`}>{AREA_COPY.analyse.comparables}</a>
         </span>
       </nav>
     </>
@@ -527,7 +523,7 @@ function AreaMapCard({ subject, mile }: { subject: { lat: number; lng: number };
   return (
     <div class="glass card">
       <h3>
-        Where these sold <Tooltip text={tip('area.whereSold')} />
+        {AREA_COPY.map.heading} <Tooltip text={tip('area.whereSold')} />
       </h3>
       <button
         type="button"
@@ -536,7 +532,7 @@ function AreaMapCard({ subject, mile }: { subject: { lat: number; lng: number };
         aria-controls="area-map-body"
         onClick={() => setOpen((o) => !o)}
       >
-        {open ? 'Hide map' : 'Show map'}
+        {open ? AREA_COPY.map.hide : AREA_COPY.map.show}
       </button>
       <div id="area-map-body" hidden={!open}>
         {open && <CompMap subject={subject} radiusMiles={1} comps={mile.comps} selectedId={null} variant="density" />}
@@ -565,7 +561,7 @@ function TrendLine({ series, label }: { series: { month: string; value: number }
 function Sparkline({ counts, asOf }: { counts: number[]; asOf: string }) {
   const max = Math.max(...counts, 1);
   return (
-    <div class="spark" role="img" aria-label={`Monthly sales over the 12 months to ${monthLabel(asOf)}: ${counts.join(', ')}`}>
+    <div class="spark" role="img" aria-label={AREA_COPY.activity.sparkLabel(monthLabel(asOf), counts.join(', '))}>
       {counts.map((c) => (
         <span
           class={c === 0 ? 'spark-bar spark-zero' : 'spark-bar'}

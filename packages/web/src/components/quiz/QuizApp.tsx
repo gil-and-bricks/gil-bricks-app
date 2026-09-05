@@ -2,6 +2,7 @@
  * every step (never a wall). Nothing is saved anywhere. */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import quizJson from '../../config/quiz.json';
+import { QUIZ_COPY } from '../../config/misc';
 import { strategies } from '@gil-bricks/core';
 import { scoreQuiz, validateQuiz } from '../../lib/quiz/quiz';
 
@@ -39,13 +40,14 @@ export function QuizApp() {
     const str = q.toString();
     return `${route}/analyser${str ? `?${str}` : ''}`;
   };
-  const skipHref = cleanPostcode !== '' ? `/comparables?postcode=${encodeURIComponent(cleanPostcode)}` : '/comparables';
+  // The label says tools, so the link goes to tools (D1).
+  const skipHref = '/tools';
 
   return (
     <div class="quiz glass card">
       {!done && (
         <p class="quiz-progress">
-          <span class="sr-only">{`Step ${step + 1} of ${total + 1}`}</span>
+          <span class="sr-only">{QUIZ_COPY.progress(step + 1, total + 1)}</span>
           {Array.from({ length: total + 1 }, (_, i) => (
             <span class={i <= step ? 'dot dot-on' : 'dot'} aria-hidden="true" />
           ))}
@@ -56,16 +58,16 @@ export function QuizApp() {
         <>
           <h2 ref={headingRef} tabindex={-1}>{quiz.intro.title}</h2>
           <p class="hint">{quiz.intro.body}</p>
-          <p class="quiz-optional">Got a property in mind? (optional)</p>
+          <p class="quiz-optional">{QUIZ_COPY.optionalLead}</p>
           <div class="row">
-            <label>Postcode
+            <label>{QUIZ_COPY.postcode}
               <input value={postcode} onInput={(e) => setPostcode((e.target as HTMLInputElement).value)} />
             </label>
-            <label>Budget (£)
+            <label>{QUIZ_COPY.budget}
               <input inputMode="numeric" value={budget} onInput={(e) => setBudget((e.target as HTMLInputElement).value)} />
             </label>
           </div>
-          <button type="button" class="btn-primary" onClick={() => setStep(1)}>Start</button>
+          <button type="button" class="btn-primary" onClick={() => setStep(1)}>{QUIZ_COPY.start}</button>
         </>
       )}
 
@@ -94,7 +96,7 @@ export function QuizApp() {
                 );
               })}
             </div>
-            <button type="button" class="btn-secondary" onClick={() => setStep(step - 1)}>Back</button>
+            <button type="button" class="btn-secondary" onClick={() => setStep(step - 1)}>{QUIZ_COPY.back}</button>
           </>
         );
       })()}
@@ -103,13 +105,15 @@ export function QuizApp() {
         <>
           <h2 ref={headingRef} tabindex={-1}>{quiz.results[winner].headline}</h2>
           <p>{quiz.results[winner].body}</p>
-          <a class="btn-primary" href={deepLink(winnerConfig.route)}>Open the {winnerConfig.name} analyser</a>
-          <button type="button" class="btn-secondary" onClick={() => setStep(total)}>Back</button>
+          <div class="quiz-actions">
+            <a class="btn-primary" href={deepLink(winnerConfig.route)}>{QUIZ_COPY.openAnalyser(winnerConfig.name)}</a>
+            <button type="button" class="btn-secondary" onClick={() => setStep(total)}>{QUIZ_COPY.back}</button>
+          </div>
         </>
       )}
 
       <p class="quiz-skip">
-        <a href={skipHref}>Skip — take me to the tools</a>
+        <a href={skipHref}>{QUIZ_COPY.skip}</a>
       </p>
     </div>
   );

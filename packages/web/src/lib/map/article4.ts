@@ -12,6 +12,8 @@
  * with the council. See docs/DECISIONS_LOG.md S7.2.
  */
 
+import { ARTICLE4_COPY } from '../../config/misc';
+
 const API = 'https://www.planning.data.gov.uk';
 const DATASET = 'article-4-direction-area';
 
@@ -91,8 +93,6 @@ export interface Article4Flag {
   detail: string;
 }
 
-const CAVEAT = 'Coverage is incomplete and councils change these — always confirm with the council before you buy.';
-
 /**
  * The honest verdict flag from a point lookup. Pure — tested. `country` is the
  * ONSPD code so Welsh postcodes (outside this England dataset) say so plainly.
@@ -102,20 +102,19 @@ export function article4Flag(result: Article4Result, country: string): Article4F
     return {
       state: 'wales',
       mentionsHmo: false,
-      headline: 'Article 4 not checked here',
-      detail:
-        'The national dataset covers England only. In Wales, check with the council.',
+      headline: ARTICLE4_COPY.wales.headline,
+      detail: ARTICLE4_COPY.wales.detail,
     };
   }
   if (!result.ok) {
-    return { state: 'unknown', mentionsHmo: false, headline: 'Article 4 couldn’t be checked', detail: `The planning data service didn’t respond. ${CAVEAT}` };
+    return { state: 'unknown', mentionsHmo: false, headline: ARTICLE4_COPY.unavailable.headline, detail: ARTICLE4_COPY.unavailable.detail };
   }
   if (result.areas.length === 0) {
     return {
       state: 'clear',
       mentionsHmo: false,
-      headline: 'No Article 4 direction recorded here',
-      detail: `Nothing in the national planning dataset at this point — but ${CAVEAT}`,
+      headline: ARTICLE4_COPY.clear.headline,
+      detail: ARTICLE4_COPY.clear.detail,
     };
   }
   const hmoYes = result.areas.some((a) => a.hmoRight === 'yes');
@@ -124,23 +123,23 @@ export function article4Flag(result: Article4Result, country: string): Article4F
     return {
       state: 'inside',
       mentionsHmo: true,
-      headline: 'Article 4 recorded here — likely affects small HMOs',
-      detail: `The recorded Article 4 direction here removes the small-HMO (C3→C4) permitted-development right, so a small HMO would likely need planning permission. ${CAVEAT}`,
+      headline: ARTICLE4_COPY.hmo.headline,
+      detail: ARTICLE4_COPY.hmo.detail,
     };
   }
   if (allNo) {
     return {
       state: 'inside',
       mentionsHmo: false,
-      headline: 'Article 4 direction recorded here (not small-HMO)',
-      detail: `An Article 4 direction is recorded here, but the recorded right it removes is not the small-HMO (C3→C4) right. ${CAVEAT}`,
+      headline: ARTICLE4_COPY.otherRight.headline,
+      detail: ARTICLE4_COPY.otherRight.detail,
     };
   }
   return {
     state: 'inside',
     mentionsHmo: false,
-    headline: 'Article 4 direction recorded here',
-    detail: `An Article 4 direction is recorded here. The record doesn’t specify which right it removes — it may or may not restrict small HMOs. ${CAVEAT}`,
+    headline: ARTICLE4_COPY.unspecified.headline,
+    detail: ARTICLE4_COPY.unspecified.detail,
   };
 }
 

@@ -69,7 +69,7 @@ export function RentalYieldTool() {
   };
   const errors = {
     price: Number(price) <= 0,
-    rent: rent === '' || Number(rent) < 0,
+    rent: Number(rent) <= 0,
     costs: Object.values(costErrors).some((e) => e !== null),
   };
 

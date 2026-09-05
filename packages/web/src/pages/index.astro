@@ -27,7 +27,7 @@ const store = siteConfig.chromeStoreUrl.trim();
     <form class="home-search glass card" action="/area-data" method="get">
       <label for="home-pc">Start with a postcode</label>
       <div class="home-search-row">
-        <input id="home-pc" name="pc" placeholder="e.g. CF37 1DL" autocomplete="postal-code" />
+        <input id="home-pc" name="pc" required placeholder="e.g. CF37 1DL" autocomplete="postal-code" />
         <button type="submit" class="btn-primary">See area data</button>
       </div>
     </form>

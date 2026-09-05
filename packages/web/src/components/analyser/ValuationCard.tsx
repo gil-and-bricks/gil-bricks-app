@@ -1,4 +1,5 @@
 import { fmtMoney } from '@gil-bricks/core';
+import { SECTION_STRIP } from '../../config/analyserSections';
 import { COPY } from '../../config/copy';
 import type { Valuation } from '@gil-bricks/core';
 import type { AddressCandidate } from '@gil-bricks/core';
@@ -12,10 +13,10 @@ export function ValuationCard({ valuation, lrState, candidates }: {
 }) {
   return (
     <section class="glass card" id="valuation" aria-labelledby="val-h">
-      <h2 id="val-h">What it's worth</h2>
+      <h2 id="val-h">{COPY.valuation.title}</h2>
       {candidates && candidates.length > 0 && (
         <div class="picker">
-          <p>Which address is it? We found more than one match:</p>
+          <p>{COPY.valuation.addressPicker}</p>
           <div class="picker-row">
             {candidates.map((c) => (
               <button type="button" class="mini-btn" onClick={() => update({ paon: c.paon, saon: c.saon })}>
@@ -43,7 +44,7 @@ export function ValuationCard({ valuation, lrState, candidates }: {
         <>
           <p class="big-figure">{fmtMoney(valuation.estimate)}</p>
           <p class="range-line">
-            Likely between <strong>{fmtMoney(valuation.range.low)}</strong> and{' '}
+            {COPY.valuation.rangeLead} <strong>{fmtMoney(valuation.range.low)}</strong> {COPY.valuation.rangeJoin}{' '}
             <strong>{fmtMoney(valuation.range.high)}</strong> — {valuation.range.label}.
           </p>
           <p class="hint">{valuation.confidenceReason}.</p>
@@ -56,7 +57,7 @@ export function ValuationCard({ valuation, lrState, candidates }: {
               <MathsAccordion breakdown={l.breakdown} />
             </div>
           ))}
-          <MathsAccordion breakdown={valuation.breakdown} />
+          <MathsAccordion breakdown={valuation.breakdown} label={SECTION_STRIP.mathsFor(valuation.breakdown.label.toLowerCase())} />
           <p class="context-note">{COPY.valuation.contextOnly}</p>
         </>
       )}

@@ -7,6 +7,7 @@ import { lookupEpcArea } from './epcArea';
 import { tip } from '../../content/microcopy';
 import { ProvBadge } from './ProvBadge';
 import { markEdited, areaEpc } from './provenance';
+import { SUBJECT_FORM } from '../../config/analyserForm';
 
 // Tooltip copy lives in src/content/microcopy.ts (edit words there, not here).
 const TIPS: Record<string, string> = {
@@ -35,104 +36,109 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
     const found = await lookupEpcArea(s.postcode, s.paon);
     setEpcBusy(false);
     if (found === null) {
-      setEpcMsg('No EPC match found for this address.');
+      setEpcMsg(SUBJECT_FORM.epc.noMatch);
     } else if (state.value.area === '') {
       update({ area: String(found) });
       setAreaSource('epc');
       areaEpc.value = true; // provenance: this area is from EPC data
     } else {
-      setEpcMsg(`EPC says ${found} sqm — your figure kept.`);
+      setEpcMsg(SUBJECT_FORM.epc.keptYours(found));
     }
   };
 
   return (
     <form class="subject-form" onSubmit={(e) => e.preventDefault()}>
       <div class="field">
-        <label for="f-postcode">Postcode <Tooltip text={TIPS.postcode} /> <ProvBadge field="postcode" /></label>
+        <label for="f-postcode">{SUBJECT_FORM.labels.postcode} <Tooltip text={TIPS.postcode} /> <ProvBadge field="postcode" /></label>
         <input id="f-postcode" inputMode="text" autocomplete="postal-code" value={s.postcode}
           onInput={(e) => { update({ postcode: (e.target as HTMLInputElement).value.toUpperCase() }); markEdited('postcode'); }} />
         {postcodeError && <p class="field-error" role="alert">{postcodeError}</p>}
       </div>
       <div class="field">
-        <label for="f-paon">House number / name <Tooltip text={TIPS.paon} /> <ProvBadge field="paon" /></label>
+        <label for="f-paon">{SUBJECT_FORM.labels.paon} <Tooltip text={TIPS.paon} /> <ProvBadge field="paon" /></label>
         <input id="f-paon" value={s.paon}
           onInput={(e) => { update({ paon: (e.target as HTMLInputElement).value, saon: '' }); markEdited('paon'); }} />
       </div>
       <div class="field">
-        <label for="f-price">Price (£) <Tooltip text={TIPS.price} /> <ProvBadge field="price" /></label>
+        <label for="f-price">{SUBJECT_FORM.labels.price} <Tooltip text={TIPS.price} /> <ProvBadge field="price" /></label>
         <MoneyInput id="f-price" value={s.price} onValue={(price) => update({ price })} onEdited={() => markEdited('price')} />
       </div>
       <div class="field">
-        <label for="f-type">Property type <Tooltip text={TIPS.type} /> <ProvBadge field="type" /></label>
+        <label for="f-type">{SUBJECT_FORM.labels.type} <Tooltip text={TIPS.type} /> <ProvBadge field="type" /></label>
         <select id="f-type" value={s.type} onChange={(e) => { update({ type: (e.target as HTMLSelectElement).value as never }); markEdited('type'); }}>
-          <option value="">Choose…</option>
-          <option value="D">Detached</option>
-          <option value="S">Semi-detached</option>
-          <option value="T">Terraced</option>
-          <option value="F">Flat</option>
+          <option value="">{SUBJECT_FORM.choices.typePrompt}</option>
+          <option value="D">{SUBJECT_FORM.choices.type.detached}</option>
+          <option value="S">{SUBJECT_FORM.choices.type.semiDetached}</option>
+          <option value="T">{SUBJECT_FORM.choices.type.terraced}</option>
+          <option value="F">{SUBJECT_FORM.choices.type.flat}</option>
         </select>
       </div>
       <div class="field">
-        <label for="f-area">Internal area (sqm) <Tooltip text={TIPS.area} /> <ProvBadge field="area" /></label>
+        <label for="f-area">{SUBJECT_FORM.labels.area} <Tooltip text={TIPS.area} /> <ProvBadge field="area" /></label>
         <div class="row">
           <input id="f-area" inputMode="numeric" value={s.area}
             onInput={(e) => { update({ area: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); setAreaSource('user'); areaEpc.value = false; markEdited('area'); }} />
-          <button type="button" class="mini-btn" onClick={findArea} disabled={epcBusy || s.paon.trim() === ''}>
-            {epcBusy ? '…' : 'EPC lookup'}
+          <button type="button" class="mini-btn" onClick={findArea}
+            disabled={epcBusy || s.paon.trim() === ''}
+            title={s.paon.trim() === '' ? SUBJECT_FORM.epc.needsNumber : undefined}
+            aria-describedby={s.paon.trim() === '' ? 'epc-needs' : undefined}>
+            {epcBusy ? SUBJECT_FORM.epc.lookupBusy : SUBJECT_FORM.epc.lookupButton}
           </button>
         </div>
-        {areaSource === 'epc' && <p class="field-hint">From the EPC match for this address — edit to override.</p>}
+        {/* A greyed button with no reason reads as broken (D1). */}
+        {s.paon.trim() === '' && <p id="epc-needs" class="field-hint">{SUBJECT_FORM.epc.needsNumber}</p>}
+        {areaSource === 'epc' && <p class="field-hint">{SUBJECT_FORM.epc.fromEpc}</p>}
         {epcMsg && <p class="field-hint" role="status">{epcMsg}</p>}
       </div>
       <div class="field">
-        <label for="f-beds">Bedrooms <Tooltip text={TIPS.beds} /> <ProvBadge field="beds" /></label>
+        <label for="f-beds">{SUBJECT_FORM.labels.beds} <Tooltip text={TIPS.beds} /> <ProvBadge field="beds" /></label>
         <select id="f-beds" value={s.beds} onChange={(e) => { update({ beds: (e.target as HTMLSelectElement).value }); markEdited('beds'); }}>
-          <option value="">—</option>
+          <option value="">{SUBJECT_FORM.choices.empty}</option>
           {['1', '2', '3', '4', '5', '6+'].map((b) => <option value={b}>{b}</option>)}
         </select>
       </div>
       <div class="field">
-        <label for="f-baths">Bathrooms <Tooltip text={TIPS.baths} /> <ProvBadge field="baths" /></label>
+        <label for="f-baths">{SUBJECT_FORM.labels.baths} <Tooltip text={TIPS.baths} /> <ProvBadge field="baths" /></label>
         <select id="f-baths" value={s.baths} onChange={(e) => { update({ baths: (e.target as HTMLSelectElement).value }); markEdited('baths'); }}>
-          <option value="">—</option>
+          <option value="">{SUBJECT_FORM.choices.empty}</option>
           {['1', '2', '3+'].map((b) => <option value={b}>{b}</option>)}
         </select>
       </div>
       <div class="field">
-        <label for="f-refurb">Refurb needed <Tooltip text={TIPS.refurb} /></label>
+        <label for="f-refurb">{SUBJECT_FORM.labels.refurb} <Tooltip text={TIPS.refurb} /></label>
         <select id="f-refurb" value={s.refurb} onChange={(e) => update({ refurb: (e.target as HTMLSelectElement).value as never })}>
-          <option value="">—</option>
-          <option value="none">None</option>
-          <option value="light">Light</option>
-          <option value="moderate">Moderate</option>
-          <option value="heavy">Heavy</option>
+          <option value="">{SUBJECT_FORM.choices.empty}</option>
+          <option value="none">{SUBJECT_FORM.choices.refurb.none}</option>
+          <option value="light">{SUBJECT_FORM.choices.refurb.light}</option>
+          <option value="moderate">{SUBJECT_FORM.choices.refurb.moderate}</option>
+          <option value="heavy">{SUBJECT_FORM.choices.refurb.heavy}</option>
         </select>
       </div>
       <div class="field">
-        <label for="f-age">Age band <Tooltip text={TIPS.age} /></label>
+        <label for="f-age">{SUBJECT_FORM.labels.age} <Tooltip text={TIPS.age} /></label>
         <select id="f-age" value={s.age} onChange={(e) => update({ age: (e.target as HTMLSelectElement).value as never })}>
-          <option value="">—</option>
-          <option value="pre1900">Pre-1900</option>
-          <option value="1900-1949">1900–1949</option>
-          <option value="1950-1999">1950–1999</option>
-          <option value="2000plus">2000 on</option>
+          <option value="">{SUBJECT_FORM.choices.empty}</option>
+          <option value="pre1900">{SUBJECT_FORM.choices.age.pre1900}</option>
+          <option value="1900-1949">{SUBJECT_FORM.choices.age.from1900}</option>
+          <option value="1950-1999">{SUBJECT_FORM.choices.age.from1950}</option>
+          <option value="2000plus">{SUBJECT_FORM.choices.age.from2000}</option>
         </select>
       </div>
       <div class="field">
-        <label for="f-garden">Garden <Tooltip text={TIPS.garden} /></label>
+        <label for="f-garden">{SUBJECT_FORM.labels.garden} <Tooltip text={TIPS.garden} /></label>
         <select id="f-garden" value={s.garden} onChange={(e) => update({ garden: (e.target as HTMLSelectElement).value as never })}>
-          <option value="">—</option>
-          <option value="none">None</option>
-          <option value="yes">Yes</option>
+          <option value="">{SUBJECT_FORM.choices.empty}</option>
+          <option value="none">{SUBJECT_FORM.choices.garden.none}</option>
+          <option value="yes">{SUBJECT_FORM.choices.garden.yes}</option>
         </select>
       </div>
       <div class="field">
-        <label for="f-parking">Parking <Tooltip text={TIPS.parking} /></label>
+        <label for="f-parking">{SUBJECT_FORM.labels.parking} <Tooltip text={TIPS.parking} /></label>
         <select id="f-parking" value={s.parking} onChange={(e) => update({ parking: (e.target as HTMLSelectElement).value as never })}>
-          <option value="">—</option>
-          <option value="0">None</option>
-          <option value="1">1 space</option>
-          <option value="2plus">2+</option>
+          <option value="">{SUBJECT_FORM.choices.empty}</option>
+          <option value="0">{SUBJECT_FORM.choices.parking.none}</option>
+          <option value="1">{SUBJECT_FORM.choices.parking.one}</option>
+          <option value="2plus">{SUBJECT_FORM.choices.parking.twoPlus}</option>
         </select>
       </div>
     </form>

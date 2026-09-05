@@ -2,13 +2,16 @@
  * NO rental maths. ROI (after tax, selected scenario) leads. */
 import { keyFigure } from './keyFigure';
 import { COPY } from '../../config/copy';
+import { FLIP_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseFlip, scoreDeal, type FlipAnalysis, type FlipStrategyInputs, type DealScore } from '@gil-bricks/core';
+import { SECTION_STRIP } from '../../config/analyserSections';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { leverIsRedundant } from './leverDedupe';
 import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct } from '@gil-bricks/core';
@@ -99,13 +102,13 @@ export function FlipVerdict({ config, comps, valuation }: {
 
   const gdv = num('gdv');
   // publish the headline for Save (S6.2)
-  const headlineForSave = analysis ? `${fmtMoney(analysis.profitAfterTax.value)} profit after tax` : '';
+  const headlineForSave = analysis ? FLIP_COPY.savedHeadline(fmtMoney(analysis.profitAfterTax.value)) : '';
   // Snapshot published to the Save action. Built each render and used BOTH as the value
   // and (serialised) as the effect dep, so a change that moves the SCORE or the criteria
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: `${fmtMoney(analysis.profitAfterTax.value)} profit` }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: FLIP_COPY.boardFigure(fmtMoney(analysis.profitAfterTax.value)) }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
@@ -114,7 +117,7 @@ export function FlipVerdict({ config, comps, valuation }: {
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
+      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {valuation && prefilled.current !== null && !diverged.current && (strategyParams.value.gdv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
@@ -131,61 +134,61 @@ export function FlipVerdict({ config, comps, valuation }: {
           <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
-            {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
+            {!leverIsRedundant(analysis.lever, deal?.bindingConstraint?.plainExplanation) && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && gdv > 0 && (
               <p class="verdict-crosscheck">
-                Your sale price {fmtMoney(gdv)} vs our estimate {fmtMoney(valuation.estimate)} ({fmtMoney(valuation.range.low)}–{fmtMoney(valuation.range.high)}).
-                {gdv > valuation.range.high && ' Ambitious — get a broker’s opinion before relying on it.'}
+                {FLIP_COPY.crosscheck(fmtMoney(gdv), fmtMoney(valuation.estimate), fmtMoney(valuation.range.low), fmtMoney(valuation.range.high))}
+                {gdv > valuation.range.high && FLIP_COPY.crosscheckAmbitious}
               </p>
             )}
           </div>
           <p class="hint">{COPY.verdict.flipTax}</p>
           <div class="tiles" id="sec-figures">
-            <div class="tile tile-hero">
-              <p class="tile-label">Project return after tax ({isLtd ? 'company' : 'personal'})</p>
+            <div class={`tile tile-hero${deal ? ` tier-${deal.verdict === 'good' ? 'good' : deal.verdict === 'marginal' ? 'marginal' : 'walk'}` : ''}`}>
+              <p class="tile-label">{FLIP_COPY.heroLabel(isLtd ? FLIP_COPY.scenarioCompany : FLIP_COPY.scenarioPersonal)}</p>
               <p class="tile-value">{fmtPct(analysis.roiAfterTax.value)}</p>
-              <p class="field-hint">before tax: {fmtPct(analysis.roiBeforeTax.value)}</p>
-              <MathsAccordion breakdown={analysis.roiAfterTax.breakdown} />
-              <MathsAccordion breakdown={analysis.roiBeforeTax.breakdown} />
+              <p class="field-hint">{FLIP_COPY.beforeTax(fmtPct(analysis.roiBeforeTax.value))}</p>
+              <MathsAccordion breakdown={analysis.roiAfterTax.breakdown} label={SECTION_STRIP.mathsFor(analysis.roiAfterTax.breakdown.label.toLowerCase())} />
+              <MathsAccordion breakdown={analysis.roiBeforeTax.breakdown} label={SECTION_STRIP.mathsFor(analysis.roiBeforeTax.breakdown.label.toLowerCase())} />
             </div>
-            <Tile label="Profit before tax" value={fmtMoney(analysis.profitBeforeTax.value)} breakdown={analysis.profitBeforeTax.breakdown} />
+            <Tile label={FLIP_COPY.tiles.profitBeforeTax} value={fmtMoney(analysis.profitBeforeTax.value)} breakdown={analysis.profitBeforeTax.breakdown} />
             <div class="tile">
-              <p class="tile-label">Tax on the profit</p>
+              <p class="tile-label">{FLIP_COPY.tiles.taxOnProfit}</p>
               <div class="tax-compare">
                 <div class={!isLtd ? 'tax-col tax-selected' : 'tax-col'}>
-                  <p class="tile-label">Personally</p>
+                  <p class="tile-label">{FLIP_COPY.tiles.personally}</p>
                   <p class="tile-value">{fmtMoney(analysis.personalTax.value)}</p>
                   <MathsAccordion breakdown={analysis.personalTax.breakdown} />
                 </div>
                 <div class={isLtd ? 'tax-col tax-selected' : 'tax-col'}>
-                  <p class="tile-label">Company</p>
+                  <p class="tile-label">{FLIP_COPY.tiles.company}</p>
                   <p class="tile-value">{fmtMoney(analysis.companyTax.value)}</p>
                   <MathsAccordion breakdown={analysis.companyTax.breakdown} />
-                  <p class="field-hint">Taking the money out of the company personally is taxed again.</p>
+                  <p class="field-hint">{FLIP_COPY.companyDrawdown}</p>
                 </div>
               </div>
             </div>
-            <Tile label="Profit after tax" value={fmtMoney(analysis.profitAfterTax.value)} breakdown={analysis.profitAfterTax.breakdown} />
-            <Tile id="sec-costs" label="Total cost in" value={fmtMoney(analysis.totalCostIn.value)} breakdown={analysis.totalCostIn.breakdown} />
-            <Tile label="Cash invested" value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
+            <Tile label={FLIP_COPY.tiles.profitAfterTax} value={fmtMoney(analysis.profitAfterTax.value)} breakdown={analysis.profitAfterTax.breakdown} />
+            <Tile id="sec-costs" label={FLIP_COPY.tiles.totalCostIn} value={fmtMoney(analysis.totalCostIn.value)} breakdown={analysis.totalCostIn.breakdown} />
+            <Tile label={FLIP_COPY.tiles.cashInvested} value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
             {analysis.financeCosts && (
-              <Tile label="Finance costs" value={fmtMoney(analysis.financeCosts.value)} breakdown={analysis.financeCosts.breakdown} />
+              <Tile label={FLIP_COPY.tiles.financeCosts} value={fmtMoney(analysis.financeCosts.value)} breakdown={analysis.financeCosts.breakdown} />
             )}
-            <Tile label="Max offer for a Green flip"
-              value={analysis.maxOfferGreen !== null ? fmtMoney(analysis.maxOfferGreen) : 'Not reachable'}
+            <Tile label={FLIP_COPY.tiles.maxOfferGreen}
+              value={analysis.maxOfferGreen !== null ? fmtMoney(analysis.maxOfferGreen) : VERDICT_COPY.notReachable}
               breakdown={{
-                label: 'Max offer for Green', formula: 'the highest price that keeps the flip Green, solved against the same maths',
-                substituted: `sale price ${fmtMoney(gdv)}, your costs and tax scenario`,
-                result: analysis.maxOfferGreen !== null ? fmtMoney(analysis.maxOfferGreen) : 'no price achieves it',
-                note: 'your negotiating ceiling if the margin matters',
+                label: FLIP_COPY.maxOfferMaths.label, formula: FLIP_COPY.maxOfferMaths.formula,
+                substituted: FLIP_COPY.maxOfferMaths.substituted(fmtMoney(gdv)),
+                result: analysis.maxOfferGreen !== null ? fmtMoney(analysis.maxOfferGreen) : FLIP_COPY.maxOfferMaths.unreachable,
+                note: FLIP_COPY.maxOfferMaths.note,
               }} />
-            <Tile label="Sale price needed for Green"
-              value={analysis.gdvNeededGreen !== null ? fmtMoney(analysis.gdvNeededGreen) : 'Not reachable'}
+            <Tile label={FLIP_COPY.tiles.gdvNeededGreen}
+              value={analysis.gdvNeededGreen !== null ? fmtMoney(analysis.gdvNeededGreen) : VERDICT_COPY.notReachable}
               breakdown={{
-                label: 'Sale price needed for Green', formula: 'the smallest sale price that makes the flip Green',
-                substituted: `price ${fmtMoney(Number(s.price))}, your costs and tax scenario`,
-                result: analysis.gdvNeededGreen !== null ? fmtMoney(analysis.gdvNeededGreen) : 'no sale price achieves it',
-                note: 'only believe it if the sold evidence does',
+                label: FLIP_COPY.gdvNeededMaths.label, formula: FLIP_COPY.gdvNeededMaths.formula,
+                substituted: FLIP_COPY.gdvNeededMaths.substituted(fmtMoney(Number(s.price))),
+                result: analysis.gdvNeededGreen !== null ? fmtMoney(analysis.gdvNeededGreen) : FLIP_COPY.gdvNeededMaths.unreachable,
+                note: FLIP_COPY.gdvNeededMaths.note,
               }} />
             {config.flags?.showGdvModule && (
               <GdvModule pct={analysis.profitOnGdvPct.value} breakdown={analysis.profitOnGdvPct.breakdown} />

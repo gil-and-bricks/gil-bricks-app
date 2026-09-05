@@ -2,6 +2,7 @@
  * BRICKS-AND-MORTAR valuation only; no commercial valuation anywhere. */
 import { keyFigure } from './keyFigure';
 import { COPY } from '../../config/copy';
+import { HMO_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useState } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -9,6 +10,7 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseHmo, checkRoomSizes, scoreDeal, type HmoAnalysis, type HmoInputs, type RoomOccupancy, type DealScore } from '@gil-bricks/core';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { leverIsRedundant } from './leverDedupe';
 import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
@@ -107,13 +109,13 @@ export function HmoVerdict({ config, comps, valuation }: {
 
   const price = Number(s.price);
   // publish the headline for Save (S6.2)
-  const headlineForSave = analysis ? `ROI ${fmtPct(analysis.roi.value)}` : '';
+  const headlineForSave = analysis ? HMO_COPY.savedHeadline(fmtPct(analysis.roi.value)) : '';
   // Snapshot published to the Save action. Built each render and used BOTH as the value
   // and (serialised) as the effect dep, so a change that moves the SCORE or the criteria
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: `ROI ${fmtPct(analysis.roi.value)}` }
+    ? { score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: HMO_COPY.savedHeadline(fmtPct(analysis.roi.value)) }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
@@ -122,7 +124,7 @@ export function HmoVerdict({ config, comps, valuation }: {
 
   return (
     <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{config.name} verdict</h2>
+      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
       <p class="hint">{COPY.verdict.hmoScope}</p>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
       {comps && <Article4Flag lat={comps.subject.lat} lng={comps.subject.lng} country={comps.subject.country} />}
@@ -137,19 +139,15 @@ export function HmoVerdict({ config, comps, valuation }: {
 
       {!isSuiGeneris && (
         <div class="assumptions">
-          <Accordion label="Check your room sizes are legal">
-            <p class="field-hint">
-              Statutory minimums for licensed HMOs in England: 6.51 sqm for one adult, 10.22 sqm for two,
-              4.64 sqm for a child under 10 — under 4.64 sqm cannot be a bedroom at all.
-              Councils can require larger — always check locally.
-            </p>
+          <Accordion label={HMO_COPY.roomSizes.heading}>
+            <p class="field-hint">{HMO_COPY.roomSizes.body}</p>
             {Array.from({ length: roomCount }, (_, idx) => {
               const row = rows[idx] ?? { sqm: '', occupancy: 'single' as RoomOccupancy };
               const check = row.sqm !== '' ? checkRoomSizes([{ sqm: Number(row.sqm), occupancy: row.occupancy }])[0] : null;
               return (
                 <div class="room-row">
                   <label>
-                    Room {idx + 1} (sqm)
+                    {HMO_COPY.roomSizes.roomLabel(idx + 1)}
                     <input inputMode="decimal" value={row.sqm}
                       onInput={(e) => {
                         const next = [...rows];
@@ -158,18 +156,18 @@ export function HmoVerdict({ config, comps, valuation }: {
                       }} />
                   </label>
                   <label>
-                    Sleeps
+                    {HMO_COPY.roomSizes.occupancyLabel}
                     <select value={row.occupancy} onChange={(e) => {
                       const next = [...rows];
                       next[idx] = { ...row, occupancy: (e.target as HTMLSelectElement).value as RoomOccupancy };
                       setRows(next);
                     }}>
-                      <option value="single">One adult</option>
-                      <option value="double">Two adults</option>
-                      <option value="child">Child under 10</option>
+                      <option value="single">{HMO_COPY.roomSizes.occupancy.single}</option>
+                      <option value="double">{HMO_COPY.roomSizes.occupancy.double}</option>
+                      <option value="child">{HMO_COPY.roomSizes.occupancy.child}</option>
                     </select>
                   </label>
-                  {check && <span class={check.ok ? 'room-ok' : 'room-fail'}>{check.ok ? '✓ legal' : `✗ ${check.message}`}</span>}
+                  {check && <span class={check.ok ? 'room-ok' : 'room-fail'}>{check.ok ? HMO_COPY.roomSizes.pass : HMO_COPY.roomSizes.fail(check.message)}</span>}
                 </div>
               );
             })}
@@ -186,11 +184,11 @@ export function HmoVerdict({ config, comps, valuation }: {
           <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>
             <p class="verdict-line">{analysis.verdictCopy}</p>
             <BindingConstraintNote deal={deal} />
-            {analysis.lever && <p class="verdict-lever">{analysis.lever}</p>}
+            {!leverIsRedundant(analysis.lever, deal?.bindingConstraint?.plainExplanation) && <p class="verdict-lever">{analysis.lever}</p>}
             {valuation && price > 0 && (
               <p class="verdict-crosscheck">
-                Purchase {fmtMoney(price)} vs bricks-and-mortar estimate {fmtMoney(valuation.estimate)} ({fmtMoney(valuation.range.low)}–{fmtMoney(valuation.range.high)}).
-                {price > valuation.range.high && ' Looks expensive vs sold evidence.'}
+                {HMO_COPY.crosscheck(fmtMoney(price), fmtMoney(valuation.estimate), fmtMoney(valuation.range.low), fmtMoney(valuation.range.high))}
+                {price > valuation.range.high && HMO_COPY.crosscheckExpensive}
               </p>
             )}
           </div>
@@ -200,32 +198,27 @@ export function HmoVerdict({ config, comps, valuation }: {
             <p class="field-hint">{COPY.verdict.hmoRegister}</p>
           </div>
 
-          <Accordion label="Planning: do I need permission?">
-            <p class="field-hint">
-              Turning an ordinary house (class C3) into a small HMO (class C4, 3–6 people) is usually
-              ‘permitted development’ — no planning application. But where the council has made an
-              Article 4 direction, full planning permission is needed. 7 or more people is always
-              ‘sui generis’ and needs permission everywhere.
-            </p>
+          <Accordion label={HMO_COPY.planning.heading}>
+            <p class="field-hint">{HMO_COPY.planning.body}</p>
           </Accordion>
 
           <div class="tiles" id="sec-figures">
-            <div class="tile tile-hero">
-              <p class="tile-label">Return on investment</p>
+            <div class={`tile tile-hero${deal ? ` tier-${deal.verdict === 'good' ? 'good' : deal.verdict === 'marginal' ? 'marginal' : 'walk'}` : ''}`}>
+              <p class="tile-label">{HMO_COPY.tiles.roi}</p>
               <p class="tile-value">{fmtPct(analysis.roi.value)}</p>
               <MathsAccordion breakdown={analysis.roi.breakdown} />
             </div>
-            <Tile label="Cashflow after tax" value={`${fmtMoney(analysis.cashflowAfterTax.value)}/mo`} breakdown={analysis.cashflowAfterTax.breakdown} />
-            <Tile label="Gross room income" value={`${fmtMoney(analysis.grossIncome.value)}/yr`} breakdown={analysis.grossIncome.breakdown} />
-            <Tile id="sec-costs" label="Operating costs" value={`${fmtMoney(analysis.operatingCosts.value)}/yr`} breakdown={analysis.operatingCosts.breakdown} />
-            <Tile label="Net operating income" value={`${fmtMoney(analysis.noi.value)}/yr`} breakdown={analysis.noi.breakdown} />
-            <Tile label="Gross yield" value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
-            <Tile label="Net yield" value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />
-            <Tile label="Cash in" value={fmtMoney(analysis.cashIn.value)} breakdown={analysis.cashIn.breakdown} />
-            <Tile label={`Rent-covers-mortgage test (ICR ${Math.round(analysis.icr.threshold * 100)}%)`}
-              value={`${fmtRatio(analysis.icr.value)} — ${analysis.icr.passes ? 'passes' : 'fails'}`}
+            <Tile label={HMO_COPY.tiles.cashflowAfterTax} value={`${fmtMoney(analysis.cashflowAfterTax.value)}${VERDICT_COPY.perMonth}`} breakdown={analysis.cashflowAfterTax.breakdown} />
+            <Tile label={HMO_COPY.tiles.grossIncome} value={`${fmtMoney(analysis.grossIncome.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.grossIncome.breakdown} />
+            <Tile id="sec-costs" label={HMO_COPY.tiles.operatingCosts} value={`${fmtMoney(analysis.operatingCosts.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.operatingCosts.breakdown} />
+            <Tile label={HMO_COPY.tiles.noi} value={`${fmtMoney(analysis.noi.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.noi.breakdown} />
+            <Tile label={HMO_COPY.tiles.grossYield} value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
+            <Tile label={HMO_COPY.tiles.netYield} value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />
+            <Tile label={HMO_COPY.tiles.cashIn} value={fmtMoney(analysis.cashIn.value)} breakdown={analysis.cashIn.breakdown} />
+            <Tile label={VERDICT_COPY.icrLabel(Math.round(analysis.icr.threshold * 100))}
+              value={VERDICT_COPY.icrResult(fmtRatio(analysis.icr.value), analysis.icr.passes ? VERDICT_COPY.icrPasses : VERDICT_COPY.icrFails)}
               breakdown={analysis.icr.breakdown} />
-            <Tile label="Tax on the rooms" value={`${fmtMoney(analysis.taxPerYear.value)}/yr`} breakdown={analysis.taxPerYear.breakdown} />
+            <Tile label={HMO_COPY.tiles.taxPerYear} value={`${fmtMoney(analysis.taxPerYear.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.taxPerYear.breakdown} />
           </div>
         </>
       )}

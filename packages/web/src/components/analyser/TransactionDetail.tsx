@@ -2,6 +2,7 @@
  * Land Registry primary; portal LANDING pages, never internal URLs. */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
+import { COMPARABLES } from '../../config/comparables';
 import { fmtMoney } from '@gil-bricks/core';
 import { getTransaction, type TransactionDetail as Tx, OGL_ATTRIBUTION } from '@gil-bricks/core';
 import { compLinks } from '@gil-bricks/core';
@@ -35,7 +36,7 @@ function MiniMap({ postcode }: { postcode: string }) {
   return <div class="mini-map" ref={el} aria-hidden="true" />;
 }
 
-const TYPE_LABEL: Record<string, string> = { D: 'Detached', S: 'Semi-detached', T: 'Terraced', F: 'Flat', O: 'Other' };
+const TYPE_LABEL: Record<string, string> = COMPARABLES.propertyTypes;
 
 export function TransactionDetail() {
   const [tx, setTx] = useState<Tx | null>(null);
@@ -75,13 +76,13 @@ export function TransactionDetail() {
       <MiniMap postcode={tx.address.postcode} />
       <p class="big-figure">{fmtMoney(tx.price)}</p>
       <p>
-        Sold {tx.date} · {TYPE_LABEL[tx.propertyType] ?? tx.propertyType} · {tx.estateType || '—'} ·{' '}
-        {tx.newBuild ? 'new build' : 'existing'} {tx.category === 'B' ? '· non-standard sale' : ''}
+        {COMPARABLES.transaction.sold} {tx.date} · {TYPE_LABEL[tx.propertyType] ?? tx.propertyType} · {tx.estateType || COMPARABLES.card.unknown} ·{' '}
+        {tx.newBuild ? COMPARABLES.transaction.newBuild : COMPARABLES.transaction.existing} {tx.category === 'B' ? COMPARABLES.transaction.nonStandardSale : ''}
       </p>
       <div class="action-bar">
-        <a class="btn-primary" href={links.landRegistry} rel="noopener" target="_blank">View at Land Registry</a>
-        <a class="btn-secondary" href={links.zooplaHousePrices} rel="noopener" target="_blank">View sold history on Zoopla</a>
-        <a class="btn-secondary" href={links.rightmoveHousePrices} rel="noopener" target="_blank">Search on Rightmove</a>
+        <a class="btn-primary" href={links.landRegistry} rel="noopener" target="_blank">{COMPARABLES.transaction.landRegistryLink}</a>
+        <a class="btn-secondary" href={links.zooplaHousePrices} rel="noopener" target="_blank">{COMPARABLES.transaction.zooplaLink}</a>
+        <a class="btn-secondary" href={links.rightmoveHousePrices} rel="noopener" target="_blank">{COMPARABLES.transaction.rightmoveLink}</a>
       </div>
       <p class="hint">{OGL_ATTRIBUTION}</p>
     </section>

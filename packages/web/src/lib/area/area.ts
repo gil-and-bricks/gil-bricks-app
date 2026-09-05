@@ -4,6 +4,7 @@
  * (logged as a future upgrade in DECISIONS_LOG S5.1).
  */
 import type { Sale } from '@gil-bricks/core';
+import { AREA_COPY } from '../../config/area';
 
 /** % change of the index over `years` ending at endMonth; null when either month is missing. */
 export function hpiChangePct(index: Record<string, number>, endMonth: string, years: number): number | null {
@@ -29,12 +30,13 @@ export function hpiSeries(index: Record<string, number>, endMonth: string, years
 
 /** Plain-English deprivation words for a 1–10 decile (1 = most deprived tenth). */
 export function decileWords(decile: number): string {
-  if (decile === 1) return 'in the most deprived tenth of areas';
-  if (decile === 10) return 'in the least deprived tenth of areas';
-  if (decile <= 3) return 'among the more deprived areas';
-  if (decile <= 5) return 'a little below the middle';
-  if (decile <= 7) return 'a little above the middle';
-  return 'among the less deprived areas';
+  const words = AREA_COPY.deprivation.decileWords;
+  if (decile === 1) return words.mostDeprived;
+  if (decile === 10) return words.leastDeprived;
+  if (decile <= 3) return words.moreDeprived;
+  if (decile <= 5) return words.belowMiddle;
+  if (decile <= 7) return words.aboveMiddle;
+  return words.lessDeprived;
 }
 
 /** Most common town across the sector's sales; ties to the first alphabetically. */

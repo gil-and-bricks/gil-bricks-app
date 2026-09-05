@@ -14,10 +14,10 @@ import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealHref } from '../../lib/deals/deal';
 import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
-import { DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
+import { ALL_STAGES, BOARD_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
-  id === 'comparables' ? 'Comps' : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
+  id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
 
 const STAGE_ORDER = PROGRESS_STAGES.map((s) => s.key);
 
@@ -63,15 +63,20 @@ export function DealBoard() {
     const skipped = fromIdx >= 0 && toIdx > fromIdx + 1;
     setBusy(deal.id, true);
     setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, stage: toStage, status: statusForStage(toStage), stage_since: stageSince } : d)) : cur));
-    setNote(skipped ? { id: deal.id, text: 'Skipped a stage — your call.' } : null);
+    setNote(skipped ? { id: deal.id, text: BOARD_COPY.card.skippedStage } : null);
     try {
       const res = await fetch(`/api/deals/${deal.id}/stage`, {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ stage: toStage }),
       });
       if (!res.ok) throw new Error();
+      // The card jumps to another column, so say what happened and take the
+      // person to it — otherwise the tap looks like nothing at all (D1).
+      const label = ALL_STAGES.find((st) => st.key === toStage)?.label ?? toStage;
+      setNote(skipped ? { id: deal.id, text: BOARD_COPY.card.skippedStage } : { id: deal.id, text: BOARD_COPY.card.moved(label) });
+      requestAnimationFrame(() => document.getElementById(`deal-${deal.id}`)?.scrollIntoView({ block: 'center' }));
     } catch {
       setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
-      setNote({ id: deal.id, text: 'That didn’t move — put back. Try again.' });
+      setNote({ id: deal.id, text: BOARD_COPY.card.moveFailed });
     } finally {
       setBusy(deal.id, false);
     }
@@ -88,9 +93,11 @@ export function DealBoard() {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason }),
       });
       if (!res.ok) throw new Error();
+      setNote({ id: deal.id, text: BOARD_COPY.card.parked(reason) });
+      requestAnimationFrame(() => document.getElementById(`deal-${deal.id}`)?.scrollIntoView({ block: 'center' }));
     } catch {
       setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
-      setNote({ id: deal.id, text: 'That didn’t save — put back. Try again.' });
+      setNote({ id: deal.id, text: BOARD_COPY.card.parkFailed });
     } finally {
       setBusy(deal.id, false);
     }
@@ -99,7 +106,9 @@ export function DealBoard() {
   const now = Date.now();
   const v = me.value;
 
-  if (v === undefined || deals === null) {
+  // Identity FIRST: a signed-out visitor never loads deals, so testing the data
+  // before the person left them on a skeleton that could never finish (D1).
+  if (v === undefined) {
     return (
       <div class="glass card" aria-hidden="true">
         <div class="skeleton sk-title" />
@@ -110,19 +119,27 @@ export function DealBoard() {
   if (v === null) {
     return (
       <div class="glass card">
-        <h3 class="state-h">Sign in to see your pipeline</h3>
+        <h3 class="state-h">{BOARD_COPY.screen.signInHeading}</h3>
         <p class="hint">{COPY.account.dealsSignIn}</p>
-        <button type="button" class="btn-primary" onClick={openLoginWall}>Log in</button>
+        <button type="button" class="btn-primary" onClick={openLoginWall}>{BOARD_COPY.screen.signInButton}</button>
+      </div>
+    );
+  }
+  if (deals === null) {
+    return (
+      <div class="glass card" aria-hidden="true">
+        <div class="skeleton sk-title" />
+        <div class="skeleton sk-line" />
       </div>
     );
   }
   if (deals === 'error') {
-    return <p class="hint" role="alert">Couldn’t load your pipeline just now — refresh the page to retry.</p>;
+    return <p class="hint" role="alert">{BOARD_COPY.screen.loadFailed}</p>;
   }
   if (deals.length === 0) {
     return (
       <div class="glass card board-empty">
-        <h3 class="state-h">No deals yet</h3>
+        <h3 class="state-h">{BOARD_COPY.screen.emptyHeading}</h3>
         <p class="hint">{COPY.account.dealsEmpty}</p>
         <p class="hint"><a href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a></p>
       </div>
@@ -147,6 +164,7 @@ export function DealBoard() {
     return (
       <div
         key={d.id}
+        id={`deal-${d.id}`}
         class={`deal-card glass age-${age}${dragId === d.id ? ' dragging' : ''}`}
         draggable={d.status === 'live' && !busy}
         onDragStart={(e) => { setDragId(d.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
@@ -155,7 +173,7 @@ export function DealBoard() {
         <a class="dc-title" href={dealHref(d.strategy, d.url_params, verdict.action === 'score' ? d.id : undefined)}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
-            <span class={`board-score ${verdict.cls}`} aria-label={`Deal score ${(d.current_score as number).toFixed(1)} out of 10`}>
+            <span class={`board-score ${verdict.cls}`} aria-label={BOARD_COPY.card.scoreLabel((d.current_score as number).toFixed(1))}>
               <span class="bs-dot" aria-hidden="true">●</span>
               <strong>{(d.current_score as number).toFixed(1)}</strong>
             </span>
@@ -179,19 +197,19 @@ export function DealBoard() {
           <>
             <div class="dc-actions">
               <label class="dc-move">
-                <span class="sr-only">Move {d.title} to a stage</span>
+                <span class="sr-only">{BOARD_COPY.card.moveLabel(d.title)}</span>
                 <select value={d.stage} disabled={busy} onChange={(e) => void moveTo(d, (e.target as HTMLSelectElement).value)}>
                   {PROGRESS_STAGES.map((s) => <option value={s.key}>{s.label}</option>)}
                 </select>
               </label>
-              <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => setParkingId(parkingId === d.id ? '' : d.id)}>Park</button>
+              <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => setParkingId(parkingId === d.id ? '' : d.id)}>{BOARD_COPY.card.park}</button>
             </div>
             {parkingId === d.id && (
-              <div class="dc-park-reasons" role="group" aria-label={`Why are you parking ${d.title}?`}>
+              <div class="dc-park-reasons" role="group" aria-label={BOARD_COPY.card.parkReasonsLabel(d.title)}>
                 {PARK_REASONS.map((r) => (
                   <button type="button" class="chip" onClick={() => void park(d, r.label)}>{r.label}</button>
                 ))}
-                <button type="button" class="chip chip-cancel" onClick={() => setParkingId('')}>Keep it</button>
+                <button type="button" class="chip chip-cancel" onClick={() => setParkingId('')}>{BOARD_COPY.card.keepIt}</button>
               </div>
             )}
           </>

@@ -18,9 +18,9 @@ import { COMPARABLES } from '../../config/comparables';
 import { activeFilterCount, clearedFilters, wantsCards } from '../../lib/comparables';
 import { useViewportWidth } from './useViewportWidth';
 
-const AGE_LABEL = (c: Comp) => (c.newBuild ? 'New' : 'Existing');
-const TYPE_LABEL: Record<string, string> = { D: 'Detached', S: 'Semi-detached', T: 'Terraced', F: 'Flat', O: 'Other' };
-const TENURE_LABEL: Record<string, string> = { F: 'Freehold', L: 'Leasehold' };
+const AGE_LABEL = (c: Comp) => (c.newBuild ? COMPARABLES.saleAge.newBuild : COMPARABLES.saleAge.existing);
+const TYPE_LABEL: Record<string, string> = COMPARABLES.propertyTypes;
+const TENURE_LABEL: Record<string, string> = COMPARABLES.tenures;
 
 /**
  * `folded` (N2, features.sectionOverview): on the analyser this module is the
@@ -57,52 +57,55 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
     if (k === sortKey) setDir(dir === 'asc' ? 'desc' : 'asc');
     else { setSortKey(k); setDir('asc'); }
   };
+  // The arrow on the heading doing the sorting — the arrows themselves are config.
+  const sortArrow = (k: SortKey): string =>
+    (sortKey === k ? (dir === 'asc' ? COMPARABLES.table.sortedAsc : COMPARABLES.table.sortedDesc) : '');
 
   // Fold only where this module is EVIDENCE (the analyser), only once there is
   // something to fold, and never over a map someone deep-linked to.
-  const perSqft = stats.typicalPpsqm === null ? null : `£${Math.round(stats.typicalPpsqm / sqmToSqft(1))}/sq ft`;
+  const perSqft = stats.typicalPpsqm === null ? null : COMPARABLES.stats.foldPerSqft(Math.round(stats.typicalPpsqm / sqmToSqft(1)));
   // The filters, written ONCE: folded behind one button at EVERY width while
   // compsMobile is on (seven controls dominate a phone and clutter a desktop),
   // or laid out as they always were when the flag is off.
   const filterFields = (
-        <div class="filter-strip" role="group" aria-label="Comparable filters">
-          <label>Radius
+        <div class="filter-strip" role="group" aria-label={COMPARABLES.filters.groupLabel}>
+          <label>{COMPARABLES.filters.radius.label}
             <select value={s.radius} onChange={(e) => update({ radius: (e.target as HTMLSelectElement).value as never })}>
-              <option value="0.25">¼ mile</option><option value="0.5">½ mile</option><option value="1">1 mile</option>
+              <option value="0.25">{COMPARABLES.filters.radius.quarterMile}</option><option value="0.5">{COMPARABLES.filters.radius.halfMile}</option><option value="1">{COMPARABLES.filters.radius.oneMile}</option>
             </select>
           </label>
-          <label>Period
+          <label>{COMPARABLES.filters.period.label}
             <select value={s.period} onChange={(e) => update({ period: (e.target as HTMLSelectElement).value as never })}>
-              <option value="6">6 months</option><option value="12">12 months</option>
+              <option value="6">{COMPARABLES.filters.period.sixMonths}</option><option value="12">{COMPARABLES.filters.period.twelveMonths}</option>
             </select>
           </label>
-          <label>Type
+          <label>{COMPARABLES.filters.propertyType.label}
             <select value={s.ctype} onChange={(e) => update({ ctype: (e.target as HTMLSelectElement).value as never })}>
-              <option value="all">All</option><option value="houses">Houses</option><option value="D">Detached</option>
-              <option value="S">Semi</option><option value="DS">Det + semi</option><option value="T">Terraced</option>
-              <option value="F">Flats</option>
+              <option value="all">{COMPARABLES.filters.propertyType.all}</option><option value="houses">{COMPARABLES.filters.propertyType.houses}</option><option value="D">{COMPARABLES.filters.propertyType.detached}</option>
+              <option value="S">{COMPARABLES.filters.propertyType.semi}</option><option value="DS">{COMPARABLES.filters.propertyType.detachedAndSemi}</option><option value="T">{COMPARABLES.filters.propertyType.terraced}</option>
+              <option value="F">{COMPARABLES.filters.propertyType.flats}</option>
             </select>
           </label>
-          <label>Tenure
+          <label>{COMPARABLES.filters.tenure.label}
             <select value={s.tenure} onChange={(e) => update({ tenure: (e.target as HTMLSelectElement).value as never })}>
-              <option value="any">Any</option><option value="F">Freehold</option><option value="L">Leasehold</option>
+              <option value="any">{COMPARABLES.filters.tenure.any}</option><option value="F">{COMPARABLES.filters.tenure.freehold}</option><option value="L">{COMPARABLES.filters.tenure.leasehold}</option>
             </select>
           </label>
-          <label>Age
+          <label>{COMPARABLES.filters.age.label}
             <select value={s.cage} onChange={(e) => update({ cage: (e.target as HTMLSelectElement).value as never })}>
-              <option value="all">All</option><option value="new">New build</option><option value="old">Existing</option>
+              <option value="all">{COMPARABLES.filters.age.all}</option><option value="new">{COMPARABLES.filters.age.newBuild}</option><option value="old">{COMPARABLES.filters.age.existing}</option>
             </select>
           </label>
-          <label>Area sqm
+          <label>{COMPARABLES.filters.area.label}
             <span class="pair">
-              <input inputMode="numeric" placeholder="min" aria-label="Minimum area (sqm)" value={s.minArea} onInput={(e) => update({ minArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
-              <input inputMode="numeric" placeholder="max" aria-label="Maximum area (sqm)" value={s.maxArea} onInput={(e) => update({ maxArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.area.minPlaceholder} aria-label={COMPARABLES.filters.area.minLabel} value={s.minArea} onInput={(e) => update({ minArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.area.maxPlaceholder} aria-label={COMPARABLES.filters.area.maxLabel} value={s.maxArea} onInput={(e) => update({ maxArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
             </span>
           </label>
-          <label>Price £
+          <label>{COMPARABLES.filters.price.label}
             <span class="pair">
-              <input inputMode="numeric" placeholder="min" aria-label="Minimum price (£)" value={s.minPrice} onInput={(e) => update({ minPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
-              <input inputMode="numeric" placeholder="max" aria-label="Maximum price (£)" value={s.maxPrice} onInput={(e) => update({ maxPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.price.minPlaceholder} aria-label={COMPARABLES.filters.price.minLabel} value={s.minPrice} onInput={(e) => update({ minPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.price.maxPlaceholder} aria-label={COMPARABLES.filters.price.maxLabel} value={s.maxPrice} onInput={(e) => update({ maxPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
             </span>
           </label>
           </div>
@@ -147,34 +150,34 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
           <>
             {stats.count > 0 && stats.count < 3 && (
               <p class="hint thin-note" role="status">
-                <strong>Thin evidence:</strong> only {stats.count} matching {stats.count === 1 ? 'sale' : 'sales'} nearby — treat the typical figures below with caution.
+                <strong>{COMPARABLES.stats.thinEvidenceLabel}</strong>{' '}{COMPARABLES.stats.thinEvidence(stats.count)}
               </p>
             )}
             <p class="count-line" role="status">
-              <strong>{stats.count}</strong> of {result.comps.length} sales included · typical{' '}
-              <strong>{stats.typicalPrice !== null ? fmtMoney(stats.typicalPrice) : '—'}</strong>
+              <strong>{stats.count}</strong>{' '}{COMPARABLES.stats.ofSalesIncluded(result.comps.length)}{' '}
+              <strong>{stats.typicalPrice !== null ? fmtMoney(stats.typicalPrice) : COMPARABLES.card.unknown}</strong>
               {stats.typicalPpsqm !== null && (
-                <> · typical <strong>£{Math.round(stats.typicalPpsqm / sqmToSqft(1))}/sqft</strong> <Tooltip text={tip('comps.persqft')} /></>
+                <>{' '}{COMPARABLES.stats.typicalPerSqft} <strong>{COMPARABLES.card.perSqftValue(Math.round(stats.typicalPpsqm / sqmToSqft(1)))}</strong> <Tooltip text={tip('comps.persqft')} /></>
               )}
               {stats.rangeP10P90 && (
                 <>
-                  {' '}· 80% between {fmtMoney(stats.rangeP10P90.p10)} and {fmtMoney(stats.rangeP10P90.p90)}{' '}
+                  {' '}{COMPARABLES.stats.range(fmtMoney(stats.rangeP10P90.p10), fmtMoney(stats.rangeP10P90.p90))}{' '}
                   <Tooltip text={tip('comps.range80')} />
                 </>
               )}
-              {' '}· as of {monthLabel(result.asOf)}
+              {' '}{COMPARABLES.stats.asOf(monthLabel(result.asOf))}
             </p>
             {stats.typicalPrice !== null && stats.count >= 1 && (
               <MathsAccordion breakdown={typicalPrice(comps.filter((c) => c.included).map((c) => c.price)).breakdown} />
             )}
-            <div class="view-toggle" role="group" aria-label="Comparables view">
+            <div class="view-toggle" role="group" aria-label={COMPARABLES.view.groupLabel}>
               <button
                 type="button"
                 class={s.view === 'list' ? 'pill pill-current' : 'pill'}
                 aria-pressed={s.view === 'list'}
                 onClick={() => setView('list')}
               >
-                List
+                {COMPARABLES.view.list}
               </button>
               <button
                 type="button"
@@ -182,12 +185,12 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                 aria-pressed={s.view === 'map'}
                 onClick={() => setView('map')}
               >
-                Map
+                {COMPARABLES.view.map}
               </button>
               {s.view === 'map' && <span class="hint">{COPY.comps.listCarriesData}</span>}
             </div>
             {s.view === 'map' && comps.some((c) => !c.included) && (
-              <span class="map-chip">{comps.filter((c) => !c.included).length} dimmed — excluded from the stats</span>
+              <span class="map-chip">{COMPARABLES.view.dimmed(comps.filter((c) => !c.included).length)}</span>
             )}
             {s.view === 'map' && (
               <CompMap
@@ -235,17 +238,17 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               <table class="comps-table">
                 <thead>
                   <tr>
-                    <th><span class="sr-only">Include</span></th>
-                    <th aria-sort={sortKey === 'date' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('date')}>Date{sortKey === 'date' ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}</button></th>
-                    <th>Address</th>
-                    <th>Postcode</th>
-                    <th>Type</th>
-                    <th>Tenure</th>
-                    <th>Age</th>
-                    <th aria-sort={sortKey === 'price' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('price')}>Price{sortKey === 'price' ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}</button></th>
-                    <th>Sqft</th>
-                    <th aria-sort={sortKey === 'ppsqm' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('ppsqm')}>£/sqft{sortKey === 'ppsqm' ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}</button></th>
-                    <th aria-sort={sortKey === 'distance' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('distance')}>Miles{sortKey === 'distance' ? (dir === 'asc' ? ' ↑' : ' ↓') : ''}</button></th>
+                    <th><span class="sr-only">{COMPARABLES.table.include}</span></th>
+                    <th aria-sort={sortKey === 'date' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('date')}>{COMPARABLES.table.date}{sortArrow('date')}</button></th>
+                    <th>{COMPARABLES.table.address}</th>
+                    <th>{COMPARABLES.table.postcode}</th>
+                    <th>{COMPARABLES.table.propertyType}</th>
+                    <th>{COMPARABLES.table.tenure}</th>
+                    <th>{COMPARABLES.table.age}</th>
+                    <th aria-sort={sortKey === 'price' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('price')}>{COMPARABLES.table.price}{sortArrow('price')}</button></th>
+                    <th>{COMPARABLES.table.sqft}</th>
+                    <th aria-sort={sortKey === 'ppsqm' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('ppsqm')}>{COMPARABLES.table.perSqft}{sortArrow('ppsqm')}</button></th>
+                    <th aria-sort={sortKey === 'distance' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('distance')}>{COMPARABLES.table.miles}{sortArrow('distance')}</button></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -258,7 +261,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                     >
                       <td>
                         <input type="checkbox" checked={c.included} onChange={() => toggle(c.id)}
-                          aria-label={`Include ${[c.saon, c.paon, c.street].filter(Boolean).join(' ')}`} />
+                          aria-label={COMPARABLES.card.include([c.saon, c.paon, c.street].filter(Boolean).join(' '))} />
                       </td>
                       <td>{c.date}</td>
                       <td><a href={`/transaction?id=${encodeURIComponent(c.id.replace(/[{}]/g, ''))}`}>{[c.saon, c.paon, c.street].filter(Boolean).join(' ')}</a></td>
@@ -267,8 +270,8 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                       <td>{TENURE_LABEL[c.tenure] ?? c.tenure}</td>
                       <td>{AGE_LABEL(c)}</td>
                       <td>{fmtMoney(c.price)}</td>
-                      <td>{c.floorAreaSqm !== null ? Math.round(sqmToSqft(c.floorAreaSqm)) : '—'}</td>
-                      <td>{c.ppsqm !== null ? `£${Math.round(c.ppsqm / sqmToSqft(1))}` : '—'}</td>
+                      <td>{c.floorAreaSqm !== null ? Math.round(sqmToSqft(c.floorAreaSqm)) : COMPARABLES.card.unknown}</td>
+                      <td>{c.ppsqm !== null ? `£${Math.round(c.ppsqm / sqmToSqft(1))}` : COMPARABLES.card.unknown}</td>
                       <td>{c.distanceMiles.toFixed(2)}</td>
                     </tr>
                   ))}
@@ -283,7 +286,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
 
   return (
     <section class="glass card" id="sec-comps" aria-labelledby="comps-h">
-      <h2 id="comps-h">Sold nearby <Tooltip text={tip('comps.typical')} /></h2>
+      <h2 id="comps-h">{COMPARABLES.heading} <Tooltip text={tip('comps.typical')} /></h2>
       {fold === null ? body : (
         /* (N2) The evidence folds behind ONE line: the answer stays on screen,
            the workings wait until you ask for them. Native <details>, no JS. */

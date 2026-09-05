@@ -68,8 +68,8 @@ describe('section overview strip (N2)', () => {
   });
 
   it('the comparables summary reads as one plain line, singular and plural', () => {
-    expect(SECTION_STRIP.compsSummary(14, '£245/sq ft')).toBe('14 comparable sales · typical £245/sq ft · tap to explore');
-    expect(SECTION_STRIP.compsSummary(1, '£245/sq ft')).toBe('1 comparable sale · typical £245/sq ft · tap to explore');
-    expect(SECTION_STRIP.compsSummary(9, null)).toBe('9 comparable sales · tap to explore');
+    expect(SECTION_STRIP.compsSummary(14, '£245/sq ft')).toBe('14 comparable sales · typical £245/sq ft · open to explore');
+    expect(SECTION_STRIP.compsSummary(1, '£245/sq ft')).toBe('1 comparable sale · typical £245/sq ft · open to explore');
+    expect(SECTION_STRIP.compsSummary(9, null)).toBe('9 comparable sales · open to explore');
   });
 });

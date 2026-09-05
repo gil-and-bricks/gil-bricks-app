@@ -1,9 +1,9 @@
 {
   "name": "@gil-bricks/extension",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Gil & Bricks Deal Analyser — Chrome MV3 side panel for Rightmove & Zoopla.",
+  "description": "Gil & Bricks Deal Analyser \u2014 Chrome MV3 side panel for Rightmove & Zoopla.",
   "scripts": {
     "dev": "wxt",
     "build": "wxt build",

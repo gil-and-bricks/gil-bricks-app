@@ -43,6 +43,13 @@ export const COPY = {
   },
   /** What it's worth: the states where we cannot show a number yet. */
   valuation: {
+    /** The card's heading, and the picker shown when the address is ambiguous. */
+    title: "What it's worth",
+    addressPicker: 'Which address is it? We found more than one match:',
+    /** The range line reads "Likely between £X and £Y — label." The two
+     * figures sit in their own <strong>, so the sentence arrives in halves. */
+    rangeLead: 'Likely between',
+    rangeJoin: 'and',
     lrTimeoutTitle: 'Sale history unavailable',
     lrTimeout: 'We couldn’t reach HM Land Registry. The estimate below still uses nearby sold prices.',
     needAreaTitle: 'Add the floor area for £/sqft',
@@ -58,6 +65,12 @@ export const COPY = {
     untick: 'Untick a row to leave it out — the stats update instantly.',
     listCarriesData: 'The list view carries the same data for keyboard and screen-reader use.',
     article4: 'Article 4 areas from the national planning dataset (England). Coverage is patchy — check with the council.',
+    /** When the map itself cannot render: the honest pointer at the table,
+     * and the button that tries the map once more. */
+    mapBroken: "The map couldn't display here — the table below has every sale.",
+    mapRetry: 'Try the map again',
+    /** Accessible name of the map, naming the equivalent the table gives. */
+    mapLabel: 'Map of comparable sales — the table view carries the same data',
   },
   /** Area Data: the honest limits of each panel, in one line each. */
   area: {

@@ -2,6 +2,7 @@
  * see src/lib/map/article4.ts. Never claims certainty; always points at the council. */
 import { useEffect, useState } from 'preact/hooks';
 import { article4Flag, fetchArticle4AtPoint, type Article4Flag as Flag } from '../../lib/map/article4';
+import { ARTICLE4_COPY } from '../../config/misc';
 
 export function Article4Flag({ lat, lng, country }: { lat: number; lng: number; country: string }) {
   const [flag, setFlag] = useState<Flag | null>(null);
@@ -36,7 +37,7 @@ export function Article4Flag({ lat, lng, country }: { lat: number; lng: number; 
       <p class="field-hint">
         {flag.detail}{' '}
         <a href="https://www.gov.uk/find-local-council" target="_blank" rel="noopener">
-          Find the council<span class="sr-only"> (opens in a new tab)</span> ↗
+          {ARTICLE4_COPY.findCouncil}<span class="sr-only">{' '}{ARTICLE4_COPY.opensNewTab}</span> ↗
         </a>
       </p>
     </div>

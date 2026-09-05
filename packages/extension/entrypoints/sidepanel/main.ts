@@ -44,6 +44,7 @@ import {
   parseMoneyInput,
 } from '@gil-bricks/core';
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
+import { PANEL_OPEN_MESSAGE } from '../../src/opener';
 import * as store from '../../src/store';
 
 /**
@@ -306,6 +307,8 @@ export interface PanelView {
   isAuction?: boolean;
   /** Floor-plan measure state (E9.1). */
   floorplan?: FloorPlanState;
+  /** Is the in-page "Analyse this deal" button switched off? (D1) */
+  openerHidden?: boolean;
   ewReject?: string | null;
   /** WHY the postcode was rejected — a border reject reads differently from an
    * unreadable postcode (E10 review). */
@@ -318,6 +321,9 @@ export interface PanelHandlers {
   onSetting?: (key: string, v: string) => void;
   onCriterion?: (key: keyof Criteria, v: string) => void;
   onLever?: (lever: Lever, value: string) => void;
+  /** Turn the in-page button on a listing back on (or off) — "Hide" on the
+   *  button itself is otherwise a one-way door (D1 review). */
+  onOpenerVisible?: (show: boolean) => void;
   onOpenSettings?: () => void;
   onCloseSettings?: () => void;
   onSend?: () => void;
@@ -847,6 +853,21 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
     card.append(note);
   }
 
+  // The in-page button's on/off switch. It lives here because "Hide" on the
+  // button is remembered, and this is the only way back (D1 review).
+  if (h.onOpenerVisible) {
+    const row = e('div', 'assume-row');
+    const lab = e('label', 'assume-label', 'Show the button on listings');
+    lab.setAttribute('for', 'gb-opener-visible');
+    const box = e('input', 'assume-field') as HTMLInputElement;
+    box.id = 'gb-opener-visible';
+    box.type = 'checkbox';
+    box.checked = view.openerHidden !== true;
+    box.addEventListener('change', () => h.onOpenerVisible!(box.checked));
+    row.append(lab, box);
+    card.append(row);
+  }
+
   // Heading is WHITE and spaced from the lime back link (E8.1 #9).
   card.append(e('h2', 'settings-title', 'What does a good deal look like to you?'));
   // deposit % and rate % are now front-of-panel LEVERS, so they leave this list.
@@ -1070,6 +1091,8 @@ interface Ctx {
   rentCleared: boolean;
   /** Whether the Seller Signals card is expanded — kept across redraws (E8). */
   signalsOpen: boolean;
+  /** Is the in-page button switched off? Read once at start-up (D1). */
+  openerHidden: boolean;
   /** How the sector fetch resolved, for honest sold-price messaging (E8.1). */
   sectorLoad: SectorLoad;
   /** The last front-lever change, shown briefly as a plain effect line (E8.1). */
@@ -1173,6 +1196,7 @@ function draw(ctx: Ctx): void {
     manualAreaInput: ctx.manualArea, usingSuggested: suggestedKeys.size > 0 && !!result.deal,
     rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, isAuction,
     floorplan: ctx.floorplan, lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject, ewRejectReason: ctx.ewRejectReason,
+    openerHidden: ctx.openerHidden,
   };
   const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null; cashflowAfter: number | null; profit: number | null; moneyLeftIn: number | null } => {
     const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number }; cashflowAfterTax?: { value: number }; profitAfterTax?: { value: number }; moneyLeftIn?: number } | undefined;
@@ -1243,6 +1267,7 @@ function draw(ctx: Ctx): void {
     onSetting: (k, v) => { ctx.settings = { ...ctx.settings, [k]: v }; void store.setSettings(ctx.settings); redraw(ctx); },
     onCriterion: (k, v) => { const c = { ...ctx.criteria }; if (v.trim() === '') delete c[k]; else c[k] = Number(v); ctx.criteria = c; void store.setCriteria(c); redraw(ctx); },
     onLever,
+    onOpenerVisible: (show) => { ctx.openerHidden = !show; void store.setOpenerHidden(!show); redraw(ctx); },
     onOpenSettings: () => { ctx.screen = 'settings'; draw(ctx); },
     onCloseSettings: () => { ctx.screen = 'triage'; draw(ctx); },
     onToggleSignals: (open) => { ctx.signalsOpen = open; },
@@ -1296,12 +1321,16 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     strategy: (await store.getStrategy()) as StrategyId,
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
     sector: null, sectorId: null, ewReject: null, ewRejectReason: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
+    openerHidden: await store.getOpenerHidden(),
     sectorLoad: 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [] },
   };
   activeCtx = ctx; // a stale change-signal timer must never redraw a since-navigated listing
   measureMPerPx = null; // fresh scale per listing
   measureMode = 'scale'; // start on the mandatory first tool
+  // Tell the page the panel is up, so the in-page button retires whether it was
+  // the thing that opened us or the toolbar icon was (D1 review).
+  void chrome.tabs.sendMessage(tabId, { type: PANEL_OPEN_MESSAGE }).catch(() => undefined);
   let result: ExtractResult;
   try {
     result = (await chrome.tabs.sendMessage(tabId, { type: EXTRACT_MESSAGE })) as ExtractResult;
@@ -1416,7 +1445,7 @@ export function __mountForTest(
     url: 'test', listing, failure: null, screen: 'triage', strategy: opts.strategy ?? 'btl',
     rent: opts.rent ?? '', listingUnknowns: opts.listingUnknowns ?? {}, settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
     sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, ewRejectReason: null, manualArea: '',
-    cleared: new Set(), rentCleared: false, signalsOpen: false, sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
+    cleared: new Set(), rentCleared: false, signalsOpen: false, openerHidden: false, sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [], ...opts.floorplan },
   };
   activeCtx = ctx;

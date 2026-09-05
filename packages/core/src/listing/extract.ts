@@ -24,6 +24,30 @@ export function portalForUrl(url: string | null | undefined): Portal | null {
   return null;
 }
 
+/**
+ * Is this URL a FOR-SALE listing detail page (not a search, not a home page,
+ * not a rental)? Used to badge the toolbar icon and to offer the in-page opener
+ * ONLY where there is something to analyse. Every strategy in this product buys
+ * a property, so a to-rent page is not a deal — offering to analyse one would
+ * read a monthly rent as an asking price. Pure and shared, so the extension's
+ * gating and the extractors agree on what "a listing" means.
+ */
+export function isListingUrl(url: string | null | undefined): boolean {
+  const portal = portalForUrl(url);
+  if (!portal || !url) return false;
+  const path = (() => {
+    try {
+      return new URL(url).pathname;
+    } catch {
+      return '';
+    }
+  })();
+  if (/property-to-rent|\/to-rent\//.test(path)) return false;
+  return portal === 'rightmove'
+    ? /\/properties\/\d+/.test(path) || /property-\d+\.html/.test(path)
+    : /\/(?:for-sale|new-homes)\/details\/\d+/.test(path);
+}
+
 export function extractListing(portal: Portal, doc: Document, config: ExtractorConfig, url?: string): ExtractResult {
   try {
     return portal === 'rightmove' ? extractRightmove(doc, config, url) : extractZoopla(doc, config, url);

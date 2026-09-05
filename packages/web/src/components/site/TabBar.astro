@@ -9,18 +9,31 @@
  */
 import { strategies } from '@gil-bricks/core';
 import { features } from '../../config/features';
-import { NAV } from '../../config/nav';
+import { NAV, moreLinks } from '../../config/nav';
+
+// Which tab is the page you are on (D1) — the bar never said. The Analyse tab
+// stands for ALL FOUR analysers, not just the one it links to, and the More
+// summary lights up when the page is one of the things behind it.
+const path = Astro.url.pathname.replace(/\/$/, '');
+const matches = (href: string): boolean => {
+  const h = href.replace(/\/$/, '');
+  return path === h || (h !== '' && path.startsWith(`${h}/`));
+};
+const mark = (on: boolean): 'page' | undefined => (on ? 'page' : undefined);
+const analyserRoutes = strategies.map((s) => `${s.route}/analyser`);
+const onAnalyser = analyserRoutes.some(matches);
+const onMore = moreLinks().some((l) => matches(l.href));
 ---
 
 {features.navV2 ? (
   <nav class="tabbar tabbar-v2" aria-label={NAV.mainLabel}>
-    <a href={NAV.analyse.href}>{NAV.analyse.label}</a>
-    {NAV.bottom.map((l) => <a href={l.href}>{l.label}</a>)}
+    <a href={NAV.analyse.href} aria-current={mark(onAnalyser)}>{NAV.analyse.label}</a>
+    {NAV.bottom.map((l) => <a href={l.href} aria-current={mark(matches(l.href))}>{l.label}</a>)}
     <details class="more-sheet" data-more-sheet>
-      <summary aria-label={NAV.more.hint}>{NAV.more.label}</summary>
+      <summary aria-label={NAV.more.hint} aria-current={mark(onMore)}>{NAV.more.label}</summary>
       <div class="more-panel">
         <ul>
-          {NAV.more.links.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+          {moreLinks().map((l) => <li><a href={l.href}>{l.label}</a></li>)}
         </ul>
       </div>
     </details>
@@ -60,7 +73,8 @@ import { NAV } from '../../config/nav';
       display: flex;
       justify-content: space-around;
       padding: var(--space-2) 0 calc(var(--space-2) + env(safe-area-inset-bottom));
-      background: var(--glass-bg-fallback);
+      /* Opaque (D1): at 0.9 alpha the page read straight through the labels. */
+      background: var(--bg-0);
       border-top: 1px solid var(--glass-border);
       z-index: 10;
     }
@@ -78,6 +92,8 @@ import { NAV } from '../../config/nav';
       .tabbar a { padding: var(--space-2); }
     }
     /* Every tab is a 44px target (N4) — thumbs, not pixels. */
+    .tabbar-v2 a[aria-current='page'],
+    .tabbar-v2 > .more-sheet > summary[aria-current='page'] { color: var(--accent); font-weight: 600; }
     .tabbar-v2 a,
     .tabbar-v2 > .more-sheet > summary {
       display: inline-flex; align-items: center; justify-content: center;
@@ -99,7 +115,7 @@ import { NAV } from '../../config/nav';
       /* a short screen (400% zoom) must still be able to reach every link */
       max-height: calc(100dvh - 5rem - env(safe-area-inset-bottom));
       overflow-y: auto; overscroll-behavior: contain;
-      background: var(--glass-bg-fallback);
+      background: var(--bg-0);
       border-top: 1px solid var(--glass-border);
       box-shadow: 0 -12px 32px rgba(0, 0, 0, 0.45);
       padding: var(--space-2) var(--space-3) var(--space-3);
