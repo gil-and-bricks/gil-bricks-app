@@ -24,6 +24,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   - **The video Play button was silently dead** for Shorts, /embed/ and /live/ URLs; it handles them, and anything else opens in a new tab rather than doing nothing.
   - **The capture email box was completely unstyled** — 21px tall, browser-grey — because the site's field CSS is scoped to classes it did not have.
   - Also: two tests would have failed the day the operator pasted a Kit tag in, and the config now tells them to switch on Kit's double opt-in before they do — a typed address proves a human, never that they own the address.
+- **Live, verified in production:** all three tools answer with no sign-in and **zero network requests**; the offer renders nowhere (no Kit tag is set, which is the honest default); `POST /api/tools/lead` is 404 until a tag exists; /credit shows the AD marker above the H1, the disclosure above the link and no button while the affiliate URL is empty. Mobile Lighthouse: **100 / 100 / 100 / 100** on /tools/equity, /tools/stamp-duty and /credit, and 97 / 100 / 100 / 100 on /tools/rental-yield.
 - **Commit message:** `feat(tools): post-answer capture path and affiliate credit page`
 
 ## 2026-09-05 — Sprint D1: the debugging pass before anyone sees it (deployed)
