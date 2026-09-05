@@ -23,6 +23,8 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   - **Two new hover rules made a lime-filled pill's text lime** — invisible at 1.00:1 on the current strategy segment and the current List/Map tab. Hover now excludes the filled states.
   - **HMO's hero tile missed the verdict colour** the other two got, so a bad figure still printed in the good-news lime.
   - **The inline-link colour used a child combinator**, so the same link rendered lime in a paragraph and browser-grey in a list.
+- **Live, verified in production:** the /deals sign-in card renders instead of a stuck skeleton; the bottom bar marks the page you are on across all four analysers and the More sheet; no PDF button and no "coming soon" anywhere; no "(PLACEHOLDER)" on /start; the terms and privacy headings are clean. Mobile Lighthouse on the buy-to-let analyser: **99 / 100 / 100 / 100** (three runs). Measured like-for-like against the pre-sprint build on the same machine, the analyser went from 88 to 97 — the layout fixes made it faster, not slower.
+- **Not fixed, and why:** the dev-seeded board scores in `DEV_SEED_SPECS` disagree with the analyser they link to (dev-only data, no user sees it); "Watch the free walkthrough" still points at the channel rather than a per-strategy playlist (the operator holds those URLs); the terms and privacy wording itself is still the operator's to write — only the "(placeholder)" label came off the headings.
 - **Commit message:** `fix(d1): first-run debugging pass — side-panel opener, layout fixes, 548 to 69 inline strings`
 
 ## 2026-09-05 — Sprint T2: stamp duty, rental yield, and the save comes out (deployed)
