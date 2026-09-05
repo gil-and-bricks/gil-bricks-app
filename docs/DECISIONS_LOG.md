@@ -19,6 +19,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   - **Three "every sale" claims survived the sweep** — including the show-the-maths accordion, which is exactly where a sceptic goes to check. All say "standard sales" now, because the pipeline filters to Land Registry Category A.
   - **The extension privacy page contradicted itself inside the sentence I had just edited** (sector in one half, area in the other), and the extension landing page still said "postcode area". Both corrected.
   - **The homepage example hardcoded its own inputs** while the comment above claimed they came from config. They are in config.
+- **Live, verified in production:** the homepage shows the engine's own 6.7/10 example at 390px and desktop with the card grids four across; /terms and /privacy carry version 2026-09-05 and no placeholder wording; the footer carries the contact links both documents point at; a mistyped URL gets the 404 page; the only "placeholder" left anywhere on the site is the HTML attribute on the postcode box. Mobile Lighthouse: **100 / 100 / 100 / 100** on the homepage and on /tools/stamp-duty.
 - **Commit message:** `content: real terms and privacy, rewritten homepage, consistent seed data`
 
 ## 2026-09-05 — Sprint T3: the capture path and the credit page (deployed)
