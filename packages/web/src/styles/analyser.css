@@ -824,3 +824,31 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .bridge-turnstile { min-height: 65px; }
 .bridge-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
 .bridge-disclaimer { border-top: 1px solid var(--glass-border); padding-top: var(--space-3); margin-top: var(--space-4); }
+
+/* ---------- Tools (T1, features.toolsSection) ---------------------------- */
+/* .tool-list, NOT .tool-cards: that class is the homepage's card grid (line 142). */
+.tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.tool-list .tool-card { margin-bottom: 0; }
+.tool-card h2 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
+.tool-card h2 a { color: var(--accent); text-decoration: none; }
+.tool-page .tool-form .subject-form { margin-bottom: var(--space-5); }
+.tool-month { border: 0; margin: 0 0 var(--space-4); padding: 0; }
+.tool-month legend { padding: 0; margin-bottom: var(--space-2); font-size: var(--text-sm); color: var(--text); }
+.tool-month-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.tool-month-pair label { display: block; }
+.tool-month-pair span { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: var(--text-xs); }
+.tool-month-pair select { width: 100%; }
+.tool-answer { border-color: var(--accent); }
+.tool-answer-line { font-size: var(--text-base); margin: 0 0 var(--space-3); }
+.tool-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: var(--space-3); margin: 0 0 var(--space-3); }
+.tool-figures div { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: var(--space-2) var(--space-3); }
+.tool-figures dt { color: var(--text-dim); font-size: var(--text-xs); }
+.tool-figures dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: var(--text-base); }
+.tool-limits { margin: 0 0 var(--space-3); padding-left: var(--space-5); color: var(--text-dim); font-size: var(--text-xs); }
+.tool-limits li { margin-bottom: var(--space-1); }
+.tool-onward { margin: var(--space-4) 0 0; font-size: var(--text-sm); }
+.tool-onward a { color: var(--accent); font-weight: 600; }
+.tool-save { border-top: 1px solid var(--glass-border); margin-top: var(--space-4); padding-top: var(--space-3); }
+.tool-disclaimer { margin: var(--space-3) 0 var(--space-5); }
+.tool-intro-links { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-3) 0 0; }
+.tool-intro-links a { display: inline-flex; align-items: center; min-height: 2.75rem; }

@@ -1,0 +1,26 @@
+---
+/**
+ * The equity calculator (T1). Public, indexable, and the answer is NEVER gated:
+ * no sign-in, no email, no server call to get it.
+ */
+import ToolShell from '../../layouts/ToolShell.astro';
+import { EquityTool } from '../../components/tools/EquityTool';
+import { EQUITY, TOOLS } from '../../config/tools';
+import { features } from '../../config/features';
+import { siteConfig } from '../../site.config';
+
+// Flag off: the tool does not render, so the page must not stand here asking a
+// question it cannot answer. Same pattern as /deals.
+if (!features.toolsSection) return Astro.redirect('/tools');
+
+const entry = TOOLS.find((t) => t.slug === EQUITY.slug);
+---
+
+<ToolShell
+  title={`${EQUITY.h1} — free equity calculator | ${siteConfig.siteName}`}
+  h1={EQUITY.h1}
+  description={entry?.description ?? EQUITY.intro}
+  how={EQUITY.howBody}
+>
+  <EquityTool client:load />
+</ToolShell>

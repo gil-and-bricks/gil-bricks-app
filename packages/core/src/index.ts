@@ -46,3 +46,6 @@ export type { Verdict } from './score/copy';
 
 // Listing extractors + remote config (E5) — portal page -> normalised listing.
 export * from './listing';
+
+// Tools (T1): pure leaf maths a standalone tool page may import.
+export * from './tools/equity';

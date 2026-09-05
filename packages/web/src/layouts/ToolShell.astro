@@ -1,0 +1,84 @@
+---
+/**
+ * The shell every tool page uses (T1). It gives a tool: the brand, the tool
+ * itself, a "how this works" expander (the same native <details> the analyser
+ * uses to show its maths), an honest disclaimer, and a quiet introduction to
+ * PropLaunch for someone who arrived from a Reel and has never heard of it.
+ *
+ * No modal, no popup, no email wall — the ANSWER IS NEVER GATED.
+ * SEO: these pages are public entry points, so each carries its own title,
+ * description and schema.org markup, and links to the analyser and the tools.
+ */
+import Base from './Base.astro';
+import Header from '../components/site/Header.astro';
+import Footer from '../components/site/Footer.astro';
+import TabBar from '../components/site/TabBar.astro';
+import { LoginWall } from '../components/auth/LoginWall';
+import { Content as TermsContent } from '../content/legal/terms.md';
+// The shared card, button and field styles live here — a tool page looks like
+// the rest of the site because it uses the same stylesheet.
+import '../styles/analyser.css';
+import { TOOLS_COPY } from '../config/tools';
+import { siteConfig } from '../site.config';
+
+interface Props {
+  title: string;
+  h1: string;
+  description: string;
+  /** What the "how this works" expander says. Omitted on the index. */
+  how?: string;
+}
+const { title, h1, description, how } = Astro.props;
+const store = siteConfig.chromeStoreUrl.trim();
+// On the index itself, a link back to the index is noise.
+const onIndex = Astro.url.pathname.replace(/\/$/, '') === '/tools';
+const canonical = new URL(Astro.url.pathname, siteConfig.liveUrl).toString();
+const schema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: h1,
+  description,
+  url: canonical,
+  applicationCategory: 'FinanceApplication',
+  operatingSystem: 'Any',
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'GBP' },
+  publisher: { '@type': 'Organization', name: siteConfig.siteName, url: siteConfig.liveUrl },
+};
+---
+
+<Base title={title} description={description}>
+  <link rel="canonical" href={canonical} slot="head" />
+  <Header />
+  <main class="page-wrap tool-page">
+    <h1 class="page-title">{h1}</h1>
+    <p class="page-sub">{description}</p>
+
+    <slot />
+
+    {how !== undefined && (
+      <details class="accordion tool-how">
+        <summary class="accordion-btn">{TOOLS_COPY.howHeading}</summary>
+        <div class="accordion-body"><p>{how}</p></div>
+      </details>
+    )}
+
+    <p class="hint tool-disclaimer">{TOOLS_COPY.disclaimer}</p>
+
+    {/* For the visitor who has never heard of us: one line and two links. */}
+    <section class="glass card tool-intro">
+      <p>{TOOLS_COPY.footer.lead(siteConfig.siteName)}</p>
+      <p class="tool-intro-links">
+        <a class="btn-primary" href="/buy-to-let/analyser">{TOOLS_COPY.footer.analyser}</a>
+        {store !== '' && <a class="btn-secondary" href={store} target="_blank" rel="noopener noreferrer">{TOOLS_COPY.footer.extension}</a>}
+        {!onIndex && <a class="btn-secondary" href="/tools">{TOOLS_COPY.indexTitle}</a>}
+      </p>
+    </section>
+  </main>
+  <Footer />
+  <TabBar />
+  {/* The same sign-in wall the rest of the site has: the optional "save this"
+      needs it, and without it that button would do nothing. */}
+  <template id="legal-terms"><TermsContent /></template>
+  <LoginWall client:idle />
+  <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+</Base>

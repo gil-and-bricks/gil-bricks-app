@@ -41,6 +41,9 @@ const {
     <link rel="preload" as="font" type="font/woff2" href={montserrat700} crossorigin />
     <link rel="preload" as="font" type="font/woff2" href={montserrat800} crossorigin />
     <title>{title}</title>
+    {/* Pages that need their own head tags (a canonical URL on the public tool
+        pages, T1) put them here. Most pages need nothing. */}
+    <slot name="head" />
   </head>
   <body>
     <slot />

@@ -15,8 +15,11 @@ let fetched: Promise<Me | null> | null = null;
 
 export function loadMe(): Promise<Me | null> {
   if (!fetched) {
+    // 200 with `user: null` means signed out; a 401 from an older Worker means
+    // the same thing. Both answer the question, neither is an error.
     fetched = fetch('/api/me')
-      .then((r) => (r.ok ? (r.json() as Promise<Me>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<Me | { user: null }>) : null))
+      .then((v) => (v !== null && 'email' in v ? v : null))
       .catch(() => null)
       .then((v) => {
         me.value = v;

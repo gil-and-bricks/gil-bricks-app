@@ -21,16 +21,18 @@ const stubEnv = (over: Partial<Env> = {}): Env =>
   }) as Env;
 
 describe('worker routes', () => {
-  it('/api/me without a cookie → 401', async () => {
+  it('/api/me without a cookie → 200 with user: null (signed out is an answer, not an error)', async () => {
     const res = await worker.fetch(new Request('https://site.test/api/me'), stubEnv());
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ user: null });
   });
-  it('/api/me with a garbage cookie → 401', async () => {
+  it('/api/me with a garbage cookie → 200 with user: null', async () => {
     const res = await worker.fetch(
       new Request('https://site.test/api/me', { headers: { Cookie: `${SESSION_COOKIE}=garbage` } }),
       stubEnv(),
     );
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ user: null });
   });
   it('/api/me with a valid session → profile with consent', async () => {
     const jwt = await signSession({ sub: 'u1', email: 'a@b.c', name: 'A', avatar: 'av' }, 'test-secret');

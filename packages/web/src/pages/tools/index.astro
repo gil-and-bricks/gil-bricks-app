@@ -1,0 +1,31 @@
+---
+/**
+ * The tools index (T1) — driven entirely by the registry in config/tools.ts.
+ * Adding a tool is one entry there plus its page; this file never changes.
+ */
+import ToolShell from '../../layouts/ToolShell.astro';
+import { TOOLS, TOOLS_COPY } from '../../config/tools';
+import { features } from '../../config/features';
+import { siteConfig } from '../../site.config';
+
+const live = features.toolsSection ? TOOLS.filter((t) => t.enabled) : [];
+---
+
+<ToolShell
+  title={`${TOOLS_COPY.indexTitle} — ${siteConfig.siteName}`}
+  h1={TOOLS_COPY.indexTitle}
+  description={TOOLS_COPY.indexTagline}
+>
+  {live.length === 0 ? (
+    <p class="hint">{TOOLS_COPY.empty}</p>
+  ) : (
+    <ul class="tool-list">
+      {live.map((t) => (
+        <li class="glass card tool-card">
+          <h2><a href={`/tools/${t.slug}`}>{t.title}</a></h2>
+          <p class="hint">{t.description}</p>
+        </li>
+      ))}
+    </ul>
+  )}
+</ToolShell>

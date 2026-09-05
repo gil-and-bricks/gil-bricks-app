@@ -58,20 +58,3 @@ export const NAV = {
   },
 } as const;
 
-/**
- * The one destination the nav promises before it exists. Honest by
- * construction: the page says what is coming and what to use meanwhile, and
- * the nav never points at a blank screen. (Finance became the real bridging
- * page in F1 — see src/config/bridging.ts.)
- */
-export const COMING_SOON = {
-  tools: {
-    title: 'Tools',
-    tagline: 'Small calculators that answer one question each.',
-    body: [
-      'Small calculators are coming: stamp duty, a rent-to-price check, a refurb budget check.',
-      'None are built yet. The analyser already does this maths inside a deal.',
-    ],
-    cta: { label: 'Open the analyser', href: '/buy-to-let/analyser' },
-  },
-} as const;

@@ -10,6 +10,8 @@
 import { siteConfig } from '../site.config';
 import { features } from '../config/features';
 import { BRIDGING_RULES, BROKER } from '../config/bridging';
+import { TOOLS } from '../config/tools';
+import { fmtMoney } from '@gil-bricks/core';
 import { qualify, isComplete, loanAmount, phoneDigits, type Enquiry } from '../lib/bridging';
 import {
   AUTH_STATE_COOKIE,
@@ -44,6 +46,8 @@ export interface Env {
 const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN = 'https://oauth2.googleapis.com/token';
 const TURNSTILE_VERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+/** Only a slug in the registry can be saved (T1). */
+const TOOL_SLUGS: readonly string[] = TOOLS.map((t) => t.slug);
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}): Response =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...headers } });
@@ -224,7 +228,14 @@ async function enqueueKit(env: Env, userId: string | null, email: string, firstN
   await env.DB.batch([
     // ONLY the consent actions supersede each other — a pending bridging
     // notification is a different thing and must still be delivered.
-    env.DB.prepare("UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND action IN ('subscribe','unsubscribe')").bind(email),
+    // An UNSUBSCRIBE also retires any pending marketing-ish row (a saved tool
+    // answer), so a withdrawal can never be undone by a queued push. Bridging
+    // notifications are not marketing and are deliberately left alone.
+    env.DB.prepare(
+      action === 'unsubscribe'
+        ? "UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND (action IN ('subscribe','unsubscribe') OR action LIKE 'tool-%')"
+        : "UPDATE kit_outbox SET status = 'superseded' WHERE email = ? AND status = 'pending' AND action IN ('subscribe','unsubscribe')",
+    ).bind(email),
     env.DB.prepare(
       "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
     ).bind(id, userId, email, firstName, action, now),
@@ -275,15 +286,21 @@ async function recordConsentOn(env: Env, userId: string, email: string, firstNam
 
 const firstNameOf = (name: string): string => name.split(' ')[0] ?? '';
 
+/**
+ * Who is signed in? A signed-out visitor is a normal answer, not an error, so
+ * this returns 200 with `user: null` rather than a 401 that every public page
+ * would log to the console (T1). The client treats a 401 the same way, so an
+ * older cached bundle keeps working.
+ */
 async function handleMe(request: Request, env: Env): Promise<Response> {
   const user = await currentUser(request, env);
-  if (!user) return json({ error: 'not signed in' }, 401);
+  if (!user) return json({ user: null }, 200);
   const row = await env.DB.prepare('SELECT marketing_consent FROM users WHERE id = ?')
     .bind(user.sub)
     .first<{ marketing_consent: number }>();
   if (!row) {
     // Session outlived the account (deleted) — treat as signed out.
-    return json({ error: 'not signed in' }, 401, { 'Set-Cookie': clearSessionCookie() });
+    return json({ user: null }, 200, { 'Set-Cookie': clearSessionCookie() });
   }
   return json({ email: user.email, name: user.name, avatar: user.avatar, marketingConsent: row.marketing_consent === 1 });
 }
@@ -341,6 +358,8 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     // F1: a bridging enquiry is personal data too — deleting the account
     // deletes it, exactly as the privacy policy says.
     env.DB.prepare('DELETE FROM bridging_enquiries WHERE user_id = ?').bind(user.sub),
+    // T1: a saved tool answer is account data — "delete everything" means it too.
+    env.DB.prepare('DELETE FROM tool_saves WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM saved_deals WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.sub),
   );
@@ -511,6 +530,50 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
   return json({ ok: true });
 }
 
+
+
+/**
+ * T1 — save a tool answer. This is the ONLY server call a tool page can make,
+ * and only after the person has already seen their answer and chosen to keep
+ * it. Skipping it leaves the page entirely client-side.
+ */
+async function handleToolSave(request: Request, env: Env): Promise<Response> {
+  if (!features.toolsSection) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const tool = typeof body.tool === 'string' ? body.tool : '';
+  if (!TOOL_SLUGS.includes(tool)) return json({ error: 'unknown tool' }, 400);
+  const inputs = typeof body.inputs === 'object' && body.inputs !== null ? body.inputs : {};
+  const inputsJson = JSON.stringify(inputs);
+  if (inputsJson.length > 2000) return json({ error: 'bad request' }, 400);
+  const equity = typeof body.equity === 'number' && Number.isFinite(body.equity) ? Math.round(body.equity) : null;
+  if (equity === null) return json({ error: 'bad request' }, 400);
+
+  const now = new Date().toISOString();
+  const firstName = user.name.split(' ')[0] ?? '';
+  await env.DB.prepare(
+    'INSERT INTO tool_saves (id, user_id, tool, inputs_json, headline, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+  ).bind(crypto.randomUUID(), user.sub, tool, inputsJson, fmtMoney(equity), now).run();
+
+  // Kit is told ONLY about people who consented to marketing. Saving a figure
+  // to your own account is not consent to be emailed (privacy policy: Kit gets
+  // your details when you tick the box, or when you send a bridging enquiry).
+  const consent = await env.DB.prepare('SELECT marketing_consent FROM users WHERE id = ?')
+    .bind(user.sub)
+    .first<{ marketing_consent: number }>();
+  if (consent?.marketing_consent === 1) {
+    await env.DB.prepare(
+      "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+    ).bind(crypto.randomUUID(), user.sub, user.email, firstName, `tool-${tool}`, now).run();
+  }
+  return json({ saved: true });
+}
 
 /**
  * F1 — a bridging enquiry. Sign-in gated (we already have their name and
@@ -693,6 +756,7 @@ export default {
     if (pathname === '/api/me' && method === 'GET') return handleMe(request, env);
     if (pathname === '/api/consent' && method === 'POST') return handleConsent(request, env);
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);
+    if (pathname === '/api/tools/save' && method === 'POST') return handleToolSave(request, env);
     if (pathname === '/api/bridging' && method === 'POST') return handleBridgingEnquiry(request, env);
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);

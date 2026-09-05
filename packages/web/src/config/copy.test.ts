@@ -17,7 +17,8 @@ import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
 import { BRIDGING } from './bridging';
-import { COMING_SOON, NAV } from './nav';
+import { NAV } from './nav';
+import { EQUITY, TOOLS, TOOLS_COPY } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
 
 const SRC = fileURLToPath(new URL('../', import.meta.url));
@@ -73,12 +74,37 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
     expect(long, 'one idea per sentence — split it').toEqual([]);
   });
 
-  it('the nav and its placeholder pages obey the same rules', () => {
-    const strings = [...flatten(NAV, 'NAV'), ...flatten(COMING_SOON, 'COMING_SOON')];
+  it('the nav obeys the same rules', () => {
+    const strings = flatten(NAV, 'NAV');
     const long = strings
       .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
       .map((s) => `${s.key}: ${wordCount(s.text)} words`);
     expect(long).toEqual([]);
+  });
+
+  it('the tools section obeys the same rules, sentences the tool builds included', () => {
+    // The answer is a function, so flatten cannot see it: render it with real
+    // figures, which is the sentence someone actually reads.
+    const built = [
+      { key: 'EQUITY.answer', text: EQUITY.answer('£266,494', '£95,000', '£171,494', '64.4%') },
+      { key: 'EQUITY.negative', text: EQUITY.negative('£12,000') },
+      { key: 'EQUITY.outright', text: EQUITY.outright('£266,494') },
+      { key: 'EQUITY.asOf', text: EQUITY.asOf('2026-06', 'England') },
+      { key: 'EQUITY.form.monthHint', text: EQUITY.form.monthHint('2026-06') },
+      { key: 'TOOLS_COPY.footer.lead', text: TOOLS_COPY.footer.lead('PropLaunch') },
+    ];
+    const strings = [
+      ...flatten(TOOLS, 'TOOLS'), ...flatten(TOOLS_COPY, 'TOOLS_COPY'), ...flatten(EQUITY, 'EQUITY'), ...built,
+    ];
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long).toEqual([]);
+    const longSentence = strings
+      .flatMap((s) => sentencesOf(s.text).map((sentence) => ({ key: s.key, sentence })))
+      .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
+      .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
+    expect(longSentence).toEqual([]);
   });
 
   it('the bridging page obeys the same rules — it is the wordiest thing we ship', () => {

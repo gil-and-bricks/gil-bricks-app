@@ -10,7 +10,10 @@ the site asks for a phone number, and we never use it for marketing.
 Google, when you created the account, and whether you ticked the marketing
 box (with when and which version of this text you saw). When you save a
 deal we also store its title, the analyser settings behind it, and its
-headline figure — that's what "My deals" is.
+headline figure — that's what "My deals" is. If you tap save on a tool such
+as the equity calculator, we store the figures you typed into it (what you
+paid, what you still owe, the month you bought and the country) and the
+answer it gave. There is no page that lists those back to you yet.
 
 **When you delete your account** everything above goes, including our own
 message queue about you. If you had consented to emails, one record keeps
@@ -28,10 +31,11 @@ exactly what it is — there is no UK-only residency option.)
 - **Cloudflare** — hosts the site, the database and the Turnstile
   human-check on account creation.
 - **Kit** — our email provider. We pass Kit your email address and first name
-  in two situations: if you tick the marketing box, and if you send a bridging
+  in three situations: if you tick the marketing box, if you send a bridging
   enquiry (so the broker's notification and your follow-up email can be sent —
-  the app itself never sends email). Untick the box, or delete your account,
-  and we tell Kit to unsubscribe you.
+  the app itself never sends email), and if you save a tool answer while the
+  marketing box is ticked. Untick the box, or delete your account, and we tell
+  Kit to unsubscribe you.
 - **The bridging broker** — only if you send a bridging enquiry and tick the
   consent box on that form. The lawful basis is **your consent**, given by
   that tick, and we record when you gave it. We pass on: your name and email
@@ -55,6 +59,6 @@ sign-in hop itself, and Turnstile's own bot-check cookie on account
 creation. No analytics cookies, no ad tech.
 
 **Delete everything:** the account page has a delete button. It removes your
-account, your saved deals AND any bridging enquiry you sent, and queues an
-unsubscribe to Kit. If the broker already has a copy, email us and we will
+account, your saved deals, anything you saved from a tool AND any bridging
+enquiry you sent, and queues an unsubscribe to Kit. If the broker already has a copy, email us and we will
 tell him to delete it.

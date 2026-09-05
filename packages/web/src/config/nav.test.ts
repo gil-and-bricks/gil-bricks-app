@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { strategies } from '@gil-bricks/core';
-import { COMING_SOON, NAV } from './nav';
+import { NAV } from './nav';
 
 /**
  * The nav promises destinations; these hold it to them. Every label and every
@@ -15,7 +15,11 @@ const PAGES = fileURLToPath(new URL('../pages/', import.meta.url));
 const ROUTES = new Set(
   readdirSync(PAGES, { withFileTypes: true }).flatMap((entry) => {
     if (entry.name === '[strategy]') return strategies.map((s) => `${s.route}/analyser`);
-    if (entry.isDirectory()) return readdirSync(new URL(`../pages/${entry.name}/`, import.meta.url)).map((f) => `/${entry.name}/${f.replace(/\.astro$/, '')}`);
+    if (entry.isDirectory()) {
+      return readdirSync(new URL(`../pages/${entry.name}/`, import.meta.url))
+        .filter((f) => f.endsWith('.astro'))
+        .map((f) => (f === 'index.astro' ? `/${entry.name}` : `/${entry.name}/${f.replace(/\.astro$/, '')}`));
+    }
     if (!entry.name.endsWith('.astro')) return [];
     const name = entry.name.replace(/\.astro$/, '');
     return [name === 'index' ? '/' : `/${name}`];
@@ -26,7 +30,6 @@ describe('navigation (N4)', () => {
   const everyLink = [
     ...NAV.primary, ...NAV.mine, ...NAV.bottom, ...NAV.more.links,
     { label: NAV.analyse.label, href: NAV.analyse.href },
-    { label: COMING_SOON.tools.cta.label, href: COMING_SOON.tools.cta.href },
   ];
 
   it('every destination in the nav is a page this site actually has', () => {
@@ -67,11 +70,4 @@ describe('navigation (N4)', () => {
     for (const l of [...NAV.primary, ...NAV.mine]) expect(reachable.has(l.href), l.label).toBe(true);
   });
 
-  it('the coming-soon pages say what is coming and point somewhere useful meanwhile', () => {
-    for (const page of [COMING_SOON.tools]) {
-      expect(page.body.length).toBeGreaterThan(0);
-      expect(page.body.join(' ')).toMatch(/not built yet|nothing (here )?is built|none are built/i);
-      expect(page.cta.href.startsWith('/')).toBe(true);
-    }
-  });
 });

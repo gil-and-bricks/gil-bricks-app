@@ -54,6 +54,10 @@ export interface FeatureFlags {
    * exists and explains what is coming, but no form renders and the API
    * answers 404 — nothing can be submitted. */
   bridgingFinance: boolean;
+  /** The tools section (T1): the /tools index and the calculators listed in
+   * config/tools.ts. Off: /tools shows nothing is switched on, and the tool
+   * pages themselves render their explanation without the calculator. */
+  toolsSection: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -66,6 +70,7 @@ export const features: FeatureFlags = {
   desktopSplit: true,
   navV2: true,
   bridgingFinance: true,
+  toolsSection: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags
