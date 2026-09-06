@@ -511,9 +511,16 @@ export function DealBoard() {
 
   // Identity FIRST: a signed-out visitor never loads deals, so testing the data
   // before the person left them on a skeleton that could never finish (D1).
+  // Every whole-board state is KEYED, and the skeletons carry NO aria-hidden.
+  // Astro server-renders this island in its loading state, and Preact's hydration
+  // adopts that DOM without diffing its attributes — so an `aria-hidden="true"`
+  // on a skeleton stayed on the node the sign-in card was then rendered into,
+  // hiding the only thing on the page from a screen reader (P11 review, caught by
+  // Lighthouse). The skeleton is two empty divs: there is nothing to announce and
+  // nothing to focus, so the attribute was buying nothing and costing that.
   if (v === undefined) {
     return (
-      <div class="glass card" aria-hidden="true">
+      <div key="board-loading" class="glass card">
         <div class="skeleton sk-title" />
         <div class="skeleton sk-line" />
       </div>
@@ -521,8 +528,8 @@ export function DealBoard() {
   }
   if (v === null) {
     return (
-      <div class="glass card">
-        <h3 class="state-h">{BOARD_COPY.screen.signInHeading}</h3>
+      <div key="board-signin" class="glass card">
+        <h2 class="state-h">{BOARD_COPY.screen.signInHeading}</h2>
         <p class="hint">{COPY.account.dealsSignIn}</p>
         <button type="button" class="btn-primary" onClick={openLoginWall}>{BOARD_COPY.screen.signInButton}</button>
       </div>
@@ -530,19 +537,19 @@ export function DealBoard() {
   }
   if (deals === null) {
     return (
-      <div class="glass card" aria-hidden="true">
+      <div key="board-skeleton" class="glass card">
         <div class="skeleton sk-title" />
         <div class="skeleton sk-line" />
       </div>
     );
   }
   if (deals === 'error') {
-    return <p class="hint" role="alert">{BOARD_COPY.screen.loadFailed}</p>;
+    return <p key="board-error" class="hint" role="alert">{BOARD_COPY.screen.loadFailed}</p>;
   }
   if (deals.length === 0) {
     return (
-      <div class="glass card board-empty">
-        <h3 class="state-h">{BOARD_COPY.screen.emptyHeading}</h3>
+      <div key="board-empty" class="glass card board-empty">
+        <h2 class="state-h">{BOARD_COPY.screen.emptyHeading}</h2>
         <p class="hint">{COPY.account.dealsEmpty}</p>
         <p class="hint"><a href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a></p>
       </div>
