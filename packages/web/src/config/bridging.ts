@@ -28,6 +28,13 @@ export const BROKER = {
    * cron retries — the enquiry is already safe in D1. */
   kitTagQualified: '',
   kitTagNotYet: '',
+  /**
+   * F2 — the tag whose Kit automation emails the BROKER his one-time link.
+   * That email carries a link and nothing else: no name, no date of birth, no
+   * address, no credit answer. Until this is filled in, the fact-find step does
+   * not render at all — the same gate F1 uses for the enquiry itself.
+   */
+  kitTagFactFind: '',
 } as const;
 
 /** True only when there is a real, named broker and somewhere to send it. */
@@ -36,6 +43,36 @@ export function brokerReady(): boolean {
   return filled(BROKER.name) && filled(BROKER.email) && filled(BROKER.inbox)
     && BROKER.kitTagQualified.trim() !== '' && BROKER.kitTagNotYet.trim() !== '';
 }
+
+/**
+ * F2 — is there anywhere for a fact-find to GO? Nothing is collected until
+ * there is: no named broker, no automation to notify him, no form. The step is
+ * simply not offered, and a qualified enquiry ends where F1 ended.
+ */
+export function factFindReady(): boolean {
+  return brokerReady() && BROKER.kitTagFactFind.trim() !== '';
+}
+
+/**
+ * F2 — how long the broker's link lives, and how long we keep what it shows.
+ *
+ * THE LINK is single-use and short: it is a bearer token in an email, so the
+ * window in which a leaked mailbox could open it is measured in hours, not days.
+ * A used link is dead; an expired one is dead; either way the operator can send
+ * a fresh one.
+ *
+ * RETENTION answers "this must not sit in D1 once he has it". Once he has read
+ * it, ours is a copy of a record that now lives on his system, so it goes within
+ * days. If he never reads it, it goes at the maximum age regardless.
+ */
+export const FACTFIND_RULES = {
+  /** Hours the one-time link is valid for. */
+  linkHours: 72,
+  /** Days after the broker READS a fact-find before ours is deleted. */
+  keepAfterViewedDays: 7,
+  /** Days after collection before it is deleted whether he read it or not. */
+  keepMaxDays: 30,
+} as const;
 
 /** Shown instead of the form until brokerReady() — honest, not a teaser. */
 export const BRIDGING_NOT_OPEN = {
@@ -134,7 +171,7 @@ export const BRIDGING = {
   /** Signed out: explain, then ask them to sign in. No form is rendered. */
   signedOut: {
     heading: 'Sign in to make an enquiry',
-    body: 'One tap with Google. It keeps this for real enquiries, and means we never ask for your name or email.',
+    body: 'One tap with Google. It keeps this for real enquiries, and your name and email come from your account.',
     cta: 'Sign in to continue',
   },
 
@@ -280,4 +317,202 @@ export const BRIDGING = {
   /** Said once, near the form, so nobody can mistake what this is. */
   disclaimer: (site: string): string =>
     `${site} is not a broker and gives no financial advice. We make an introduction; the broker decides what he can help with.`,
+} as const;
+
+/**
+ * THE BROKER'S FACT-FIND (F2) — his form, his questions, our manners.
+ *
+ * F1 is OUR filter: it asks about the deal and decides whether an enquiry is
+ * worth his time. This is HIS form, and it is a different job: it asks nothing
+ * about the deal and everything about the borrower, because it is what he needs
+ * to go and get quotes. Both are real; this one only ever appears after ours has
+ * passed.
+ *
+ * MIRRORED, NOT REDESIGNED. The questions are his. What we changed: his labels
+ * shout in capitals and ours do not, and his form takes a credit report file
+ * while ours asks only whether one is available (see the migration and the
+ * decisions log for why).
+ *
+ * NOTHING HERE IMPLIES WE ADVISE. We collect what he asked for and pass it on.
+ * A test fails if a word like "your quote", "your application" or "we'll assess"
+ * ever appears on this step.
+ */
+
+/** The yes/no both his form and ours use. Values are stored; labels are yours. */
+const YES_NO = [
+  { value: 'yes', label: 'Yes' },
+  { value: 'no', label: 'No' },
+] as const;
+
+/**
+ * One question. `showWhen` is DATA, not code: the field is asked only when
+ * another answer matches, and both the form and the server read the same rule —
+ * so a limited-company name is never demanded of someone buying personally, and
+ * never accepted from one either.
+ */
+export interface FactFindFieldSpec {
+  key: string;
+  /** Which of the three screens it belongs to. */
+  step: 1 | 2 | 3;
+  kind: 'text' | 'textarea' | 'date' | 'choice';
+  label: string;
+  hint?: string;
+  /** The browser's own autofill hint, where one genuinely applies. */
+  autocomplete?: string;
+  max?: number;
+  options?: readonly { value: string; label: string }[];
+  showWhen?: { field: string; is: string };
+  /** Said when it is missing. One line, in plain English. */
+  error: string;
+}
+
+export const FACTFIND = {
+  heading: 'What the broker needs',
+  /**
+   * HIS OWN PREAMBLE, in substance. It says what this is for and what still has
+   * to happen — and it is the reason nobody can mistake this for an application.
+   */
+  preamble: [
+    'This is the initial information he needs to go and get quotes.',
+    'A full fact-find and documents come later, if you choose to work with him.',
+  ],
+  /** The account details we already hold, shown rather than asked again. */
+  email: { label: 'Your email', note: 'From your account. He replies to this.' },
+  progress: (step: number, total: number): string => `Step ${step} of ${total}`,
+  steps: {
+    1: 'About you',
+    2: 'Your position',
+    3: 'The money',
+  } as Record<number, string>,
+  next: 'Continue',
+  back: 'Back',
+  submit: 'Send to the broker',
+  sending: 'Sending…',
+  /** Named, specific, and about the sensitive fields by name. */
+  consent: {
+    label: (broker: string): string =>
+      `Share these answers with ${broker}, including my date of birth, my home address and my credit answer.`,
+    recipients: 'They are not sent to our email provider. He is told there is a fact-find waiting and reads it here.',
+    required: 'Tick the box so he can be sent these details.',
+  },
+  fields: [
+    {
+      key: 'name', step: 1, kind: 'text', label: 'Your name', max: 80, autocomplete: 'name',
+      hint: 'From your account — correct it if it should read differently.',
+      error: 'Enter the name the finance would be in.',
+    },
+    {
+      key: 'ltd', step: 1, kind: 'choice', label: 'Are you buying through a limited company?',
+      options: YES_NO, error: 'Pick whether a company is buying.',
+    },
+    {
+      key: 'companyName', step: 1, kind: 'text', label: 'Company name', max: 120, autocomplete: 'organization',
+      showWhen: { field: 'ltd', is: 'yes' }, error: 'Enter the company name.',
+    },
+    {
+      key: 'dob', step: 1, kind: 'date', label: 'Date of birth', autocomplete: 'bday',
+      error: 'Enter your date of birth.',
+    },
+    {
+      key: 'address', step: 1, kind: 'textarea', label: 'Your current address', max: 300, autocomplete: 'street-address',
+      error: 'Enter the address you live at.',
+    },
+    {
+      key: 'ownsHome', step: 2, kind: 'choice', label: 'Do you own your home?',
+      options: YES_NO, error: 'Pick whether you own your home.',
+    },
+    {
+      key: 'mortgageProvider', step: 2, kind: 'text', label: 'Who is your mortgage provider?', max: 80,
+      showWhen: { field: 'ownsHome', is: 'yes' }, error: 'Enter your mortgage provider, or write none.',
+    },
+    {
+      key: 'otherProperties', step: 2, kind: 'choice', label: 'Do you have any other properties?',
+      options: YES_NO, error: 'Pick whether you own other property.',
+    },
+    {
+      key: 'refurbExperience', step: 2, kind: 'choice', label: 'Have you any refurbishment experience?',
+      options: YES_NO, error: 'Pick whether you have done refurbishment before.',
+    },
+    {
+      key: 'goodCredit', step: 2, kind: 'choice', label: 'Do you have good credit?',
+      options: YES_NO, error: 'Pick the closest answer.',
+    },
+    {
+      key: 'creditReport', step: 2, kind: 'choice', label: 'Is an up-to-date credit report available?',
+      hint: 'He asks you for it directly. Nothing is uploaded here.',
+      options: YES_NO, showWhen: { field: 'goodCredit', is: 'no' },
+      error: 'Pick whether a report is available.',
+    },
+    {
+      key: 'savings', step: 3, kind: 'text', label: 'Your current cash savings', max: 120,
+      hint: 'Roughly what you hold, and where.',
+      error: 'Say roughly what you have in savings.',
+    },
+    {
+      key: 'depositSource', step: 3, kind: 'choice', label: 'Where does the deposit come from?',
+      options: [
+        { value: 'savings', label: 'Savings' },
+        { value: 'gift', label: 'A gift' },
+        { value: 'business-equity', label: 'Equity in a business' },
+        { value: 'remortgage', label: 'Remortgage of another property' },
+        { value: 'other', label: 'Something else' },
+      ],
+      error: 'Pick where the deposit comes from.',
+    },
+    {
+      key: 'giftFrom', step: 3, kind: 'text', label: 'Who is the gift from?', max: 80,
+      showWhen: { field: 'depositSource', is: 'gift' }, error: 'Say who the gift is from.',
+    },
+    {
+      key: 'equityProperty', step: 3, kind: 'choice', label: 'Which property is being remortgaged?',
+      options: [
+        { value: 'home', label: 'My home' },
+        { value: 'investment', label: 'An investment property' },
+        { value: 'someone-else', label: 'A property belonging to someone else' },
+      ],
+      showWhen: { field: 'depositSource', is: 'remortgage' },
+      error: 'Pick which property that is.',
+    },
+  ] as readonly FactFindFieldSpec[],
+  errors: {
+    failed: 'That did not send. Try again in a moment.',
+    incomplete: 'Answer the questions on this step first.',
+  },
+  /** After it has gone. Still an introduction: he decides, not us. */
+  done: {
+    heading: 'Sent to the broker',
+    body: [
+      'He has what he needs to go and get quotes.',
+      'He calls you. Nothing here is a decision about your finance.',
+    ],
+  },
+} as const;
+
+/**
+ * What the BROKER sees when he opens his one-time link. Server-rendered, so
+ * every word is here rather than in the page that builds it.
+ */
+export const FACTFIND_VIEW = {
+  title: 'Fact-find',
+  heading: 'Fact-find',
+  /** The button that reveals it. A link in an email gets opened by scanners;
+   * a button does not, so the one use is spent by a person. */
+  reveal: 'Show the details',
+  revealNote: 'This link works once. Take what you need before you close it.',
+  contactHeading: 'Contact',
+  answersHeading: 'Their answers',
+  collected: (when: string): string => `Collected ${when}.`,
+  /** Said at the bottom, every time. */
+  footer: 'Collected with their consent and passed to you. No credit report is held here.',
+  gone: {
+    heading: 'This link has gone',
+    /** It says who to contact, because nothing here can mint a new link by
+     * itself — the operator does it (F2 review). `inbox` is filled in at render. */
+    body: (inbox: string): string => `It works once, and only for a few days. Email ${inbox} if you still need it.`,
+  },
+  labels: {
+    name: 'Name',
+    email: 'Email',
+    phone: 'Phone',
+  },
 } as const;

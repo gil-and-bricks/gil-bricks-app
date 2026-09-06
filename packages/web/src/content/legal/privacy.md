@@ -1,6 +1,6 @@
 # Privacy
 
-**Version 2026-09-05.**
+**Version 2026-09-06.**
 
 **I am not a lawyer.** This page is written to describe honestly what this site
 collects, where it goes and how to get rid of it. Every line below describes
@@ -10,13 +10,13 @@ something the code actually does.
 
 You can use the analyser, the area data and the three tools without an account
 and without giving me anything. Nothing you type into them reaches me unless
-you sign in and save something, send a bridging enquiry, or ask a tool to email
-you its breakdown. There is no advertising, no analytics and no tracking, which
+you sign in and save something, send a bridging enquiry (and, if it qualifies,
+answer the broker's questions), or ask a tool to email you its breakdown. There is no advertising, no analytics and no tracking, which
 is why there is no cookie banner.
 
 ## What is stored, and only when
 
-**Nothing, until you do one of these four things.**
+**Nothing, until you do one of these five things.**
 
 **1. You sign in with Google.** Google tells me your email address, your name
 and a link to your profile picture. That is all I get — never your password.
@@ -38,7 +38,26 @@ what you wrote in your own words, the outcome, and the time you ticked the
 consent box. This is the only place on the site that asks for a phone number,
 because the outcome of that enquiry is a phone call.
 
-**4. You ask a tool to email you its breakdown.** Stored: the email address you
+**4. Your enquiry qualifies and you fill in the broker's questions.** If — and
+only if — the enquiry passes the checks above, you are asked for the details the
+broker needs to go and get quotes: your **name**, whether a limited company is
+buying and its name, your **date of birth**, your **home address**, whether you
+own your home and who your mortgage is with, whether you own other property,
+whether you have refurbishment experience, whether you have **good credit** and
+whether an up-to-date credit report is available, roughly what you hold in
+savings, and where the deposit comes from — including, **if the deposit is a
+gift, who it is from**, and if it comes from a remortgage, which property that
+is. Stored with it: the time you ticked the consent box and the version of the
+wording you ticked. That record of your consent is kept with the enquiry after
+the answers themselves have been deleted, because I have to be able to show that
+you agreed. You have to tick that box, and it names him and those details.
+
+**There is no upload.** The broker's own form takes a credit report file; this
+one does not, and never will. It asks only whether one is available, and he asks
+you for it directly. A stored credit report is the most damaging single thing
+this site could ever leak, and it belongs on his system, not mine.
+
+**5. You ask a tool to email you its breakdown.** Stored: the email address you
 gave (or the one on your account), the figures that were already on your screen
 and which tool produced them. You have to tick the box. The answer itself never
 needs an email, and you do not need an account.
@@ -64,6 +83,15 @@ There is no password to steal: sign-in is Google's.
   what he can help with. No saved deal and no analysis is ever passed to him.
   While his details are not yet set up the form does not appear at all, so
   nothing can be sent.
+  **The broker's questions (the fourth thing above) never go through Kit.** Kit
+  is an email tool, and a date of birth, a home address and a credit answer do
+  not belong in one. Those answers stay in the database here. Kit receives three
+  things and no more: **his** email address, **his** name, and a link. The link
+  works **once**, stops working after three days, and shows him the answers on a
+  page here — which is not indexed, not cached and not stored by his browser.
+  Our own copy of that link is deleted the moment Kit has taken it; after that
+  only a one-way fingerprint of it is kept, so it cannot be recovered from the
+  database.
 - **Open-data services, called by your browser** — HM Land Registry, police.uk,
   the Environment Agency, planning.data.gov.uk and the ONS data we publish on
   Cloudflare. Those requests carry a postcode or a location and your IP address.
@@ -93,8 +121,10 @@ Three, all strictly necessary, none for tracking:
 - Turnstile's own cookie, which Cloudflare sets when the human-check runs.
 
 If a tool offers to email you its breakdown and you dismiss the offer, your
-browser remembers that for the tab, in its own session storage. Nothing else is
-kept there, and it never leaves your device.
+browser remembers that for the tab, in its own session storage. While you are
+filling in the broker's questions, your browser keeps your answers there too, so
+a reload or a Back does not make you type your date of birth twice. Both go when
+you close the tab, and neither leaves your device until you send it.
 
 ## The human-check
 
@@ -112,13 +142,19 @@ address to Cloudflare to confirm you are a person. Turnstile is not analytics.
   email address and first name, and are deleted when you delete your account.
 - A bridging enquiry is kept until you ask for it to be deleted or you delete
   your account.
+- **The broker's questions are kept for days, not for ever.** Once he has opened
+  the link and read them, the copy here is deleted within **7 days** — from that
+  moment they are his record, not mine. If he never opens it, they are deleted
+  **30 days** after you sent them, whether he read them or not. A job that runs
+  every quarter of an hour does the deleting; nothing waits for me to remember.
 
 ## Getting your data, or deleting it
 
 **Delete everything** is a button on the account page. It permanently removes:
 your account record, every saved deal and everything in your pipeline, any
-bridging enquiry you sent, anything a tool queued for your email address, and
-any queued message about you. If you had consented to marketing, one record
+bridging enquiry you sent, **the broker's questions and your answers to them —
+which also kills his link on the spot, even if he has not opened it** — anything
+a tool queued for your email address, and any queued message about you. If you had consented to marketing, one record
 keeps just your email address long enough to tell Kit to unsubscribe you, and
 that record is blanked once Kit has done it. You are signed out. It cannot be
 undone.
@@ -133,7 +169,8 @@ send you everything the database has about you.
 
 You can ask for a copy of your data, ask for it to be corrected, or ask for it
 to be deleted. Where the lawful basis is consent — marketing email, a bridging
-enquiry, a tool emailing you a breakdown — you can withdraw it at any time by
+enquiry, **the broker's questions**, a tool emailing you a breakdown — you can
+withdraw it at any time by
 unsubscribing from any email, by unticking the box on your account page, or by
 asking. Withdrawing does not undo something that already happened, like a call
 you have already had.

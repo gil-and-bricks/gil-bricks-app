@@ -16,7 +16,7 @@ import { describe, expect, it } from 'vitest';
 import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
-import { BRIDGING } from './bridging';
+import { BRIDGING, FACTFIND, FACTFIND_VIEW } from './bridging';
 import { CALENDAR, CHAIN_RISK, GRAVEYARD_COPY, PARK_REASONS, RETRADE } from './pipeline';
 import { NAV } from './nav';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
@@ -228,6 +228,31 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
     // and it never tells the operator how to feel about it
     for (const word of ['unfortunately', 'sadly', 'disappointing', 'sorry']) {
       expect(message.toLowerCase()).not.toContain(word);
+    }
+  });
+
+  it('the broker fact-find obeys the same rules, question by question', () => {
+    const built = [
+      { key: 'FACTFIND.consent.label', text: FACTFIND.consent.label('Sam the Broker') },
+      { key: 'FACTFIND.progress', text: FACTFIND.progress(1, 3) },
+      { key: 'FACTFIND_VIEW.collected', text: FACTFIND_VIEW.collected('2026-09-06') },
+      { key: 'FACTFIND_VIEW.gone.body', text: FACTFIND_VIEW.gone.body('inbox@example.com') },
+    ];
+    const strings = [
+      ...flatten(FACTFIND, 'FACTFIND'), ...flatten(FACTFIND_VIEW, 'FACTFIND_VIEW'), ...built,
+    ];
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long, 'the longest form in the product still reads at a glance').toEqual([]);
+    const longSentence = strings
+      .flatMap((s) => sentencesOf(s.text).map((sentence) => ({ key: s.key, sentence })))
+      .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
+      .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
+    expect(longSentence).toEqual([]);
+    // sentence case, not his shouting capitals
+    for (const f of FACTFIND.fields) {
+      expect(f.label, f.key).not.toBe(f.label.toUpperCase());
     }
   });
 

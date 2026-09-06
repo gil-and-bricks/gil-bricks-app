@@ -114,6 +114,15 @@ export interface FeatureFlags {
    * anywhere; facts, scores and change messages are untouched. */
   retradeRadar: boolean;
 
+  /** The broker's fact-find (F2): after a bridging enquiry QUALIFIES, the third
+   * step that collects what the broker needs to go and get quotes — name, date
+   * of birth, address, ownership, experience, credit answer and where the
+   * deposit comes from. Stored in D1, never in Kit, and delivered to him as a
+   * single-use expiring link. Off: a qualified enquiry ends exactly where F1
+   * ended it, `POST /api/bridging/factfind` is 404 and the broker's own page is
+   * 404. Anything already collected stays in D1 until retention deletes it. */
+  brokerFactFind: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -142,6 +151,7 @@ export const features: FeatureFlags = {
   desktopSplit: true,
   navV2: true,
   bridgingFinance: true,
+  brokerFactFind: true,
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,

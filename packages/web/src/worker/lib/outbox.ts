@@ -10,6 +10,11 @@
  *  - tag:         POST /v4/tags/{tag_id}/subscribers { email_address } → 200/201
  * Auth header: X-Kit-Api-Key (server-side only, never logged).
  *
+ * F2 adds ONE more, 'factfind-ready', and it is the only row addressed to the
+ * BROKER rather than to a user. It carries his email and a single-use link, and
+ * nothing else: the fact-find's own answers — a date of birth, a home address, a
+ * credit answer — never enter Kit at all.
+ *
  * F1 adds two actions, 'bridging-qualified' and 'bridging-not-yet': the person
  * is upserted and TAGGED, and Kit's own automations send the broker's
  * notification and the follow-up. The app still sends no email itself. Until
@@ -62,7 +67,8 @@ export async function pushToKit(
   row: Pick<OutboxRow, 'email' | 'first_name' | 'action'> & { fields_json?: string | null },
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
-  tags: { qualified: string; notYet: string } = { qualified: BROKER.kitTagQualified, notYet: BROKER.kitTagNotYet },
+  tags: { qualified: string; notYet: string; factFind: string } =
+    { qualified: BROKER.kitTagQualified, notYet: BROKER.kitTagNotYet, factFind: BROKER.kitTagFactFind },
 ): Promise<PushResult> {
   const headers = { 'X-Kit-Api-Key': apiKey, 'content-type': 'application/json' };
   try {
@@ -100,6 +106,34 @@ export async function pushToKit(
         return { ok: false, error: `kit subscribe HTTP ${up.status}` };
       }
       const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tagId)}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email }),
+      });
+      if (res.status === 200 || res.status === 201 || res.status === 202) return { ok: true };
+      return { ok: false, error: `kit tag HTTP ${res.status}` };
+    }
+    if (row.action === 'factfind-ready') {
+      // F2: the BROKER is told a fact-find is waiting, and given the link. Kit
+      // receives his own address and that link — never the applicant's name,
+      // date of birth, address or credit answer. Those never leave D1.
+      if (tags.factFind.trim() === '') return { ok: false, error: 'kit tag id not configured for factfind-ready' };
+      let fields: Record<string, string> = {};
+      try {
+        const parsed = row.fields_json === null || row.fields_json === undefined ? {} : JSON.parse(row.fields_json);
+        if (parsed !== null && typeof parsed === 'object') fields = parsed as Record<string, string>;
+      } catch {
+        fields = {};
+      }
+      const up = await fetchImpl(`${KIT_API}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email, first_name: row.first_name, fields }),
+      });
+      if (!(up.status === 200 || up.status === 201 || up.status === 202)) {
+        return { ok: false, error: `kit subscribe HTTP ${up.status}` };
+      }
+      const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tags.factFind)}/subscribers`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ email_address: row.email }),

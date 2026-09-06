@@ -13,11 +13,12 @@
  * Documented in CLAUDE.md and in the privacy policy.
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { BRIDGING, BRIDGING_NOT_OPEN, BRIDGING_RULES, BROKER, brokerReady } from '../../config/bridging';
+import { BRIDGING, BRIDGING_NOT_OPEN, BRIDGING_RULES, BROKER, brokerReady, factFindReady } from '../../config/bridging';
 import { features } from '../../config/features';
 import { siteConfig } from '../../site.config';
 import { me, openLoginWall } from '../../lib/auth/session';
 import { EMPTY_ENQUIRY, step1Errors, step2Errors, type Enquiry } from '../../lib/bridging';
+import { FactFind } from './FactFind';
 import { MoneyInput } from '../analyser/MoneyInput';
 
 let turnstileScript: Promise<void> | null = null;
@@ -36,6 +37,34 @@ function loadTurnstile(): Promise<void> {
 }
 
 type Outcome = 'qualified' | 'not-yet';
+
+/**
+ * F2 — the tab remembers that this enquiry got through, so a reload lands back
+ * on the broker's questions rather than on an empty enquiry form. Without it,
+ * refreshing halfway through the longest form in the product would throw the
+ * person back to the start of a conversation they had already finished.
+ * Session storage: this sitting, this tab, and gone when it closes.
+ */
+const THROUGH = 'gb:bridging-through';
+interface Through { user: string; enquiryId: string; sent?: boolean }
+const rememberThrough = (state: Through): void => {
+  try { sessionStorage.setItem(THROUGH, JSON.stringify(state)); } catch { /* private window */ }
+};
+/** Only ever for the SAME account: a shared computer must not hand the next
+ *  person the last one's enquiry — and with it, their answers (F2 review). */
+const recallThrough = (user: string): Through | null => {
+  try {
+    const raw = sessionStorage.getItem(THROUGH);
+    if (raw === null) return null;
+    const held = JSON.parse(raw) as Through;
+    return held.user === user && typeof held.enquiryId === 'string' ? held : null;
+  } catch {
+    return null;
+  }
+};
+const forgetThrough = (): void => {
+  try { sessionStorage.removeItem(THROUGH); } catch { /* nothing to clear */ }
+};
 
 /** Field keys: identifiers for the state and the radio groups, never shown. */
 const FIELD = {
@@ -61,6 +90,12 @@ export function BridgingEnquiry() {
   const [failed, setFailed] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [reasons, setReasons] = useState<string[]>([]);
+  /** F2 — the qualified enquiry the fact-find attaches to. Absent for a not-yet
+   * enquiry, and absent when there is nowhere to send a fact-find. */
+  const [enquiryId, setEnquiryId] = useState('');
+  /** …and whether it has already gone, so a reload does not offer to collect a
+   * second copy of the same person's date of birth (F2 review). */
+  const [factFindSent, setFactFindSent] = useState(false);
   const [token, setToken] = useState('');
   const widget = useRef<HTMLDivElement>(null);
   const rendered = useRef(false);
@@ -95,6 +130,20 @@ export function BridgingEnquiry() {
     if (step === 2) step2Ref.current?.focus();
   }, [step]);
 
+  // F2 — back from a reload, still through the filter. Signed out, the tab's
+  // memory of somebody's enquiry is dropped rather than offered to whoever is
+  // here now.
+  useEffect(() => {
+    const email = who === null || who === undefined ? '' : who.email;
+    if (email === '') { forgetThrough(); return; }
+    const held = recallThrough(email);
+    if (held && features.brokerFactFind && factFindReady()) {
+      setEnquiryId(held.enquiryId);
+      setFactFindSent(held.sent === true);
+      setOutcome('qualified');
+    }
+  }, [who]);
+
   if (!brokerReady()) {
     return (
       <section class="glass card" aria-labelledby="bridge-shut">
@@ -116,16 +165,33 @@ export function BridgingEnquiry() {
 
   if (outcome !== null) {
     const done = outcome === 'qualified' ? BRIDGING.result.qualified : BRIDGING.result.notYet;
+    // F2 — through the filter, and straight on to the broker's own questions.
+    // One continuous flow: no second visit, no email round trip, nobody lost
+    // between two halves of the same conversation. A not-yet enquiry never sees
+    // this, and neither does anyone if there is nowhere to send it.
+    const askFactFind = features.brokerFactFind && outcome === 'qualified' && factFindReady() && enquiryId !== '';
     return (
-      <section class="glass card" aria-labelledby="bridge-done" role="status">
-        <h2 id="bridge-done">{done.heading}</h2>
-        {done.body.map((line) => <p>{line}</p>)}
-        {reasons.length > 0 && (
-          <ul class="bridge-list bridge-reasons">
-            {reasons.map((key) => <li>{BRIDGING.result.reasons[key] ?? key}</li>)}
-          </ul>
+      <>
+        <section class="glass card" aria-labelledby="bridge-done" role="status">
+          <h2 id="bridge-done">{done.heading}</h2>
+          {done.body.map((line) => <p>{line}</p>)}
+          {reasons.length > 0 && (
+            <ul class="bridge-list bridge-reasons">
+              {reasons.map((key) => <li>{BRIDGING.result.reasons[key] ?? key}</li>)}
+            </ul>
+          )}
+        </section>
+        {askFactFind && (
+          <FactFind
+            enquiryId={enquiryId}
+            email={who.email}
+            name={who.name}
+            alreadySent={factFindSent}
+            onSent={() => { setFactFindSent(true); rememberThrough({ user: who.email, enquiryId, sent: true }); }}
+            onUnavailable={forgetThrough}
+          />
         )}
-      </section>
+      </>
     );
   }
 
@@ -148,8 +214,10 @@ export function BridgingEnquiry() {
         setFailed(copy.errors.failed);
         return;
       }
-      const body = (await res.json()) as { outcome: Outcome; reasons?: string[] };
+      const body = (await res.json()) as { outcome: Outcome; reasons?: string[]; enquiryId?: string };
       setReasons(body.reasons ?? []);
+      setEnquiryId(body.enquiryId ?? '');
+      if (body.enquiryId) rememberThrough({ user: who.email, enquiryId: body.enquiryId });
       setOutcome(body.outcome);
     } catch {
       setFailed(copy.errors.failed);

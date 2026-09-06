@@ -9,9 +9,15 @@
  */
 import { siteConfig } from '../site.config';
 import { features } from '../config/features';
-import { BRIDGING_RULES, BROKER, brokerReady } from '../config/bridging';
+import { BRIDGING_RULES, BROKER, brokerReady, factFindReady, FACTFIND_RULES } from '../config/bridging';
 import { captureReady, KIT_FIELDS } from '../config/capture';
 import { qualify, isComplete, loanAmount, phoneDigits, type Enquiry } from '../lib/bridging';
+import { cleanFactFind, isFactFindComplete, FACTFIND_KEYS } from '../lib/factfind';
+import {
+  detailsPage, factFindLink, factFindRecipient, gonePage, hashToken, KIT_FACTFIND_FIELD, mintToken,
+  purgeFactFinds, revealPage, type FactFindRow,
+} from './lib/factfind';
+import { coreConfig } from '@gil-bricks/core';
 import {
   AUTH_STATE_COOKIE,
   authStateCookie,
@@ -255,10 +261,14 @@ async function attemptKitRow(
   const attemptTs = new Date(nowMs).toISOString();
   const result = await pushToKit(row, env.KIT_API_KEY);
   if (result.ok) {
-    // deletion-origin unsubscribes (no user row left) redact their email once
-    // Kit has honoured it — "delete everything" then holds in our DB too
+    // Two redactions once Kit has taken it:
+    //  - deletion-origin unsubscribes (no user row left) drop their email, so
+    //    "delete everything" then holds in our DB too;
+    //  - a fact-find notification drops the LINK. It is a live bearer token for
+    //    a few hours, and once Kit has it there is no reason for a copy to sit
+    //    in our database as well (F2 review). Only its hash remains.
     await env.DB.prepare(
-      "UPDATE kit_outbox SET status = 'sent', sent_at = ?, attempts = ?, last_attempt = ?, last_error = ?, email = CASE WHEN action = 'unsubscribe' AND user_id IS NULL THEN '' ELSE email END WHERE id = ?",
+      "UPDATE kit_outbox SET status = 'sent', sent_at = ?, attempts = ?, last_attempt = ?, last_error = ?, email = CASE WHEN action = 'unsubscribe' AND user_id IS NULL THEN '' ELSE email END, fields_json = CASE WHEN action = 'factfind-ready' THEN NULL ELSE fields_json END WHERE id = ?",
     )
       .bind(new Date().toISOString(), row.attempts + 1, attemptTs, result.note ?? null, row.id)
       .run();
@@ -364,6 +374,9 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     // F1: a bridging enquiry is personal data too — deleting the account
     // deletes it, exactly as the privacy policy says.
     env.DB.prepare('DELETE FROM bridging_enquiries WHERE user_id = ?').bind(user.sub),
+    // F2: and the fact-find with it — the most personal thing this product ever
+    // holds. Deleting it also kills the broker's link, which resolves by row.
+    env.DB.prepare('DELETE FROM bridging_factfinds WHERE user_id = ?').bind(user.sub),
     // T1: nothing writes tool_saves since T2 removed the save, but any row
     // from that window is account data — "delete everything" still means it.
     env.DB.prepare('DELETE FROM tool_saves WHERE user_id = ?').bind(user.sub),
@@ -781,8 +794,134 @@ async function handleBridgingEnquiry(request: Request, env: Env): Promise<Respon
   ).bind(action, user.sub).first<{ id: string; email: string; first_name: string; action: string; attempts: number }>();
   if (row) await attemptKitRow(env, row);
 
-  // the reasons are stable keys; the page turns them into one line each
-  return json({ outcome: decision.outcome, reasons: decision.reasons });
+  // the reasons are stable keys; the page turns them into one line each. The id
+  // travels only for a QUALIFIED enquiry, because that is the only one the
+  // fact-find step can attach itself to (F2).
+  return json({
+    outcome: decision.outcome,
+    reasons: decision.reasons,
+    ...(decision.outcome === 'qualified' && factFindReady() ? { enquiryId: id } : {}),
+  });
+}
+
+/**
+ * F2 — THE BROKER'S FACT-FIND. It exists only after OUR filter has passed, and
+ * only when there is a real broker to send it to.
+ *
+ * Nothing here reaches Kit but a link. The answers are stored in D1, cleaned by
+ * the same pure rules the form used — so a question that was never asked cannot
+ * be stored from a hand-made request either — and the broker is notified with a
+ * single-use link that expires in hours.
+ */
+async function handleFactFind(request: Request, env: Env): Promise<Response> {
+  if (!features.bridgingFinance || !features.brokerFactFind) return json({ error: 'not found' }, 404);
+  // No recipient, no collection: the same gate the enquiry itself uses.
+  if (!factFindReady()) return json({ error: 'not open' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  if (body.consent !== true) return json({ error: 'consent required' }, 400);
+  const enquiryId = typeof body.enquiry_id === 'string' ? body.enquiry_id : '';
+
+  // The fact-find belongs to a QUALIFIED enquiry of this person's own, and to
+  // one only: nobody can attach details to somebody else's enquiry, and a
+  // not-yet enquiry never earns this step.
+  const enquiry = await env.DB
+    .prepare("SELECT id, phone, outcome FROM bridging_enquiries WHERE id = ? AND user_id = ? AND outcome = 'qualified'")
+    .bind(enquiryId, user.sub)
+    .first<{ id: string; phone: string; outcome: string }>();
+  if (!enquiry) return json({ error: 'not found' }, 404);
+  // One fact-find per enquiry. A second submission is not new information.
+  const already = await env.DB.prepare('SELECT id FROM bridging_factfinds WHERE enquiry_id = ?')
+    .bind(enquiry.id).first<{ id: string }>();
+  if (already) return json({ ok: true, alreadySent: true });
+
+  const answers = cleanFactFind(
+    Object.fromEntries(FACTFIND_KEYS.map((k) => [k, typeof body[k] === 'string' ? (body[k] as string) : ''])),
+  );
+  if (!isFactFindComplete(answers)) return json({ error: 'incomplete' }, 400);
+
+  const now = new Date().toISOString();
+  const { token, hash } = await mintToken();
+  const expires = new Date(Date.now() + FACTFIND_RULES.linkHours * 3_600_000).toISOString();
+  const id = crypto.randomUUID();
+  const col = (key: string): string => answers[key] ?? '';
+  await env.DB.prepare(
+    `INSERT INTO bridging_factfinds (id, enquiry_id, user_id, email, phone, applicant_name, buying_ltd,
+       company_name, dob, address, owns_home, mortgage_provider, other_properties, refurb_experience,
+       good_credit, credit_report, savings, deposit_source, gift_from, equity_property,
+       consent_at, created_at, token_hash, expires_at, viewed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+  ).bind(
+    id, enquiry.id, user.sub, user.email, enquiry.phone, col('name'), col('ltd'), col('companyName'),
+    col('dob'), col('address'), col('ownsHome'), col('mortgageProvider'), col('otherProperties'),
+    col('refurbExperience'), col('goodCredit'), col('creditReport'), col('savings'), col('depositSource'),
+    col('giftFrom'), col('equityProperty'), now, now, hash, expires,
+  ).run();
+
+  // The consent EVENT is written to the enquiry, which the person keeps: the
+  // fact-find itself is deleted within days, and the record that they agreed to
+  // the disclosure — and under which version of the wording — has to outlive it
+  // (F2 review).
+  await env.DB.prepare(
+    'UPDATE bridging_enquiries SET factfind_consent_at = ?, factfind_consent_version = ? WHERE id = ? AND user_id = ?',
+  ).bind(now, siteConfig.consentVersion, enquiry.id, user.sub).run();
+
+  // The notification: the broker's own address, and a link. Kit is told nothing
+  // else — no name, no date of birth, no address, no credit answer.
+  const to = factFindRecipient();
+  const outboxId = crypto.randomUUID();
+  const fields = JSON.stringify({ [KIT_FACTFIND_FIELD]: factFindLink(coreConfig.appBaseUrl, token) });
+  await env.DB.prepare(
+    "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at, fields_json) VALUES (?, ?, ?, ?, 'factfind-ready', 'pending', ?, ?)",
+  ).bind(outboxId, user.sub, to.email, to.name, now, fields).run();
+  await attemptKitRow(env, { id: outboxId, email: to.email, first_name: to.name, action: 'factfind-ready', attempts: 0, fields_json: fields });
+  return json({ ok: true });
+}
+
+/**
+ * F2 — the page the broker reads it on. A GET shows a button and NOTHING else,
+ * because email security scanners follow links and must never be able to spend
+ * the one use; the POST reveals the details and marks the link spent.
+ */
+async function handleBrokerFactFind(request: Request, env: Env, url: URL): Promise<Response> {
+  const html = (body: string, status = 200): Response => new Response(body, {
+    status,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store, no-cache, must-revalidate, private',
+      'x-robots-tag': 'noindex, nofollow, noarchive',
+      'referrer-policy': 'no-referrer',
+    },
+  });
+  if (!features.bridgingFinance || !features.brokerFactFind) return html(gonePage(), 404);
+  const token = request.method === 'POST'
+    ? String(new URLSearchParams(await request.text()).get('t') ?? '')
+    : (url.searchParams.get('t') ?? '');
+  if (token.trim() === '') return html(gonePage(), 404);
+  if (request.method !== 'POST') return html(revealPage(token));
+
+  const row = await env.DB
+    .prepare('SELECT * FROM bridging_factfinds WHERE token_hash = ?')
+    .bind(await hashToken(token))
+    .first<FactFindRow>();
+  const now = new Date().toISOString();
+  // Used once, and only inside its window. Either way the answer is the same
+  // page, so a probe learns nothing from which door it hit.
+  if (!row || row.viewed_at !== null || row.expires_at <= now) return html(gonePage(), 404);
+  // The one use is spent by the UPDATE, not by the read: two taps arriving
+  // together must not both be shown the details. Only the request that actually
+  // marked it gets the page.
+  const spent = await env.DB.prepare('UPDATE bridging_factfinds SET viewed_at = ? WHERE id = ? AND viewed_at IS NULL')
+    .bind(now, row.id).run();
+  if ((spent.meta?.changes ?? 0) === 0) return html(gonePage(), 404);
+  return html(detailsPage(row));
 }
 
 /** P4: move a deal to another progress stage (skipping allowed — it's the user's own
@@ -1149,6 +1288,16 @@ async function handleReviveDeal(request: Request, env: Env, dealId: string): Pro
 const LEAD_RETENTION_DAYS = 90;
 
 async function processOutbox(env: Env, nowMs = Date.now()): Promise<void> {
+  // F2: a fact-find is somebody's date of birth, address and credit answer. Once
+  // the broker has read it, ours is a copy of a record that lives on his system
+  // — so it goes within days, and at the maximum age whether he read it or not.
+  // Guarded: a failure here must never stop the queue behind it, which carries
+  // consent withdrawals (F2 review).
+  try {
+    await purgeFactFinds(env.DB, nowMs);
+  } catch (err) {
+    console.error(`factfind retention sweep failed: ${String(err)}`);
+  }
   // A tool lead carries someone's own figures and, on the typed path, an
   // address with no account behind it. Once Kit has it (or it has given up),
   // there is no reason to keep it — so it is pruned, not kept for ever.
@@ -1198,6 +1347,11 @@ export default {
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);
     if (pathname === '/api/tools/lead' && method === 'POST') return handleToolLead(request, env);
     if (pathname === '/api/bridging' && method === 'POST') return handleBridgingEnquiry(request, env);
+    if (pathname === '/api/bridging/factfind' && method === 'POST') return handleFactFind(request, env);
+    // The broker's own page: a GET reveals nothing, a POST spends the one use.
+    if (pathname === '/broker/factfind' && (method === 'GET' || method === 'POST')) {
+      return handleBrokerFactFind(request, env, url);
+    }
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
