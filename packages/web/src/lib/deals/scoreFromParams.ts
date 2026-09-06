@@ -67,6 +67,13 @@ export interface ParamScore {
   figure: string;
   /** The engine's own verdict sentence — never hand-written prose. */
   verdict: string;
+  /**
+   * The cash this deal needs, from the SAME analysis the score came out of —
+   * BTL/HMO cash in, BRRRR/Flip cash invested. The calendar export puts it in an
+   * auction event, because it is the number people forget (P10). Nothing else
+   * reads it, and nothing here computes it: it comes back from core.
+   */
+  cashNeeded: number;
 }
 
 const configFor = (id: string): StrategyConfig => {
@@ -137,7 +144,7 @@ export function scoreFromParams(
     } as never;
     const a = analyseBtl(inputs);
     const d = scoreDeal('btl', inputs, ev);
-    return { score: d.score, figure: BTL_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline };
+    return { score: d.score, figure: BTL_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline, cashNeeded: a.cashIn.value };
   }
 
   if (strategy === 'flip') {
@@ -153,7 +160,7 @@ export function scoreFromParams(
     } as never;
     const a = analyseFlip(inputs);
     const d = scoreDeal('flip', inputs, ev);
-    return { score: d.score, figure: FLIP_COPY.savedHeadline(fmtMoney(a.profitAfterTax.value)), verdict: d.headline };
+    return { score: d.score, figure: FLIP_COPY.savedHeadline(fmtMoney(a.profitAfterTax.value)), verdict: d.headline, cashNeeded: a.cashInvested.value };
   }
 
   if (strategy === 'brrrr') {
@@ -174,7 +181,7 @@ export function scoreFromParams(
     const a = analyseBrrrr(inputs);
     const d = scoreDeal('brrrr', inputs, ev);
     // BRRRR saves its outcome sentence as the board figure, like the analyser.
-    return { score: d.score, figure: a.outcomeVerdict, verdict: d.headline };
+    return { score: d.score, figure: a.outcomeVerdict, verdict: d.headline, cashNeeded: a.cashInvested.value };
   }
 
   // The analyser defaults to four rooms and reports room sizes as UNKNOWN
@@ -199,5 +206,5 @@ export function scoreFromParams(
   } as never;
   const a = analyseHmo(inputs);
   const d = scoreDeal('hmo', inputs, ev);
-  return { score: d.score, figure: HMO_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline };
+  return { score: d.score, figure: HMO_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline, cashNeeded: a.cashIn.value };
 }

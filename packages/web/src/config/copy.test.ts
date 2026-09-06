@@ -17,7 +17,7 @@ import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
 import { BRIDGING } from './bridging';
-import { GRAVEYARD_COPY, PARK_REASONS } from './pipeline';
+import { CALENDAR, GRAVEYARD_COPY, PARK_REASONS } from './pipeline';
 import { NAV } from './nav';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
@@ -159,6 +159,41 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
     // the operator's own wording for the event, not a judgement of them.)
     const banned = /\b(fail|failed|failure|lost|wasted|mistake|regret)\b/i;
     for (const s of strings) expect(banned.test(s.text), `${s.key}: ${s.text}`).toBe(false);
+  });
+
+  it('the calendar export obeys the same rules, and never promises a reminder', () => {
+    const built = [
+      { key: 'CALENDAR.summary', text: CALENDAR.summary('Auction', 'Flat · CF10 1AA · £135,000') },
+      { key: 'CALENDAR.openDeal', text: CALENDAR.openDeal('https://example.test/x') },
+      { key: 'CALENDAR.cash', text: CALENDAR.cash('£45,200') },
+      { key: 'CALENDAR.addFor', text: CALENDAR.addFor('12 Test Street') },
+      { key: 'CALENDAR.prodId', text: CALENDAR.prodId('PropLaunch') },
+    ];
+    const strings = [...flatten(CALENDAR, 'CALENDAR'), ...built];
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long).toEqual([]);
+
+    // The event is ours to give; the REMINDER belongs to their calendar app, and
+    // the copy must never claim otherwise (P10, requirement 5).
+    expect(CALENDAR.note).toBe('Your calendar app decides whether it reminds you.');
+    for (const s of strings) {
+      expect(/\bwe(\.|'ll| will)? +remind/i.test(s.text), s.key).toBe(false);
+      expect(/\byou will be reminded\b/i.test(s.text), s.key).toBe(false);
+    }
+  });
+
+  it('nothing anywhere claims to reach somebody with the browser shut (P10)', () => {
+    // The ONE sentence that describes the limit lives in the extension's copy;
+    // the web app must never contradict it. Any promise of a nudge that arrives
+    // on its own would be a lie: this app sends no email and runs nothing on a
+    // phone (CLAUDE.md).
+    const claims = /\b(we|it)('ll| will)? +(email|text|message|notify|remind) +you\b/i;
+    const all = [...flatten(COPY, ''), ...flatten(CALENDAR, 'CALENDAR'), ...flatten(GRAVEYARD_COPY, 'GRAVEYARD_COPY')];
+    // (The extension owns the one sentence that STATES the limit, and its own
+    // test holds it to that: packages/extension/tests/attention.test.ts.)
+    for (const s of all) expect(claims.test(s.text), `${s.key}: ${s.text}`).toBe(false);
   });
 
   it('tooltips stay at 20 words — they are already the short home', () => {

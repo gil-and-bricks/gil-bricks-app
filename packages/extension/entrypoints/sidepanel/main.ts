@@ -50,6 +50,7 @@ import {
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
 import { PANEL_OPEN_MESSAGE } from '../../src/opener';
 import * as store from '../../src/store';
+import { ATTENTION, ATTENTION_COPY } from '../../src/attention';
 
 /**
  * Floor-plan MEASURE state (E9.1 — OCR removed). The plan image is only ever
@@ -67,7 +68,8 @@ interface FloorPlanState {
   measuredRooms: number[];
 }
 
-const WEB_BASE = 'https://gil-bricks-app.gil-782.workers.dev';
+/** The web app, from the ONE shared source (golden rule 4). */
+const WEB_BASE = coreConfig.appBaseUrl;
 const STRATEGIES: { id: StrategyId; label: string }[] = [
   { id: 'btl', label: 'BTL' }, { id: 'flip', label: 'Flip' }, { id: 'brrrr', label: 'BRRRR' }, { id: 'hmo', label: 'HMO' },
 ];
@@ -97,11 +99,32 @@ function root(): HTMLElement {
   return a;
 }
 
-export function renderEmpty(): void {
+/**
+ * WHAT IS WAITING ON THE BOARD (P10). The badge is a number on an icon; this is
+ * the same number in words, with the one click that takes you to it. It is shown
+ * ONLY from a count measured today — a stale number is worse than none — and
+ * never when nothing is waiting.
+ */
+export function attentionBar(count: number, onOpen?: () => void): HTMLElement | null {
+  if (!Number.isFinite(count) || count <= 0) return null;
+  const bar = e('div', 'gb-attention');
+  bar.setAttribute('role', 'status');
+  bar.append(e('span', 'gb-attention-n', ATTENTION_COPY.banner(count)));
+  const open = e('button', 'gb-attention-open', ATTENTION_COPY.open) as HTMLButtonElement;
+  open.type = 'button';
+  if (onOpen) open.addEventListener('click', onOpen);
+  bar.append(open);
+  return bar;
+}
+
+export function renderEmpty(attention?: { count: number; onOpen?: () => void }): void {
+  const app = root();
+  const bar = attentionBar(attention?.count ?? 0, attention?.onOpen);
   const card = e('section', 'glass card empty');
   card.append(e('p', 'eyebrow', coreConfig.siteName));
   card.append(e('p', 'empty-msg', 'Open a Rightmove or Zoopla listing and I’ll score it as a deal.'));
-  root().append(card);
+  if (bar) app.append(bar);
+  app.append(card);
 }
 
 /**
@@ -111,15 +134,18 @@ export function renderEmpty(): void {
  */
 export interface FailureState { heading: string; body: string; action?: string }
 
-export function renderFailure(state: FailureState | string): void {
+export function renderFailure(state: FailureState | string, attention?: { count: number; onOpen?: () => void }): void {
   const s: FailureState = typeof state === 'string' ? { heading: 'We couldn’t read this page', body: state } : state;
+  const app = root();
+  const bar = attentionBar(attention?.count ?? 0, attention?.onOpen);
   const card = e('section', 'glass card fail-card');
   card.setAttribute('role', 'alert');
   card.append(e('p', 'eyebrow', coreConfig.siteName));
   card.append(e('h1', 'fail-head', s.heading));
   card.append(e('p', 'fail-body', s.body));
   if (s.action) card.append(e('p', 'fail-action', s.action));
-  root().append(card);
+  if (bar) app.append(bar);
+  app.append(card);
 }
 
 /**
@@ -313,6 +339,10 @@ export interface PanelView {
   floorplan?: FloorPlanState;
   /** Is the in-page "Analyse this deal" button switched off? (D1) */
   openerHidden?: boolean;
+  /** P10 — the daily reminders switch, and today's attention count (0 = say
+   * nothing). The count is only ever passed in when it was measured TODAY. */
+  reminders?: boolean;
+  attention?: number;
   ewReject?: string | null;
   /** WHY the postcode was rejected — a border reject reads differently from an
    * unreadable postcode (E10 review). */
@@ -328,6 +358,9 @@ export interface PanelHandlers {
   /** Turn the in-page button on a listing back on (or off) — "Hide" on the
    *  button itself is otherwise a one-way door (D1 review). */
   onOpenerVisible?: (show: boolean) => void;
+  /** P10 — the daily badge on or off, and the one click to the board. */
+  onReminders?: (on: boolean) => void;
+  onOpenBoard?: () => void;
   onOpenSettings?: () => void;
   onCloseSettings?: () => void;
   onSend?: () => void;
@@ -769,6 +802,9 @@ function auctionCard(view: PanelView): HTMLElement | null {
 
 export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   const app = root();
+  // P10 — what is waiting on the board, above the listing you are looking at.
+  const bar = attentionBar(view.attention ?? 0, h.onOpenBoard);
+  if (bar) app.append(bar);
   const L = view.listing;
   const card = e('section', 'glass card');
 
@@ -936,6 +972,26 @@ export function renderSettings(view: PanelView, h: PanelHandlers = {}): void {
     box.addEventListener('change', () => h.onOpenerVisible!(box.checked));
     row.append(lab, box);
     card.append(row);
+  }
+
+  // P10 — the daily badge's own switch. One tap, and OFF means silent: no
+  // fetch, no badge, no notification. The line under it is the ONE place the
+  // product says how far it can reach, and it never claims more.
+  if (h.onReminders) {
+    const row = e('div', 'assume-row');
+    const lab = e('label', 'assume-label', ATTENTION_COPY.settings);
+    lab.setAttribute('for', 'gb-reminders');
+    const box = e('input', 'assume-field') as HTMLInputElement;
+    box.id = 'gb-reminders';
+    box.type = 'checkbox';
+    box.checked = view.reminders !== false;
+    box.addEventListener('change', () => h.onReminders!(box.checked));
+    row.append(lab, box);
+    card.append(row);
+    const reach = e('p', 'settings-note', ATTENTION_COPY.reach);
+    reach.id = 'gb-reminders-note';
+    box.setAttribute('aria-describedby', reach.id);
+    card.append(reach);
   }
 
   // Heading is WHITE and spaced from the lime back link (E8.1 #9).
@@ -1163,12 +1219,26 @@ interface Ctx {
   signalsOpen: boolean;
   /** Is the in-page button switched off? Read once at start-up (D1). */
   openerHidden: boolean;
+  /** P10 — the daily badge switch, and today's attention count (0 = nothing). */
+  reminders: boolean;
+  attention: number;
   /** How the sector fetch resolved, for honest sold-price messaging (E8.1). */
   sectorLoad: SectorLoad;
   /** The last front-lever change, shown briefly as a plain effect line (E8.1). */
   lastChange: { text: string; token: number } | null;
   /** Floor-plan measure state (E9.1). */
   floorplan: FloorPlanState;
+}
+
+/**
+ * The attention count, while it is as fresh as the badge showing it. The panel
+ * and the toolbar read the SAME window (ATTENTION.freshHours), so they can never
+ * say different things about the same board (P10 review).
+ */
+async function todaysAttention(): Promise<number> {
+  const snap = await store.getAttention();
+  const age = Date.now() - (snap.at ?? 0);
+  return snap.at > 0 && age <= ATTENTION.freshHours * 3_600_000 ? snap.count : 0;
 }
 
 /** Change-signal token so a stale timer never clears a newer message. */
@@ -1244,8 +1314,9 @@ function detectAuction(listing: NormalisedListing, signals: SellerSignals | unde
 }
 
 function draw(ctx: Ctx): void {
-  if (ctx.failure) return renderFailure(ctx.failure);
-  if (!ctx.listing) return renderEmpty();
+  const board = { count: ctx.attention, onOpen: () => { void chrome.tabs.create({ url: `${WEB_BASE}${ATTENTION.board}` }); } };
+  if (ctx.failure) return renderFailure(ctx.failure, board);
+  if (!ctx.listing) return renderEmpty(board);
   const fa = resolveFloorArea(ctx);
   // Seller Signals — read from what the page already gave us, computed here and
   // NEVER fed into scoreListing/scoreDeal, so it can't move the score (E8).
@@ -1267,6 +1338,8 @@ function draw(ctx: Ctx): void {
     rentCleared: ctx.rentCleared, outOfMarket, signals, signalsOpen: ctx.signalsOpen, isAuction,
     floorplan: ctx.floorplan, lastChange: ctx.lastChange?.text ?? null, ewReject: ctx.ewReject, ewRejectReason: ctx.ewRejectReason,
     openerHidden: ctx.openerHidden,
+    reminders: ctx.reminders,
+    attention: ctx.attention,
   };
   const metricsOf = (r: ScoreListingResult): { score: number | null; cashflow: number | null; cashflowAfter: number | null; profit: number | null; moneyLeftIn: number | null } => {
     const a = r.deal?.analysis as { cashflowBeforeTax?: { value: number }; cashflowAfterTax?: { value: number }; profitAfterTax?: { value: number }; moneyLeftIn?: number } | undefined;
@@ -1338,6 +1411,10 @@ function draw(ctx: Ctx): void {
     onCriterion: (k, v) => { const c = { ...ctx.criteria }; if (v.trim() === '') delete c[k]; else c[k] = Number(v); ctx.criteria = c; void store.setCriteria(c); redraw(ctx); },
     onLever,
     onOpenerVisible: (show) => { ctx.openerHidden = !show; void store.setOpenerHidden(!show); redraw(ctx); },
+    // Switched off has to mean silent NOW: the background clears the badge the
+    // moment this lands (it listens for the change).
+    onReminders: (on) => { ctx.reminders = on; void store.setReminders(on); if (!on) ctx.attention = 0; redraw(ctx); },
+    onOpenBoard: () => { void chrome.tabs.create({ url: `${WEB_BASE}${ATTENTION.board}` }); },
     onOpenSettings: () => { ctx.screen = 'settings'; draw(ctx); },
     onCloseSettings: () => { ctx.screen = 'triage'; draw(ctx); },
     onToggleSignals: (open) => { ctx.signalsOpen = open; },
@@ -1392,6 +1469,9 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
     sector: null, sectorId: null, ewReject: null, ewRejectReason: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
     openerHidden: await store.getOpenerHidden(),
+    reminders: await store.getReminders(),
+    // Only ever today's number: a count from yesterday may already be wrong.
+    attention: await todaysAttention(),
     sectorLoad: 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [] },
   };
@@ -1515,7 +1595,8 @@ export function __mountForTest(
     url: 'test', listing, failure: null, screen: 'triage', strategy: opts.strategy ?? 'btl',
     rent: opts.rent ?? '', listingUnknowns: opts.listingUnknowns ?? {}, settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
     sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, ewRejectReason: null, manualArea: '',
-    cleared: new Set(), rentCleared: false, signalsOpen: false, openerHidden: false, sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
+    cleared: new Set(), rentCleared: false, signalsOpen: false, openerHidden: false, reminders: true, attention: 0,
+    sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [], ...opts.floorplan },
   };
   activeCtx = ctx;

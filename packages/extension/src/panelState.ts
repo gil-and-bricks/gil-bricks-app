@@ -27,7 +27,7 @@ export const BADGE = {
 /** The slice of the chrome API this module uses. */
 export interface ChromeLike {
   action: {
-    setBadgeText: (d: { tabId?: number; text: string }) => Promise<void>;
+    setBadgeText: (d: { tabId?: number; text: string | null }) => Promise<void>;
     setBadgeBackgroundColor: (d: { color: string }) => Promise<void>;
     setBadgeTextColor?: (d: { color: string }) => Promise<void>;
     setTitle: (d: { tabId?: number; title: string }) => Promise<void>;
@@ -48,15 +48,19 @@ export function paintBadgeStyle(api: ChromeLike): void {
  * One tab's state: the panel is available on the two portals, and the icon
  * wears a dot only where there is a listing to read.
  */
-export function applyTab(api: ChromeLike, tabId: number, url?: string): void {
+export function applyTab(api: ChromeLike, tabId: number, url?: string, idleTitle: string = BADGE.idle): void {
   void api.sidePanel
     .setOptions({ tabId, path: 'sidepanel.html', enabled: isSupportedUrl(url) })
     .catch((e) => console.error('[gil&bricks] setOptions failed', e));
   const listing = isListingUrl(url);
-  void api.action.setBadgeText({ tabId, text: listing ? BADGE.text : '' }).catch(() => undefined);
+  // On a listing the dot wins — here, a click reads the page. Everywhere else the
+  // per-tab badge is CLEARED (null, not ''), so the global attention count shows
+  // through: an empty string would be a per-tab override that hides it (P10).
+  void api.action.setBadgeText({ tabId, text: listing ? BADGE.text : null }).catch(() => undefined);
   // The tooltip must be cleared as well as set: leaving a listing (the back
-  // button, a search) otherwise kept "Deal found" on a tab with no deal.
-  void api.action.setTitle({ tabId, title: listing ? BADGE.onListing : BADGE.idle }).catch(() => undefined);
+  // button, a search) otherwise kept "Deal found" on a tab with no deal. Off a
+  // listing it falls back to whatever the attention badge is saying (P10).
+  void api.action.setTitle({ tabId, title: listing ? BADGE.onListing : idleTitle }).catch(() => undefined);
 }
 
 /**

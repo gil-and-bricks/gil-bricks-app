@@ -44,7 +44,8 @@ export const siteConfig: SiteConfig = {
   tagline: 'Real UK sold-price data for property investors — free.',
   // Locked future domain; the site still serves from liveUrl (workers.dev) for now.
   domain: 'proplaunch.ai',
-  liveUrl: 'https://gil-bricks-app.gil-782.workers.dev',
+  // From coreConfig, because the extension links to the same place (P10).
+  liveUrl: coreConfig.appBaseUrl,
   // Live listing (published 2026-09): item id gldjllfgdcmdmccmmienfcgnkigkgfam.
   chromeStoreUrl: 'https://chromewebstore.google.com/detail/proplaunch-deal-analyser/gldjllfgdcmdmccmmienfcgnkigkgfam',
   // Socials come from coreConfig so the web app and the panel read the SAME

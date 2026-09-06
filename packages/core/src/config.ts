@@ -20,6 +20,14 @@ export const coreConfig = {
    * primary product name. Its own social channels are in `socials`. */
   makerName: 'Gil & Bricks',
 
+  /**
+   * Where the web app is served. The SAME string the extension links to and the
+   * site's own liveUrl — one source, so moving to the real domain is one edit
+   * (golden rule 4). Not the locked product domain (site.config.domain), which
+   * is not live yet.
+   */
+  appBaseUrl: 'https://gil-bricks-app.gil-782.workers.dev',
+
   /** Public base URL of the R2 data bucket (sector JSON, manifest, ukhpi, etc.). */
   dataBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
 

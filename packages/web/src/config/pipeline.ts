@@ -94,6 +94,9 @@ export const PARK_REASONS: readonly ParkReason[] = [
   { key: 'lease-legal', label: 'Lease or legal', diedOn: 'the lease or the legals', pattern: 'You may be finding the legal problems late.' },
   { key: 'changed-mind', label: 'Changed my mind', diedOn: 'a change of mind' },
   { key: 'seller-pulled-out', label: 'Seller pulled out', diedOn: 'the seller pulling out' },
+  // About an eighth of collapsed UK sales die on a chain break. It is a real
+  // cause and nothing you control, so it carries no lesson either.
+  { key: 'chain-fell', label: 'Chain fell through', diedOn: 'a chain falling through' },
 ] as const;
 export function parkReason(key: string): ParkReason | undefined {
   return PARK_REASONS.find((r) => r.key === key);
@@ -196,6 +199,16 @@ export const URGENCY = {
    */
   order: ['deadline', 'unread-change', 'stale', 'missing-evidence'] as const,
   /**
+   * The ONLY tier that earns an interruption (P10). A dated deadline inside
+   * `deadlineWithinHours` is the one thing you cannot fix tomorrow; everything
+   * else is a number on a badge. Set it to '' and the extension never notifies
+   * at all, without a code change.
+   */
+  critical: 'deadline' as string,
+  /** How many dated deadlines a surface is told about at once. A nudge, not a
+   * feed: the extension announces the first one it has not already announced. */
+  criticalMax: 5,
+  /**
    * A dated deadline this close is the most urgent thing on the board. 48 hours
    * because that is the last point at which you can still DO something about an
    * auction, an exchange or a chase you promised yourself.
@@ -222,23 +235,31 @@ export const URGENCY = {
  * are columns); labels and prompts are yours to reword.
  */
 export interface DealDateSpec {
-  key: 'chase_date' | 'auction_date' | 'exchange_date';
+  key: 'viewing_date' | 'chase_date' | 'auction_date' | 'exchange_date';
   label: string;
   /** The button before a date is set. */
   add: string;
   /** How the today line names it: "the auction is tomorrow". */
   noun: string;
+  /** How the CALENDAR names it, at the front of the event's title (P10). */
+  event: string;
   /** Only offered on an auction deal. */
   auctionOnly?: boolean;
   /** Only offered at these stages; absent means any live stage. */
   stages?: readonly string[];
 }
 export const DEAL_DATES: readonly DealDateSpec[] = [
-  { key: 'chase_date', label: 'Chase on', add: 'Set a chase date', noun: 'your chase date' },
-  { key: 'auction_date', label: 'Auction', add: 'Set the auction date', noun: 'the auction', auctionOnly: true },
+  {
+    // First in a deal's life, and the one with somebody waiting at the other end
+    // of it, so it is offered while you are still deciding to go (P10).
+    key: 'viewing_date', label: 'Viewing', add: 'Set the viewing date', noun: 'the viewing',
+    event: 'Viewing', stages: ['worth-a-look', 'going-to-view'],
+  },
+  { key: 'chase_date', label: 'Chase on', add: 'Set a chase date', noun: 'your chase date', event: 'Chase' },
+  { key: 'auction_date', label: 'Auction', add: 'Set the auction date', noun: 'the auction', event: 'Auction', auctionOnly: true },
   {
     key: 'exchange_date', label: 'Exchange', add: 'Set the exchange date', noun: 'exchange',
-    stages: ['offer-accepted', 'nearly-there'],
+    event: 'Exchange', stages: ['offer-accepted', 'nearly-there'],
   },
 ];
 export const DEAL_DATE_KEYS: readonly string[] = DEAL_DATES.map((d) => d.key);
@@ -605,3 +626,55 @@ export const GRAVEYARD_COPY = {
   /** The capture: one chip, and a note only if you want one. */
   noteLabel: 'Note (optional)',
 } as const;
+
+/**
+ * THE CALENDAR EXPORT (P10). A long-horizon date belongs in the calendar you
+ * already check, not in a tool you might not open. We hand over a .ics file and
+ * their calendar takes it from there — which is exactly what the copy says: the
+ * event is ours, the reminder is theirs.
+ *
+ * Every word is here. The file itself is built in src/lib/deals/ics.ts, which
+ * writes RFC 5545 and no prose.
+ */
+export const CALENDAR = {
+  add: 'Add to calendar',
+  /** Appended for a screen reader, so the announced name contains the visible
+   * words (WCAG label in name). */
+  addFor: (title: string): string => ` — ${title}`,
+  /** The honest limit, said once, beside the button. */
+  note: 'Your calendar app decides whether it reminds you.',
+  /** The browser never tells us whether the file landed, so this says where to
+   * look rather than claiming a save happened (P10 review). */
+  saved: 'Look in your downloads for the file.',
+  failed: 'That file did not build. Try again.',
+  /** The event title: "Viewing — Terraced · CF37 1HR · £120,000". */
+  summary: (event: string, title: string): string => `${event} — ${title}`,
+  /** Inside the event: how to get back to the deal. */
+  openDeal: (url: string): string => `Open the deal: ${url}`,
+  /**
+   * The auction line. It says whose figures they are, because they are yours —
+   * this is your own analysis, not a quote from anybody.
+   */
+  cash: (money: string): string => `Cash needed on your figures: ${money}.`,
+  feesIn: 'Auction fees are in this number.',
+  feesOut: 'Auction fees are not in this number yet.',
+  /** Who wrote the file (RFC 5545 PRODID). Takes the product's name rather than
+   * spelling it, so renaming the product never touches this (golden rule 4). */
+  prodId: (siteName: string): string => `-//${siteName}//Deal dates//EN`,
+} as const;
+
+/**
+ * How long before the event the file asks for a reminder, as an RFC 5545
+ * duration. These are ALL-DAY events, so the trigger counts back from midnight:
+ * 15 hours lands at 9am the day before — the same place Google's own "1 day
+ * before" default lands, and not a midnight alert (P10 review). Whether it fires
+ * at all is the calendar app's decision, never ours — see CALENDAR.note.
+ */
+export const CALENDAR_ALARM = '-PT15H';
+
+/**
+ * The fact that tells an auction event its fees are already inside the cash
+ * figure. A stable KEY, so relabelling the fact type never changes what the
+ * calendar says (P10).
+ */
+export const AUCTION_FEES_FACT = 'auction-fees';

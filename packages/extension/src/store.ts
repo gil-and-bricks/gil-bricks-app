@@ -76,3 +76,28 @@ export async function storageAvailable(): Promise<boolean> {
 // ("Show the button on listings"), so it is never a one-way door.
 export const getOpenerHidden = () => getLocal<boolean>('gb:opener-hidden', false);
 export const setOpenerHidden = (hidden: boolean) => setLocal('gb:opener-hidden', hidden);
+
+// P10 — the daily attention badge. Default ON (the operator asked for that), and
+// OFF has to mean silent: the background clears the badge and stops fetching.
+export const getReminders = () => getLocal<boolean>('gb:reminders', true);
+export const setReminders = (on: boolean) => setLocal('gb:reminders', on);
+
+// The last local day a notification was shown — the "at most one a day" guard: a
+// service worker that wakes twice reads the same day and stays quiet.
+export const getLastNotified = () => getLocal<string>('gb:lastNotified', '');
+export const setLastNotified = (day: string) => setLocal('gb:lastNotified', day);
+
+// And the deadlines already announced ("<dealId>:<day>"), so a date left
+// uncleared cannot fire a notification every morning for ever. Capped: this is a
+// short memory of what has been said, not a log.
+export const getNotifiedKeys = () => getLocal<string[]>('gb:notifiedKeys', []);
+export const setNotifiedKeys = (keys: string[]) => setLocal('gb:notifiedKeys', keys);
+
+/**
+ * The last attention count and WHEN it was taken. The panel shows it only while
+ * it is as fresh as the badge is (ATTENTION.freshHours), so the two surfaces can
+ * never say different things about the same board (P10 review).
+ */
+export interface AttentionSnapshot { count: number; at: number }
+export const getAttention = () => getLocal<AttentionSnapshot>('gb:attention', { count: 0, at: 0 });
+export const setAttention = (a: AttentionSnapshot) => setLocal('gb:attention', a);

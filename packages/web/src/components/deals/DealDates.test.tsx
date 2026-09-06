@@ -15,8 +15,11 @@ const html = (over: Partial<Parameters<typeof DealDates>[0]> = {}) => render(
 );
 
 describe('which dates a deal is offered', () => {
-  it('a chase date on any live deal', () => {
-    expect(datesFor('worth-a-look', false).map((d) => d.key)).toEqual(['chase_date']);
+  it('a chase date on any live deal, and a viewing while you are still deciding', () => {
+    expect(datesFor('worth-a-look', false).map((d) => d.key)).toEqual(['viewing_date', 'chase_date']);
+    expect(datesFor('going-to-view', false).map((d) => d.key)).toContain('viewing_date');
+    // once you have offered, a viewing date is behind you
+    expect(datesFor('offer-in', false).map((d) => d.key)).not.toContain('viewing_date');
   });
 
   it('an auction date ONLY where the deal came from an auction', () => {

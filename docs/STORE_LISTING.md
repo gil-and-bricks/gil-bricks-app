@@ -99,6 +99,16 @@ The whole product is a side panel: it displays the deal analysis alongside the R
 Used only to remember the user's own inputs on their own device (chrome.storage.local): their default strategy, their assumptions and criteria, a remembered rent per area, and per-listing figures they enter. Nothing is uploaded or synced. It lets the user avoid re-entering the same settings on every listing.
 ```
 
+**alarms**
+```
+Used for one thing: a single daily alarm that wakes the extension once a day to check whether any of the user's own saved deals needs attention. An MV3 service worker sleeps, so an alarm is the only way to run a once-a-day check. No other alarm is created.
+```
+
+**notifications**
+```
+Used only to show at most ONE notification a day, and only when a date the user themselves set on one of their own deals (a viewing, an auction, an exchange) falls inside the next 48 hours. The user can switch it off in one tap in the extension's settings, and nothing is ever shown when they are signed out.
+```
+
 **Host permission: `*://*.rightmove.co.uk/*`**
 ```
 The extension reads the listing page the user has open on Rightmove to extract the price, property type and size it needs to score the deal. This host permission is required for the content script to read that page. The content script reads the page on demand only; it never fetches other Rightmove pages and never sends the page's content anywhere.
@@ -107,6 +117,11 @@ The extension reads the listing page the user has open on Rightmove to extract t
 **Host permission: `*://*.zoopla.co.uk/*`**
 ```
 Same as above, for Zoopla: the content script reads the listing page the user has open to extract the figures needed to score the deal. It never fetches other Zoopla pages and never transmits the page's content.
+```
+
+**Host permission: the developer's own web app**
+```
+The extension asks the developer's own web app once a day how many of the user's saved deals need attention, so it can show that count on the toolbar icon. It is the user's own signed-in account and their own data; the request sends nothing but the session cookie their browser already holds. No other site is contacted, and nothing is sent about the pages the user is browsing.
 ```
 
 ## Privacy practices — data usage declarations (field: "Privacy" tab)

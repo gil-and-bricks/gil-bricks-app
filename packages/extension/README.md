@@ -78,6 +78,29 @@ Whenever you (or the code) change the extension, rebuild and refresh:
 - The fonts (Montserrat + Poppins) are bundled inside the extension, so it looks
   right with no internet connection and shares nothing with Google.
 
+## The daily badge (P10)
+
+Once a day — 8am, while Chrome is running — the extension asks the web app the
+SAME question the board asks: *what needs me?* The answer is a number on the
+toolbar icon.
+
+- **The badge is a count of deals needing attention.** Not unread anything. It
+  comes from the board's own ranking (`/api/attention`), so the two can never
+  disagree.
+- **At most ONE notification a day**, and only when a date you set is inside 48
+  hours. Everything else is just the number. A day you ignore escalates to
+  nothing.
+- **Signed out, or the check fails → no badge at all.** A number you cannot
+  trust is worse than no number.
+- **Switch it off** in the panel's Settings, in one tap. Off means silent: no
+  check, no badge, no notification.
+- **The honest limit:** the badge works while Chrome is open. Nothing reaches you
+  when it is closed. The panel says exactly that, once, under the switch.
+
+It needs two permissions — `alarms` (the once-a-day wake) and `notifications` —
+plus host access to the web app itself, which is the only thing it talks to.
+Still no `tabs`, no `cookies`, no `scripting`, no `<all_urls>`.
+
 ## What it reads (E5)
 
 On a Rightmove or Zoopla listing the panel reads the page you have open — from

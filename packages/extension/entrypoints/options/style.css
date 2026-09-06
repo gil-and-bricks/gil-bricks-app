@@ -1,0 +1,21 @@
+/* The options page: one switch and one honest sentence. It borrows the panel's
+   ground and lime so it is obviously the same product, and nothing more. */
+:root { color-scheme: dark; --accent: #dcff00; --text: #fff; --dim: rgba(255,255,255,0.7); --line: rgba(255,255,255,0.18); }
+body {
+  margin: 0; padding: 24px; min-height: 100vh; box-sizing: border-box;
+  background: linear-gradient(180deg, #070014, #1d022f 45%, #230138 75%, #050008);
+  color: var(--text); font: 400 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+main { max-width: 34rem; margin: 0 auto; }
+h1 { margin: 0 0 4px; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.01em; }
+.maker { margin: 0 0 20px; color: var(--dim); font-size: 0.85rem; }
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+}
+.row label { font-weight: 600; }
+.row input { width: 22px; height: 22px; min-height: 44px; accent-color: var(--accent); }
+.note { margin: 10px 2px 0; color: var(--dim); font-size: 0.85rem; }
+.saved { margin: 10px 2px 0; color: var(--accent); font-size: 0.85rem; font-weight: 600; min-height: 1.2em; }
+input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }

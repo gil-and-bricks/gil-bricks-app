@@ -7,7 +7,7 @@
  */
 import { verdictForScore } from '@gil-bricks/core';
 import { features } from '../../config/features';
-import { BOARD_COPY, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
+import { BOARD_COPY, DEAL_DATE_KEYS, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
 
 /** One deal as the board needs it (from /api/deals when the flag is on). */
 export interface BoardDeal {
@@ -50,6 +50,7 @@ export interface BoardDeal {
    * never set by the app. A date nearly here is the most urgent thing the board
    * can say — see URGENCY in src/config/pipeline.ts.
    */
+  viewing_date?: string | null;
   chase_date?: string | null;
   auction_date?: string | null;
   exchange_date?: string | null;
@@ -60,6 +61,13 @@ export interface BoardDeal {
    */
   stale_state?: string | null;
   stale_at?: string | null;
+}
+
+/** The dates a deal holds, by config key — so adding a date to DEAL_DATES never
+ * needs a component edit (P10). Values are plain ISO days, or null. */
+export function datesOf(deal: BoardDeal): Record<string, string | null> {
+  const row = deal as unknown as Record<string, string | null | undefined>;
+  return Object.fromEntries(DEAL_DATE_KEYS.map((k) => [k, row[k] ?? null]));
 }
 
 /** Still moving. A status KEY, kept out of the components so the board reads it

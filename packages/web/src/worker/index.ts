@@ -26,8 +26,9 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { ackChange, canAddLiveDeal, DAILY_CRON, listDeaths, openDeath, reviveDeal, toDealFact, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
-import { DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, PARK_REASON_KEYS, statusForStage } from '../config/pipeline';
+import { ackChange, boardRows, canAddLiveDeal, DAILY_CRON, listDeaths, openDeath, reviveDeal, toDealFact, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
+import { DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, PARK_REASON_KEYS, URGENCY, statusForStage } from '../config/pipeline';
+import { datesOn, rankUrgent } from '../lib/deals/urgency';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
 export interface Env {
@@ -577,23 +578,9 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // link) — every deal has a matching saved_deals row (P2 dual-write; deleted
     // together). headline_figure is the board card's figure; key_figure is the
     // honest fallback for migrated/older deals that predate it.
-    const rows = await env.DB.prepare(
-      `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status, d.dead_reason,
-              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
-              d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at, s.url_params, s.key_figure,
-              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
-         FROM deals d JOIN saved_deals s ON s.id = d.id
-        WHERE d.user_id = ?
-        ORDER BY d.updated_at DESC`,
-    )
-      .bind(user.sub)
-      .all<{
-        id: string; strategy: string; title: string; stage: string; current_score: number | null;
-        status: string; headline_figure: string | null; verdict_line: string | null; is_auction: number; updated_at: string;
-        url_params: string; key_figure: string; stage_since: string;
-      }>();
+    const rows = await boardRows(env.DB, user.sub);
     // Coerce the SQLite 0/1 auction flag to a real boolean for the client.
-    const deals = rows.results.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
+    const deals = rows.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
     // liveCount comes from the SAME counter the 100-cap enforces (countLiveDeals over
     // the deals table), NOT a recount of the joined rows — so the board's "N of 100"
     // can never disagree with an at-cap 409 at save time.
@@ -999,6 +986,53 @@ async function handleAckChange(request: Request, env: Env, dealId: string, chang
   return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
 }
 
+/**
+ * WHAT NEEDS YOU, FOR A SURFACE THAT IS NOT THE BOARD (P10).
+ *
+ * The extension's daily badge asks this once a day. It answers with the SAME
+ * ranking the board runs — `rankUrgent` from src/lib/deals/urgency.ts, over the
+ * same rows, facts and changes — so the badge and the board can never disagree,
+ * and there is no second idea of "urgent" anywhere in the product.
+ *
+ * `critical` is the one tier that earns an interruption (URGENCY.critical): a
+ * dated deadline that is nearly here. Everything else is a number on a badge.
+ * Signed out is a 401 with no body: the extension shows nothing at all rather
+ * than a stale count.
+ */
+async function handleAttention(request: Request, env: Env): Promise<Response> {
+  if (!features.dealPipeline) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const rows = await boardRows(env.DB, user.sub);
+  const deals = rows.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
+  const facts = features.dealFacts ? (await listFacts(env.DB, user.sub)).map(toDealFact) : [];
+  const changes = features.verdictChanges ? await listChanges(env.DB, user.sub) : [];
+  const now = Date.now();
+  const ranked = rankUrgent({ deals, facts, changes, now });
+  // EVERY deadline that qualifies, in the board's own order. The extension
+  // announces the first it has not already announced: a date left uncleared must
+  // not fire a notification every morning for ever, and must not silence a NEW
+  // deadline behind it either (P10 review). Capped — this is a nudge, not a feed.
+  const deadlines = ranked
+    .filter((u) => u.reason === URGENCY.critical)
+    .map((u) => {
+      // WHICH deadline it is, as a plain day, so it is one identifiable thing.
+      // STILL AHEAD, and inside the window: the board is right to keep nagging
+      // about a date you missed, but a date that has already passed is not
+      // time-critical and must never buy an interruption (P10 review). This is
+      // exactly what the store paperwork promises: inside the next 48 hours.
+      const due = datesOn(u.deal)
+        .filter((d) => d.at >= now && d.at - now <= URGENCY.deadlineWithinHours * 3_600_000)
+        .sort((a, b) => a.at - b.at)[0];
+      // The line is the board's own sentence, in the operator's voice — the
+      // extension never writes one of its own.
+      return due ? { dealId: u.deal.id, text: u.text, due: new Date(due.at).toISOString().slice(0, 10) } : null;
+    })
+    .filter((d): d is { dealId: string; text: string; due: string } => d !== null)
+    .slice(0, URGENCY.criticalMax);
+  return json({ count: ranked.length, critical: deadlines[0] ?? null, deadlines });
+}
+
 /** P6: the score at each evidence step, from the snapshots P5 has been writing. */
 async function handleDealHistory(request: Request, env: Env, dealId: string): Promise<Response> {
   if (!features.dealPipeline || !features.verdictChanges) return json({ error: 'not found' }, 404);
@@ -1126,6 +1160,7 @@ export default {
     if (pathname === '/api/bridging' && method === 'POST') return handleBridgingEnquiry(request, env);
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
+    if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
     {
       const m = /^\/api\/deals\/([0-9a-f-]{36})$/.exec(pathname);
       if (m && method === 'DELETE') return handleDeleteDeal(request, env, m[1]);

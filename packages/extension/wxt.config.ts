@@ -23,8 +23,12 @@ export default defineConfig({
     description: 'Analyse a Rightmove or Zoopla listing as a deal — in a side panel.',
     minimum_chrome_version: '114',
     // NOTE: no tabs / cookies / scripting / webRequest / <all_urls>. See README + DECISIONS_LOG.
-    permissions: ['sidePanel', 'storage'],
-    host_permissions: ['*://*.rightmove.co.uk/*', '*://*.zoopla.co.uk/*'],
+    // P10 adds exactly two: `alarms` (the once-a-day wake) and `notifications`
+    // (at most one interruption a day, only for a dated deadline).
+    permissions: ['sidePanel', 'storage', 'alarms', 'notifications'],
+    // …and host access to OUR OWN app, which is the only thing the daily check
+    // talks to. Still no <all_urls>, still nothing beyond the two portals.
+    host_permissions: ['*://*.rightmove.co.uk/*', '*://*.zoopla.co.uk/*', `${coreConfig.appBaseUrl}/*`],
     // (SW type:module is set on the background entrypoint via defineBackground.)
     action: { default_title: PRODUCT_NAME },
     icons: { 16: 'icon/16.png', 48: 'icon/48.png', 128: 'icon/128.png' },

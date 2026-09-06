@@ -3,6 +3,7 @@ import { execSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { coreConfig } from '@gil-bricks/core';
 
 /**
  * Asserts the BUILT extension matches the sprint spec: the manifest is exactly
@@ -46,15 +47,25 @@ describe('built manifest matches the spec exactly', () => {
     expect(j.icons).toEqual({ 16: 'icon/16.png', 48: 'icon/48.png', 128: 'icon/128.png' });
   });
 
-  it('grants ONLY sidePanel + storage, and host access to ONLY the two portals', () => {
+  it('grants ONLY what the two features need, and host access to the portals + our own app', () => {
     const j = m();
-    expect([...j.permissions].sort()).toEqual(['sidePanel', 'storage']);
-    expect([...j.host_permissions].sort()).toEqual(['*://*.rightmove.co.uk/*', '*://*.zoopla.co.uk/*']);
+    // P10 added exactly two: alarms (the daily wake) and notifications (at most
+    // one interruption a day). Nothing else, ever.
+    expect([...j.permissions].sort()).toEqual(['alarms', 'notifications', 'sidePanel', 'storage']);
+    expect([...j.host_permissions].sort()).toEqual([
+      '*://*.rightmove.co.uk/*', '*://*.zoopla.co.uk/*', `${coreConfig.appBaseUrl}/*`,
+    ].sort());
     // explicit negatives — these must never appear
     for (const banned of ['tabs', 'cookies', 'scripting', 'webRequest', 'activeTab', '<all_urls>']) {
       expect(j.permissions, `permission ${banned}`).not.toContain(banned);
     }
     expect(JSON.stringify(j)).not.toContain('<all_urls>');
+  });
+
+  it('ships an options page, so the daily badge can be switched off without a listing', () => {
+    const j = m();
+    expect(j.options_ui?.page).toBe('options.html');
+    expect(existsSync(join(OUT, 'options.html'))).toBe(true);
   });
 
   it('ships the three icon files and six self-hosted fonts', () => {

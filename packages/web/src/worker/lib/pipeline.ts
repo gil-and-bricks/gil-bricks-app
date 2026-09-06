@@ -322,6 +322,41 @@ export async function listLiveDealsByStaleness(db: D1Database, userId: string): 
   return rows.results;
 }
 
+/** One row per deal, exactly as the BOARD reads it. */
+export interface BoardRow {
+  id: string; strategy: string; title: string; stage: string; current_score: number | null;
+  status: string; dead_reason: string | null; headline_figure: string | null; verdict_line: string | null;
+  is_auction: number; updated_at: string; sold_evidence: string | null; room_size_failures: number | null;
+  viewing_date: string | null; chase_date: string | null; auction_date: string | null; exchange_date: string | null;
+  stale_state: string | null; stale_at: string | null; url_params: string; key_figure: string; stage_since: string;
+}
+
+/**
+ * THE board query (P10). The badge answers the same question the board does, so
+ * it reads the same rows through the same SQL — one truth, never a second
+ * implementation of "which deals does this person have".
+ *
+ * Joined to saved_deals only for url_params (the analyser link); every deal has
+ * a mirror row (P2 dual-write). stage_since falls back to created_at for deals
+ * that predate stage history, so a re-score never resets a deal's age.
+ */
+export async function boardRows(db: D1Database, userId: string): Promise<BoardRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status, d.dead_reason,
+              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
+              d.viewing_date, d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at,
+              s.url_params, s.key_figure,
+              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
+         FROM deals d JOIN saved_deals s ON s.id = d.id
+        WHERE d.user_id = ?
+        ORDER BY d.updated_at DESC`,
+    )
+    .bind(userId)
+    .all<BoardRow>();
+  return rows.results;
+}
+
 /** All deals for a user (any status) — dead/done are kept memory. */
 export async function listAllDeals(db: D1Database, userId: string): Promise<DealRow[]> {
   const rows = await db.prepare('SELECT * FROM deals WHERE user_id = ? ORDER BY updated_at DESC')

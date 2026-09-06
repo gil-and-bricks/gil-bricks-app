@@ -40,7 +40,9 @@ describe('the toolbar badge says when there is a deal to read', () => {
   it('clears the badge AND the tooltip on a search page, where there is nothing to analyse', () => {
     const { api, calls } = fakeChrome();
     applyTab(api, 7, 'https://www.rightmove.co.uk/property-for-sale/find.html?searchType=SALE');
-    expect(calls.badgeText).toEqual([{ tabId: 7, text: '' }]);
+    // null, not '': an empty string is a per-tab override that would HIDE the
+    // daily attention count; null clears the override so it shows through (P10).
+    expect(calls.badgeText).toEqual([{ tabId: 7, text: null }]);
     // going back from a listing to a search must not leave "Deal found" behind
     expect(calls.titles).toEqual([{ tabId: 7, title: BADGE.idle }]);
     // still a portal page, so the panel itself stays available
@@ -50,7 +52,7 @@ describe('the toolbar badge says when there is a deal to read', () => {
   it('badges nothing and disables the panel away from the portals', () => {
     const { api, calls } = fakeChrome();
     applyTab(api, 9, 'https://www.bbc.co.uk/news');
-    expect(calls.badgeText).toEqual([{ tabId: 9, text: '' }]);
+    expect(calls.badgeText).toEqual([{ tabId: 9, text: null }]);
     expect(calls.options).toEqual([{ tabId: 9, enabled: false }]);
   });
 

@@ -23,11 +23,14 @@ import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromP
 import { evidenceInputsFor } from '../../lib/deals/evidenceFor';
 import { EvidenceChips } from './EvidenceChips';
 import { DealDates } from './DealDates';
-import { boardCounts, cardVerdict, counterLine, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
+import { CalendarButton } from './CalendarButton';
+import { buildIcs, eventsForDeal, hasExportableDate, icsFilename } from '../../lib/deals/ics';
+import { siteConfig } from '../../site.config';
+import { boardCounts, cardVerdict, counterLine, datesOf, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
 import { headstones, toDeath, type DealDeath, type DeathRowJson } from '../../lib/deals/graveyard';
 import { Graveyard } from './Graveyard';
 import { todayLine } from '../../lib/deals/urgency';
-import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, GRAVEYARD_COPY, LIVE_CAP_MESSAGE, PARK_REASONS, PROGRESS_STAGES, TODAY_COPY, parkReason, statusForStage } from '../../config/pipeline';
+import { ALL_STAGES, AUCTION_FEES_FACT, BOARD_COPY, CALENDAR, CHANGE_COPY, DEAD_STAGE, GRAVEYARD_COPY, LIVE_CAP_MESSAGE, PARK_REASONS, PROGRESS_STAGES, TODAY_COPY, parkReason, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
   id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
@@ -342,6 +345,35 @@ export function DealBoard() {
   };
 
   /**
+   * P10 — the deal's dates as a calendar file. Built only when somebody asks for
+   * it, from the SAME rules the card uses to decide which dates apply.
+   *
+   * The cash needed rides along on an AUCTION event only, and only when the deal
+   * really holds the analysis behind it — a score it was actually given. Nothing
+   * is estimated into a calendar entry; the copy says whose figures they are.
+   */
+  const icsFor = (deal: BoardDeal): string => {
+    let cash: number | null = null;
+    if (deal.current_score !== null) {
+      try {
+        cash = scoreFromParams(deal.strategy, paramsFor(deal), evidenceFor(deal), deal.room_size_failures ?? null).cashNeeded;
+      } catch {
+        cash = null; // not scoreable from its params — then we say nothing at all
+      }
+    }
+    const events = eventsForDeal(deal, {
+      // The SAME link the card carries, fold window and all: opening the deal
+      // from a calendar entry must not fold facts that were never in these
+      // numbers (the P6 review's fix, which this link had dropped).
+      url: `${siteConfig.liveUrl}${dealHref(deal.strategy, paramsFor(deal), undefined, deal.id, factsAsOf(deal.id), factsFor(deal.id).map((f) => f.fact_type))}`,
+      host: new URL(siteConfig.liveUrl).host,
+      cashNeeded: cash,
+      auctionFeesIn: factsFor(deal.id).some((f) => f.fact_type === AUCTION_FEES_FACT),
+    });
+    return buildIcs(events, Date.now(), CALENDAR.prodId(siteConfig.siteName));
+  };
+
+  /**
    * P8 — a date the person set. Stored at once, because the whole point of it is
    * that the board still knows tomorrow.
    */
@@ -516,9 +548,21 @@ export function DealBoard() {
             dealTitle={d.title}
             stage={d.stage}
             isAuction={d.is_auction}
-            dates={{ chase_date: d.chase_date, auction_date: d.auction_date, exchange_date: d.exchange_date }}
+            dates={datesOf(d)}
             busy={busy}
             onSet={(key, value) => void setDate(d, key, value)}
+          />
+        )}
+
+        {/* P10 — the dates, in the calendar they already check. Only offered when
+            the deal actually holds one, and never promising the reminder. */}
+        {features.calendarExport && features.dealDates && hasExportableDate(d) && (
+          <CalendarButton
+            dealTitle={d.title}
+            build={() => icsFor(d)}
+            filename={icsFilename(d.title)}
+            busy={busy}
+            onDone={(ok) => setNote({ id: d.id, text: ok ? CALENDAR.saved : CALENDAR.failed })}
           />
         )}
 

@@ -15,7 +15,7 @@ Things only YOU can decide are flagged with **[YOU DECIDE]**.
    **$5** registration fee. **[YOU DECIDE]** which Google account owns it.
 2. **A contact email** shown to users for support. **[YOU DECIDE]** which email.
 3. **The files** (already prepared in this repo):
-   - The extension package: `packages/extension/store/proplaunch-deal-analyser-v0.0.1.zip`
+   - The extension package: `packages/extension/store/proplaunch-deal-analyser-v0.2.0.zip`
    - Store icon: `packages/extension/store/store-icon-128.png`
    - Screenshots: `packages/extension/store/screenshots/1-verdict.png` … `4-measure.png`
    - Small promo tile: `packages/extension/store/promo-tile-440x280.png`
@@ -60,7 +60,7 @@ to replace them. **[YOU DECIDE]**
 
 1. Go to https://chrome.google.com/webstore/devconsole and sign in.
 2. Click **New item** (top right).
-3. Drag in (or browse to) `packages/extension/store/proplaunch-deal-analyser-v0.0.1.zip`.
+3. Drag in (or browse to) `packages/extension/store/proplaunch-deal-analyser-v0.2.0.zip`.
 4. Click **Upload**. Wait for it to process — you'll land on the item's editing pages.
 
 ## Step 2 — Store listing page
@@ -89,8 +89,11 @@ Open the **Privacy practices** tab and fill it from the same file:
    permission the dashboard lists:
    - `sidePanel` → the sidePanel justification
    - `storage` → the storage justification
+   - `alarms` → the alarms justification (new in 0.2.0)
+   - `notifications` → the notifications justification (new in 0.2.0)
    - `host permission` for rightmove.co.uk → the Rightmove justification
    - `host permission` for zoopla.co.uk → the Zoopla justification
+   - `host permission` for the web app → the web-app justification (new in 0.2.0)
 3. **Data usage** → for each data type in the "Privacy practices — data usage"
    table, select the recommended answer (every one is **No / not collected**).
 4. **Certifications** → tick all **three** boxes (all are true — see the table).

@@ -1,4 +1,4 @@
-# Deal pipeline — where we are (P9, 2026-09-06)
+# Deal pipeline — where we are (P10, 2026-09-06)
 
 P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
 called them deliberately deferred is gone. This records exactly what is built and what
@@ -70,7 +70,6 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
 ## Deliberately NOT built yet (return with fresh eyes — do not half-build)
 - **Evidence chips** — showing which inputs were listing / EPC / estimated / typed on
   the card (data captured in `evidence_json`; not surfaced).
-- **Extension reminders + calendar export** — nudges for a chased offer / booked viewing.
 - **Chain-risk card at Offer accepted** — surfacing chain/searches risk in the legal phase.
 
 - **Evidence chips (P7)** — BUILT, behind `features.evidenceChips`. A small strip under the Deal Score
@@ -112,8 +111,23 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   (`revived_at`), and it counts against the live cap again, so a full board refuses.
   P6's one-tap "Park it" lands here with the reason pre-filled and a real snapshot.
 
+- **The extension badge + calendar export (P10)** — BUILT. The today line can only reach somebody who
+  opens the board, so P10 built the only two honest ways past that. **The extension** (v0.2.0) wakes
+  once a day on a `chrome.alarms` alarm, calls `GET /api/attention` — which runs the BOARD'S OWN
+  `rankUrgent`, so there is no second idea of urgent — and wears the count on the toolbar. At most
+  ONE notification a day, and only for the tier named in `URGENCY.critical` (a dated deadline inside
+  48 hours). Signed out, or any failure, clears the badge rather than showing a stale number. One tap
+  in the panel's settings switches the lot off, and the copy says the limit out loud: it works while
+  Chrome is open, and nothing reaches you when it is closed. It cost two permissions (`alarms`,
+  `notifications`) plus host access to our own app — **which means the store update needs re-review
+  and existing users must accept them.** **Calendar export** (behind `features.calendarExport`) hands
+  any deal's dates to the calendar they already check: an .ics built in the browser, one all-day
+  VEVENT per date, the deal's link in the description, a VALARM asking for a day's notice, and on an
+  auction the cash needed from the deal's own analysis (saying whether auction fees are in it). A
+  fourth date — the VIEWING (migration 0017) — exists now, offered while you are still deciding to go.
+
 ## Where to pick up
 The board answers "what needs me?", a deal re-scores itself as the facts land, it SAYS when the
-answer has changed, and the deals you killed are kept as the memory — with a pattern only when the
-sample is real. P10 is next: the extension badge, which is the closest thing to a real reminder we
-can honestly build, because the today line can only reach somebody who opens the site.
+answer has changed, the deals you killed are kept as the memory, and the two honest ways to reach
+somebody who has not opened the board — a daily badge while Chrome runs, and their own calendar —
+are both built. What is NOT built, deliberately: the chain-risk card at Offer accepted.

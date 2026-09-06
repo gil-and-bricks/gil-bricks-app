@@ -1,0 +1,11 @@
+-- P10: the VIEWING date.
+--
+-- P8 built three dates (chase, auction, exchange) and the calendar export needs
+-- the one that comes first in a deal's life: the viewing you booked. It is the
+-- date most worth having in the calendar you already check, because it is the
+-- only one with a person waiting at the other end of it.
+--
+-- Additive only, nullable, and never set by the app — like every other date on a
+-- deal, only the person sets it. Which stages offer it is config
+-- (`DEAL_DATES` in src/config/pipeline.ts), not a rule in code.
+ALTER TABLE deals ADD COLUMN viewing_date TEXT;

@@ -94,6 +94,13 @@ export interface FeatureFlags {
    * answers 404. Deaths are still recorded, so switching it on shows the lot. */
   dealGraveyard: boolean;
 
+  /** Calendar export (P10): an "Add to calendar" control on any deal carrying a
+   * date, which builds a .ics file in the browser — a VEVENT per date, with the
+   * deal's link in the description, the cash needed on an auction, and an alarm
+   * request their calendar app may or may not honour. Off: no button anywhere and
+   * no file is ever built; the dates themselves are untouched. */
+  calendarExport: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -127,6 +134,7 @@ export const features: FeatureFlags = {
   evidenceChips: true,
   dealDates: true,
   dealGraveyard: true,
+  calendarExport: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,

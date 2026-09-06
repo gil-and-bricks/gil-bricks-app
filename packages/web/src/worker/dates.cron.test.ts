@@ -19,7 +19,7 @@ const MIGRATIONS = [
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
   '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql',
   '0011_outbox_fields.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql',
-  '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql',
+  '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql', '0017_deal_viewing_date.sql',
 ];
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {
