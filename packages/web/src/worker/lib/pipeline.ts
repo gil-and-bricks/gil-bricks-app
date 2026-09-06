@@ -9,7 +9,8 @@ import { scoreFromParams } from '../../lib/deals/scoreFromParams';
 import { applyFacts, factMoves, type DealFact } from '../../lib/deals/facts';
 import { dwellState } from '../../lib/deals/board';
 import { features } from '../../config/features';
-import { DEAL_DATE_KEYS, INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES } from '../../config/pipeline';
+import { buildDeathSnapshot, parseSnapshot } from '../../lib/deals/graveyard';
+import { DEAL_DATE_KEYS, INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, parkReason } from '../../config/pipeline';
 
 /**
  * A deal can ONLY be born from an analysed listing (P2 boundary — enforced by
@@ -475,15 +476,158 @@ export async function moveStage(db: D1Database, dealId: string, fromStage: strin
   ]);
 }
 
-/** Park a deal as dead, keeping the reason as memory. */
-export async function markDead(db: D1Database, dealId: string, fromStage: string, reason: string): Promise<void> {
+/**
+ * Every fact on a deal, in the shape the maths reads. One parser, so the board
+ * and a death snapshot can never disagree about what a deal had learned.
+ */
+export function toDealFact(row: FactRow): DealFact {
+  let value: number | null = null;
+  let note: string | null = null;
+  try {
+    const parsed = JSON.parse(row.value_json) as { value?: unknown; note?: unknown };
+    value = typeof parsed.value === 'number' ? parsed.value : null;
+    note = typeof parsed.note === 'string' ? parsed.note : null;
+  } catch {
+    /* a malformed row is a fact with no number rather than a lost one */
+  }
+  return {
+    id: row.id, deal_id: row.deal_id, fact_type: row.fact_type, value, note,
+    entered_at: row.entered_at, folded_at: row.folded_at ?? null,
+  };
+}
+
+/** One recorded death. `snapshot_json` is written once and never updated. */
+export interface DeathRow {
+  id: string;
+  deal_id: string;
+  reason_key: string;
+  note: string;
+  snapshot_json: string;
+  at: string;
+  revived_at: string | null;
+}
+
+/**
+ * KILL A DEAL (P9). One reason chip, an optional line, and a FROZEN snapshot of
+ * the card as it died: what it scored, the engine's own verdict line, its
+ * evidence chips, the facts it carried and the stage it reached.
+ *
+ * The snapshot is built HERE, on the server, so every death is captured the same
+ * way whatever asked for it — the park chip, the change line's one-tap kill, or
+ * anything built later. It is written once and never updated: a rules change
+ * moves what a deal would score today, never what this one scored on the day you
+ * killed it.
+ *
+ * `deals.dead_reason` keeps the LABEL, exactly as it always has, so nothing that
+ * read it before reads differently now; the stable KEY lives in deal_deaths.
+ */
+export async function markDead(
+  db: D1Database, dealId: string, fromStage: string, reasonKey: string, note = '',
+): Promise<DeathRow> {
+  const reason = parkReason(reasonKey);
+  if (!reason) throw new Error(`unknown park reason: ${reasonKey}`);
   const now = new Date().toISOString();
+  // The url params live on the saved_deals mirror; a deal always has one (P2).
+  const row = await db
+    .prepare('SELECT d.strategy, d.title, d.current_score, d.verdict_line, d.headline_figure, d.sold_evidence, d.room_size_failures, s.url_params FROM deals d LEFT JOIN saved_deals s ON s.id = d.id WHERE d.id = ?')
+    .bind(dealId)
+    .first<{
+      strategy: string; title: string; current_score: number | null; verdict_line: string | null;
+      headline_figure: string | null; sold_evidence: string | null; room_size_failures: number | null;
+      url_params: string | null;
+    }>();
+  const factRows = await dealFacts(db, dealId);
+  const snapshot = buildDeathSnapshot(
+    {
+      title: row?.title ?? '', strategy: row?.strategy ?? '', stage: fromStage,
+      current_score: row?.current_score ?? null, verdict_line: row?.verdict_line ?? null,
+      headline_figure: row?.headline_figure ?? null, url_params: row?.url_params ?? '',
+      sold_evidence: row?.sold_evidence, room_size_failures: row?.room_size_failures,
+    },
+    factRows.map(toDealFact),
+  );
+  const death: DeathRow = {
+    id: crypto.randomUUID(),
+    deal_id: dealId,
+    reason_key: reason.key,
+    note: note.slice(0, 200).trim(),
+    snapshot_json: JSON.stringify(snapshot),
+    at: now,
+    revived_at: null,
+  };
   await db.batch([
     db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, ?, ?, ?)')
       .bind(crypto.randomUUID(), dealId, fromStage, DEAD_STAGE.key, now),
     db.prepare("UPDATE deals SET stage = ?, status = 'dead', dead_reason = ?, updated_at = ? WHERE id = ?")
-      .bind(DEAD_STAGE.key, reason, now, dealId),
+      .bind(DEAD_STAGE.key, reason.label, now, dealId),
+    db.prepare('INSERT INTO deal_deaths (id, deal_id, reason_key, note, snapshot_json, at, revived_at) VALUES (?, ?, ?, ?, ?, ?, NULL)')
+      .bind(death.id, dealId, death.reason_key, death.note, death.snapshot_json, now),
   ]);
+  // Handed straight back to the caller: the headstone the board shows is the
+  // snapshot the write made, never a second guess at it in the browser.
+  return death;
+}
+
+/** The death a deal is currently under, or null. Ownership is the caller's job. */
+export async function openDeath(db: D1Database, dealId: string): Promise<DeathRow | null> {
+  return db
+    .prepare('SELECT id, deal_id, reason_key, note, snapshot_json, at, revived_at FROM deal_deaths WHERE deal_id = ? AND revived_at IS NULL ORDER BY at DESC LIMIT 1')
+    .bind(dealId)
+    .first<DeathRow>();
+}
+
+/** The deaths on a user's deals that have NOT been undone, newest first. */
+export async function listDeaths(db: D1Database, userId: string): Promise<DeathRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT x.id, x.deal_id, x.reason_key, x.note, x.snapshot_json, x.at, x.revived_at
+         FROM deal_deaths x JOIN deals d ON d.id = x.deal_id
+        WHERE d.user_id = ? AND x.revived_at IS NULL
+        ORDER BY x.at DESC`,
+    )
+    .bind(userId)
+    .all<DeathRow>();
+  return rows.results;
+}
+
+/**
+ * A DEAD DEAL CAN COME BACK (P9). Sellers return, chains re-form, a price drops.
+ * It goes back to the stage it died at — the snapshot's own stage, or the stage
+ * history if the death predates the snapshot — and the death is KEPT, marked
+ * revived, never deleted. It counts against the LIVE cap again, so a full board
+ * refuses rather than quietly going over.
+ *
+ * The re-score against today's rules travels with the call, computed by the
+ * caller with @gil-bricks/core exactly as a fact re-score is.
+ */
+export async function reviveDeal(
+  db: D1Database, userId: string, dealId: string, verdict?: FactVerdict,
+): Promise<{ ok: boolean; atCap?: boolean; stage?: string }> {
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned || owned.status !== 'dead') return { ok: false };
+  if (!canAddLiveDeal(await countLiveDeals(db, userId))) return { ok: false, atCap: true };
+  const death = await db
+    .prepare('SELECT id, snapshot_json FROM deal_deaths WHERE deal_id = ? AND revived_at IS NULL ORDER BY at DESC LIMIT 1')
+    .bind(dealId)
+    .first<{ id: string; snapshot_json: string }>();
+  const back = await db
+    .prepare("SELECT from_stage FROM deal_stage_history WHERE deal_id = ? AND to_stage = ? AND from_stage IS NOT NULL ORDER BY at DESC LIMIT 1")
+    .bind(dealId, DEAD_STAGE.key)
+    .first<{ from_stage: string }>();
+  const candidates = [back?.from_stage, parseSnapshot(death?.snapshot_json)?.stage, INITIAL_STAGE];
+  // Only a LIVE stage can be come back to: a stage that no longer exists, or one
+  // that is itself terminal, would leave the deal in a place it cannot move from.
+  const stage = candidates.find((k) => typeof k === 'string' && isStage(k) && statusForStage(k) === 'live') ?? INITIAL_STAGE;
+  const now = new Date().toISOString();
+  await db.batch([
+    db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, ?, ?, ?)')
+      .bind(crypto.randomUUID(), dealId, DEAD_STAGE.key, stage, now),
+    db.prepare("UPDATE deals SET stage = ?, status = 'live', updated_at = ? WHERE id = ? AND user_id = ?")
+      .bind(stage, now, dealId, userId),
+    ...(death ? [db.prepare('UPDATE deal_deaths SET revived_at = ? WHERE id = ?').bind(now, death.id)] : []),
+    ...(verdict ? verdictStatements(db, dealId, verdict, now) : []),
+  ]);
+  return { ok: true, stage };
 }
 
 /**
@@ -588,8 +732,11 @@ interface SeedSpec {
   ageDays: number; params: string;
   /** Auction listings carry their own warning on the board. */
   auction?: boolean;
-  /** Park reason, for the one dead deal. */
-  dead?: string;
+  /** A dead deal: the PARK_REASONS key it died on, and the line the person typed. */
+  deadKey?: string;
+  deadNote?: string;
+  /** A dead deal's stage when it died — the graveyard shows what it reached. */
+  reached?: string;
   /**
    * Facts that arrived after the deal was born (P5). The seed applies them the
    * way the board does, so a seeded card shows the fact-corrected score — test
@@ -623,8 +770,17 @@ const DEV_SEED_SPECS: readonly SeedSpec[] = [
   { strategy: 'brrrr', title: 'Terraced · CF37 1HR · £95,000', sector: 'CF37 1', stage: 'nearly-there', status: 'live', ageDays: 3, params: 'postcode=CF37+1HR&paon=44&price=95000&type=T&rent=1000&arv=185000&refurbCost=18000',
     facts: [{ type: 'down-valuation', value: 175000, daysAgo: 1 }] },
   { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', ageDays: 30, params: 'postcode=CF37+1HR&paon=86&price=120000&type=T&rent=950' },
-  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&paon=23&price=200000&type=S&roomRent=300&refurbCost=50000',
+  // ---- the graveyard (P9): deals that died, which is the job working ----
+  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', deadKey: 'numbers-fail', reached: 'getting-real-numbers', ageDays: 20, params: 'postcode=SA3+1AA&paon=23&price=200000&type=S&roomRent=300&refurbCost=50000',
     facts: [{ type: 'builder-quote', value: 78000, note: 'Full rewire and a new roof', daysAgo: 12 }] },
+  { strategy: 'btl', title: 'Terraced · CF14 3AA · £165,000', sector: 'CF14 3', stage: 'parked-dead', status: 'dead', deadKey: 'refurb-too-high', deadNote: 'Quote came back at twice my guess', reached: 'going-to-view', ageDays: 16, params: 'postcode=CF14+3AA&paon=9&price=165000&type=T&rent=1200&refurbCost=20000',
+    facts: [{ type: 'builder-quote', value: 52000, daysAgo: 14 }] },
+  { strategy: 'flip', title: 'Semi · NP44 1AA · £185,000', sector: 'NP44 1', stage: 'parked-dead', status: 'dead', deadKey: 'refurb-too-high', reached: 'offer-in', ageDays: 11, params: 'postcode=NP44+1AA&paon=17&price=185000&type=S&gdv=250000&refurbCost=25000',
+    facts: [{ type: 'builder-quote', value: 61000, note: 'Roof and rewire', daysAgo: 9 }] },
+  { strategy: 'brrrr', title: 'Terraced · SA6 8AA · £98,000', sector: 'SA6 8', stage: 'parked-dead', status: 'dead', deadKey: 'refurb-too-high', reached: 'getting-real-numbers', ageDays: 8, params: 'postcode=SA6+8AA&paon=64&price=98000&type=T&rent=950&arv=160000&refurbCost=22000' },
+  { strategy: 'btl', title: 'Flat · CF10 5AA · £115,000', sector: 'CF10 5', stage: 'parked-dead', status: 'dead', deadKey: 'beaten', deadNote: 'Cash buyer, same afternoon', reached: 'offer-in', ageDays: 6, params: 'postcode=CF10+5AA&paon=3&price=115000&type=F&rent=900' },
+  { strategy: 'flip', title: 'Detached · LL30 1AA · £275,000', sector: 'LL30 1', stage: 'parked-dead', status: 'dead', deadKey: 'down-valued', reached: 'offer-accepted', ageDays: 4, params: 'postcode=LL30+1AA&paon=11&price=275000&type=D&gdv=360000&refurbCost=40000',
+    facts: [{ type: 'down-valuation', value: 325000, daysAgo: 3 }] },
 ];
 
 export async function seedDemoDeals(db: D1Database, userId: string): Promise<number> {
@@ -654,7 +810,10 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
     // could not look otherwise, so the seed does not either.
     const order = PROGRESS_STAGES.map((st) => st.key);
     const upto = order.indexOf(s.stage);
-    const stages = upto >= 0 ? order.slice(0, upto + 1) : [...order, s.stage];
+    // A dead deal died SOMEWHERE — at `reached` — it did not walk the whole board
+    // first. The graveyard shows the stage it got to, so the seed cannot lie.
+    const reachedAt = order.indexOf(s.reached ?? INITIAL_STAGE);
+    const stages = upto >= 0 ? order.slice(0, upto + 1) : [...order.slice(0, reachedAt + 1), s.stage];
     const step = s.ageDays > 0 ? (s.ageDays * day) / (stages.length + 1) : 0;
     const movedAt = (i: number): string => new Date(Date.parse(created) + step * (i + 1)).toISOString();
     // A fact always touches the deal, so a seeded deal cannot be older than its
@@ -668,7 +827,7 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
       // 'null' not SQL NULL: the seed has no comparables and SAYS so, so a seeded
       // card never carries the "we don't know what this was scored against" line.
       db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, sold_evidence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, score, figure, verdict, s.auction ? 1 : 0, s.status, s.dead ?? null, 'dev-seed', 'null', created, updated),
+        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, score, figure, verdict, s.auction ? 1 : 0, s.status, s.deadKey ? parkReasonLabel(s.deadKey) : null, 'dev-seed', 'null', created, updated),
     );
     stages.forEach((to, i) => {
       stmts.push(
@@ -688,6 +847,22 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
           at,
         );
     };
+    // P9 — a seeded death is a REAL death: the same frozen snapshot markDead
+    // writes, so the graveyard shows the card as it died rather than a stub.
+    if (s.deadKey) {
+      const frozen = buildDeathSnapshot(
+        {
+          title: s.title, strategy: s.strategy, stage: s.reached ?? INITIAL_STAGE,
+          current_score: score, verdict_line: verdict, headline_figure: figure,
+          url_params: s.params, sold_evidence: 'null', room_size_failures: null,
+        },
+        facts,
+      );
+      stmts.push(
+        db.prepare('INSERT INTO deal_deaths (id, deal_id, reason_key, note, snapshot_json, at, revived_at) VALUES (?, ?, ?, ?, ?, ?, NULL)')
+          .bind(crypto.randomUUID(), id, s.deadKey, s.deadNote ?? '', JSON.stringify(frozen), updated),
+      );
+    }
     stmts.push(snapshot(created, 0));
     facts.forEach((fx, i) => {
       stmts.push(

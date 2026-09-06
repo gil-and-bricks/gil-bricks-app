@@ -1,4 +1,4 @@
-# Deal pipeline — where we are (P8, 2026-09-06)
+# Deal pipeline — where we are (P9, 2026-09-06)
 
 P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
 called them deliberately deferred is gone. This records exactly what is built and what
@@ -70,8 +70,6 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
 ## Deliberately NOT built yet (return with fresh eyes — do not half-build)
 - **Evidence chips** — showing which inputs were listing / EPC / estimated / typed on
   the card (data captured in `evidence_json`; not surfaced).
-- **The dead-deal graveyard with patterns** — a proper P9 view of parked deals that
-  learns "you keep killing deals for X". Today parked is just a collapsed list.
 - **Extension reminders + calendar export** — nudges for a chased offer / booked viewing.
 - **Chain-risk card at Offer accepted** — surfacing chain/searches risk in the legal phase.
 
@@ -98,8 +96,24 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   runs — it computes and stores, it never notifies, and the app still sends no email. The board says
   so out loud under the line: it is here when you open it, and nothing is sent to you.
 
+- **The dead-deal graveyard (P9)** — BUILT, behind `features.dealGraveyard`. Killing a deal takes one
+  reason chip (eight, in `PARK_REASONS`) and an optional line, and the SERVER freezes the card as it
+  died — score, the engine's own verdict line, the evidence chips, the facts it carried and the stage
+  it reached (`deal_deaths`, migration 0016). The snapshot is written once and never updated, so a
+  later rules change moves what a deal would score today, never what this one scored on the day you
+  killed it; the WORDS around it still come from config, so rewording a stage or a reason re-words
+  every headstone. The board gains a collapsed **Deals you killed** view: most recent first, with the
+  reason, the note and the day. Dead deals have never counted against the 100 LIVE cap.
+  A **pattern** is offered only above `GRAVEYARD.patternMin` (five) within the last
+  `GRAVEYARD.patternWindow` (twenty) deaths, and it ALWAYS states its sample; below that it says
+  plainly there is not enough to see. Reasons that carry no lesson ("Changed my mind", "Seller pulled
+  out") state the sample and stop — a kill is never judged. **Bringing a deal back** restores it to
+  the stage it died at, re-scores it against today's rules and KEEPS the death as history
+  (`revived_at`), and it counts against the live cap again, so a full board refuses.
+  P6's one-tap "Park it" lands here with the reason pre-filled and a real snapshot.
+
 ## Where to pick up
-The board answers "what needs me?", a deal re-scores itself as the facts land, and it now SAYS
-when the answer has changed. P9 is next: the graveyard — parked deals with the patterns behind them ("you keep killing deals for
-X"). P10 is the extension badge, which is the closest thing to a real reminder we can honestly build:
-the today line can only reach somebody who opens the site.
+The board answers "what needs me?", a deal re-scores itself as the facts land, it SAYS when the
+answer has changed, and the deals you killed are kept as the memory — with a pattern only when the
+sample is real. P10 is next: the extension badge, which is the closest thing to a real reminder we
+can honestly build, because the today line can only reach somebody who opens the site.

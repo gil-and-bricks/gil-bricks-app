@@ -13,8 +13,8 @@ const block = /const DEV_SEED_SPECS[\s\S]*?\n\];/.exec(src)?.[0] ?? '';
 const specs = Array.from(block.matchAll(/strategy: '(\w+)'[\s\S]*?params: '([^']+)'/g)).map((m) => ({ strategy: m[1], params: m[2] }));
 
 describe('the dev seed is scored by the engine', () => {
-  it('has ten deals, each with real params', () => {
-    expect(specs.length).toBe(10);
+  it('has fifteen deals, each with real params — nine live, one bought, five killed', () => {
+    expect(specs.length).toBe(15);
     for (const s of specs) expect(s.params).toContain('postcode=');
   });
 

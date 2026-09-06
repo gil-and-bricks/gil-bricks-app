@@ -20,7 +20,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -356,7 +356,7 @@ describe('a re-save folds the corrections into the numbers', () => {
     const h = await authed();
     const first = await (await save(h)).json() as { id: string };
     await worker.fetch(new Request(`https://s.test/api/deals/${first.id}/dead`, {
-      method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'Numbers don’t work' }),
+      method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ reason_key: 'numbers-fail' }),
     }), env());
     expect((sqlite.prepare('SELECT status FROM deals WHERE id = ?').get(first.id) as { status: string }).status, 'the park must have worked').toBe('dead');
     const res = await (await save(h, { deal_id: first.id, url_params: CORRECTED, score: 3.1 })).json() as { id: string };

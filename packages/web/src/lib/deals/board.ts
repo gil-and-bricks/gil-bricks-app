@@ -40,6 +40,12 @@ export interface BoardDeal {
   /** HMO only: how many rooms failed the minimum at save time, null if unmeasured. */
   room_size_failures?: number | null;
   /**
+   * The reason text a kill stored on the deal itself. P9 keeps the stable KEY in
+   * `deal_deaths`; this is what a deal killed BEFORE that still has, and it is
+   * all the graveyard can say about one.
+   */
+  dead_reason?: string | null;
+  /**
    * The dates the person set (P8). Each is a plain ISO day (YYYY-MM-DD) or null,
    * never set by the app. A date nearly here is the most urgent thing the board
    * can say — see URGENCY in src/config/pipeline.ts.

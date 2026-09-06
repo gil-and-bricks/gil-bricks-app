@@ -86,6 +86,14 @@ export interface FeatureFlags {
    * database and are never shown. */
   dealDates: boolean;
 
+  /** The dead-deal graveyard (P9): killing a deal captures one reason chip, an
+   * optional note and a FROZEN snapshot of the card as it died, and the board
+   * gains a collapsed "Deals you killed" view with a sparse-safe pattern line
+   * and a way to bring a deal back. Off: the board keeps P4's plain parked list,
+   * no note is captured, no pattern is shown and `POST /api/deals/:id/revive`
+   * answers 404. Deaths are still recorded, so switching it on shows the lot. */
+  dealGraveyard: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -118,6 +126,7 @@ export const features: FeatureFlags = {
   verdictChanges: true,
   evidenceChips: true,
   dealDates: true,
+  dealGraveyard: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,

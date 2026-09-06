@@ -65,21 +65,39 @@ export const DEAD_STAGE: Stage = {
 };
 
 /**
- * Reasons to park/kill a deal — a single chip, never an essay (P4 quick action;
- * P9 builds the full graveyard). Stable keys; reword the labels freely.
+ * WHY A DEAL DIED (P4 chip; P9 makes it mean something).
+ *
+ * Killing deals is the job — most deals should die, and the ones you kill are
+ * the money you did not lose. One chip, thirty seconds, no essay. Keys are
+ * stable (they are stored in `deal_deaths.reason_key`); everything else here is
+ * yours to reword, and adding a reason is one line.
  */
 export interface ParkReason {
   key: string;
   label: string;
+  /** How the pattern line names it: "died on refurb cost". */
+  diedOn: string;
+  /**
+   * What five or more of these in a row MIGHT mean — hedged on purpose, because
+   * a pattern is a prompt to look again, never a diagnosis. A reason that
+   * carries no lesson (you changed your mind, the seller pulled out) has none,
+   * and the line then states the sample and stops.
+   */
+  pattern?: string;
 }
 export const PARK_REASONS: readonly ParkReason[] = [
-  { key: 'too-dear', label: 'Too dear' },
-  { key: 'numbers-fail', label: 'Numbers don’t work' },
-  { key: 'chain-fell', label: 'Chain fell through' },
-  { key: 'beaten', label: 'Beaten to it' },
-  { key: 'changed-mind', label: 'Changed my mind' },
-  { key: 'other', label: 'Other' },
+  { key: 'numbers-fail', label: 'Numbers didn\u2019t work', diedOn: 'the numbers', pattern: 'Your sourcing may be bringing you the wrong deals.' },
+  { key: 'down-valued', label: 'Down-valued', diedOn: 'the valuation', pattern: 'Your end values may be running high.' },
+  { key: 'survey', label: 'Survey', diedOn: 'the survey', pattern: 'You may be offering before you know the building.' },
+  { key: 'refurb-too-high', label: 'Refurb too high', diedOn: 'refurb cost', pattern: 'Your refurb guesses may be running light.' },
+  { key: 'beaten', label: 'Lost to another buyer', diedOn: 'a rival buyer', pattern: 'You may be offering too late, or too low.' },
+  { key: 'lease-legal', label: 'Lease or legal', diedOn: 'the lease or the legals', pattern: 'You may be finding the legal problems late.' },
+  { key: 'changed-mind', label: 'Changed my mind', diedOn: 'a change of mind' },
+  { key: 'seller-pulled-out', label: 'Seller pulled out', diedOn: 'the seller pulling out' },
 ] as const;
+export function parkReason(key: string): ParkReason | undefined {
+  return PARK_REASONS.find((r) => r.key === key);
+}
 export const PARK_REASON_KEYS: readonly string[] = PARK_REASONS.map((r) => r.key);
 
 /** Every valid stage key (the seven + parked-dead). */
@@ -112,7 +130,7 @@ export const INITIAL_STAGE = 'worth-a-look';
  * a slot and their reason is kept as memory. Reworded here without a code change.
  */
 export const LIVE_CAP_MESSAGE =
-  'You’ve got 100 live deals. Kill a dead one to free a slot.';
+  'You’ve got 100 live deals. Kill one to free a slot.';
 
 /**
  * Fact types the pipeline re-scores against — the facts that arrive after a deal
@@ -534,3 +552,56 @@ export const BOARD_COPY = {
   },
 } as const;
 
+
+/**
+ * THE GRAVEYARD (P9) — deals you killed.
+ *
+ * A dead deal is not a failure, it is filtering that worked, and the graveyard
+ * is where that is said out loud. Two numbers decide when it stops being a
+ * museum and offers an answer, and both live here:
+ *  - `patternMin`  how many dead deals must share ONE reason before a pattern
+ *                  is worth saying. Five, because four is a run of bad luck and
+ *                  three is a coincidence. Below it the graveyard says so.
+ *  - `patternWindow` the sample the line is drawn from: your last N deaths, so
+ *                  a pattern you fixed a year ago stops shouting.
+ * The line ALWAYS states its sample. A pattern without one is a guess.
+ */
+export const GRAVEYARD = {
+  patternMin: 5,
+  patternWindow: 20,
+} as const;
+
+/**
+ * The graveyard's own words. Never "failed", never "lost": a killed deal is a
+ * filter that worked, and the copy says that plainly without being cute.
+ * "Changed my mind" is a legitimate reason and is never judged here.
+ */
+export const GRAVEYARD_COPY = {
+  /** The toggle on the board. It never sits open. */
+  open: 'Deals you killed',
+  lead: 'This is the money you didn’t lose.',
+  empty: 'Nothing here yet. Most deals should die — that is the filter working.',
+  /** The headstone: what it scored when it died, and when that was. */
+  killed: (date: string): string => `Killed ${date}`,
+  reached: (stage: string): string => `Reached ${stage}`,
+  scoreLabel: (score: string): string => `Deal score ${score} when it died`,
+  /** A death recorded before the card was kept — said, never papered over. */
+  noSnapshot: 'The card it died on was not kept.',
+  factsHeading: 'What it had learned',
+  /** The sample, always. Then what it might mean, where the reason has a lesson. */
+  pattern: (count: number, total: number, diedOn: string): string =>
+    `${count} of your last ${total} dead deals died on ${diedOn}.`,
+  /** Said instead. "Your last N" is true whether or not there are more behind
+   * them, which "N so far" would not be once the window fills up. */
+  noPattern: (total: number): string =>
+    total === 1 ? 'One dead deal is not a pattern yet.' : `Your last ${total} dead deals show no pattern yet.`,
+  /** Sellers come back and chains re-form, so nothing here is final. */
+  revive: 'Bring it back',
+  /** Appended to the button's own visible words, so what a screen reader
+   * announces CONTAINS what a sighted person reads (WCAG label in name). */
+  reviveFor: (title: string): string => ` — ${title}`,
+  revived: (stage: string): string => `Back on the board at ${stage}.`,
+  reviveFailed: 'That didn’t come back. Try again.',
+  /** The capture: one chip, and a note only if you want one. */
+  noteLabel: 'Note (optional)',
+} as const;

@@ -6,10 +6,10 @@ import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
 import { signSession } from './lib/jwt';
 import { features } from '../config/features';
-import { LIVE_CAP_MESSAGE } from '../config/pipeline';
+import { LIVE_CAP_MESSAGE, parkReason } from '../config/pipeline';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql'];
+const MIGRATIONS = ['0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql', '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql', '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql'];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {
@@ -251,12 +251,14 @@ describe('P4 — moving and parking from the board (flag ON)', () => {
   it('parks/kills a deal with a reason: status dead, dead_reason stored, history written', async () => {
     const h = await authed();
     const { id } = await (await save(h, {})).json() as { id: string };
-    const res = await post(h, `/api/deals/${id}/dead`, { reason: 'Chain fell through' });
+    const res = await post(h, `/api/deals/${id}/dead`, { reason_key: 'seller-pulled-out' });
     expect(res.status).toBe(200);
     const d = sqlite.prepare('SELECT status, stage, dead_reason FROM deals WHERE id=?').get(id) as Record<string, unknown>;
     expect(d.status).toBe('dead');
     expect(d.stage).toBe('parked-dead');
-    expect(d.dead_reason).toBe('Chain fell through');
+    expect(d.dead_reason).toBe(parkReason('seller-pulled-out')?.label);
+    // free text is not a reason any more: the chip is a stable key (P9)
+    expect((await post(h, `/api/deals/${id}/dead`, { reason: 'Chain fell through' })).status).toBe(400);
   });
 
   it('a move on someone else’s deal is a 404 (ownership enforced)', async () => {

@@ -17,6 +17,7 @@ import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
 import { BRIDGING } from './bridging';
+import { GRAVEYARD_COPY, PARK_REASONS } from './pipeline';
 import { NAV } from './nav';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
@@ -126,6 +127,38 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
       .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
       .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
     expect(longSentence).toEqual([]);
+  });
+
+  it('the graveyard obeys the same rules, and never frames a kill as a failure', () => {
+    // The lines the operator actually reads, including the ones the code builds.
+    const built = [
+      { key: 'GRAVEYARD_COPY.killed', text: GRAVEYARD_COPY.killed('4 Sep') },
+      { key: 'GRAVEYARD_COPY.reached', text: GRAVEYARD_COPY.reached('Offer in') },
+      { key: 'GRAVEYARD_COPY.revived', text: GRAVEYARD_COPY.revived('Offer in') },
+      { key: 'GRAVEYARD_COPY.scoreLabel', text: GRAVEYARD_COPY.scoreLabel('7.2') },
+      { key: 'GRAVEYARD_COPY.noPattern', text: GRAVEYARD_COPY.noPattern(3) },
+      // every pattern line as it will really read: the sample, then the lesson
+      ...PARK_REASONS.map((r) => ({
+        key: `pattern.${r.key}`,
+        text: `${GRAVEYARD_COPY.pattern(5, 14, r.diedOn)}${r.pattern === undefined ? '' : ` ${r.pattern}`}`,
+      })),
+    ];
+    const strings = [...flatten(GRAVEYARD_COPY, 'GRAVEYARD_COPY'), ...built];
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long).toEqual([]);
+    const longSentence = strings
+      .flatMap((s) => sentencesOf(s.text).map((sentence) => ({ key: s.key, sentence })))
+      .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
+      .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
+    expect(longSentence).toEqual([]);
+
+    // A killed deal is filtering that worked. The FRAMING never says otherwise.
+    // (A reason LABEL may still name what happened — "Lost to another buyer" is
+    // the operator's own wording for the event, not a judgement of them.)
+    const banned = /\b(fail|failed|failure|lost|wasted|mistake|regret)\b/i;
+    for (const s of strings) expect(banned.test(s.text), `${s.key}: ${s.text}`).toBe(false);
   });
 
   it('tooltips stay at 20 words — they are already the short home', () => {

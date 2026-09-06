@@ -26,8 +26,8 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { ackChange, canAddLiveDeal, DAILY_CRON, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
-import { DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
+import { ackChange, canAddLiveDeal, DAILY_CRON, listDeaths, openDeath, reviveDeal, toDealFact, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
+import { DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, PARK_REASON_KEYS, statusForStage } from '../config/pipeline';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
 export interface Env {
@@ -578,7 +578,7 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // together). headline_figure is the board card's figure; key_figure is the
     // honest fallback for migrated/older deals that predate it.
     const rows = await env.DB.prepare(
-      `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
+      `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status, d.dead_reason,
               d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
               d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at, s.url_params, s.key_figure,
               COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
@@ -601,22 +601,15 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // P5: the facts travel with the board so the browser can apply them and
     // re-score with core — the server never scores anything itself.
     const factRows = features.dealFacts ? await listFacts(env.DB, user.sub) : [];
-    const facts = factRows.map((r) => {
-      let value: number | null = null;
-      let note: string | null = null;
-      try {
-        const parsed = JSON.parse(r.value_json) as { value?: unknown; note?: unknown };
-        value = typeof parsed.value === 'number' ? parsed.value : null;
-        note = typeof parsed.note === 'string' ? parsed.note : null;
-      } catch {
-        /* a malformed row is shown as a fact with no number rather than lost */
-      }
-      return { id: r.id, deal_id: r.deal_id, fact_type: r.fact_type, value, note, entered_at: r.entered_at, folded_at: r.folded_at };
-    });
+    const facts = factRows.map(toDealFact);
     // P6: the changes nobody has seen yet travel with the board, so an
     // announcement survives a reload exactly as it survives a closed tab.
     const changes = features.verdictChanges ? await listChanges(env.DB, user.sub) : [];
-    return json({ pipeline: true, deals, facts, changes, liveCount, cap: MAX_LIVE_DEALS });
+    // P9: the deaths, so the graveyard shows the card as it died rather than the
+    // deal as it is now. The snapshot is parsed on the client, which is where it
+    // is read; a row we cannot read shows as a headstone with no card.
+    const deaths = features.dealGraveyard ? await listDeaths(env.DB, user.sub) : [];
+    return json({ pipeline: true, deals, facts, changes, deaths, liveCount, cap: MAX_LIVE_DEALS });
   }
 
   // ---- flag OFF: exactly today's flat saved-deals list ----
@@ -1015,22 +1008,61 @@ async function handleDealHistory(request: Request, env: Env, dealId: string): Pr
   return json({ points });
 }
 
-/** P4: park/kill a deal with a one-chip reason (P9 builds the full graveyard). */
+/**
+ * P4 kill, P9 capture: one reason CHIP (a stable key, validated against config)
+ * and an optional one line. The snapshot of the card as it died is frozen
+ * server-side by markDead, so every death is captured the same way — whether it
+ * came from the park chip or the change line's one-tap kill.
+ */
 async function handleParkDeal(request: Request, env: Env, dealId: string): Promise<Response> {
   if (!features.dealPipeline) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
-  let body: { reason?: string };
+  let body: { reason_key?: string; note?: string };
   try {
-    body = (await request.json()) as { reason?: string };
+    body = (await request.json()) as { reason_key?: string; note?: string };
   } catch {
     return json({ error: 'bad request' }, 400);
   }
-  const reason = String(body?.reason ?? '').slice(0, 40).trim();
+  const reasonKey = String(body?.reason_key ?? '').trim();
+  if (!PARK_REASON_KEYS.includes(reasonKey)) return json({ error: 'bad request' }, 400);
+  // The note is the operator's own words and is never required. With the
+  // graveyard off there is nowhere to type one, so none is stored.
+  const note = features.dealGraveyard ? String(body?.note ?? '').slice(0, 200).trim() : '';
   const deal = await getOwnedDeal(env.DB, user.sub, dealId);
   if (!deal) return json({ error: 'not found' }, 404);
-  await markDead(env.DB, dealId, deal.stage, reason);
-  return json({ ok: true, stage: DEAD_STAGE.key, status: 'dead' });
+  // Already dead — from another tab, or a retry. Hand back the death it HAS
+  // rather than writing a second one: the first snapshot is the true one, and a
+  // failure here would only make the screen disagree with the database (review).
+  if (deal.status === 'dead') {
+    const held = await openDeath(env.DB, dealId);
+    return json({ ok: true, stage: DEAD_STAGE.key, status: 'dead', death: held });
+  }
+  const death = await markDead(env.DB, dealId, deal.stage, reasonKey, note);
+  return json({ ok: true, stage: DEAD_STAGE.key, status: 'dead', death });
+}
+
+/**
+ * P9: a dead deal comes back. It returns to the stage it died at, the death is
+ * kept and marked revived, and the re-score against TODAY's rules travels with
+ * the call (computed by the browser with @gil-bricks/core, like every other
+ * re-score). A full board refuses: a revived deal is a live deal again.
+ */
+async function handleReviveDeal(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.dealGraveyard) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    /* no body is fine: a deal that cannot be scored comes back unscored */
+  }
+  const verdict = readFactVerdict(body);
+  if (verdict === 'bad') return json({ error: 'bad request' }, 400);
+  const res = await reviveDeal(env.DB, user.sub, dealId, verdict);
+  if (res.atCap) return json({ error: 'at cap', message: LIVE_CAP_MESSAGE }, 409);
+  return res.ok ? json({ ok: true, stage: res.stage, status: 'live' }) : json({ error: 'not found' }, 404);
 }
 
 /**
@@ -1113,6 +1145,8 @@ export default {
       if (hi && method === 'GET') return handleDealHistory(request, env, hi[1]);
       const dt = /^\/api\/deals\/([0-9a-f-]{36})\/date$/.exec(pathname);
       if (dt && method === 'POST') return handleSetDate(request, env, dt[1]);
+      const rv = /^\/api\/deals\/([0-9a-f-]{36})\/revive$/.exec(pathname);
+      if (rv && method === 'POST') return handleReviveDeal(request, env, rv[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

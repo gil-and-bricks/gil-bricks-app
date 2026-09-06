@@ -23,16 +23,16 @@ import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromP
 import { evidenceInputsFor } from '../../lib/deals/evidenceFor';
 import { EvidenceChips } from './EvidenceChips';
 import { DealDates } from './DealDates';
-import { boardCounts, cardVerdict, counterLine, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, type BoardDeal } from '../../lib/deals/board';
+import { boardCounts, cardVerdict, counterLine, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
+import { headstones, toDeath, type DealDeath, type DeathRowJson } from '../../lib/deals/graveyard';
+import { Graveyard } from './Graveyard';
 import { todayLine } from '../../lib/deals/urgency';
-import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, TODAY_COPY, statusForStage } from '../../config/pipeline';
+import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, GRAVEYARD_COPY, LIVE_CAP_MESSAGE, PARK_REASONS, PROGRESS_STAGES, TODAY_COPY, parkReason, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
   id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
 
 const STAGE_ORDER = PROGRESS_STAGES.map((s) => s.key);
-/** The reason a deal killed by a fact is offered with — chosen in config by key. */
-const KILL_REASON = PARK_REASONS.find((r) => r.key === CHANGE_COPY.killReasonKey)?.label ?? '';
 
 export function DealBoard() {
   const [deals, setDeals] = useState<BoardDeal[] | null | 'error'>(null);
@@ -49,6 +49,13 @@ export function DealBoard() {
   const [facts, setFacts] = useState<DealFact[]>([]);
   /** P6: the verdict changes nobody has seen yet. They outlive the tab. */
   const [changes, setChanges] = useState<DealChange[]>([]);
+  /** P9: the deaths — each one a frozen card, kept as the memory. */
+  const [deaths, setDeaths] = useState<DealDeath[]>([]);
+  /** The optional line typed while killing a deal. Never required. */
+  const [killNote, setKillNote] = useState('');
+  /** Said back after a kill or a revival, where the deal has just GONE — the card
+   * that carried the message is no longer on the board (P9). */
+  const [boardNote, setBoardNote] = useState('');
   const isBusy = (id: string): boolean => (pending[id] ?? 0) > 0;
   const setBusy = (id: string, on: boolean): void =>
     setPending((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + (on ? 1 : -1)) }));
@@ -59,11 +66,12 @@ export function DealBoard() {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((b: { deals: BoardDeal[]; cap: number; facts?: DealFact[]; changes?: DealChange[] }) => {
+      .then((b: { deals: BoardDeal[]; cap: number; facts?: DealFact[]; changes?: DealChange[]; deaths?: DeathRowJson[] }) => {
         setDeals(b.deals);
         setCap(b.cap);
         setFacts(b.facts ?? []);
         setChanges(b.changes ?? []);
+        setDeaths((b.deaths ?? []).map(toDeath));
       })
       .catch(() => { if (first) setDeals('error'); });
   };
@@ -117,7 +125,19 @@ export function DealBoard() {
     }
   };
 
-  const park = async (deal: BoardDeal, reason: string) => {
+  /** Take the person to the board's own message: it sits at the top of the
+   * graveyard, and they may be far down the list of headstones. */
+  const seeBoardNote = (): void => {
+    requestAnimationFrame(() => document.getElementById('graveyard')?.scrollIntoView({ block: 'start' }));
+  };
+
+  /**
+   * P9 — KILL A DEAL. One reason key, one optional line, and the server freezes
+   * the card as it died. The confirmation goes to the BOARD, not the card: the
+   * card has just left the board for the graveyard, so a note on it would be a
+   * message nobody can read.
+   */
+  const kill = async (deal: BoardDeal, reasonKey: string, note: string) => {
     if (!Array.isArray(deals) || isBusy(deal.id)) return;
     const before = { stage: deal.stage, status: deal.status, stage_since: deal.stage_since };
     setParkingId('');
@@ -125,14 +145,55 @@ export function DealBoard() {
     setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, stage: DEAD_STAGE.key, status: 'dead', stage_since: new Date().toISOString() } : d)) : cur));
     try {
       const res = await fetch(`/api/deals/${deal.id}/dead`, {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason }),
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ reason_key: reasonKey, note }),
       });
       if (!res.ok) throw new Error();
-      setNote({ id: deal.id, text: BOARD_COPY.card.parked(reason) });
+      const { death } = (await res.json()) as { death?: DeathRowJson };
+      // The snapshot comes back from the write that made it, so the headstone is
+      // the card the server froze — never a second guess at it here.
+      if (death) setDeaths((cur) => [toDeath(death), ...cur]);
+      setKillNote('');
+      setBoardNote(BOARD_COPY.card.parked(parkReason(reasonKey)?.label ?? ''));
+      requestAnimationFrame(() => document.getElementById('graveyard')?.scrollIntoView({ block: 'center' }));
+    } catch {
+      // Put the deal back AND the sheet back, with the line they typed still in
+      // it — losing somebody's words to a dropped connection is unforgivable.
+      setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
+      setParkingId(deal.id);
+      setNote({ id: deal.id, text: BOARD_COPY.card.parkFailed });
+    } finally {
+      setBusy(deal.id, false);
+    }
+  };
+
+  /**
+   * P9 — A DEAD DEAL COMES BACK. Sellers return and chains re-form. It goes back
+   * to the stage it died at, the death is kept as history, and it is re-scored
+   * against TODAY's rules — by the same core call every other re-score uses.
+   */
+  const revive = async (deal: BoardDeal) => {
+    if (!Array.isArray(deals) || isBusy(deal.id)) return;
+    setBusy(deal.id, true);
+    try {
+      const body = rescoreBody(deal, factsFor(deal.id));
+      const res = await fetch(`/api/deals/${deal.id}/revive`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body ?? {}),
+      });
+      // A revived deal is a live deal again, so a full board says so plainly.
+      if (res.status === 409) { setBoardNote(LIVE_CAP_MESSAGE); seeBoardNote(); return; }
+      if (!res.ok) throw new Error();
+      const { stage } = (await res.json()) as { stage?: string };
+      const to = stage ?? deal.stage;
+      setDeals((cur) => (Array.isArray(cur)
+        ? cur.map((d) => (d.id === deal.id ? { ...d, stage: to, status: 'live', stage_since: new Date().toISOString() } : d))
+        : cur));
+      setDeaths((cur) => cur.filter((x) => x.deal_id !== deal.id));
+      applyScore(deal.id, body);
+      setBoardNote(GRAVEYARD_COPY.revived(stageMeta(to).label));
       requestAnimationFrame(() => document.getElementById(`deal-${deal.id}`)?.scrollIntoView({ block: 'center' }));
     } catch {
-      setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, ...before } : d)) : cur));
-      setNote({ id: deal.id, text: BOARD_COPY.card.parkFailed });
+      setBoardNote(GRAVEYARD_COPY.reviveFailed);
+      seeBoardNote();
     } finally {
       setBusy(deal.id, false);
     }
@@ -317,7 +378,9 @@ export function DealBoard() {
    */
   const parkKilled = async (deal: BoardDeal, changeId: string): Promise<void> => {
     await dismissChange(deal, changeId);
-    await park(deal, KILL_REASON);
+    // ONE TAP: the reason the numbers already gave, captured like any other kill
+    // — same chip, same frozen snapshot, straight into the graveyard.
+    await kill(deal, CHANGE_COPY.killReasonKey, '');
   };
 
   const now = Date.now();
@@ -479,12 +542,26 @@ export function DealBoard() {
                   {PROGRESS_STAGES.map((s) => <option value={s.key}>{s.label}</option>)}
                 </select>
               </label>
-              <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => setParkingId(parkingId === d.id ? '' : d.id)}>{BOARD_COPY.card.park}</button>
+              <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => { setKillNote(''); setParkingId(parkingId === d.id ? '' : d.id); }}>{BOARD_COPY.card.park}</button>
             </div>
             {parkingId === d.id && (
               <div class="dc-park-reasons" role="group" aria-label={BOARD_COPY.card.parkReasonsLabel(d.title)}>
+                {/* P9 — the note is OPTIONAL and above the chips, because a chip
+                    IS the kill: tap one and it is done. Two taps, no essay. */}
+                {features.dealGraveyard && (
+                  <label class="dc-kill-note">
+                    <span>{GRAVEYARD_COPY.noteLabel}</span>
+                    <input
+                      type="text"
+                      maxLength={200}
+                      value={killNote}
+                      disabled={busy}
+                      onInput={(e) => setKillNote((e.target as HTMLInputElement).value)}
+                    />
+                  </label>
+                )}
                 {PARK_REASONS.map((r) => (
-                  <button type="button" class="chip" onClick={() => void park(d, r.label)}>{r.label}</button>
+                  <button type="button" class="chip" disabled={busy} onClick={() => void kill(d, r.key, killNote)}>{r.label}</button>
                 ))}
                 <button type="button" class="chip chip-cancel" onClick={() => setParkingId('')}>{BOARD_COPY.card.keepIt}</button>
               </div>
@@ -527,8 +604,23 @@ export function DealBoard() {
         ))}
       </div>
 
-      {parked.length > 0 && (
+      {/* P9 — DEALS YOU KILLED. Reachable from the board in one tap, never
+          cluttering it: it is collapsed until you ask for it, and dead deals
+          have never counted against the 100 live cap. */}
+      {features.dealGraveyard ? (
+        <div id="graveyard">
+          <Graveyard
+            stones={headstones(deals, deaths)}
+            open={showParked}
+            onToggle={() => setShowParked(!showParked)}
+            note={boardNote}
+            busy={isBusy}
+            onRevive={(d) => void revive(d)}
+          />
+        </div>
+      ) : parked.length > 0 && (
         <section class="board-parked">
+          {boardNote !== '' && <p class="board-note" role="status">{boardNote}</p>}
           <button type="button" class="board-parked-toggle" aria-expanded={showParked} onClick={() => setShowParked(!showParked)}>
             {DEAD_STAGE.label} <span class="board-col-n">{parked.length}</span>
             <span class="board-parked-caret" aria-hidden="true">{showParked ? '▾' : '▸'}</span>
