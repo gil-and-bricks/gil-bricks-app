@@ -1204,3 +1204,44 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 .dc-cal { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); margin-top: var(--space-1); }
 .dc-cal-add { min-height: 44px; }
 .dc-cal-note { color: var(--text-dim); font-size: var(--text-xs); line-height: 1.35; }
+
+/* ---- P11: accepted is not safe, and what the deal is worth now ----------- */
+/* An honest warning, not an alarm: amber edge, never red, never a shout. */
+.dc-chain {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  margin: var(--space-1) 0 0; padding: var(--space-3);
+  border: 1px solid var(--glass-border); border-left: 3px solid var(--verdict-amber);
+  border-radius: 12px; background: rgba(255, 200, 97, 0.08);
+}
+.dc-chain-h { margin: 0; font-weight: 700; font-size: var(--text-sm); color: var(--text); }
+.dc-chain-lead { margin: 0; font-size: var(--text-sm); line-height: 1.35; color: var(--text); }
+.dc-chain-window, .dc-chain-causes-h { margin: 0; font-size: var(--text-xs); color: var(--text-dim); }
+.dc-chain-causes { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); margin: 0; padding: 0; }
+.dc-chain-causes li {
+  font-size: var(--text-xs); padding: 0.1rem 0.5rem; border-radius: 999px;
+  border: 1px solid var(--glass-border); color: var(--text);
+}
+.dc-chain-source { margin: 0; font-size: var(--text-xs); color: var(--text-dim); font-style: italic; }
+.dc-chain-ok { align-self: flex-start; min-height: 44px; }
+
+/* The re-trade radar: the one number that matters now, and the words to ask. */
+.dc-retrade {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  margin: var(--space-1) 0 0; padding: var(--space-3);
+  border: 1px solid var(--glass-border); border-left: 3px solid var(--accent);
+  border-radius: 12px; background: rgba(220, 255, 0, 0.06);
+}
+.dc-retrade-h { margin: 0; font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); }
+.dc-retrade-max { margin: 0; font-size: var(--text-base); font-weight: 700; color: var(--text); }
+/* The pasteable words, shown as what they are: something you would send. */
+.dc-retrade-msg {
+  margin: 0; padding: var(--space-2) var(--space-3);
+  border-radius: 10px; background: rgba(255,255,255,0.06);
+  font-size: var(--text-sm); line-height: 1.4; color: var(--text);
+}
+.dc-retrade-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
+.dc-retrade-copy { min-height: 44px; }
+.dc-retrade-note, .dc-retrade-said { font-size: var(--text-xs); color: var(--text-dim); }
+.dc-retrade-said { margin: 0; color: var(--accent); }
+/* The graveyard is a WINDOW on a list kept for ever; this asks for more of it. */
+.gy-more { align-self: flex-start; min-height: 44px; }

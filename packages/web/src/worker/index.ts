@@ -26,8 +26,8 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { ackChange, boardRows, canAddLiveDeal, DAILY_CRON, listDeaths, openDeath, reviveDeal, toDealFact, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
-import { DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, PARK_REASON_KEYS, URGENCY, statusForStage } from '../config/pipeline';
+import { ackChainRisk, ackChange, boardRows, boardWindow, dealCounts, listDeathsFor, listFactsFor, terminalPage, canAddLiveDeal, openDeath, reviveDeal, toDealFact, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
+import { BOARD_PAGE, DAILY_CRON, DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, MAX_LIVE_DEALS, PARK_REASON_KEYS, URGENCY, statusForStage } from '../config/pipeline';
 import { datesOn, rankUrgent } from '../lib/deals/urgency';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
@@ -578,16 +578,16 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // link) — every deal has a matching saved_deals row (P2 dual-write; deleted
     // together). headline_figure is the board card's figure; key_figure is the
     // honest fallback for migrated/older deals that predate it.
-    const rows = await boardRows(env.DB, user.sub);
+    // P11 — every LIVE deal (bounded by the cap) plus a WINDOW of the bought and
+    // the killed, which are kept for ever. The counts beside them are counted in
+    // the database, so a window can never make a number wrong.
+    const board = await boardWindow(env.DB, user.sub);
     // Coerce the SQLite 0/1 auction flag to a real boolean for the client.
-    const deals = rows.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
-    // liveCount comes from the SAME counter the 100-cap enforces (countLiveDeals over
-    // the deals table), NOT a recount of the joined rows — so the board's "N of 100"
-    // can never disagree with an at-cap 409 at save time.
-    const liveCount = await countLiveDeals(env.DB, user.sub);
+    const deals = board.rows.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
+    const liveCount = board.counts.live;
     // P5: the facts travel with the board so the browser can apply them and
     // re-score with core — the server never scores anything itself.
-    const factRows = features.dealFacts ? await listFacts(env.DB, user.sub) : [];
+    const factRows = features.dealFacts ? await listFactsFor(env.DB, user.sub, deals.map((d) => d.id)) : [];
     const facts = factRows.map(toDealFact);
     // P6: the changes nobody has seen yet travel with the board, so an
     // announcement survives a reload exactly as it survives a closed tab.
@@ -595,8 +595,13 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // P9: the deaths, so the graveyard shows the card as it died rather than the
     // deal as it is now. The snapshot is parsed on the client, which is where it
     // is read; a row we cannot read shows as a headstone with no card.
-    const deaths = features.dealGraveyard ? await listDeaths(env.DB, user.sub) : [];
-    return json({ pipeline: true, deals, facts, changes, deaths, liveCount, cap: MAX_LIVE_DEALS });
+    const deaths = features.dealGraveyard
+      ? await listDeathsFor(env.DB, user.sub, deals.filter((d) => d.status === 'dead').map((d) => d.id))
+      : [];
+    return json({
+      pipeline: true, deals, facts, changes, deaths, liveCount, cap: MAX_LIVE_DEALS,
+      counts: board.counts, more: board.more,
+    });
   }
 
   // ---- flag OFF: exactly today's flat saved-deals list ----
@@ -1033,6 +1038,41 @@ async function handleAttention(request: Request, env: Env): Promise<Response> {
   return json({ count: ranked.length, critical: deadlines[0] ?? null, deadlines });
 }
 
+/**
+ * P11 — the next page of the deals kept for ever: the killed (the graveyard) or
+ * the bought. The board loads a window of each; this is "show me more of them".
+ * The cursor is the last row you already hold, so nothing repeats and nothing is
+ * skipped when a deal changes while you are reading.
+ */
+async function handleTerminalPage(request: Request, env: Env, url: URL, status: 'dead' | 'done'): Promise<Response> {
+  if (!features.dealPipeline) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const updatedAt = url.searchParams.get('before') ?? '';
+  const id = url.searchParams.get('beforeId') ?? '';
+  const cursor = updatedAt !== '' && id !== '' ? { updatedAt, id } : undefined;
+  const page = await terminalPage(env.DB, user.sub, status, BOARD_PAGE.more, cursor);
+  const deals = page.rows.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
+  const deaths = status === 'dead' && features.dealGraveyard
+    ? await listDeathsFor(env.DB, user.sub, deals.map((d) => d.id))
+    : [];
+  // The facts on THESE deals too, so a card that arrives late knows what it has
+  // learned — the same page, the same facts.
+  const factRows = features.dealFacts ? await listFactsFor(env.DB, user.sub, deals.map((d) => d.id)) : [];
+  return json({ deals, deaths, facts: factRows.map(toDealFact), more: page.more, counts: await dealCounts(env.DB, user.sub) });
+}
+
+/**
+ * P11: the chain-risk card has been read on this deal. Once set, it stays set.
+ */
+async function handleChainAck(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.chainRisk) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const ok = await ackChainRisk(env.DB, user.sub, dealId);
+  return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
+}
+
 /** P6: the score at each evidence step, from the snapshots P5 has been writing. */
 async function handleDealHistory(request: Request, env: Env, dealId: string): Promise<Response> {
   if (!features.dealPipeline || !features.verdictChanges) return json({ error: 'not found' }, 404);
@@ -1161,6 +1201,8 @@ export default {
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
+    if (pathname === '/api/deals/dead' && method === 'GET') return handleTerminalPage(request, env, url, 'dead');
+    if (pathname === '/api/deals/done' && method === 'GET') return handleTerminalPage(request, env, url, 'done');
     {
       const m = /^\/api\/deals\/([0-9a-f-]{36})$/.exec(pathname);
       if (m && method === 'DELETE') return handleDeleteDeal(request, env, m[1]);
@@ -1182,6 +1224,8 @@ export default {
       if (dt && method === 'POST') return handleSetDate(request, env, dt[1]);
       const rv = /^\/api\/deals\/([0-9a-f-]{36})\/revive$/.exec(pathname);
       if (rv && method === 'POST') return handleReviveDeal(request, env, rv[1]);
+      const ca = /^\/api\/deals\/([0-9a-f-]{36})\/chain-ack$/.exec(pathname);
+      if (ca && method === 'POST') return handleChainAck(request, env, ca[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

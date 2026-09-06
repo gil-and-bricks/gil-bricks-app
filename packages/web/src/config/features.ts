@@ -101,6 +101,19 @@ export interface FeatureFlags {
    * no file is ever built; the dates themselves are untouched. */
   calendarExport: boolean;
 
+  /** The chain-risk card (P11): a fixed, honest note when a deal reaches offer
+   * accepted — around four in ten agreed sales never complete, most wobbles are
+   * in the first four weeks, and here is what kills them. Once per deal,
+   * dismissible (`deals.chain_ack_at`). Off: no card, nothing stored, and the
+   * ack route answers 404. */
+  chainRisk: boolean;
+
+  /** The re-trade radar (P11): when a survey finding or a down-valuation moves a
+   * live deal, the card shows the reverse-solved new maximum offer and a message
+   * you can copy to the agent. Copy only — nothing is ever sent. Off: no radar
+   * anywhere; facts, scores and change messages are untouched. */
+  retradeRadar: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -135,6 +148,8 @@ export const features: FeatureFlags = {
   dealDates: true,
   dealGraveyard: true,
   calendarExport: true,
+  chainRisk: true,
+  retradeRadar: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,

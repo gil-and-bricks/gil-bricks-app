@@ -1,0 +1,11 @@
+-- P11: the chain-risk card's dismissal.
+--
+-- "Offer accepted" is the most dangerous moment in a purchase, not the finish
+-- line: around four in ten agreed sales in England and Wales never complete, and
+-- most of the wobbles happen in the first weeks. The board says so once, on the
+-- deal, when it gets there — and once you have read it, it goes.
+--
+-- One nullable timestamp: null means "not yet read". Additive only, and nothing
+-- reads it except the card itself, so turning the feature off leaves the column
+-- sitting harmlessly.
+ALTER TABLE deals ADD COLUMN chain_ack_at TEXT;

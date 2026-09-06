@@ -7,7 +7,7 @@
  */
 import { verdictForScore } from '@gil-bricks/core';
 import { features } from '../../config/features';
-import { BOARD_COPY, DEAL_DATE_KEYS, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
+import { AUCTION_WARNING_STAGE, BOARD_COPY, CHAIN_RISK, DEAL_DATE_KEYS, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
 
 /** One deal as the board needs it (from /api/deals when the flag is on). */
 export interface BoardDeal {
@@ -61,6 +61,11 @@ export interface BoardDeal {
    */
   stale_state?: string | null;
   stale_at?: string | null;
+  /** When the chain-risk card was read on this deal (P11). Null = not yet. */
+  chain_ack_at?: string | null;
+  /** What a paged row was ordered by — the cursor for asking for the next page.
+   * A killed deal is ordered by when it DIED (P11). */
+  page_at?: string;
 }
 
 /** The dates a deal holds, by config key — so adding a date to DEAL_DATES never
@@ -73,6 +78,24 @@ export function datesOf(deal: BoardDeal): Record<string, string | null> {
 /** Still moving. A status KEY, kept out of the components so the board reads it
  * from one place (and the inline-copy ratchet is not asked to judge a key). */
 export const isLive = (d: Pick<BoardDeal, 'status'>): boolean => d.status === 'live';
+
+/**
+ * Does this deal need the "accepted is not safe" card right now (P11)? A live
+ * deal, at the stage CHAIN_RISK names, that has not been read yet. A rule, not a
+ * condition buried in a component, so turning the knob is testable.
+ */
+export function chainRiskDue(deal: Pick<BoardDeal, 'status' | 'stage' | 'chain_ack_at'>): boolean {
+  return features.chainRisk
+    && isLive(deal)
+    && deal.stage === CHAIN_RISK.stage
+    && (deal.chain_ack_at ?? null) === null;
+}
+
+/** The auction legal-pack warning belongs at ONE stage, and that stage is config
+ * (P11 review — it was a key typed into the card). */
+export function auctionWarningDue(deal: Pick<BoardDeal, 'is_auction' | 'stage'>): boolean {
+  return deal.is_auction && deal.stage === AUCTION_WARNING_STAGE;
+}
 
 const STAGE_BY_KEY: Record<string, Stage> = Object.fromEntries([...PROGRESS_STAGES, DEAD_STAGE].map((s) => [s.key, s]));
 /** The stage config for a key (never throws; unknown keys get the initial stage). */
@@ -212,7 +235,7 @@ export function scoreClass(score: number | null): 'ds-good' | 'ds-marginal' | 'd
 /** Board tallies for the quiet counter. `live` is the only figure the 100-cap
  * counts; `done`/`dead` are terminal wins/memory and are shown so a bought-only
  * board never reads as empty. `isEmpty` is true ONLY when there is nothing at all. */
-export interface BoardCounts { live: number; done: number; dead: number; isEmpty: boolean }
+export interface BoardCounts { live: number; done: number; dead: number; isEmpty?: boolean }
 export function boardCounts(deals: readonly BoardDeal[]): BoardCounts {
   const live = deals.filter((d) => d.status === 'live').length;
   const done = deals.filter((d) => d.status === 'done').length;

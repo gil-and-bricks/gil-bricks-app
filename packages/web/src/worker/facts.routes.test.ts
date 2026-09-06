@@ -16,7 +16,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql', '0017_deal_viewing_date.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -61,7 +61,13 @@ beforeEach(() => {
   for (const u of ['u1', 'u2']) {
     sqlite.prepare('INSERT INTO users (id, email, name, created_at) VALUES (?, ?, ?, ?)').run(u, `${u}@t`, u, '2026-01-01T00:00:00Z');
   }
+  // Every deal has a saved_deals mirror in production (P2 dual-write), and since
+  // P11 the board's facts are scoped to the deals a page actually holds — so the
+  // fixture has to be as real as the product is.
+  const mirror = sqlite.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
   const ins = sqlite.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, status, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  mirror.run(DEAL, 'u1', 'brrrr', 'Terraced · CF11 9AB · £120,000', 'postcode=CF11+9AB&price=120000&rent=1250&arv=200000', 'ROI 7%', '2026-09-01T00:00:00Z');
+  mirror.run(OTHER, 'u2', 'btl', 'Someone else’s', 'postcode=CF10+1AA&price=135000&rent=1100', 'ROI 6%', '2026-09-01T00:00:00Z');
   ins.run(DEAL, 'u1', 'brrrr', 'Terraced · CF11 9AB · £120,000', 'CF11 9', 'getting-real-numbers', 7.1, 'live', 'analyser', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
   ins.run(OTHER, 'u2', 'btl', 'Someone else’s', 'CF10 1', 'worth-a-look', 5, 'live', 'analyser', '2026-09-01T00:00:00Z', '2026-09-01T00:00:00Z');
 });

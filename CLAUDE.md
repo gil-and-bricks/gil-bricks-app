@@ -79,7 +79,9 @@ Every visible string lives in config (src/config/copy.ts, nav.ts, pipeline.ts,
 comparables.ts, analyserSections.ts, stickyVerdict.ts, content/microcopy.ts,
 and the StrategyConfig fields in @gil-bricks/core) so any word can be changed
 without touching code. Exemptions from rule 1 are named in copy.test.ts with a
-reason each: accordion bodies and licence attributions. docs/COPY_AUDIT.md is
+reason each: accordion bodies, licence attributions, and the re-trade
+message (P11) — a lever line that names the binding numbers, and an email
+rather than page furniture. docs/COPY_AUDIT.md is
 the record of the N5 pass — every string, its length, and what happened to it.
 
 ## Bridging finance page (INTRODUCTION ONLY — treat like a legal document)

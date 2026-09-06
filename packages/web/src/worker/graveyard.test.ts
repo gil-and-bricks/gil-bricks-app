@@ -22,7 +22,7 @@ const MIGRATIONS = [
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
   '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql',
   '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql',
-  '0016_deal_deaths.sql', '0017_deal_viewing_date.sql',
+  '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -63,6 +63,7 @@ beforeEach(() => {
   features.dealPipeline = true;
   features.dealGraveyard = true;
   features.dealFacts = true;
+  features.chainRisk = true;
   sqlite = new DatabaseSync(':memory:');
   sqlite.exec('PRAGMA foreign_keys = ON');
   for (const m of MIGRATIONS) sqlite.exec(MIG(m));
@@ -145,6 +146,39 @@ describe('capturing a death', () => {
     expect(row.reason_key).toBe('survey');
     expect(row.note, 'there is nowhere to type one, so none is stored').toBe('');
     expect((await board(h)).deaths ?? []).toEqual([]);
+  });
+});
+
+describe('the chain-risk card (P11)', () => {
+  const chainAck = async (headers: Record<string, string>, deal = DEAL) =>
+    post(`/api/deals/${deal}/chain-ack`, {}, headers);
+
+  it('is unread until it is read, and then stays read', async () => {
+    const h = await authed();
+    const before = sqlite.prepare('SELECT chain_ack_at FROM deals WHERE id = ?').get(DEAL) as { chain_ack_at: string | null };
+    expect(before.chain_ack_at).toBeNull();
+    expect((await chainAck(h)).status).toBe(200);
+    const after = sqlite.prepare('SELECT chain_ack_at FROM deals WHERE id = ?').get(DEAL) as { chain_ack_at: string };
+    expect(after.chain_ack_at).not.toBeNull();
+    // reading it twice does not move the moment you read it
+    await chainAck(h);
+    expect((sqlite.prepare('SELECT chain_ack_at FROM deals WHERE id = ?').get(DEAL) as { chain_ack_at: string }).chain_ack_at)
+      .toBe(after.chain_ack_at);
+  });
+
+  it('travels with the board, so it does not come back on the next load', async () => {
+    const h = await authed();
+    await chainAck(h);
+    const b = await (await worker.fetch(new Request('https://s.test/api/deals', { headers: h }), env())).json() as { deals: { id: string; chain_ack_at: string | null }[] };
+    expect(b.deals.find((d) => d.id === DEAL)?.chain_ack_at).not.toBeNull();
+  });
+
+  it('needs a session, is nobody else’s to dismiss, and 404s with the flag off', async () => {
+    expect((await chainAck({})).status).toBe(401);
+    expect((await chainAck(await authed('u2'))).status).toBe(404);
+    features.chainRisk = false;
+    expect((await chainAck(await authed())).status).toBe(404);
+    features.chainRisk = true;
   });
 });
 

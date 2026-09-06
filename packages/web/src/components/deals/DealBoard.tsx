@@ -8,7 +8,7 @@
  *  - quick actions: move, park/kill (one-chip reason), re-open the analyser.
  *  - auction deals surface the legal-pack warning unmissably at Offer in.
  */
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
@@ -20,13 +20,17 @@ import { isNews, unseen, type DealChange } from '../../lib/deals/changes';
 import { DealChangeNote } from './DealChange';
 import { ScoreHistory } from './ScoreHistory';
 import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromParams';
+import { fmtMoney } from '@gil-bricks/core';
 import { evidenceInputsFor } from '../../lib/deals/evidenceFor';
 import { EvidenceChips } from './EvidenceChips';
 import { DealDates } from './DealDates';
 import { CalendarButton } from './CalendarButton';
+import { ChainRiskCard } from './ChainRisk';
+import { RetradeRadar } from './RetradeRadar';
+import { retradeFor } from '../../lib/deals/retrade';
 import { buildIcs, eventsForDeal, hasExportableDate, icsFilename } from '../../lib/deals/ics';
 import { siteConfig } from '../../site.config';
-import { boardCounts, cardVerdict, counterLine, datesOf, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
+import { auctionWarningDue, boardCounts, cardVerdict, chainRiskDue, counterLine, datesOf, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
 import { headstones, toDeath, type DealDeath, type DeathRowJson } from '../../lib/deals/graveyard';
 import { Graveyard } from './Graveyard';
 import { todayLine } from '../../lib/deals/urgency';
@@ -36,6 +40,8 @@ const strategyBadge = (id: string): string =>
   id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
 
 const STAGE_ORDER = PROGRESS_STAGES.map((s) => s.key);
+/** The stage a bought deal ends at — the one column that is a window (P11). */
+const DONE_STAGE = PROGRESS_STAGES.filter((s) => statusForStage(s.key) === 'done').map((s) => s.key)[0] ?? '';
 
 export function DealBoard() {
   const [deals, setDeals] = useState<BoardDeal[] | null | 'error'>(null);
@@ -54,6 +60,14 @@ export function DealBoard() {
   const [changes, setChanges] = useState<DealChange[]>([]);
   /** P9: the deaths — each one a frozen card, kept as the memory. */
   const [deaths, setDeaths] = useState<DealDeath[]>([]);
+  /**
+   * P11 — the TRUE totals, counted in the database. The board holds every live
+   * deal but only a window of the bought and the killed, so a count taken from
+   * the rows on screen would be a lie the moment somebody kills their 21st deal.
+   */
+  const [counts, setCounts] = useState<{ live: number; done: number; dead: number } | null>(null);
+  const [more, setMore] = useState<{ done: boolean; dead: boolean }>({ done: false, dead: false });
+  const [loadingMore, setLoadingMore] = useState(false);
   /** The optional line typed while killing a deal. Never required. */
   const [killNote, setKillNote] = useState('');
   /** Said back after a kill or a revival, where the deal has just GONE — the card
@@ -69,12 +83,17 @@ export function DealBoard() {
         if (!r.ok) throw new Error(String(r.status));
         return r.json();
       })
-      .then((b: { deals: BoardDeal[]; cap: number; facts?: DealFact[]; changes?: DealChange[]; deaths?: DeathRowJson[] }) => {
+      .then((b: {
+        deals: BoardDeal[]; cap: number; facts?: DealFact[]; changes?: DealChange[]; deaths?: DeathRowJson[];
+        counts?: { live: number; done: number; dead: number }; more?: { done: boolean; dead: boolean };
+      }) => {
         setDeals(b.deals);
         setCap(b.cap);
         setFacts(b.facts ?? []);
         setChanges(b.changes ?? []);
         setDeaths((b.deaths ?? []).map(toDeath));
+        if (b.counts) setCounts(b.counts);
+        setMore(b.more ?? { done: false, dead: false });
       })
       .catch(() => { if (first) setDeals('error'); });
   };
@@ -117,6 +136,16 @@ export function DealBoard() {
       if (!res.ok) throw new Error();
       // The card jumps to another column, so say what happened and take the
       // person to it — otherwise the tap looks like nothing at all (D1).
+      // Moving to (or off) a terminal stage moves a deal between the counts.
+      const wasLive = before.status === 'live';
+      const nowLive = statusForStage(toStage) === 'live';
+      if (wasLive !== nowLive) {
+        setCounts((c) => (c ? {
+          ...c,
+          live: Math.max(0, c.live + (nowLive ? 1 : -1)),
+          done: Math.max(0, c.done + (nowLive ? -1 : 1)),
+        } : c));
+      }
       const label = ALL_STAGES.find((st) => st.key === toStage)?.label ?? toStage;
       setNote(skipped ? { id: deal.id, text: BOARD_COPY.card.skippedStage } : { id: deal.id, text: BOARD_COPY.card.moved(label) });
       requestAnimationFrame(() => document.getElementById(`deal-${deal.id}`)?.scrollIntoView({ block: 'center' }));
@@ -155,6 +184,9 @@ export function DealBoard() {
       // The snapshot comes back from the write that made it, so the headstone is
       // the card the server froze — never a second guess at it here.
       if (death) setDeaths((cur) => [toDeath(death), ...cur]);
+      // The counts are the database's, so they have to move with it — otherwise
+      // the deal you just killed is counted nowhere (P11 review).
+      setCounts((c) => (c ? { ...c, live: Math.max(0, c.live - 1), dead: c.dead + 1 } : c));
       setKillNote('');
       setBoardNote(BOARD_COPY.card.parked(parkReason(reasonKey)?.label ?? ''));
       requestAnimationFrame(() => document.getElementById('graveyard')?.scrollIntoView({ block: 'center' }));
@@ -191,6 +223,7 @@ export function DealBoard() {
         ? cur.map((d) => (d.id === deal.id ? { ...d, stage: to, status: 'live', stage_since: new Date().toISOString() } : d))
         : cur));
       setDeaths((cur) => cur.filter((x) => x.deal_id !== deal.id));
+      setCounts((c) => (c ? { ...c, live: c.live + 1, dead: Math.max(0, c.dead - 1) } : c));
       applyScore(deal.id, body);
       setBoardNote(GRAVEYARD_COPY.revived(stageMeta(to).label));
       requestAnimationFrame(() => document.getElementById(`deal-${deal.id}`)?.scrollIntoView({ block: 'center' }));
@@ -199,6 +232,39 @@ export function DealBoard() {
       seeBoardNote();
     } finally {
       setBusy(deal.id, false);
+    }
+  };
+
+  /**
+   * P11 — more of the graveyard. The board loads a window; this asks for the
+   * next one, from the last row it holds, so nothing repeats and nothing is
+   * skipped. The COUNT never comes from here — it comes from the database.
+   */
+  const loadMore = async (status: 'dead' | 'done'): Promise<void> => {
+    if (!Array.isArray(deals) || loadingMore) return;
+    const held = deals.filter((d) => d.status === status);
+    const last = held[held.length - 1];
+    if (!last) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`/api/deals/${status}?before=${encodeURIComponent(last.page_at ?? last.updated_at)}&beforeId=${encodeURIComponent(last.id)}`);
+      if (!res.ok) throw new Error();
+      const body = (await res.json()) as {
+        deals: BoardDeal[]; deaths?: DeathRowJson[]; facts?: DealFact[]; more?: boolean;
+        counts?: { live: number; done: number; dead: number };
+      };
+      const known = new Set(deals.map((d) => d.id));
+      const fresh = body.deals.filter((d) => !known.has(d.id));
+      setDeals((cur) => (Array.isArray(cur) ? [...cur, ...fresh] : cur));
+      setDeaths((cur) => [...cur, ...(body.deaths ?? []).map(toDeath)]);
+      const heldFacts = new Set(facts.map((f) => f.id));
+      setFacts((cur) => [...cur, ...(body.facts ?? []).filter((f) => !heldFacts.has(f.id))]);
+      setMore((cur) => ({ ...cur, [status]: body.more === true }));
+      if (body.counts) setCounts(body.counts);
+    } catch {
+      setBoardNote(BOARD_COPY.card.moreFailed);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -345,6 +411,21 @@ export function DealBoard() {
   };
 
   /**
+   * P11 — the re-trade radar. The decision is pure (lib/deals/retrade.ts); this
+   * only remembers the answer, because a reverse solve is a search and cards
+   * re-render for reasons that have nothing to do with it.
+   */
+  const retradeMemo = useRef(new Map<string, ReturnType<typeof retradeFor>>());
+  const retradeOn = (deal: BoardDeal): ReturnType<typeof retradeFor> => {
+    if (!features.retradeRadar) return null;
+    const dealFacts = factsFor(deal.id);
+    const key = `${deal.id}|${deal.status}|${paramsFor(deal)}|${dealFacts.map((f) => `${f.id}${f.folded_at ?? ''}`).join(',')}`;
+    const memo = retradeMemo.current;
+    if (!memo.has(key)) memo.set(key, retradeFor(deal, dealFacts, evidenceFor(deal), deal.room_size_failures ?? null));
+    return memo.get(key) ?? null;
+  };
+
+  /**
    * P10 — the deal's dates as a calendar file. Built only when somebody asks for
    * it, from the SAME rules the card uses to decide which dates apply.
    *
@@ -395,6 +476,16 @@ export function DealBoard() {
     } finally {
       setBusy(deal.id, false);
     }
+  };
+
+  /**
+   * P11 — the chain-risk card has been read. Stored, so it does not come back on
+   * the next load; optimistic, because reading something is not a risky write.
+   */
+  const dismissChainRisk = async (deal: BoardDeal): Promise<void> => {
+    const at = new Date().toISOString();
+    setDeals((cur) => (Array.isArray(cur) ? cur.map((d) => (d.id === deal.id ? { ...d, chain_ack_at: at } : d)) : cur));
+    await fetch(`/api/deals/${deal.id}/chain-ack`, { method: 'POST' }).catch(() => undefined);
   };
 
   /** P6 — the person has seen it. Marked on the server, so a reload agrees. */
@@ -460,7 +551,9 @@ export function DealBoard() {
 
   const columns = stageColumns(deals);
   const parked = parkedDeals(deals);
-  const counts = boardCounts(deals);
+  // The database's own counts when we have them; the rows on screen only as a
+  // fallback for a board that answered before P11 shipped.
+  const tallies = counts ?? boardCounts(deals);
   // P8 — the one thing that needs you, ranked over dates, unread changes,
   // stage-aware staleness and a decision resting on a guess.
   const today = todayLine({ deals, facts, changes, now });
@@ -473,7 +566,7 @@ export function DealBoard() {
     const age = dwellState(d, now);
     const verdict = cardVerdict(d);
     const step = nextStepLine(d, now);
-    const auctionWarn = d.is_auction && d.stage === 'offer-in';
+    const auctionWarn = auctionWarningDue(d);
     const busy = isBusy(d.id);
     return (
       <div
@@ -529,6 +622,24 @@ export function DealBoard() {
             onPark={() => void parkKilled(d, c.id)}
           />
         ))}
+
+        {/* P11 — accepted is not safe. Once per deal, at the stage where deals
+            actually die, and gone as soon as it has been read. */}
+        {chainRiskDue(d) && (
+          <ChainRiskCard dealTitle={d.title} busy={busy} onDismiss={() => void dismissChainRisk(d)} />
+        )}
+
+        {/* P11 — what it is worth NOW, and the words to ask for it. */}
+        {(() => {
+          const rt = retradeOn(d);
+          return rt === null ? null : (
+            <RetradeRadar
+              maxOffer={rt.maxOffer === null ? null : fmtMoney(rt.maxOffer)}
+              message={rt.message}
+              busy={busy}
+            />
+          );
+        })()}
 
         {features.dealFacts && (
           <DealFacts
@@ -622,7 +733,7 @@ export function DealBoard() {
       {/* P8 rule 6 — the board can only say this when you open it. Nothing here
           reaches anybody: the app sends no email and runs nothing on your phone. */}
       <p class="today-only-here">{TODAY_COPY.onlyHere}</p>
-      <p class="board-count">{counterLine(counts, cap)}</p>
+      <p class="board-count">{counterLine(tallies, cap)}</p>
 
       <div class="board-stages">
         {columns.map((col) => (
@@ -644,6 +755,13 @@ export function DealBoard() {
             <div class="board-col-cards">
               {col.deals.map((d) => Card({ d }))}
             </div>
+            {/* Bought deals are kept for ever too, so this column is a window as
+                well — and says so rather than truncating quietly (P11 review). */}
+            {col.stage.key === DONE_STAGE && more.done && (
+              <button type="button" class="btn-link gy-more" disabled={loadingMore} onClick={() => void loadMore('done')}>
+                {loadingMore ? BOARD_COPY.card.moreLoading : BOARD_COPY.card.more}
+              </button>
+            )}
           </section>
         ))}
       </div>
@@ -655,6 +773,10 @@ export function DealBoard() {
         <div id="graveyard">
           <Graveyard
             stones={headstones(deals, deaths)}
+            total={tallies.dead}
+            hasMore={more.dead}
+            loadingMore={loadingMore}
+            onMore={() => void loadMore('dead')}
             open={showParked}
             onToggle={() => setShowParked(!showParked)}
             note={boardNote}
@@ -666,7 +788,7 @@ export function DealBoard() {
         <section class="board-parked">
           {boardNote !== '' && <p class="board-note" role="status">{boardNote}</p>}
           <button type="button" class="board-parked-toggle" aria-expanded={showParked} onClick={() => setShowParked(!showParked)}>
-            {DEAD_STAGE.label} <span class="board-col-n">{parked.length}</span>
+            {DEAD_STAGE.label} <span class="board-col-n">{Math.max(tallies.dead, parked.length)}</span>
             <span class="board-parked-caret" aria-hidden="true">{showParked ? '▾' : '▸'}</span>
           </button>
           {showParked && (

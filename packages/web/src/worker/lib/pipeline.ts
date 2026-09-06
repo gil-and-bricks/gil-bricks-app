@@ -10,7 +10,7 @@ import { applyFacts, factMoves, type DealFact } from '../../lib/deals/facts';
 import { dwellState } from '../../lib/deals/board';
 import { features } from '../../config/features';
 import { buildDeathSnapshot, parseSnapshot } from '../../lib/deals/graveyard';
-import { DEAL_DATE_KEYS, INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, parkReason } from '../../config/pipeline';
+import { BOARD_PAGE, DEAL_DATE_KEYS, INITIAL_STAGE, MAX_LIVE_DEALS, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, parkReason } from '../../config/pipeline';
 
 /**
  * A deal can ONLY be born from an analysed listing (P2 boundary — enforced by
@@ -115,10 +115,10 @@ export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => 
 }
 
 /**
- * The 100-deal cap now applies to LIVE deals only — dead and done deals are the
- * valuable memory, not clutter, and never count against it.
+ * The cap applies to LIVE deals only — dead and done deals are the valuable
+ * memory, not clutter, and never count against it. The number itself is a knob
+ * in src/config/pipeline.ts (P11 handover).
  */
-export const MAX_LIVE_DEALS = 100;
 export function canAddLiveDeal(currentLiveCount: number): boolean {
   return currentLiveCount < MAX_LIVE_DEALS;
 }
@@ -200,12 +200,6 @@ export async function setDealDate(
 }
 
 /**
- * The daily cron, matched against the schedule in wrangler.jsonc. It lives here
- * rather than in the Worker entry module: that file may only export handlers.
- */
-export const DAILY_CRON = '0 6 * * *';
-
-/**
  * THE DAILY STAMP (P8). Once a day a Cloudflare cron writes each live deal's
  * stage-aware staleness, so a surface that cannot compute it can still read it.
  * It COMPUTES ONLY — it never notifies anybody, and this app still sends no
@@ -280,6 +274,19 @@ export async function listChanges(db: D1Database, userId: string): Promise<Chang
   return rows.results;
 }
 
+/**
+ * P11 — the chain-risk card has been read. One timestamp on the deal; it is only
+ * ever set, never cleared, because "I have read this" does not become untrue.
+ */
+export async function ackChainRisk(db: D1Database, userId: string, dealId: string): Promise<boolean> {
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned) return false;
+  await db.prepare('UPDATE deals SET chain_ack_at = ? WHERE id = ? AND user_id = ? AND chain_ack_at IS NULL')
+    .bind(new Date().toISOString(), dealId, userId)
+    .run();
+  return true;
+}
+
 /** Mark one change seen. Ownership is enforced through the deal. */
 export async function ackChange(db: D1Database, userId: string, dealId: string, changeId: string): Promise<boolean> {
   const owned = await getOwnedDeal(db, userId, dealId);
@@ -328,8 +335,19 @@ export interface BoardRow {
   status: string; dead_reason: string | null; headline_figure: string | null; verdict_line: string | null;
   is_auction: number; updated_at: string; sold_evidence: string | null; room_size_failures: number | null;
   viewing_date: string | null; chase_date: string | null; auction_date: string | null; exchange_date: string | null;
-  stale_state: string | null; stale_at: string | null; url_params: string; key_figure: string; stage_since: string;
+  stale_state: string | null; stale_at: string | null; chain_ack_at: string | null;
+  url_params: string; key_figure: string; stage_since: string;
+  /** What this row was ordered by on a page — the cursor to ask for the next
+   * one. Only present on a paged (terminal) row. */
+  page_at?: string;
 }
+
+/** The columns every board surface reads, in one place. */
+const BOARD_COLUMNS = `d.id, d.strategy, d.title, d.stage, d.current_score, d.status, d.dead_reason,
+              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
+              d.viewing_date, d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at, d.chain_ack_at,
+              s.url_params, s.key_figure,
+              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since`;
 
 /**
  * THE board query (P10). The badge answers the same question the board does, so
@@ -339,15 +357,14 @@ export interface BoardRow {
  * Joined to saved_deals only for url_params (the analyser link); every deal has
  * a mirror row (P2 dual-write). stage_since falls back to created_at for deals
  * that predate stage history, so a re-score never resets a deal's age.
+ *
+ * Every deal, unbounded — used by the ATTENTION count, which must rank the whole
+ * board. The board SCREEN reads `boardWindow` instead (P11).
  */
 export async function boardRows(db: D1Database, userId: string): Promise<BoardRow[]> {
   const rows = await db
     .prepare(
-      `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status, d.dead_reason,
-              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
-              d.viewing_date, d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at,
-              s.url_params, s.key_figure,
-              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
+      `SELECT ${BOARD_COLUMNS}
          FROM deals d JOIN saved_deals s ON s.id = d.id
         WHERE d.user_id = ?
         ORDER BY d.updated_at DESC`,
@@ -355,6 +372,77 @@ export async function boardRows(db: D1Database, userId: string): Promise<BoardRo
     .bind(userId)
     .all<BoardRow>();
   return rows.results;
+}
+
+/** How many deals this person has, by status — counted, never inferred from a
+ * page of rows. The board's counter is these numbers and nothing else (P11). */
+export async function dealCounts(db: D1Database, userId: string): Promise<{ live: number; done: number; dead: number }> {
+  const rows = await db
+    .prepare('SELECT status, COUNT(*) AS n FROM deals WHERE user_id = ? GROUP BY status')
+    .bind(userId)
+    .all<{ status: string; n: number }>();
+  const of = (status: string): number => rows.results.find((r) => r.status === status)?.n ?? 0;
+  return { live: of('live'), done: of('done'), dead: of('dead') };
+}
+
+/**
+ * One page of terminal deals — bought or killed — newest first. Terminal deals
+ * are kept for ever (they are the memory), so they are the only part of the
+ * board that can grow without limit; the live board cannot, because
+ * MAX_LIVE_DEALS bounds it.
+ *
+ * The cursor is (updated_at, id) rather than an offset: rows do not shuffle
+ * under a reader, and a deal that changes while you are paging cannot make
+ * another one appear twice or vanish.
+ */
+export async function terminalPage(
+  db: D1Database, userId: string, status: 'dead' | 'done', limit: number,
+  cursor?: { updatedAt: string; id: string },
+): Promise<{ rows: BoardRow[]; more: boolean }> {
+  const take = Math.max(1, Math.min(200, Math.floor(limit))) + 1; // +1 answers "is there more?"
+  // A KILLED deal is ordered by when it DIED, not when it was last touched:
+  // adding a fact to an old dead deal must not drag it to the top of the
+  // graveyard, or the pattern's "your last twenty" would be the wrong twenty
+  // (P11 review). A bought deal has no such moment, so it keeps updated_at.
+  const orderAt = status === 'dead'
+    ? "COALESCE((SELECT MAX(x.at) FROM deal_deaths x WHERE x.deal_id = d.id AND x.revived_at IS NULL), d.updated_at)"
+    : 'd.updated_at';
+  const where = cursor ? `AND (${orderAt} < ? OR (${orderAt} = ? AND d.id < ?))` : '';
+  const binds: unknown[] = cursor ? [userId, status, cursor.updatedAt, cursor.updatedAt, cursor.id, take] : [userId, status, take];
+  const rows = await db
+    .prepare(
+      `SELECT ${BOARD_COLUMNS}, ${orderAt} AS page_at
+         FROM deals d JOIN saved_deals s ON s.id = d.id
+        WHERE d.user_id = ? AND d.status = ? ${where}
+        ORDER BY page_at DESC, d.id DESC
+        LIMIT ?`,
+    )
+    .bind(...binds)
+    .all<BoardRow>();
+  const more = rows.results.length === take;
+  return { rows: more ? rows.results.slice(0, take - 1) : rows.results, more };
+}
+
+/**
+ * What the board SCREEN loads (P11): every live deal — there can never be more
+ * than MAX_LIVE_DEALS of them — plus a window of the bought and the killed, plus
+ * the true totals. The window changes how much of the list is on screen; it
+ * never changes a number.
+ */
+export async function boardWindow(
+  db: D1Database, userId: string, page: { done: number; dead: number } = BOARD_PAGE,
+): Promise<{ rows: BoardRow[]; counts: { live: number; done: number; dead: number }; more: { done: boolean; dead: boolean } }> {
+  const live = await db
+    .prepare(`SELECT ${BOARD_COLUMNS} FROM deals d JOIN saved_deals s ON s.id = d.id WHERE d.user_id = ? AND d.status = 'live' ORDER BY d.updated_at DESC`)
+    .bind(userId)
+    .all<BoardRow>();
+  const done = await terminalPage(db, userId, 'done', page.done);
+  const dead = await terminalPage(db, userId, 'dead', page.dead);
+  return {
+    rows: [...live.results, ...done.rows, ...dead.rows],
+    counts: await dealCounts(db, userId),
+    more: { done: done.more, dead: dead.more },
+  };
 }
 
 /** All deals for a user (any status) — dead/done are kept memory. */
@@ -446,6 +534,22 @@ export interface FactRow {
   entered_at: string;
   /** Set when the fact was folded into the deal's own numbers (P6). */
   folded_at: string | null;
+}
+
+/** The facts on the deals a page actually holds (P11 review) — a board that
+ * loads a window of the dead should not ship every fact they ever carried. */
+export async function listFactsFor(db: D1Database, userId: string, dealIds: readonly string[]): Promise<FactRow[]> {
+  if (dealIds.length === 0) return [];
+  const marks = dealIds.map(() => '?').join(',');
+  const rows = await db
+    .prepare(
+      `SELECT f.id, f.deal_id, f.fact_type, f.value_json, f.entered_at, f.folded_at
+         FROM deal_facts f JOIN deals d ON d.id = f.deal_id
+        WHERE d.user_id = ? AND f.deal_id IN (${marks}) ORDER BY f.entered_at`,
+    )
+    .bind(userId, ...dealIds)
+    .all<FactRow>();
+  return rows.results;
 }
 
 /** Every fact on a user's deals, oldest first — the board applies them itself. */
@@ -609,6 +713,23 @@ export async function openDeath(db: D1Database, dealId: string): Promise<DeathRo
     .prepare('SELECT id, deal_id, reason_key, note, snapshot_json, at, revived_at FROM deal_deaths WHERE deal_id = ? AND revived_at IS NULL ORDER BY at DESC LIMIT 1')
     .bind(dealId)
     .first<DeathRow>();
+}
+
+/** The deaths on the deals a page actually holds (P11) — never every death the
+ * person has ever had. Empty in, empty out. */
+export async function listDeathsFor(db: D1Database, userId: string, dealIds: readonly string[]): Promise<DeathRow[]> {
+  if (dealIds.length === 0) return [];
+  const marks = dealIds.map(() => '?').join(',');
+  const rows = await db
+    .prepare(
+      `SELECT x.id, x.deal_id, x.reason_key, x.note, x.snapshot_json, x.at, x.revived_at
+         FROM deal_deaths x JOIN deals d ON d.id = x.deal_id
+        WHERE d.user_id = ? AND x.revived_at IS NULL AND x.deal_id IN (${marks})
+        ORDER BY x.at DESC`,
+    )
+    .bind(userId, ...dealIds)
+    .all<DeathRow>();
+  return rows.results;
 }
 
 /** The deaths on a user's deals that have NOT been undone, newest first. */

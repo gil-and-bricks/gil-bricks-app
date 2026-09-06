@@ -18,7 +18,7 @@
  */
 import { fmtMoney } from '@gil-bricks/core';
 import { features } from '../../config/features';
-import { GRAVEYARD_COPY } from '../../config/pipeline';
+import { BOARD_COPY, GRAVEYARD_COPY } from '../../config/pipeline';
 import { scoreClass, stageMeta, type BoardDeal } from '../../lib/deals/board';
 import { factTypeFor } from '../../lib/deals/facts';
 import { frozenChips, noPatternYet, patternIn, type Headstone } from '../../lib/deals/graveyard';
@@ -26,6 +26,12 @@ import { EvidenceChips } from './EvidenceChips';
 
 export interface GraveyardProps {
   stones: readonly Headstone[];
+  /** The TRUE number of dead deals, counted in the database — not the number of
+   * headstones loaded, which is a window (P11). */
+  total: number;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onMore: () => void;
   open: boolean;
   onToggle: () => void;
   /** What the board just said back about a kill or a revival. */
@@ -105,19 +111,22 @@ function Stone({ stone, busy, onRevive }: { stone: Headstone; busy: boolean; onR
   );
 }
 
-export function Graveyard({ stones, open, onToggle, note, busy, onRevive }: GraveyardProps) {
+export function Graveyard({ stones, total, hasMore, loadingMore, onMore, open, onToggle, note, busy, onRevive }: GraveyardProps) {
   const pattern = patternIn(stones);
+  // The true total, unless a stone is on screen that it has not caught up with
+  // yet (you have just killed something) — a headstone must never be uncounted.
+  const shown = Math.max(total, stones.length);
   return (
     <section class="board-parked graveyard">
       {note !== '' && <p class="board-note" role="status">{note}</p>}
       <button type="button" class="board-parked-toggle" aria-expanded={open} onClick={onToggle}>
-        {GRAVEYARD_COPY.open} <span class="board-col-n">{stones.length}</span>
+        {GRAVEYARD_COPY.open} <span class="board-col-n">{shown}</span>
         <span class="board-parked-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
       </button>
       {open && (
         <div class="graveyard-body">
           <p class="gy-lead">{GRAVEYARD_COPY.lead}</p>
-          {stones.length === 0 ? (
+          {shown === 0 ? (
             <p class="hint gy-empty">{GRAVEYARD_COPY.empty}</p>
           ) : (
             <>
@@ -129,6 +138,12 @@ export function Graveyard({ stones, open, onToggle, note, busy, onRevive }: Grav
                   <Stone stone={s} busy={busy(s.deal.id)} onRevive={() => onRevive(s.deal)} />
                 ))}
               </ul>
+              {/* A window, and it says so: the count above is the true total. */}
+              {hasMore && (
+                <button type="button" class="btn-link gy-more" disabled={loadingMore} onClick={onMore}>
+                  {loadingMore ? BOARD_COPY.card.moreLoading : BOARD_COPY.card.more}
+                </button>
+              )}
             </>
           )}
         </div>

@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import { render } from 'preact-render-to-string';
 import { CHIP_SPECS } from '@gil-bricks/core';
-import { GRAVEYARD, GRAVEYARD_COPY, parkReason } from '../../config/pipeline';
+import { BOARD_COPY, GRAVEYARD, GRAVEYARD_COPY, parkReason } from '../../config/pipeline';
 import { buildDeathSnapshot, headstones, type DealDeath, type Headstone } from '../../lib/deals/graveyard';
 import { factTypeFor } from '../../lib/deals/facts';
 import type { BoardDeal } from '../../lib/deals/board';
@@ -35,7 +35,10 @@ const death = (over: Partial<DealDeath> = {}): DealDeath => ({
 });
 
 const html = (stones: Headstone[], over: Partial<Parameters<typeof Graveyard>[0]> = {}) => render(
-  <Graveyard stones={stones} open onToggle={() => {}} note="" busy={() => false} onRevive={() => {}} {...over} />,
+  <Graveyard
+    stones={stones} total={over.total ?? stones.length} hasMore={false} loadingMore={false} onMore={() => {}}
+    open onToggle={() => {}} note="" busy={() => false} onRevive={() => {}} {...over}
+  />,
 );
 const one = (d = death()) => headstones([deal()], [d]);
 const many = (keys: string[]): Headstone[] => headstones(
@@ -56,6 +59,17 @@ describe('what the graveyard says', () => {
     expect(shut).toContain('aria-expanded="false"');
     expect(shut).not.toContain(GRAVEYARD_COPY.lead);
     expect(shut).toContain(GRAVEYARD_COPY.open); // still one tap away
+  });
+
+  it('counts every dead deal, even the ones not on screen — a window is not a total', () => {
+    // the board holds a window; the heading must still say how many there are
+    const out = html(one(), { total: 43, hasMore: true });
+    expect(out).toContain('>43<');
+    expect(out).toContain(BOARD_COPY.card.more);
+  });
+
+  it('offers nothing more when there is nothing more', () => {
+    expect(html(one(), { total: 1, hasMore: false })).not.toContain(BOARD_COPY.card.more);
   });
 
   it('says plainly when nothing has been killed yet', () => {

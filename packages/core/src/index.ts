@@ -41,6 +41,7 @@ export { coreConfig, youtubeFor } from './config';
 
 // Deal Score verdict engine (E2).
 export * from './score/scoreDeal';
+export { maxOfferForVerdict, type MaxOfferOptions } from './score/maxOffer';
 
 // Evidence chips (P7) — what a score rests on, shared by all three surfaces.
 export * from './evidence/chips';

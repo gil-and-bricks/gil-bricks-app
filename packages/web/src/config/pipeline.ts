@@ -129,6 +129,37 @@ export function isDealStatus(key: string): key is DealStatus {
 export const INITIAL_STAGE = 'worth-a-look';
 
 /**
+ * HOW MANY LIVE DEALS ONE PERSON CAN HOLD (P1; a knob since P11). Dead and bought
+ * deals never count against it — they are the memory, not the load. Raise it and
+ * the board, the counter and the at-cap refusal all move together.
+ */
+export const MAX_LIVE_DEALS = 100;
+
+/**
+ * WHEN THE DAILY JOB RUNS, as a Cloudflare cron expression (UTC). It computes the
+ * stage-aware staleness stamp and NOTHING else — it never notifies anybody, and
+ * this app still sends no email of any kind. Changing it here means changing it
+ * in packages/web/wrangler.jsonc too; a test fails if the two disagree.
+ */
+export const DAILY_CRON = '0 6 * * *';
+
+/**
+ * HOW MUCH OF THE BOARD TRAVELS AT ONCE (P11). Live deals are already bounded by
+ * MAX_LIVE_DEALS, but bought and killed deals are kept for ever, so the board
+ * loads a WINDOW of those and asks for more on request. The counts beside them
+ * are always the true totals, counted in the database — a window never changes
+ * a number, only how much of the list is on screen.
+ */
+export const BOARD_PAGE = {
+  /** Bought deals loaded with the board. */
+  done: 20,
+  /** Killed deals loaded with the board — the graveyard's first page. */
+  dead: 20,
+  /** How many more arrive each time you ask for more. */
+  more: 20,
+} as const;
+
+/**
  * Shown when a user hits the LIVE-deal cap. Helpful, not a wall: dead deals free
  * a slot and their reason is kept as memory. Reworded here without a code change.
  */
@@ -166,6 +197,12 @@ export interface FactType {
   noEffect?: string;
   /** Said on the deal for a flag fact: why it matters and what to check. */
   flagNote?: string;
+  /**
+   * How the re-trade message OPENS when this fact is what moved the deal (P11).
+   * It states what landed, in your own voice, with the fact's own number — and
+   * never says how to feel about it. Only the facts in RETRADE.facts use it.
+   */
+  retrade?: (value: string) => string;
 }
 
 /**
@@ -391,6 +428,7 @@ export const FACT_TYPES: readonly FactType[] = [
     kind: 'number',
     numberLabel: 'Extra work it found (£)',
     hint: 'Added to the refurb budget.',
+    retrade: (value: string): string => `The survey has come back with ${value} of work I hadn’t allowed for.`,
     applies: {
       btl: { param: 'refurbCost', mode: 'add' },
       brrrr: { param: 'refurbCost', mode: 'add' },
@@ -404,6 +442,7 @@ export const FACT_TYPES: readonly FactType[] = [
     kind: 'number',
     numberLabel: 'The valuer’s figure (£)',
     hint: 'Replaces the end value you assumed.',
+    retrade: (value: string): string => `The valuation has come back at ${value}, below what I based my offer on.`,
     applies: {
       brrrr: { param: 'arv', mode: 'replace' },
       flip: { param: 'gdv', mode: 'replace' },
@@ -564,6 +603,12 @@ export const BOARD_COPY = {
     factOn: (date: string) => `added ${date}`,
     /** A fact already inside the deal's own numbers: kept as the record, not removable. */
     factFolded: 'in the numbers',
+    /** The board holds a WINDOW of the lists kept for ever (bought, killed);
+     *  this asks for the next one. The counts beside them are always the true
+     *  totals, counted in the database (P11). */
+    more: 'Show more',
+    moreLoading: 'Loading…',
+    moreFailed: 'Couldn’t load more. Try again.',
     /** Said back after a successful move or park — the card jumps columns, so
      *  without this nothing confirmed anything happened (D1). */
     moved: (stage: string): string => `Moved to ${stage}.`,
@@ -678,3 +723,80 @@ export const CALENDAR_ALARM = '-PT15H';
  * calendar says (P10).
  */
 export const AUCTION_FEES_FACT = 'auction-fees';
+
+/**
+ * ACCEPTED IS NOT SAFE (P11) — the chain-risk card.
+ *
+ * Our own stage names imply that an accepted offer is the home straight. It is
+ * the opposite: it is where deals die. This says so once, on the deal, when it
+ * reaches that stage — and then goes away.
+ *
+ * THE RULE FOR THIS COPY: approximate figures, described as approximate, about
+ * the MARKET and never about this deal. No scaremongering, no false precision,
+ * and no percentage we cannot stand behind. Reword freely; keep it honest.
+ */
+/**
+ * WHERE THE AUCTION LEGAL-PACK WARNING SHOWS (P4; a knob since P11). An auction
+ * deal carries an unmissable warning at exactly one stage — the moment before
+ * you are committed. A stage KEY, so renaming the stage's label is safe.
+ */
+export const AUCTION_WARNING_STAGE = 'offer-in';
+
+export const CHAIN_RISK = {
+  /** Where it appears — a stable stage KEY, so renaming the stage's label is safe. */
+  stage: 'offer-accepted',
+  heading: 'Accepted is not safe',
+  lead: 'About four in ten agreed sales never complete. You are not safe until exchange.',
+  window: 'Of the sales that collapse, nearly two in five go in the first four weeks.',
+  causesLead: 'What kills deals here:',
+  /** In rough order of how often they do it. */
+  causes: ['A survey finding', 'A down-valuation', 'Lending falling through', 'A chain breaking'],
+  /** Where the figures come from, and how firm they are. Put a source here when
+   * you have one you are happy to stand behind. */
+  source: 'Widely reported industry estimates for England and Wales. Not our own data, and not a forecast for this deal.',
+  dismiss: 'Got it',
+  /** Appended for a screen reader, so the announced name contains the visible
+   * words (WCAG label in name). */
+  dismissFor: (title: string): string => ` — ${title}`,
+} as const;
+
+/**
+ * THE RE-TRADE RADAR (P11).
+ *
+ * A survey finding or a down-valuation is the moment a price stops being the
+ * price. The radar answers the only question that matters — what is this worth
+ * to me NOW — with the reverse solve from @gil-bricks/core, and hands you words
+ * you can paste into an email. It copies; it never sends. Nothing in this
+ * product sends anything to anybody.
+ *
+ * It appears ONLY when the fact really moved the deal and a lower price really
+ * would fix it. A negotiation is never manufactured.
+ */
+export const RETRADE = {
+  /** Which facts open it — stable FACT_TYPES keys. Add one and it opens for that. */
+  facts: ['down-valuation', 'survey-finding'] as readonly string[],
+  /**
+   * What a new offer aims at: the band the deal held BEFORE the fact landed, so
+   * you are asking to be put back where you were. When it was already below the
+   * bar, it aims at this instead — the lowest band the score still calls a deal.
+   */
+  floorTarget: 'marginal' as 'good' | 'marginal',
+  heading: 'What it is worth now',
+  max: (money: string): string => `Your new maximum is ${money}.`,
+  /** When no price fixes it. The honest answer, and never a message to send. */
+  none: 'No price makes this work now.',
+  copy: 'Copy the message',
+  copied: 'Copied.',
+  copyFailed: 'That didn’t copy. Select the words and copy them.',
+  /** Said beside the button, because it is the whole point: this is your email,
+   * not ours. */
+  sendNothing: 'Nothing is sent. This only copies.',
+  /**
+   * THE MESSAGE, for pasting to an agent. Exempt from the two-sentence copy rule
+   * by rule 7 — it is a lever line, it names the binding numbers, and it is an
+   * email rather than a block of page furniture. Reword it in your own voice;
+   * the three figures are filled in for you.
+   */
+  message: (opener: string, price: string, max: string): string =>
+    `${opener} At ${price} the numbers no longer work for me. I can still proceed at ${max}.`,
+} as const;

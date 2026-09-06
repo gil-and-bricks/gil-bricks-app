@@ -2,6 +2,45 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-06 — Sprint P11: chain-risk honesty, re-trade radar, paginated lists and the handover (deployed)
+
+### The chain-risk card
+- **Our own stage names were the problem.** "Offer accepted" reads like the home straight; it is where deals die. The card says so once, at that stage, and then goes: *"Accepted is not safe. About four in ten agreed sales never complete. You are not safe until exchange. Nearly two in five of those collapse in the first four weeks."* Then what actually kills them — a survey finding, a down-valuation, lending falling through, a chain breaking — and the honest footer: *"Approximate industry figures for England and Wales, not a forecast for this deal."*
+- **Judgment call: no percentages, and no citation I cannot stand behind.** "Four in ten" and "nearly two in five" are the approximate industry figures in plain words; a copy test fails on any `%` in this card, because a decimal implies a precision nobody has. If you find a source you are happy to publish, `CHAIN_RISK.source` is one string. I did not invent one.
+- **Once per deal, and dismissed means dismissed** (`deals.chain_ack_at`, migration 0018). It is a note, not an alert: amber edge, never red, and no word like "danger" or "warning" appears anywhere in it.
+
+### The re-trade radar
+- **It uses the solver this library already had.** `maxOfferForVerdict` in `@gil-bricks/core` bisects the price against `scoreDeal` — the same technique BTL's lever price, HMO's lever price and BRRRR's all-out price already use — and rounds DOWN, because an answer you could not offer is worse than none. No new formula anywhere.
+- **It aims at where the deal WAS.** Not at some absolute "good": at the band the deal held before the fact landed, so you are asking to be put back where you were. When the deal was already below the bar, it aims at `RETRADE.floorTarget` instead.
+- **The scorer and the solver now share ONE input builder** (`inputsFromParams`). A solver that quietly scored something slightly different from the card would be worse than no solver.
+- **It stays silent unless there is really something to ask for:** the deal must be alive, the fact must be one of `RETRADE.facts`, it must actually move this strategy's maths, it must have cost the deal something, and a lower price must actually fix it. When no price fixes it, it says exactly that and hands over NO message.
+- **It copies. It never sends.** The line beside the button says so, and a copy test fails on any string that suggests otherwise.
+- **The message names the fact and both numbers**, in your voice, and never says how to feel: *"The survey has come back with £14,000 of work I hadn't allowed for. At £160,000 the numbers no longer work for me. I can still proceed at £151,250."* The opening sentence belongs to the fact type, so adding a re-trading fact is a config edit.
+
+### The unbounded lists
+- **The board now loads every LIVE deal — bounded by the cap — plus a window of the bought and the killed**, which are the only lists that can grow for ever. `BOARD_PAGE` sets the window; "Show more" pages the graveyard with an `(updated_at, id)` cursor, so nothing repeats and nothing is skipped when a deal changes under you.
+- **A window never changes a number.** The counter and the graveyard heading come from `SELECT status, COUNT(*)`, not from the rows on screen. Proved through the real routes at 300 dead deals: paged to the end, no repeats, no gaps, the total steady throughout.
+- **The attention endpoint still reads every deal**, because it ranks the whole board — the badge would otherwise count only what a screen happened to load.
+- **And the graveyard's window can never be smaller than its pattern needs**: a test fails if `BOARD_PAGE.dead` drops below `GRAVEYARD.patternWindow`, which is the only way a pattern could be drawn from a partial sample.
+
+### The handover
+- **What was still hardcoded, and is now config:** the 100-deal LIVE cap and the daily cron expression (both were constants in the worker), the board's page sizes (new), which urgency tier earns a phone notification and how many deadlines travel with it, the chain-risk stage and every word of that card, the facts that open the radar and what it aims at, and each re-trading fact's opening sentence. Everything else was already in config from P1–P10.
+- **docs/PIPELINE_CONFIG.md** is the one-page handover: every knob, what it does, what changes when you turn it, and where it lives — with the keys marked as the things never to change.
+- **And the promise is tested.** `src/config/knobs.test.ts` turns each knob and asserts the product moved: the cap, a stage's dwell days, the urgency order, the pattern threshold, the change rules, the radar's fact list, the chain card's stage, the date rules, the reason labels and the page sizes. If a knob ever stops working, that test fails.
+- **docs/PIPELINE_STATUS.md is rewritten** to describe what exists after P5–P11, what is deliberately not built, and the three limits worth knowing (the cross-border postcode approximation, the UTC/BST hour on the attention endpoint, and pre-P9 deaths having no frozen card).
+- **Adversarial review before commit — 22 findings across four lenses (the radar, the pagination, the chain card, the handover). Two survived both refuters, and both were the same regression; sixteen are fixed:**
+  - **THE REGRESSION THAT MATTERED: a deal you had just killed vanished.** Switching the counter to the database's own counts meant nothing updated them in the browser, and the graveyard's empty state was keyed on that stale total — so the first deal you killed produced a headstone the view refused to show. The counts now move with every kill, revival and terminal stage move, and a headstone on screen is never uncounted.
+  - **Bought deals past the first twenty were unreachable.** The window and the "is there more" flag existed and nothing consumed them, so the Bought it column truncated silently while the counter said otherwise. It pages now, with the same one control the graveyard uses.
+  - **The graveyard was ordered by when a deal was last TOUCHED, not when it died.** Add a fact to an old dead deal and it would have jumped to the top, quietly changing which twenty deaths the pattern was drawn from. A killed deal is now ordered by its death.
+  - **The board still shipped every fact you had ever recorded**, on deals it had not even loaded. Facts now come with the page, like the deaths.
+  - **A knob test proved nothing.** The chain-risk stage test asserted that assigning a value assigns it. The card's rule is now a real function (`chainRiskDue`) and the test turns the knob and watches the card move — and the same for the auction warning, whose stage was still a key typed into the component.
+  - **The card's second sentence was ambiguous** ("nearly two in five of those" could read as two in five of all agreed sales) and its provenance was thin. It now reads *"Of the sales that collapse, nearly two in five go in the first four weeks."* and *"Widely reported industry estimates for England and Wales. Not our own data, and not a forecast for this deal."*
+  - **With the graveyard switched off, the parked count came from the loaded window** rather than the true total.
+  - **And the handover doc had four holes:** the daily cron was missing (the one knob that needs a matching edit in `wrangler.jsonc`), it claimed every visible string lives in `pipeline.ts` when three sets do not, its "how to change one" instructions did not mention that an extension knob needs a store upload, and it called the extension's alert a phone notification. All corrected, plus a note that `blurb` renders nowhere and that page sizes are capped at 200.
+  - **Left as designed:** dismissing the chain card is fire-and-forget (it is a note, and the worst case is seeing it once more), and coming back to the tab reloads the first page of the graveyard rather than remembering how far you had scrolled.
+- **Live, verified in production:** LIVE_PLACEHOLDER
+- **Commit message:** `feat(pipeline): chain-risk honesty, re-trade radar, paginated lists and config handover`
+
 ## 2026-09-06 — Sprint P10: the extension badge and calendar export (deployed)
 
 - **"Chain fell through" is back** in `PARK_REASONS`, between the other two things you do not control. Like "Seller pulled out" it carries no lesson, so a run of them states the sample and stops rather than implying you could have prevented it.

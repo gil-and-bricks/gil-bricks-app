@@ -1,133 +1,110 @@
-# Deal pipeline — where we are (P10, 2026-09-06)
+# The deal pipeline — what exists (P11, 2026-09-06)
 
-P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
-called them deliberately deferred is gone. This records exactly what is built and what
-is deliberately NOT, so nobody rebuilds finished work or half-builds
-the deferred work by accident. Everything is behind `features.dealPipeline` (packages/web/src/config/features.ts — the ONE
-flags file; docs/FEATURE_FLAGS.md is the rollback sheet)
-(currently ON in production, gated on sign-in). Boundaries in CLAUDE.md are LOCKED:
-buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
+The pipeline is finished. This says what is built, what it is for, and what is
+deliberately NOT built, so nobody rebuilds finished work or half-builds the work
+that was left out on purpose.
 
-## Built (do NOT rebuild)
-- **Data layer (P1):** `deals`, `deal_stage_history`, `deal_facts`, `deal_verdicts`
-  (migrations 0005–0008). 100-cap counts LIVE deals only. Saved-deal migration reused ids.
-- **Stages (config-driven):** 7 progress stages + parked/dead, with per-stage dwell
-  (normal/cold) and the one-line action verb — all in `src/config/pipeline.ts`, reword
-  without a migration.
-- **Save → pipeline (P2):** signed-in save writes a deal + first verdict snapshot;
-  idempotent per property+strategy; no-manual-entry enforced by construction (branded
-  `AnalyserDealPayload`, guardrail test).
-- **The board (P3) at `/deals`:** verdict-first cards, stage columns (empty ones hidden),
-  quiet live/terminal counter, mobile = single vertical list, desktop = columns.
-- **Moves + quick actions (P4):** drag (desktop) + a native stage picker (keyboard +
-  one-handed mobile), optimistic with per-deal rollback; skip allowed; park/kill with a
-  one-chip reason; re-open the analyser by tapping the card.
-- **Today line (P4):** one deal, one action, ranked date → stage-relative dwell → new
-  unactioned → else "nothing needs you"; never contradicts an empty/terminal board.
-- **Stage-aware ageing (P4):** amber past normal, "gone cold" past cold — never a
-  blanket timer, no red alarm.
-- **Verdict-first cards (P4.1):** score + colour + the analyser's OWN reason line
-  (stored `verdict_line`), actionable next-step, terminal-state + layout fixes.
-- **Score backfill (P4.2):** an unscored deal shows "Tap to score this" (or names the
-  missing input); opening it scores it via the real analyser pipeline and persists the
-  score to that deal by id. Auction warning at Offer in.
-- **Dev seed set (P4.2):** `/dev/seed` + `/dev/seed/clear`, dev-only (impossible in
-  production), a realistic spread for judging design — with realistic FACTS on five of
-  the ten deals (P5), so a seeded card shows a fact-corrected score.
-- **Facts + re-scoring (P5)** — BUILT. Eight fact types in `src/config/pipeline.ts`
-  (`FACT_TYPES`); adding one is two taps and one number on the card. `applyFacts`
-  (packages/web/src/lib/deals/facts.ts) turns facts into the analyser inputs they
-  represent, then `scoreFromParams` (src/lib/deals/scoreFromParams.ts) re-scores in the
-  BROWSER with the same @gil-bricks/core calls the analyser runs — no new formula, proved
-  by facts.test.ts (a quote of £48,000 scores exactly as £48,000 typed, per strategy).
-  Every re-score POSTs a `deal_verdicts` snapshot (score + criteria + evidence). Facts are
-  listed on the card and deletable; deleting restores the previous score. Non-numeric
-  facts (covenant, short lease) flag and explain — they never invent a cost. Behind
-  `features.dealFacts`. Adding a fact type is a config edit, never code.
-- **Stable identity + evidence-stable re-scoring (P5.1)** — BUILT. A deal's card link carries
-  `deal=<id>`; the analyser sends it back, so re-saving a deal you opened from the board UPDATES
-  it (stage and history kept) instead of creating a twin whose only difference was the numbers a
-  fact had corrected. The sold-price band the saved score was judged against is stored on the deal
-  (`deals.sold_evidence`, migration 0012) and passed back into the SAME `scoreDeal` argument on
-  every re-score, so adding and removing a fact returns the deal to its saved score exactly.
-  P6 closed the same gap for HMO ROOM SIZES (`deals.room_size_failures`, migration 0014), which
-  live in the analyser page and never in the URL. The round trip is now exact EXCEPT on a deal
-  saved before those columns existed: its band is unknown and cannot be reconstructed, so the
-  card says so (only where the strategy actually scores sold prices) and one save fixes it.
-  A save with NOTHING computed never blanks a score, a verdict line or the evidence behind them.
-- **Verdict-change messaging (P6)** — BUILT, behind `features.verdictChanges`. When a fact moves a
-  deal across a verdict band, or by a full point (`CHANGE_RULES` in src/config/pipeline.ts), the
-  card says what it was, what landed, what it is now, and — in @gil-bricks/core's own words — what
-  that means and what would fix it. It is stored (`deal_changes`, migration 0013) so it survives a
-  reload, and it stays until dismissed; P8 can rank unacknowledged changes as urgent. A deal a fact
-  has taken below walk-away is OFFERED a park with the reason pre-filled, and is never parked
-  automatically. A closed **score history** opens a sparkline built from the `deal_verdicts`
-  snapshots. Facts folded into a deal's own numbers are MARKED, never deleted (migration 0014).
-  Three states: a band; `'null'` (no comparables, and we know it); SQL `NULL` (saved before the
-  column existed — the card says so rather than guessing). A re-save FOLDS the applied facts into
-  the deal's numbers, because the page was opened with them applied; flags and no-effect facts stay.
+Everything is behind flags in `packages/web/src/config/features.ts`
+(`docs/FEATURE_FLAGS.md` is the rollback sheet). Every knob is in
+`docs/PIPELINE_CONFIG.md`. The boundaries in CLAUDE.md are LOCKED: buy-side only,
+it ends at purchase, and a deal can only be born from an analyser payload.
 
-## Deliberately NOT built yet (return with fresh eyes — do not half-build)
-- **Evidence chips** — showing which inputs were listing / EPC / estimated / typed on
-  the card (data captured in `evidence_json`; not surfaced).
-- **Chain-risk card at Offer accepted** — surfacing chain/searches risk in the legal phase.
+## The shape of it
 
-- **Evidence chips (P7)** — BUILT, behind `features.evidenceChips`. A small strip under the Deal Score
-  says what it rests on: Refurb, End value, Rent, Comps and Room sizes where each applies — filled when
-  evidenced, outline when assumed, dashed when unknown — then one line naming the weakest input and the
-  one thing that would fix it. The rules, the labels AND the sentence live in ONE place
-  (`packages/core/src/evidence/chips.ts`), because the deal card, the analyser verdict and the extension
-  panel all show them and must never disagree; a surface that cannot know something reports it as
-  unknown rather than guessing. A fact fills its chip. There is no floor-area chip (no Deal Score reads
-  one) and no comps chip on an HMO (its score has no sold-evidence component).
-- **Deal identity (P7)** — a save now refuses to match a deal it cannot POSITIVELY identify: the
-  postcode must match AND both sides must name the building. Two properties sharing a postcode with no
-  house number make a new deal rather than overwriting the wrong one.
+A deal is a living estimate. It arrives from the analyser, it moves through
+stages, it learns facts, it re-scores itself against the SAME maths the analyser
+runs, and it says so when the answer changes. Most deals die, and the ones you
+kill are kept as the memory. Nothing about it teaches, packages, sells or sends.
 
-- **What needs you today (P8)** — BUILT. The today line ranks over four tiers, all in config
-  (`URGENCY` in src/config/pipeline.ts): a date you set inside 48 hours, then an unacknowledged
-  verdict change, then stage-aware staleness, then a decision resting on a guess at a stage that
-  should know better. Ties go to the deal with the most money at stake. If nothing qualifies it says
-  so — urgency is never manufactured. **Dated deadlines** finally exist (migration 0015): a chase
-  date on any live deal, an auction date on an auction deal, an exchange date once the offer is
-  accepted, set with the phone's own picker and behind `features.dealDates`. A **daily cron**
-  (06:00 UTC, free tier) stamps each live deal's staleness with the SAME pure function the board
-  runs — it computes and stores, it never notifies, and the app still sends no email. The board says
-  so out loud under the line: it is here when you open it, and nothing is sent to you.
+## Built
 
-- **The dead-deal graveyard (P9)** — BUILT, behind `features.dealGraveyard`. Killing a deal takes one
-  reason chip (eight, in `PARK_REASONS`) and an optional line, and the SERVER freezes the card as it
-  died — score, the engine's own verdict line, the evidence chips, the facts it carried and the stage
-  it reached (`deal_deaths`, migration 0016). The snapshot is written once and never updated, so a
-  later rules change moves what a deal would score today, never what this one scored on the day you
-  killed it; the WORDS around it still come from config, so rewording a stage or a reason re-words
-  every headstone. The board gains a collapsed **Deals you killed** view: most recent first, with the
-  reason, the note and the day. Dead deals have never counted against the 100 LIVE cap.
-  A **pattern** is offered only above `GRAVEYARD.patternMin` (five) within the last
-  `GRAVEYARD.patternWindow` (twenty) deaths, and it ALWAYS states its sample; below that it says
-  plainly there is not enough to see. Reasons that carry no lesson ("Changed my mind", "Seller pulled
-  out") state the sample and stop — a kill is never judged. **Bringing a deal back** restores it to
-  the stage it died at, re-scores it against today's rules and KEEPS the death as history
-  (`revived_at`), and it counts against the live cap again, so a full board refuses.
-  P6's one-tap "Park it" lands here with the reason pre-filled and a real snapshot.
+- **The data (P1, migrations 0005–0018).** `deals`, `deal_stage_history`,
+  `deal_facts`, `deal_verdicts`, `deal_changes`, `deal_deaths`, plus the columns
+  the later sprints added (sold evidence, room-size failures, four dates,
+  staleness, the chain-risk acknowledgement). Every migration is additive; none
+  has ever destroyed a row.
+- **Stages (config-driven).** Seven progress stages plus parked/dead, each with
+  its own dwell times, instruction and short verb. Rewording one needs no
+  migration.
+- **Save → pipeline (P2).** A signed-in save writes a deal and its first verdict
+  snapshot. Idempotent per property + strategy. No manual entry exists, and the
+  only deal-creating helper takes a branded analyser payload — a test fails
+  loudly if a second `INSERT INTO deals` ever appears.
+- **The board (P3/P4) at `/deals`.** Verdict-first cards, stage columns, drag or
+  a native picker, optimistic moves with honest rollback, park/kill, a quiet
+  counter, and an auction legal-pack warning at Offer in.
+- **Facts and re-scoring (P5).** Nine fact types; two taps and a number on the
+  card. A fact becomes exactly the analyser input a person could have typed, and
+  the browser re-scores with `@gil-bricks/core` — no second pathway into the
+  maths. Facts are listed, removable, and never invent a cost they cannot know.
+- **Stable identity and evidence-stable re-scoring (P5.1/P6/P7).** A deal's card
+  carries its own id, so re-saving updates it rather than making a twin; a save
+  that cannot POSITIVELY identify a deal makes a new one instead of overwriting
+  the wrong one. The sold-price band and the HMO room-size result travel with the
+  deal, so a re-score is judged on the same evidence the saved score was.
+- **Verdict-change messaging and score history (P6).** When a fact moves a deal
+  across a band, or by a full point, the card says what it was, what landed, what
+  it is now, and — in the engine's own words — what that means and what would fix
+  it. It survives a reload and stays until dismissed. A closed sparkline shows
+  the score at every evidence step.
+- **Evidence chips (P7).** What a score RESTS on — refurb, end value, rent,
+  comps, room sizes — filled, outline or dashed, from ONE shared source in
+  `@gil-bricks/core` that the deal card, the analyser verdict and the extension
+  panel all read.
+- **What needs you today (P8).** One deal, one verb, ranked over four tiers in
+  config: a dated deadline inside 48 hours, an unacknowledged change, stage-aware
+  staleness, then a decision resting on a guess. If nothing qualifies it says so.
+  Four dates a person can set, and a daily cron that stamps staleness and tells
+  nobody.
+- **The dead-deal graveyard (P9).** Killing a deal captures one reason chip, an
+  optional note and a FROZEN snapshot of the card as it died. A pattern is
+  offered only above a real threshold and always states its sample. A dead deal
+  can come back to the stage it died at, re-scored against today's rules, with
+  the death kept as history.
+- **The extension badge and calendar export (P10).** A daily alarm asks the web
+  app the same question the board asks and wears the count on the toolbar; at
+  most one notification a day, only for a dated deadline still ahead. Any deal
+  carrying a date exports an .ics built in the browser. The copy says the limit
+  out loud: it works while Chrome is open, and nothing reaches you when it is
+  closed.
+- **Chain-risk honesty, the re-trade radar and paginated lists (P11).** A fixed
+  honest card at Offer accepted — accepted is not safe, most wobbles are in the
+  first four weeks, and here is what kills deals. When a survey or a valuation
+  moves a live deal, the card shows the reverse-solved new maximum offer and a
+  message you can copy to the agent (it copies; it never sends). The board loads
+  every live deal plus a window of the bought and the killed, with counts taken
+  from the database so a window can never make a number wrong.
 
-- **The extension badge + calendar export (P10)** — BUILT. The today line can only reach somebody who
-  opens the board, so P10 built the only two honest ways past that. **The extension** (v0.2.0) wakes
-  once a day on a `chrome.alarms` alarm, calls `GET /api/attention` — which runs the BOARD'S OWN
-  `rankUrgent`, so there is no second idea of urgent — and wears the count on the toolbar. At most
-  ONE notification a day, and only for the tier named in `URGENCY.critical` (a dated deadline inside
-  48 hours). Signed out, or any failure, clears the badge rather than showing a stale number. One tap
-  in the panel's settings switches the lot off, and the copy says the limit out loud: it works while
-  Chrome is open, and nothing reaches you when it is closed. It cost two permissions (`alarms`,
-  `notifications`) plus host access to our own app — **which means the store update needs re-review
-  and existing users must accept them.** **Calendar export** (behind `features.calendarExport`) hands
-  any deal's dates to the calendar they already check: an .ics built in the browser, one all-day
-  VEVENT per date, the deal's link in the description, a VALARM asking for a day's notice, and on an
-  auction the cash needed from the deal's own analysis (saying whether auction fees are in it). A
-  fourth date — the VIEWING (migration 0017) — exists now, offered while you are still deciding to go.
+## Deliberately NOT built
+
+- **The chain-risk CARD is honesty, not tracking.** There is no chain tracker, no
+  "who is in your chain", no solicitor chasing. It says the true thing once.
+- **Nothing investor-facing.** No packaging, no deal packs, no sharing or
+  sending, no investor CRM.
+- **Nothing about owning.** The pipeline ends at purchase: no tenancies, no
+  letting, no portfolio tracking, no tax returns.
+- **No teaching layer.** No courses, badges, streaks or gamification.
+- **No email, ever.** The app sends nothing. The today line reaches you when you
+  open the board; the extension badge reaches you while Chrome is open; a
+  calendar file reaches you because your own calendar took it over. Those are the
+  only three, and each says so where it appears.
+- **No second idea of "urgent", "good" or "evidenced".** One ranking, one score,
+  one set of chips, shared by every surface.
+
+## Known limits, stated
+
+- A board re-score reads the postcode's own area for the country, not ONSPD, so a
+  cross-border postcode (CH, HR, SY, WR) re-scores on SDLT where the analyser
+  would use LTT.
+- The attention endpoint ranks on the Worker's UTC clock while the board ranks on
+  the reader's, so during BST a date's end-of-day differs by an hour. It moves
+  only the boundary of a 48-hour window on a once-a-day check.
+- A deal killed before P9 has no frozen snapshot; the graveyard says so rather
+  than inventing one.
 
 ## Where to pick up
-The board answers "what needs me?", a deal re-scores itself as the facts land, it SAYS when the
-answer has changed, the deals you killed are kept as the memory, and the two honest ways to reach
-somebody who has not opened the board — a daily badge while Chrome runs, and their own calendar —
-are both built. What is NOT built, deliberately: the chain-risk card at Offer accepted.
+
+The pipeline is done. What is left is not more pipeline: it is the operator's
+design pass (name, logo, colours — all tokenised and slot-ready), the ICO fee
+before `/bridging-finance` goes public, and whatever the first real users ask
+for. Every knob they might want turned is in `docs/PIPELINE_CONFIG.md`.

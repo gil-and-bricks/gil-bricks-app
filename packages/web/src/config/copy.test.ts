@@ -17,7 +17,7 @@ import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
 import { COPY } from './copy';
 import { BRIDGING } from './bridging';
-import { CALENDAR, GRAVEYARD_COPY, PARK_REASONS } from './pipeline';
+import { CALENDAR, CHAIN_RISK, GRAVEYARD_COPY, PARK_REASONS, RETRADE } from './pipeline';
 import { NAV } from './nav';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
@@ -194,6 +194,41 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
     // (The extension owns the one sentence that STATES the limit, and its own
     // test holds it to that: packages/extension/tests/attention.test.ts.)
     for (const s of all) expect(claims.test(s.text), `${s.key}: ${s.text}`).toBe(false);
+  });
+
+  it('the chain-risk card is short, approximate and never a prediction', () => {
+    const strings = flatten(CHAIN_RISK, 'CHAIN_RISK');
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long).toEqual([]);
+    // figures described as estimates, and no false precision anywhere
+    expect(/\b(estimate|approximate)/i.test(CHAIN_RISK.source)).toBe(true);
+    expect(CHAIN_RISK.source.toLowerCase()).toContain('not a forecast');
+    for (const s of strings) expect(/\d+(\.\d+)?%/.test(s.text), s.key).toBe(false);
+  });
+
+  it('the re-trade radar never promises to send anything', () => {
+    const built = [
+      { key: 'RETRADE.max', text: RETRADE.max('£175,000') },
+      // The MESSAGE is exempt from the two-sentence rule by copy rule 7: it is a
+      // lever line that names the binding numbers, and it is an email rather
+      // than a block of page furniture.
+    ];
+    const strings = [...flatten(RETRADE, 'RETRADE').filter((s) => s.key !== 'RETRADE.message'), ...built];
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words`);
+    expect(long).toEqual([]);
+    expect(RETRADE.sendNothing).toContain('Nothing is sent');
+    const message = RETRADE.message('The survey has come back with £14,000 of work I hadn’t allowed for.', '£185,000', '£175,000');
+    for (const s of [...strings.map((x) => x.text), message]) {
+      expect(/\b(we|it)('ll| will)? *(send|email)\b/i.test(s), s).toBe(false);
+    }
+    // and it never tells the operator how to feel about it
+    for (const word of ['unfortunately', 'sadly', 'disappointing', 'sorry']) {
+      expect(message.toLowerCase()).not.toContain(word);
+    }
   });
 
   it('tooltips stay at 20 words — they are already the short home', () => {
