@@ -4,6 +4,7 @@ import { dealTitle } from '../../lib/deals/deal';
 import { keyFigure } from './keyFigure';
 import { verdictSnapshot } from './verdictSnapshot';
 import { evidenceSnapshot, isAuctionArrival, isFromExtension } from './provenance';
+import { arrivedDealId, arrivedFactsAt } from './arrival';
 import { state, strategyParams, toQuery } from './state';
 import { fmtMoney, postcodeToSector } from '@gil-bricks/core';
 import { features } from '../../config/features';
@@ -20,6 +21,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [savedToPipeline, setSavedToPipeline] = useState(false);
   const [folded, setFolded] = useState(false);
+  const [forked, setForked] = useState(false);
   useEffect(() => {
     void loadMe();
   }, []);
@@ -31,10 +33,11 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   // P5.1: the deal this page was opened FROM. Read once at mount, because the URL
   // writer drops unknown params on the first edit — and an edit is exactly when
   // this matters: saving must update that deal, not create a twin beside it.
-  const openedDealId = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('deal'));
+  // Captured at module load, before anything can strip them from the URL (P7 review).
+  const openedDealId = useRef<string | null>(arrivedDealId);
   /** When the deal's facts were last read for this page — a fact entered after
    * it was opened was never in these numbers, so it must not be folded in. */
-  const openedFactsAsOf = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('factsAt'));
+  const openedFactsAsOf = useRef<string | null>(arrivedFactsAt);
   const backfilled = useRef(false);
   const snap = verdictSnapshot.value; // subscribe so this re-runs when the score lands
   useEffect(() => {
@@ -116,12 +119,15 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           // HMO room sizes: measured in this page, so the deal has to keep them.
           room_size_failures: verdictSnapshot.value?.roomSizeFailures ?? null,
           // The facts this page was opened with — only those get folded in.
-          facts_as_of: openedFactsAsOf.current ?? '',
+          facts_as_of: openedFactsAsOf.current ?? undefined,
         }),
       });
       if (res.ok) {
-        const b = (await res.json().catch(() => ({}))) as { pipeline?: boolean; foldedFacts?: number };
+        const b = (await res.json().catch(() => ({}))) as { pipeline?: boolean; foldedFacts?: number; updated?: boolean };
         setSavedToPipeline(b.pipeline === true);
+        // Opened from a deal, but saved as a different one: say so, rather than
+        // leaving a duplicate card to be discovered later (P7 review).
+        setForked(openedDealId.current !== null && b.updated === false);
         // Facts were folded into these numbers by this save. Never silent.
         setFolded(typeof b.foldedFacts === 'number' && b.foldedFacts > 0);
         setSaveState('saved');
@@ -185,7 +191,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
       <span id="pdf-soon" class="hint" role="status">
         {saveState === 'saved' ? (
           savedToPipeline ? (
-            <>{ACTION_BAR.hint.pipelineBefore}<a href="/deals">{ACTION_BAR.hint.pipelineLink}</a>{ACTION_BAR.hint.pipelineAfter}{folded ? ` ${ACTION_BAR.foldedFacts}` : ''}</>
+            <>{ACTION_BAR.hint.pipelineBefore}<a href="/deals">{ACTION_BAR.hint.pipelineLink}</a>{ACTION_BAR.hint.pipelineAfter}{folded ? ` ${ACTION_BAR.foldedFacts}` : ''}{forked ? ` ${ACTION_BAR.savedAsNew}` : ''}</>
           ) : (
             <>{ACTION_BAR.hint.myDealsBefore}<a href="/deals">{ACTION_BAR.hint.myDealsLink}</a>{ACTION_BAR.hint.myDealsAfter}</>
           )

@@ -294,6 +294,24 @@ export const FACT_TYPES: readonly FactType[] = [
     noEffect: 'A flip is sold, not let, so a yearly charge does not change the deal maths. Budget for it while you hold it.',
   },
   {
+    /**
+     * P7: the rent stops being a guess the moment someone agrees one. Without
+     * this the Rent evidence chip could never be filled, and a chip that can
+     * never be filled should not exist (see CHIPS_BY_STRATEGY in the core).
+     */
+    key: 'rent-agreed',
+    label: 'Rent agreed',
+    kind: 'number',
+    numberLabel: 'The agreed rent (£ a month)',
+    hint: 'The real number replaces your estimate.',
+    applies: {
+      btl: { param: 'rent', mode: 'replace', shownAs: 'Monthly rent' },
+      brrrr: { param: 'rent', mode: 'replace', shownAs: 'Rent after works' },
+      hmo: { param: 'roomRent', mode: 'replace', shownAs: 'Average rent per room' },
+    },
+    noEffect: 'A flip is sold, not let, so a rent does not change the deal maths.',
+  },
+  {
     key: 'short-lease',
     label: 'Short lease',
     kind: 'flag',

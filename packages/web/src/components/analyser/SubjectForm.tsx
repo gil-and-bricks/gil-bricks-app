@@ -57,7 +57,15 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
       <div class="field">
         <label for="f-paon">{SUBJECT_FORM.labels.paon} <Tooltip text={TIPS.paon} /> <ProvBadge field="paon" /></label>
         <input id="f-paon" value={s.paon}
-          onInput={(e) => { update({ paon: (e.target as HTMLInputElement).value, saon: '' }); markEdited('paon'); }} />
+          onInput={(e) => {
+            // A DIFFERENT building means the flat number from the old one is
+            // meaningless, so it goes. Retyping the SAME number keeps it — it is
+            // the only record of which flat this is, and there is no field to put
+            // it back in (P7 review).
+            const paon = (e.target as HTMLInputElement).value;
+            update(paon.trim() === s.paon.trim() ? { paon } : { paon, saon: '' });
+            markEdited('paon');
+          }} />
       </div>
       <div class="field">
         <label for="f-price">{SUBJECT_FORM.labels.price} <Tooltip text={TIPS.price} /> <ProvBadge field="price" /></label>

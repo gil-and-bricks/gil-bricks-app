@@ -1,4 +1,4 @@
-# Deal pipeline — where we are (P6, 2026-09-06)
+# Deal pipeline — where we are (P7, 2026-09-06)
 
 P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
 called them deliberately deferred is gone. This records exactly what is built and what
@@ -74,6 +74,18 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   learns "you keep killing deals for X". Today parked is just a collapsed list.
 - **Extension reminders + calendar export** — nudges for a chased offer / booked viewing.
 - **Chain-risk card at Offer accepted** — surfacing chain/searches risk in the legal phase.
+
+- **Evidence chips (P7)** — BUILT, behind `features.evidenceChips`. A small strip under the Deal Score
+  says what it rests on: Refurb, End value, Rent, Comps and Room sizes where each applies — filled when
+  evidenced, outline when assumed, dashed when unknown — then one line naming the weakest input and the
+  one thing that would fix it. The rules, the labels AND the sentence live in ONE place
+  (`packages/core/src/evidence/chips.ts`), because the deal card, the analyser verdict and the extension
+  panel all show them and must never disagree; a surface that cannot know something reports it as
+  unknown rather than guessing. A fact fills its chip. There is no floor-area chip (no Deal Score reads
+  one) and no comps chip on an HMO (its score has no sold-evidence component).
+- **Deal identity (P7)** — a save now refuses to match a deal it cannot POSITIVELY identify: the
+  postcode must match AND both sides must name the building. Two properties sharing a postcode with no
+  house number make a new deal rather than overwriting the wrong one.
 
 ## Where to pick up
 The board answers "what needs me?", a deal re-scores itself as the facts land, and it now SAYS

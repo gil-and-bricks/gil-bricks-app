@@ -316,7 +316,7 @@ function verdictStatements(db: D1Database, dealId: string, v: FactVerdict, at: s
 export async function recordFact(
   db: D1Database, dealId: string, factType: string, valueJson: string, verdict?: FactVerdict,
   change?: { id: string; value: number | null; change: FactChange },
-): Promise<string> {
+): Promise<{ id: string; enteredAt: string }> {
   if (!isFactType(factType)) throw new Error(`unknown fact type: ${factType}`);
   const now = new Date().toISOString();
   const id = crypto.randomUUID();
@@ -330,7 +330,10 @@ export async function recordFact(
         .bind(change.id, dealId, factType, change.value, change.change.previousValue, change.change.fromScore, change.change.toScore, change.change.toVerdictLine, now)]
       : []),
   ]);
-  return id;
+  // The SERVER's timestamp goes back to the browser: the board stamps its
+  // optimistic copy with it, so a fold window built from that copy can never
+  // exclude the very fact it was drawn around (P7 review).
+  return { id, enteredAt: now };
 }
 
 export interface FactRow {
@@ -535,26 +538,26 @@ const parkReasonLabel = (key: string): string => {
   return r.label;
 };
 const DEV_SEED_SPECS: readonly SeedSpec[] = [
-  { strategy: 'btl', title: 'Terraced · CF24 4AA · £150,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', ageDays: 1, params: 'postcode=CF24+4AA&price=150000&type=T&rent=1400' },
-  { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', ageDays: 12, params: 'postcode=SA1+6HW&price=85000&type=S&roomRent=500&refurbCost=40000&rooms=5' },
-  { strategy: 'flip', title: 'Detached · NP20 1AA · £240,000', sector: 'NP20 1', stage: 'going-to-view', status: 'live', ageDays: 9, params: 'postcode=NP20+1AA&price=240000&type=D&gdv=340000&refurbCost=35000' },
-  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £105,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', ageDays: 5, params: 'postcode=CF11+9AB&price=105000&type=T&rent=1250&arv=200000&refurbCost=30000' },
-  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&price=135000&type=F&rent=1100',
+  { strategy: 'btl', title: 'Terraced · CF24 4AA · £150,000', sector: 'CF24 4', stage: 'worth-a-look', status: 'live', ageDays: 1, params: 'postcode=CF24+4AA&paon=12&price=150000&type=T&rent=1400' },
+  { strategy: 'hmo', title: 'Semi · SA1 6HW · £85,000', sector: 'SA1 6', stage: 'worth-a-look', status: 'live', ageDays: 12, params: 'postcode=SA1+6HW&paon=31&price=85000&type=S&roomRent=500&refurbCost=40000&rooms=5' },
+  { strategy: 'flip', title: 'Detached · NP20 1AA · £240,000', sector: 'NP20 1', stage: 'going-to-view', status: 'live', ageDays: 9, params: 'postcode=NP20+1AA&paon=4&price=240000&type=D&gdv=340000&refurbCost=35000' },
+  { strategy: 'brrrr', title: 'Terraced · CF11 9AB · £105,000', sector: 'CF11 9', stage: 'getting-real-numbers', status: 'live', ageDays: 5, params: 'postcode=CF11+9AB&paon=58&price=105000&type=T&rent=1250&arv=200000&refurbCost=30000' },
+  { strategy: 'btl', title: 'Flat · CF10 1AA · £135,000', sector: 'CF10 1', stage: 'offer-in', status: 'live', auction: true, ageDays: 6, params: 'postcode=CF10+1AA&paon=7&price=135000&type=F&rent=1100',
     facts: [
       { type: 'auction-fees', value: 3200, note: 'Buyer premium plus the pack', daysAgo: 5 },
       { type: 'service-charge', value: 1400, note: 'Yearly, from the management pack', daysAgo: 4 },
     ] },
-  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', ageDays: 12, params: 'postcode=SA2+0AA&price=220000&type=T&roomRent=650&refurbCost=45000&rooms=6',
+  { strategy: 'hmo', title: 'Terraced · SA2 0AA · £220,000', sector: 'SA2 0', stage: 'offer-in', status: 'live', ageDays: 12, params: 'postcode=SA2+0AA&paon=19&price=220000&type=T&roomRent=650&refurbCost=45000&rooms=6',
     facts: [{ type: 'survey-finding', value: 4500, note: 'Damp in the rear bedroom', daysAgo: 3 }] },
-  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', ageDays: 10, params: 'postcode=LL18+1AA&price=160000&type=S&gdv=250000&refurbCost=30000',
+  { strategy: 'flip', title: 'Semi · LL18 1AA · £160,000', sector: 'LL18 1', stage: 'offer-accepted', status: 'live', ageDays: 10, params: 'postcode=LL18+1AA&paon=2&price=160000&type=S&gdv=250000&refurbCost=30000',
     facts: [
       { type: 'builder-quote', value: 38000, note: 'Two quotes, took the lower', daysAgo: 6 },
       { type: 'covenant', value: null, note: 'No trade from the property', daysAgo: 2 },
     ] },
-  { strategy: 'brrrr', title: 'Terraced · CF37 1HR · £95,000', sector: 'CF37 1', stage: 'nearly-there', status: 'live', ageDays: 3, params: 'postcode=CF37+1HR&price=95000&type=T&rent=1000&arv=185000&refurbCost=18000',
+  { strategy: 'brrrr', title: 'Terraced · CF37 1HR · £95,000', sector: 'CF37 1', stage: 'nearly-there', status: 'live', ageDays: 3, params: 'postcode=CF37+1HR&paon=44&price=95000&type=T&rent=1000&arv=185000&refurbCost=18000',
     facts: [{ type: 'down-valuation', value: 175000, daysAgo: 1 }] },
-  { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', ageDays: 30, params: 'postcode=CF37+1HR&price=120000&type=T&rent=950' },
-  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&price=200000&type=S&roomRent=300&refurbCost=50000',
+  { strategy: 'btl', title: 'Terraced · CF37 1HR · £120,000', sector: 'CF37 1', stage: 'bought-it', status: 'done', ageDays: 30, params: 'postcode=CF37+1HR&paon=86&price=120000&type=T&rent=950' },
+  { strategy: 'hmo', title: 'Semi · SA3 1AA · £200,000', sector: 'SA3 1', stage: 'parked-dead', status: 'dead', dead: parkReasonLabel('numbers-fail'), ageDays: 20, params: 'postcode=SA3+1AA&paon=23&price=200000&type=S&roomRent=300&refurbCost=50000',
     facts: [{ type: 'builder-quote', value: 78000, note: 'Full rewire and a new roof', daysAgo: 12 }] },
 ];
 

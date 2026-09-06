@@ -38,9 +38,10 @@ describe('pipeline config (P1)', () => {
     expect(isDealStatus('paused')).toBe(false);
   });
 
-  it('seeds exactly the eight fact types — numbers first, flags last (P5)', () => {
+  it('seeds exactly the nine fact types — numbers first, flags last (P5, P7)', () => {
     expect(FACT_TYPE_KEYS).toEqual([
-      'builder-quote', 'survey-finding', 'down-valuation', 'auction-fees', 'service-charge', 'ground-rent', 'short-lease', 'covenant',
+      'builder-quote', 'survey-finding', 'down-valuation', 'auction-fees', 'service-charge', 'ground-rent',
+      'rent-agreed', 'short-lease', 'covenant',
     ]);
     for (const f of FACT_TYPES) expect(f.label.length).toBeGreaterThan(0);
     // A number fact must say what it changes; a flag must say why it matters.

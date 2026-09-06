@@ -43,7 +43,7 @@ const authed = async (user = 'u1') => ({ Cookie: `${SESSION_COOKIE}=${await sign
 
 const BASE = {
   strategy: 'btl', title: 'Terraced · CF37 1HR · £150,000',
-  url_params: 'postcode=CF37+1HR&price=150000&type=T&rent=1200&refurbCost=30000',
+  url_params: 'postcode=CF37+1HR&paon=12&price=150000&type=T&rent=1200&refurbCost=30000',
   key_figure: 'ROI 8%', headline_figure: '£250/mo', verdict_line: 'Cashflows £250 a month after tax.',
   score: 7.2, criteria_json: '{"minRoi":8}', evidence_json: '{}', postcode_sector: 'CF37 1', source: 'analyser',
   sold_evidence: '{"estimate":157500,"high":172500}',
@@ -139,6 +139,40 @@ describe('re-saving a deal opened from its own card', () => {
     expect((sqlite.prepare('SELECT url_params u FROM saved_deals WHERE id = ?').get(first.id) as { u: string }).u).toBe(BASE.url_params);
   });
 
+  it('a NAMED flat still updates in place — the P5.1 promise holds for flats', async () => {
+    const h = await authed();
+    const flat = 'postcode=CF10+1AA&paon=12&saon=Flat+2&price=135000&type=F&rent=1100&refurbCost=30000';
+    const first = await (await save(h, { url_params: flat })).json() as { id: string };
+    const again = await (await save(h, {
+      deal_id: first.id, url_params: flat.replace('refurbCost=30000', 'refurbCost=48000'), score: 6.1,
+    })).json() as { id: string; updated: boolean };
+    expect(again.id).toBe(first.id);
+    expect(again.updated).toBe(true);
+    expect(count('deals')).toBe(1);
+  });
+
+  it('a flat whose number the FORM dropped still updates in place', async () => {
+    // There is no flat-number input on the analyser: the only way to arrive
+    // without one is our own form having cleared it. The building and the id
+    // still name the property, so refusing would fork a deal we can identify.
+    const h = await authed();
+    const flat = 'postcode=CF10+1AA&paon=12&saon=Flat+2&price=135000&type=F&rent=1100';
+    const first = await (await save(h, { url_params: flat })).json() as { id: string };
+    const res = await (await save(h, { deal_id: first.id, url_params: 'postcode=CF10+1AA&paon=12&price=150000&type=F&rent=1200' })).json() as { id: string; updated: boolean };
+    expect(res.id).toBe(first.id);
+    expect(res.updated).toBe(true);
+    expect(count('deals')).toBe(1);
+  });
+
+  it('but a DIFFERENT flat named at the same building is a different deal', async () => {
+    const h = await authed();
+    const flat = 'postcode=CF10+1AA&paon=12&saon=Flat+2&price=135000&type=F&rent=1100';
+    const first = await (await save(h, { url_params: flat })).json() as { id: string };
+    const res = await (await save(h, { deal_id: first.id, url_params: flat.replace('Flat+2', 'Flat+5') })).json() as { id: string };
+    expect(res.id).not.toBe(first.id);
+    expect(count('deals')).toBe(2);
+  });
+
   it('a different flat at the SAME postcode is a different deal', async () => {
     const h = await authed();
     const flat2 = await (await save(h, { url_params: 'postcode=CF10+1AA&paon=12&saon=Flat+2&price=135000&type=F&rent=1100' })).json() as { id: string };
@@ -151,18 +185,41 @@ describe('re-saving a deal opened from its own card', () => {
     expect((sqlite.prepare('SELECT url_params u FROM saved_deals WHERE id = ?').get(flat2.id) as { u: string }).u).toContain('Flat+2');
   });
 
-  it('adding a house number to a deal that never had one is the SAME deal', async () => {
+  it('REFUSES to match when neither side names the property (P7)', async () => {
+    const h = await authed();
+    const noNumber = 'postcode=CF37+1HR&price=150000&type=T&rent=1200&refurbCost=30000';
+    const first = await (await save(h, { url_params: noNumber })).json() as { id: string };
+    // the same postcode, no house number anywhere: two properties are
+    // indistinguishable, so the save makes a NEW deal rather than guessing
+    const res = await (await save(h, { deal_id: first.id, url_params: noNumber.replace('price=150000', 'price=185000') })).json() as { id: string; updated: boolean };
+    expect(res.id).not.toBe(first.id);
+    expect(res.updated).toBe(false);
+    expect(count('deals')).toBe(2);
+    expect((sqlite.prepare('SELECT url_params u FROM saved_deals WHERE id = ?').get(first.id) as { u: string }).u).toBe(noNumber);
+  });
+
+  it('adding a house number to a deal that never had one is a NEW deal, not an overwrite', async () => {
+    const h = await authed();
+    const noNumber = 'postcode=CF37+1HR&price=150000&type=T&rent=1200';
+    const first = await (await save(h, { url_params: noNumber })).json() as { id: string };
+    const again = await (await save(h, { deal_id: first.id, url_params: `${noNumber}&paon=31` })).json() as { id: string };
+    expect(again.id).not.toBe(first.id);
+    expect(count('deals')).toBe(2);
+  });
+
+  it('a named property still updates in place, however much the numbers move', async () => {
     const h = await authed();
     const first = await (await save(h)).json() as { id: string };
-    const again = await (await save(h, { deal_id: first.id, url_params: `${BASE.url_params}&paon=31` })).json() as { id: string };
+    const again = await (await save(h, { deal_id: first.id, url_params: CORRECTED, score: 6.4 })).json() as { id: string; updated: boolean };
     expect(again.id).toBe(first.id);
+    expect(again.updated).toBe(true);
     expect(count('deals')).toBe(1);
   });
 
   it('the same postcode written differently is still the same property', async () => {
     const h = await authed();
     const first = await (await save(h)).json() as { id: string };
-    const again = await (await save(h, { deal_id: first.id, url_params: 'postcode=cf37+1hr&price=150000&type=T&rent=1200&refurbCost=48000' })).json() as { id: string };
+    const again = await (await save(h, { deal_id: first.id, url_params: 'postcode=cf37+1hr&paon=12&price=150000&type=T&rent=1200&refurbCost=48000' })).json() as { id: string };
     expect(again.id).toBe(first.id);
     expect(count('deals')).toBe(1);
   });
@@ -270,6 +327,14 @@ describe('a re-save folds the corrections into the numbers', () => {
     expect(later.f, 'the later fact still applies').toBeNull();
   });
 
+  it('an empty facts window means NO window, not a window that folds nothing', async () => {
+    const h = await authed();
+    const first = await (await save(h)).json() as { id: string };
+    await addFact(h, first.id, 'builder-quote', 48000);
+    const res = await (await save(h, { deal_id: first.id, url_params: CORRECTED, facts_as_of: '' })).json() as { foldedFacts: number };
+    expect(res.foldedFacts).toBe(1);
+  });
+
   it('a save with nothing computed never blanks the score, the band or the facts', async () => {
     const h = await authed();
     const first = await (await save(h)).json() as { id: string };
@@ -282,6 +347,9 @@ describe('a re-save folds the corrections into the numbers', () => {
     expect(d.verdict_line).toBe(BASE.verdict_line);
     expect(d.sold_evidence).toBe('{"estimate":157500,"high":172500}');
     expect((sqlite.prepare('SELECT folded_at f FROM deal_facts').get() as { f: string | null }).f).toBeNull();
+    // and it does not redefine the deal's numbers either — the facts on top
+    // still apply to the old ones (P7 review)
+    expect((sqlite.prepare('SELECT url_params u FROM saved_deals WHERE id = ?').get(first.id) as { u: string }).u).toBe(BASE.url_params);
   });
 
   it('a PARKED deal is never rewritten by a re-save from its own page', async () => {

@@ -356,3 +356,90 @@ describe('settings screen (E7)', () => {
     expect(document.getElementById('gb-s-rent')).toBeNull();
   });
 });
+
+describe('evidence chips in the panel (P7)', () => {
+  const strip = (v: PanelView): HTMLElement | null => {
+    renderTriage(v);
+    return document.querySelector('.ev-block');
+  };
+  const chips = (): { label: string; state: string }[] =>
+    [...document.querySelectorAll('.ev-chip')].map((el) => ({
+      label: (el.querySelector('[aria-hidden]')?.textContent ?? '').trim(),
+      state: [...el.classList].find((c) => c.startsWith('ev-') && c !== 'ev-chip')?.replace('ev-', '') ?? '',
+    }));
+
+  it('shows what the score rests on, and never claims a fact it cannot know', () => {
+    const v = view({ strategy: 'btl', unknowns: { rent: '900' } });
+    expect(strip(v)).toBeTruthy();
+    const c = chips();
+    expect(c.map((x) => x.label)).toEqual(['Refurb', 'Rent', 'Comps']);
+    // the panel is looking at a LISTING: it has no facts, so nothing is evidenced
+    // except the sold prices it really did read
+    expect(c.find((x) => x.label === 'Rent')?.state).toBe('assumed');
+    expect(c.find((x) => x.label === 'Refurb')?.state).toBe('unknown');
+    expect(c.find((x) => x.label === 'Comps')?.state).toBe('evidenced');
+  });
+
+  it('names the weakest input in the same words the web app uses', () => {
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '900' } }));
+    const line = document.querySelector('.ev-line')?.textContent ?? '';
+    expect(line).toContain('rests on no refurb figure');
+    expect(line).toContain('Get a builder’s number to trust it.');
+  });
+
+  it('an HMO gets no comps chip — its score has no sold-evidence component', () => {
+    renderTriage(view({ strategy: 'hmo', unknowns: { roomRent: '520', rooms: '4' } }));
+    expect(chips().map((x) => x.label)).toEqual(['Refurb', 'Rent', 'Room sizes']);
+  });
+
+  it('ONE room of four measured is not an answer, and the chip does not pretend it is', () => {
+    // the score's own room-size component is still unknown here, and the chip
+    // must never contradict the component printed on the same screen
+    renderTriage(view({
+      strategy: 'hmo', unknowns: { roomRent: '520', rooms: '4' },
+      floorplan: { measuredRooms: [12.5], imageUrls: [], index: 0, scale: null, points: [], status: 'idle' } as never,
+    }));
+    expect(chips().find((x) => x.label === 'Room sizes')?.state).toBe('unknown');
+  });
+
+  it('a fully measured set fills the room-sizes chip', () => {
+    const result = scoreListing(listing, {
+      strategy: 'hmo', unknowns: { roomRent: '520', rooms: '4' }, sector: sector(),
+      roomSizeFailures: 0, roomsMeasured: 4,
+    });
+    renderTriage(view({ strategy: 'hmo', unknowns: { roomRent: '520', rooms: '4' }, result }));
+    expect(chips().find((x) => x.label === 'Room sizes')?.state).toBe('evidenced');
+  });
+
+  it('every chip says its state out loud for a screen reader', () => {
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '900' } }));
+    const sr = [...document.querySelectorAll('.ev-chip .sr-only')].map((el) => el.textContent);
+    expect(sr).toContain('Comps: evidenced');
+    expect(sr).toContain('Refurb: not known');
+    expect(document.querySelector('.ev-chips')?.getAttribute('aria-label')).toBe('What this score rests on');
+  });
+
+  it('says nothing at all when there is no score to rest on anything', () => {
+    const v = view({ strategy: 'btl', unknowns: {} });
+    expect(v.result.deal).toBeNull();
+    expect(strip(v)).toBeNull();
+  });
+});
+
+describe('the panel and the web app agree about a default (P7 review)', () => {
+  it('a refurb left at its config default is not called an assumption', () => {
+    // BTL's Refurb budget defaults to '0'. The analyser drops it before saving,
+    // so the board reads "not known" — the panel must say the same.
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '900', refurbCost: '0' } }));
+    const refurb = [...document.querySelectorAll('.ev-chip')]
+      .find((el) => el.querySelector('[aria-hidden]')?.textContent === 'Refurb');
+    expect([...(refurb?.classList ?? [])]).toContain('ev-unknown');
+  });
+
+  it('a refurb the user really set is an assumption', () => {
+    renderTriage(view({ strategy: 'btl', unknowns: { rent: '900', refurbCost: '15000' } }));
+    const refurb = [...document.querySelectorAll('.ev-chip')]
+      .find((el) => el.querySelector('[aria-hidden]')?.textContent === 'Refurb');
+    expect([...(refurb?.classList ?? [])]).toContain('ev-assumed');
+  });
+});

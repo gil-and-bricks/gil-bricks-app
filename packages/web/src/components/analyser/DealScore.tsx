@@ -5,8 +5,10 @@
  * come from @gil-bricks/core's scoreDeal — the SINGLE verdict source shared
  * with the future extension. This component only presents; it computes nothing.
  */
-import type { DealScore } from '@gil-bricks/core';
+import type { DealScore, EvidenceInputs } from '@gil-bricks/core';
 import { DEAL_SCORE_COPY } from '../../config/misc';
+import { features } from '../../config/features';
+import { EvidenceChips } from '../deals/EvidenceChips';
 
 const LIGHT: Record<DealScore['verdict'], { cls: string; dot: string }> = {
   good: { cls: 'ds-good', dot: '●' },
@@ -14,7 +16,12 @@ const LIGHT: Record<DealScore['verdict'], { cls: string; dot: string }> = {
   'walk away': { cls: 'ds-walk', dot: '●' },
 };
 
-export function DealScoreChip({ deal }: { deal: DealScore | null }) {
+export function DealScoreChip({ deal, strategy, evidence }: {
+  deal: DealScore | null;
+  /** P7: the strategy and what its score rests on. Omit for no chip strip. */
+  strategy?: string;
+  evidence?: EvidenceInputs;
+}) {
   if (!deal) return null;
   const l = LIGHT[deal.verdict];
   // role="img" (not "status"): there is exactly ONE polite live region on the
@@ -23,7 +30,7 @@ export function DealScoreChip({ deal }: { deal: DealScore | null }) {
   // double-announce and can drop messages. The full label carries score,
   // verdict AND headline so screen-reader users get the same summary sighted
   // users see. Score is formatted to match the visible "7.9".
-  return (
+  const chip = (
     <div
       class={`deal-score ${l.cls}`}
       role="img"
@@ -37,6 +44,14 @@ export function DealScoreChip({ deal }: { deal: DealScore | null }) {
       <span class="ds-verdict">{deal.verdict}</span>
       <span class="ds-headline">{deal.headline}</span>
     </div>
+  );
+  // P7 — the same chips the board and the extension show, from the same source.
+  if (!features.evidenceChips || strategy === undefined || evidence === undefined) return chip;
+  return (
+    <>
+      {chip}
+      <EvidenceChips strategy={strategy} inputs={evidence} score={deal.score.toFixed(1)} />
+    </>
   );
 }
 

@@ -42,6 +42,10 @@ import {
   fmtMoneyInput,
   moneyCaret,
   parseMoneyInput,
+  evidenceChips,
+  evidenceSentence,
+  CHIP_COPY,
+  type EvidenceInputs,
 } from '@gil-bricks/core';
 import { EXTRACT_MESSAGE, refreshRemoteConfig } from '../../src/extractPage';
 import { PANEL_OPEN_MESSAGE } from '../../src/opener';
@@ -352,6 +356,69 @@ function chip(deal: DealScore | null, result: ScoreListingResult, strategy: Stra
   const need = result.waitingOn.length ? `Add ${result.waitingOn.join(' and ')} below to score this as ${strategyById(strategy)!.name}.` : `Add the details below to score this as ${strategyById(strategy)!.name}.`;
   pending.append(e('span', 'ds-headline', need));
   return pending;
+}
+
+
+/**
+ * EVIDENCE CHIPS (P7) — what this score rests on, in the same words the deal card
+ * and the analyser use, from the same @gil-bricks/core rules.
+ *
+ * The panel is looking at a LISTING, not a saved deal, so it has no facts: a
+ * refurb here is an assumption at best, and it says so rather than guessing.
+ */
+/** One scored component's status, found by its CONFIG KEY rather than its wording. */
+function componentStatus(view: PanelView, key: string): string | null {
+  const name = strategyById(view.strategy)?.score.find((c) => c.key === key)?.name;
+  if (!name) return null;
+  return view.result.deal?.components.find((c) => c.name === name)?.status ?? null;
+}
+
+function evidenceInputs(view: PanelView): EvidenceInputs {
+  // A field still holding its CONFIG DEFAULT is not somebody's assumption — the
+  // engine simply used its own number. The web app drops those too, and the two
+  // must never disagree about the same property (P7 review).
+  const cfg = strategyById(view.strategy);
+  const defaults = new Map<string, string>(
+    [...(cfg?.strategyInputs ?? []), ...(cfg?.assumptions ?? [])].map((f) => [f.key, String(f.default ?? '')]),
+  );
+  const present: string[] = [];
+  for (const src of [view.unknowns, view.settings]) {
+    for (const [k, v] of Object.entries(src ?? {})) {
+      const val = String(v ?? '').trim();
+      if (val !== '' && val !== (defaults.get(k) ?? '')) present.push(k);
+    }
+  }
+  const sold = view.result.priceVsSold.status;
+  return {
+    facts: [],
+    present,
+    // Real sold evidence, or an honest "we could not read any".
+    comps: sold === 'green' || sold === 'amber' || sold === 'red',
+    // The SCORE's own room-size component, not a count of measured rooms: one
+    // room of four measured is not an answer, and the component on this very
+    // screen already says so. The chip must never disagree with it (P7 review).
+    roomsMeasured: componentStatus(view, 'roomSize') !== null && componentStatus(view, 'roomSize') !== 'unknown',
+  };
+}
+
+function evidenceStrip(view: PanelView): HTMLElement | null {
+  const deal = view.result.deal;
+  if (!deal) return null;
+  const chips = evidenceChips(view.strategy, evidenceInputs(view));
+  if (chips.length === 0) return null;
+  const box = e('div', 'ev-block');
+  const ul = e('ul', 'ev-chips');
+  ul.setAttribute('aria-label', CHIP_COPY.stripLabel);
+  for (const c of chips) {
+    const li = e('li', `ev-chip ev-${c.state}`);
+    const sr = e('span', 'sr-only', CHIP_COPY.chipLabel(c.label, CHIP_COPY.states[c.state]));
+    const vis = e('span', undefined, c.label);
+    vis.setAttribute('aria-hidden', 'true');
+    li.append(sr, vis);
+    ul.append(li);
+  }
+  box.append(ul, e('p', 'ev-line', evidenceSentence(deal.score.toFixed(1), chips)));
+  return box;
 }
 
 function componentsList(view: PanelView): HTMLElement {
@@ -750,6 +817,9 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
 
   // 3) verdict + headline
   card.append(chip(view.result.deal, view.result, view.strategy));
+  // P7 — what that score rests on, before anything else explains it.
+  const evidence = evidenceStrip(view);
+  if (evidence) card.append(evidence);
   // Contextual, non-blocking help — a free walkthrough for THIS strategy (E10).
   card.append(youtubePrompt(view.strategy));
   if (view.usingSuggested) card.append(e('p', 'suggest-note', 'Score uses a suggested end value — set your own to be sure.'));

@@ -80,6 +80,13 @@ describe('adding a fact', () => {
     expect((sqlite.prepare('SELECT updated_at u FROM deals WHERE id = ?').get(DEAL) as { u: string }).u).not.toBe('2026-09-01T00:00:00Z');
   });
 
+  it('hands back the SERVER’s timestamp, so a fold window can never miss the fact', async () => {
+    const res = await addFact({ fact_type: 'builder-quote', value: 48000 }, await authed());
+    const { entered_at: at } = await res.json() as { entered_at: string };
+    const stored = (sqlite.prepare('SELECT entered_at e FROM deal_facts').get() as { e: string }).e;
+    expect(at).toBe(stored);
+  });
+
   it('a flag carries no number at all — nothing is invented for it', async () => {
     const res = await addFact({ fact_type: 'covenant', value: null, note: '' }, await authed());
     expect(res.status).toBe(200);

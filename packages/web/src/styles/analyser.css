@@ -1091,3 +1091,23 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
   color: var(--text-dim); font-size: var(--text-xs);
 }
 .dc-history-steps .step-now { color: var(--text); }
+
+/* ---- P7: evidence chips — what a score rests on -------------------------- */
+/* Small and quiet by design: three or four words under the score, never a
+   second number to reconcile. Filled = evidenced, outline = assumed,
+   dashed = nobody knows. */
+.ev-block { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-1) 0 0; }
+.ev-chips { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; }
+.ev-chip {
+  font-size: var(--text-xs); line-height: 1.4; padding: 0.15rem 0.55rem;
+  border-radius: 999px; border: 1px solid var(--glass-border); color: var(--text-dim);
+}
+/* Evidenced: the lime fill the brand reserves for a good thing, with near-black
+   text — never white on lime. */
+.ev-chip.ev-evidenced { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.ev-chip.ev-assumed { border-color: var(--glass-border); color: var(--text); }
+.ev-chip.ev-unknown { border-style: dashed; color: var(--text-dim); }
+.ev-line { margin: 0; font-size: var(--text-xs); color: var(--text-dim); line-height: 1.35; }
+@media (prefers-contrast: more) {
+  .ev-chip.ev-assumed { border-color: var(--text); }
+}

@@ -130,6 +130,10 @@ export const ACTION_BAR = {
    * just made these numbers the deal's own, so those facts are now part of them
    * and are no longer listed separately. Said plainly, because it cannot be undone. */
   foldedFacts: 'Its facts are now part of these numbers.',
+  /** P7 — the page came from a deal, but the numbers on it could not be matched
+   * to that deal (no house number, or a different address), so a NEW deal was
+   * made rather than overwriting one we could not positively identify. */
+  savedAsNew: 'Saved as a new deal — add the house number to update the original.',
   /** When the save did not go through. */
   saveFailed: "That didn't save — please try again.",
 } as const;

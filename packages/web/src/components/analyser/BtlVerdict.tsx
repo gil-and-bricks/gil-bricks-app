@@ -11,6 +11,7 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseBtl, scoreDeal, type BtlAnalysis, type BtlInputs, type DealScore } from '@gil-bricks/core';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { analyserEvidence } from './analyserEvidence';
 import { leverIsRedundant } from './leverDedupe';
 import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
@@ -111,7 +112,7 @@ export function BtlVerdict({ config, comps, valuation }: {
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}
       <div class="verdict-results">
-      {deal && <DealScoreChip deal={deal} />}
+      {deal && <DealScoreChip deal={deal} strategy="btl" evidence={analyserEvidence(valuation !== null, null, 'btl')} />}
       {analysis && (
         <>
           <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>

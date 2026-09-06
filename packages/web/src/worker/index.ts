@@ -439,20 +439,30 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
   const partOf = (params: string, key: string): string =>
     (new URLSearchParams(params).get(key) ?? '').toUpperCase().replace(/\s+/g, '');
   /**
-   * The same property, or a different one? The postcode must match. Where BOTH
-   * sides also name a building or a flat, those must match too — two flats share
-   * one postcode, and overwriting the wrong deal loses it. Where one side is
-   * silent we do not block: adding a house number to a deal that never had one
-   * is the same deal gaining detail, not a different property (P6 review).
+   * The same property, or a different one? (P7)
+   *
+   * A postcode covers about fifteen addresses, so the postcode alone cannot
+   * identify a property — and an id that cannot POSITIVELY identify a deal must
+   * never overwrite one. So: the postcode must match, BOTH sides must name the
+   * building (and the flat, where either does), and those names must match.
+   *
+   * A deal with no house number therefore saves as a NEW deal rather than
+   * landing on one we only think it is. The analyser already has the field
+   * (SubjectForm's "House number or name"), so the fix is one box away, and the
+   * cost of being wrong here is somebody's deal.
    */
   const samePlace = (a: string, b: string): boolean => {
     if (partOf(a, 'postcode') === '' || partOf(a, 'postcode') !== partOf(b, 'postcode')) return false;
-    for (const key of ['paon', 'saon']) {
-      const x = partOf(a, key);
-      const y = partOf(b, key);
-      if (x !== '' && y !== '' && x !== y) return false;
-    }
-    return true;
+    // Neither names the property: we cannot tell these two apart, so we do not pretend to.
+    if (partOf(a, 'paon') === '' || partOf(b, 'paon') === '') return false;
+    if (partOf(a, 'paon') !== partOf(b, 'paon')) return false;
+    // The FLAT must match where both name one. Where one is silent it is not
+    // ambiguity — there is no flat-number input on the analyser at all, so the
+    // only way to arrive here is our own form having dropped it, and refusing
+    // would fork a deal we can name the building and the id of (P7 review).
+    const flatA = partOf(a, 'saon');
+    const flatB = partOf(b, 'saon');
+    return flatA === '' || flatB === '' || flatA === flatB;
   };
   const owned = claimed !== null && samePlace(claimed.url_params, urlParams) ? claimed : null;
   // If some OTHER saved deal already holds these exact params, that row is this
@@ -479,8 +489,15 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
     if (byParams === null && owned !== null) {
       // Same deal, new numbers: move the row's params rather than inserting a
       // second one. The deal keeps its id, and so its stage and its whole history.
-      await env.DB.prepare('UPDATE saved_deals SET url_params = ?, title = ?, key_figure = ? WHERE id = ? AND user_id = ?')
-        .bind(urlParams, title, keyFigure, owned.id, user.sub).run();
+      //
+      // A save with NOTHING COMPUTED does not move them: it would redefine what
+      // the deal's numbers are while the facts on top still apply to the old
+      // ones, and it folds nothing in to make that safe (P7 review).
+      await (payload.score === null
+        ? env.DB.prepare('UPDATE saved_deals SET title = ?, key_figure = ? WHERE id = ? AND user_id = ?')
+          .bind(title, keyFigure, owned.id, user.sub).run()
+        : env.DB.prepare('UPDATE saved_deals SET url_params = ?, title = ?, key_figure = ? WHERE id = ? AND user_id = ?')
+          .bind(urlParams, title, keyFigure, owned.id, user.sub).run());
     } else {
       await env.DB.prepare(
         'INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, strategy, url_params) DO UPDATE SET title = excluded.title, key_figure = excluded.key_figure',
@@ -506,7 +523,10 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
       // Only the facts that were on the page when it opened — one entered since,
       // in another tab, was never in these numbers and must keep applying.
       const asOfRaw = (body as { facts_as_of?: unknown }).facts_as_of;
-      const asOf = typeof asOfRaw === 'string' ? asOfRaw.slice(0, 40) : undefined;
+      // An EMPTY string is not a bound — it is "no window given". Treating it as
+      // one silently folded nothing, leaving a fact applying to numbers that
+      // already contained it (P7 review).
+      const asOf = typeof asOfRaw === 'string' && asOfRaw.trim() !== '' ? asOfRaw.slice(0, 40) : undefined;
       const stmts = await foldFactsIntoParams(env.DB, dealId, strategy, asOf);
       if (stmts.length > 0) {
         await env.DB.batch(stmts);
@@ -918,11 +938,11 @@ async function handleAddFact(request: Request, env: Env, dealId: string): Promis
   const change = features.verdictChanges ? readFactChange(body) : undefined;
   if (change === 'bad') return json({ error: 'bad request' }, 400);
   const changeId = change ? crypto.randomUUID() : null;
-  const id = await recordFact(
+  const { id, enteredAt } = await recordFact(
     env.DB, dealId, factType, JSON.stringify({ value, note: note === '' ? null : note }), verdict,
     change && changeId ? { id: changeId, value, change } : undefined,
   );
-  return json({ id, changeId });
+  return json({ id, changeId, entered_at: enteredAt });
 }
 
 /** P5 — remove a fact entered wrongly. The browser re-scores without it. */

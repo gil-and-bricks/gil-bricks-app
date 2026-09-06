@@ -9,6 +9,7 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseBrrrr, scoreDeal, type BrrrrAnalysis, type BrrrrStrategyInputs, type DealScore } from '@gil-bricks/core';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
+import { analyserEvidence } from './analyserEvidence';
 import { leverIsRedundant } from './leverDedupe';
 import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
@@ -130,7 +131,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}
       <div class="verdict-results">
-      {deal && <DealScoreChip deal={deal} />}
+      {deal && <DealScoreChip deal={deal} strategy="brrrr" evidence={analyserEvidence(valuation !== null, null, 'brrrr')} />}
       {analysis && (
         <>
           <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>

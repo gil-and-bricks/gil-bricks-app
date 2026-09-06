@@ -11,6 +11,8 @@ import { ComparablesError } from '@gil-bricks/core';
 import { fetchSaleHistory, type AddressCandidate } from '@gil-bricks/core';
 import { valueProperty, type Valuation } from '@gil-bricks/core';
 import { initFromUrl, isCompsReady, isReady, state, type UrlState } from './state';
+import { READ_ONCE } from './arrival';
+import { initArrivedFacts } from './analyserEvidence';
 import { initProvenance, isFromExtension, editedKeys } from './provenance';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
@@ -47,15 +49,20 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
   useEffect(() => {
     initFromUrl();
     initProvenance(typeof window !== 'undefined' ? location.search : '');
+    // P7: the fact keys the board sent, so an evidenced input is not shown as a guess.
+    initArrivedFacts(typeof window !== 'undefined' ? location.search : '');
     // Strip the arrival metadata from the URL once captured (E11 review): it is
     // read-once, so a link Copied/Shared before the first edit never carries the
     // markers and never falsely shows a recipient the "brought from the extension"
     // state. Provenance for THIS view is already held in memory by initProvenance.
     if (typeof window !== 'undefined') {
+      // Read-once metadata, all of it: the extension markers (E11), the deal this
+      // page was opened from and the facts behind its numbers (P5.1/P6/P7). A link
+      // copied before the first edit must never tell a stranger's page that THEIR
+      // numbers are evidenced, or which deal of mine it came from.
       const q = new URLSearchParams(location.search);
-      if (q.has('src') || q.has('areaSrc')) {
-        q.delete('src');
-        q.delete('areaSrc');
+      if (READ_ONCE.some((k) => q.has(k))) {
+        for (const k of READ_ONCE) q.delete(k);
         const qs = q.toString();
         history.replaceState(null, '', `${location.pathname}${qs ? `?${qs}` : ''}`);
       }

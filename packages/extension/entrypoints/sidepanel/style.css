@@ -317,3 +317,17 @@ body {
   .glass { background: #140322; }
   .c-name, .prop-facts, .fp-note, .yt-prompt, .gb-firstrun-msg, .fail-body { color: #ffffff; }
 }
+
+/* ---- P7: evidence chips — what this score rests on ----------------------- */
+/* The same three states the deal card and the analyser show, from the same
+   shared rules: filled = evidenced, outline = assumed, dashed = nobody knows. */
+.ev-block { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; }
+.ev-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; }
+.ev-chip {
+  font-size: 11px; line-height: 1.4; padding: 1px 8px; border-radius: 999px;
+  border: 1px solid var(--line, rgba(255,255,255,0.18)); color: var(--dim, rgba(255,255,255,0.7));
+}
+.ev-chip.ev-evidenced { background: #dcff00; border-color: #dcff00; color: #0b0b0b; font-weight: 600; }
+.ev-chip.ev-assumed { color: var(--text, #fff); }
+.ev-chip.ev-unknown { border-style: dashed; }
+.ev-line { margin: 0; font-size: 11px; line-height: 1.35; color: var(--dim, rgba(255,255,255,0.7)); }

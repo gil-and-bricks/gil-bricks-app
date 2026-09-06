@@ -20,6 +20,8 @@ import { isNews, unseen, type DealChange } from '../../lib/deals/changes';
 import { DealChangeNote } from './DealChange';
 import { ScoreHistory } from './ScoreHistory';
 import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromParams';
+import { evidenceInputsFor } from '../../lib/deals/evidenceFor';
+import { EvidenceChips } from './EvidenceChips';
 import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
 import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
 
@@ -223,8 +225,9 @@ export function DealBoard() {
         body: JSON.stringify({ fact_type: factType, value, note, ...(body ?? {}), ...(announce ? { change: announce } : {}) }),
       });
       if (!res.ok) return false;
-      const { id, changeId } = (await res.json()) as { id: string; changeId?: string };
-      setFacts((cur) => [...cur, { ...provisional, id }]);
+      const { id, changeId, entered_at: enteredAt } = (await res.json()) as { id: string; changeId?: string; entered_at?: string };
+      // the SERVER's time, never this browser's: the fold window is built from it
+      setFacts((cur) => [...cur, { ...provisional, id, entered_at: enteredAt ?? provisional.entered_at }]);
       applyScore(deal.id, body);
       if (announce && changeId) {
         setChanges((cur) => [{
@@ -234,7 +237,12 @@ export function DealBoard() {
         }, ...cur]);
       }
       const label = factTypeFor(factType)?.label ?? factType;
-      setNote({ id: deal.id, text: body ? BOARD_COPY.card.factAdded(label) : BOARD_COPY.card.factFlagged(label) });
+      // P7 — the card must not say the same thing twice. When the change block is
+      // about to announce this fact, it says it better, so the one-line note is
+      // left off. Every other note (including every failure) is untouched.
+      if (!(announce && changeId)) {
+        setNote({ id: deal.id, text: body ? BOARD_COPY.card.factAdded(label) : BOARD_COPY.card.factFlagged(label) });
+      }
       return true;
     } catch {
       return false;
@@ -355,7 +363,7 @@ export function DealBoard() {
       >
         {/* The link carries the FACT-CORRECTED params: once a quote exists, the
             analyser opens on the quote, not the original guess (P5). */}
-        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined, d.id, factsAsOf(d.id))}>{d.title}</a>
+        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined, d.id, factsAsOf(d.id), factsFor(d.id).map((f) => f.fact_type))}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
             <span class={`board-score ${verdict.cls}`} aria-label={BOARD_COPY.card.scoreLabel((d.current_score as number).toFixed(1))}>
@@ -369,6 +377,15 @@ export function DealBoard() {
         {/* The VERDICT: is it good, and why — the analyser's own line, or an honest
             reason it can't be scored. Never a bare dash. */}
         <p class={`dc-verdict ${verdict.scored ? 'v-' + verdict.cls : 'v-unscored'}`}>{verdict.line}</p>
+
+        {/* P7 — what that score rests on. Quiet, and never a second number. */}
+        {features.evidenceChips && verdict.scored && (
+          <EvidenceChips
+            strategy={d.strategy}
+            inputs={evidenceInputsFor({ ...d, url_params: paramsFor(d) }, factsFor(d.id))}
+            score={(d.current_score as number).toFixed(1)}
+          />
+        )}
 
         {auctionWarn && (
           <p class="dc-auction" role="note">⚠ {COPY.account.auctionWarning}</p>

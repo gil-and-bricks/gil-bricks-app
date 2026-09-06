@@ -7,7 +7,10 @@ import { fmtMoney, strategies } from '@gil-bricks/core';
  * strategy route plus its saved url params (exactly how a saved deal re-opens
  * today). The board is read-only: tapping a card just opens the analyser.
  */
-export function dealHref(strategy: string, urlParams: string, backfillId?: string, dealId?: string, factsAt?: string): string {
+export function dealHref(
+  strategy: string, urlParams: string, backfillId?: string, dealId?: string, factsAt?: string,
+  factKeys?: readonly string[],
+): string {
   const route = strategies.find((s) => s.id === strategy)?.route;
   const base = route ? `${route}/analyser` : '/comparables';
   let href = urlParams !== '' ? `${base}?${urlParams}` : base;
@@ -17,6 +20,9 @@ export function dealHref(strategy: string, urlParams: string, backfillId?: strin
   if (dealId) href += `${href.includes('?') ? '&' : '?'}deal=${encodeURIComponent(dealId)}`;
   // The newest fact these params include. Saving folds in only what was here.
   if (factsAt) href += `&factsAt=${encodeURIComponent(factsAt)}`;
+  // Which KINDS of fact are behind these numbers, so the analyser's evidence
+  // chips can say "evidenced" where the board can (P7). Keys only — no values.
+  if (factKeys && factKeys.length > 0) href += `&ev=${encodeURIComponent([...new Set(factKeys)].join('.'))}`;
   // A scoreless deal links with backfill=<id>: the analyser scores it on open and
   // silently persists that score to THIS deal (by id), so the card fills in.
   if (backfillId) href += `${href.includes('?') ? '&' : '?'}backfill=${encodeURIComponent(backfillId)}`;

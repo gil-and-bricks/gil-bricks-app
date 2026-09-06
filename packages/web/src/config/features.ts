@@ -72,6 +72,13 @@ export interface FeatureFlags {
    * stored and the score history does not open. */
   verdictChanges: boolean;
 
+  /** Evidence chips (P7): the small strip under a Deal Score saying which inputs
+   * are evidenced, which are assumed and which are unknown, plus one line naming
+   * the weakest. Shown on the deal card, the analyser verdict and the extension
+   * panel from ONE shared source. Off: no strip and no line anywhere; every
+   * score, verdict and fact behaves exactly as it does today. */
+  evidenceChips: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -102,6 +109,7 @@ export const features: FeatureFlags = {
   bridgingFinance: true,
   dealFacts: true,
   verdictChanges: true,
+  evidenceChips: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,
