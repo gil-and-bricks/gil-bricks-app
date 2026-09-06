@@ -27,6 +27,19 @@ export const FOOTER = {
   youtube: 'YouTube',
   terms: 'Terms',
   privacy: 'Privacy',
+  /** Sits after the site name, before the maker's wordmark. */
+  madeBy: 'is made by',
+  /** Licence attributions we must print verbatim — exempt from the two-sentence
+   * copy rule for that reason (named in copy.test.ts). */
+  dataLicences:
+    'Contains OS, Royal Mail and National Statistics data per the ONSPD licence. '
+    + 'Deprivation: English Indices of Deprivation 2025 (MHCLG) and Welsh Index of '
+    + 'Multiple Deprivation 2025 (Welsh Government), Open Government Licence v3.0. '
+    + 'Floor areas from Energy Performance of Buildings data (MHCLG), '
+    + 'Open Government Licence v3.0.',
+  /** Shown ONLY once a real as-of month is in hand (D3). */
+  asOfBefore: 'Sold-price data as of ',
+  asOfAfter: '.',
 } as const;
 
 export const NAV = {

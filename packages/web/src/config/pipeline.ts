@@ -339,8 +339,11 @@ export const TODAY_COPY = {
   /**
    * Said under the today line, once. The board can only tell you this when you
    * open it — we never email, and nothing here runs on your phone (P8, rule 6).
+   * It says "we never email" rather than "nothing is sent to you", because the
+   * Chrome extension CAN raise one desktop reminder a day while Chrome is open;
+   * the flat promise was untrue for anyone who had installed it (D3).
    */
-  onlyHere: 'This is here when you open the board — nothing is sent to you.',
+  onlyHere: 'This is here when you open the board. We never email you about it.',
 } as const;
 
 /**

@@ -157,7 +157,13 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
     return dispose;
   }, []);
 
-  const ready = (showVerdict ? isReady(state.value) : isCompsReady(state.value)) && postcodeError === null;
+  // Two different questions: `complete` is "does the analyser have what it needs
+  // to score", `ready` adds "and the postcode was accepted". The arrival note is
+  // about the FIELDS only — an out-of-area postcode is not a missing field, and
+  // telling someone to fill something in would send them looking for nothing
+  // (D3 review).
+  const complete = showVerdict ? isReady(state.value) : isCompsReady(state.value);
+  const ready = complete && postcodeError === null;
   // Quiet, one-line confirmation when opened from the extension deep link.
   // Dismisses on the first edit (editedKeys grows) or the ✕ — never nags.
   const showArrived = isFromExtension() && !arrivedDismissed && editedKeys.value.size === 0;
@@ -165,7 +171,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
     <div class="analyser">
       {showArrived && (
         <p class="arrived-note" role="status">
-          <span>{COPY.analyser.fromExtension}</span>
+          <span>{complete ? COPY.analyser.fromExtension : COPY.analyser.fromExtensionPartial}</span>
           <button type="button" class="arrived-x" aria-label={ANALYSER_SHELL.dismissArrived} onClick={() => setArrivedDismissed(true)}>✕</button>
         </p>
       )}
@@ -233,8 +239,16 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             <SkeletonCards />
           ) : (
             <>
-              <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} />
-              <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
+              {/* The sold data failed to load, and the error card above says so.
+                  These two would then ask for a floor area and claim to be
+                  "waiting for a postcode" that is right there — three messages,
+                  two of them blaming the user for our outage (D3). */}
+              {error === null && (
+                <>
+                  <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} />
+                  <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
+                </>
+              )}
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>
           )}

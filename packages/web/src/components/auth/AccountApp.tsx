@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { ACCOUNT } from '../../config/account';
 import { COPY } from '../../config/copy';
-import { loadMe, me, openLoginWall } from '../../lib/auth/session';
+import { loadMe, me, meUnknown, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealShareText } from '../../lib/deals/deal';
 import { features } from '../../config/features';
@@ -86,10 +86,18 @@ export function AccountApp() {
       </div>
     );
   }
+  if (v === null && meUnknown.value) {
+    return (
+      <div class="glass card">
+        <h2 class="state-h">{COPY.account.sessionUnknownHeading}</h2>
+        <p class="hint">{COPY.account.sessionUnknown}</p>
+      </div>
+    );
+  }
   if (v === null) {
     return (
       <div class="glass card">
-        <h3 class="state-h">{ACCOUNT.signedOut.heading}</h3>
+        <h2 class="state-h">{ACCOUNT.signedOut.heading}</h2>
         <p class="hint">{COPY.account.signInToSave}</p>
         <button type="button" class="btn-primary" onClick={openLoginWall}>{ACCOUNT.signedOut.logIn}</button>
       </div>

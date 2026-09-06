@@ -48,7 +48,7 @@ FOUR STRATEGIES, ONE PANEL
 - HMO — room income, cashflow, return and whether rooms meet the legal minimum sizes (with a floor-plan measure tool)
 
 REAL DATA, NOT GUESSWORK
-Scores use HM Land Registry sold prices, the UK House Price Index and EPC floor areas — official open data, not asking prices. A suggested figure is always labelled as an estimate, never shown as a fact.
+Scores use HM Land Registry sold prices and EPC floor areas — official open data, not asking prices. A suggested figure is always labelled as an estimate, never shown as a fact.
 
 FREE, AND IT STAYS FREE
 No account needed to use the panel. No subscription, no trial.
@@ -121,7 +121,7 @@ Same as above, for Zoopla: the content script reads the listing page the user ha
 
 **Host permission: the developer's own web app**
 ```
-The extension asks the developer's own web app once a day how many of the user's saved deals need attention, so it can show that count on the toolbar icon. It is the user's own signed-in account and their own data; the request sends nothing but the session cookie their browser already holds. No other site is contacted, and nothing is sent about the pages the user is browsing.
+The extension asks the developer's own web app once a day how many of the user's saved deals need attention, so it can show that count on the toolbar icon. It is the user's own signed-in account and their own data; the request sends nothing but the session cookie their browser already holds. The only other hosts contacted are Rightmove and Zoopla — the page the user opened — and the developer's public Cloudflare data store, which serves the sold-price files and the reading settings. Nothing is sent about the pages the user is browsing.
 ```
 
 ## Privacy practices — data usage declarations (field: "Privacy" tab)

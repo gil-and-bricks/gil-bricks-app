@@ -95,8 +95,10 @@ export const ANALYSER_SHELL = {
   youtube: {
     lead: (strategyName: string): string => `New to ${strategyName}?`,
     link: 'Watch on YouTube →',
+    /** WCAG 2.5.3 Label in Name: the accessible name must CONTAIN the visible
+     *  text contiguously, so it leads with it and the detail follows (D3). */
     ariaLabel: (strategyName: string): string =>
-      `Watch ${strategyName} videos on our YouTube channel (opens a new tab)`,
+      `Watch on YouTube — ${strategyName} videos on our channel (opens a new tab)`,
   },
 } as const;
 

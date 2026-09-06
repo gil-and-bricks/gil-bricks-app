@@ -79,6 +79,20 @@ export interface ScoreListingResult {
   country: CountryCode;
   /** The up-front cash breakdown — an OUTPUT shown on the listing view (E8.1). */
   cashNeeded: CashNeeded | null;
+  /**
+   * How the value the sold-evidence COMPONENT judges sits against the sector —
+   * the end value on a flip/BRRRR, the price otherwise. `priceVsSold` is always
+   * about the purchase price; on a flip the two describe different numbers and
+   * a row that showed one pill over the other's sentence read as a contradiction
+   * (D3 review).
+   */
+  endVsSold: PriceVsSold;
+  /**
+   * Whether the score was actually GIVEN sold evidence. `priceVsSold` answers a
+   * different question — how the PURCHASE price sits against the sector — so a
+   * surface that badges its evidence must read this, not that (D3).
+   */
+  hasSoldEvidence: boolean;
   note: string;
 }
 
@@ -120,7 +134,7 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
   if (criteria.depositPct != null) d.deposit = String(criteria.depositPct);
   if (criteria.ratePct != null) d.rate = String(criteria.ratePct);
 
-  const empty = { strategy: opts.strategy, deal: null as DealScore | null, priceVsSold, country, cashNeeded: null as CashNeeded | null, note: '' };
+  const empty = { strategy: opts.strategy, deal: null as DealScore | null, priceVsSold, endVsSold: priceVsSold, country, cashNeeded: null as CashNeeded | null, hasSoldEvidence: false, note: '' };
   if (!price || price <= 0) return { ...empty, waitingOn: ['a price'] };
 
   // Which unknowns are still missing?
@@ -144,7 +158,11 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
     const ltvPct = sel('ltv', '75') === 'custom' ? num('ltvCustom') : Number(sel('ltv', '75'));
     if (!(ltvPct > 0)) return { ...empty, waitingOn: ['your custom loan-to-value %'] };
   }
-  if (opts.strategy === 'hmo' && num('rooms') >= 7) {
+  // `rooms` is a SELECT whose top option is the non-numeric '7plus'. Number()
+  // makes that NaN, which `num` resolves to the config default (4) — so a 7+
+  // HMO scored confidently on four rooms nobody chose. Read the option, not the
+  // number (D3 review).
+  if (opts.strategy === 'hmo' && (d.rooms === '7plus' || num('rooms') >= 7)) {
     return { ...empty, note: '7 or more lettable rooms is a large (sui generis) HMO — outside what this tool covers. Check it in the analyser.', waitingOn: [] };
   }
 
@@ -175,6 +193,10 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
   const enoughSales = !!opts.sector && opts.sector.stats.count >= minSales;
   const withinEvidence = enoughSales && endValue <= opts.sector!.stats.p90Price * outsideFactor;
   const evidence = withinEvidence ? { estimate: opts.sector!.stats.typicalPrice, high: opts.sector!.stats.p90Price } : undefined;
+  // The same read, on the number the sold-evidence component actually judges.
+  const endVsSold = endValue === price
+    ? priceVsSold
+    : priceVsSector(endValue, opts.sector, minSales, floorArea, outsideFactor, opts.sectorLoad ?? 'ok');
 
   let inputs:
     | (BtlInputs & { thresholds: never })
@@ -248,7 +270,7 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
       return { ...empty, note: `These figures don’t look right for a ${gbp(price)} property — check your inputs (especially refurb and end value).`, waitingOn: [] };
     }
     const cashNeeded = buildCashNeeded(opts.strategy, num, sel, price, country, deal.analysis, opts.isAuction ?? listing.isAuction.value === true);
-    return { strategy: opts.strategy, deal, waitingOn: [], priceVsSold, country, cashNeeded, note: '' };
+    return { strategy: opts.strategy, deal, waitingOn: [], priceVsSold, endVsSold, country, cashNeeded, hasSoldEvidence: evidence !== undefined, note: '' };
   } catch {
     return { ...empty, note: 'These numbers don’t work together — check your inputs or open it in the analyser.', waitingOn: [] };
   }
@@ -331,7 +353,13 @@ export function smartDefaults(
   const outsideFactor = opts?.evidenceOutsideFactor ?? 2;
   const out: Record<string, { value: string; label: string } | { value: null; label: string }> = {};
   if (strategy === 'hmo' && listing.bedrooms.status === 'found' && listing.bedrooms.value) {
-    out.rooms = { value: String(listing.bedrooms.value), label: 'suggested = bedrooms' };
+    // `rooms` is a select (3/4/5/6/7plus). A suggestion outside that set cannot be
+    // DISPLAYED, so the box showed one number while the score used another. Seven
+    // or more maps to the option that says so; fewer than three is not an HMO at
+    // all, so we suggest nothing and the field keeps its own default (D3 review).
+    const beds = listing.bedrooms.value;
+    if (beds >= 7) out.rooms = { value: '7plus', label: 'suggested = bedrooms' };
+    else if (beds >= 3) out.rooms = { value: String(beds), label: 'suggested = bedrooms' };
   }
   if (strategy === 'flip' || strategy === 'brrrr') {
     const key = strategy === 'flip' ? 'gdv' : 'arv';

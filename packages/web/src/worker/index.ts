@@ -1046,6 +1046,9 @@ async function handleAddFact(request: Request, env: Env, dealId: string): Promis
   if (!user) return json({ error: 'not signed in' }, 401);
   const owned = await getOwnedDeal(env.DB, user.sub, dealId);
   if (!owned) return json({ error: 'not found' }, 404);
+  // The pipeline ends at purchase: a bought or dead deal takes no new facts and
+  // its score is never rewritten. The card hides the control; this refuses it (D3).
+  if (owned.status !== 'live') return json({ error: 'not live' }, 409);
   let body: Record<string, unknown>;
   try {
     body = (await request.json()) as Record<string, unknown>;

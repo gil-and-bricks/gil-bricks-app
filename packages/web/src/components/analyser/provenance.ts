@@ -34,7 +34,13 @@ export function initProvenance(search: string): void {
   auctionArrival = q.get('auction') === '1';
   const a = q.get('areaSrc');
   areaOrigin = a === 'listing' ? 'listing' : a === 'carried' ? 'carried' : null;
-  arrivedKeys = new Set([...q.keys()].filter((k) => k !== 'src' && k !== 'areaSrc' && k !== 'auction'));
+  // A key with no VALUE brought nothing: a truncated handoff link must not badge
+  // an empty box "from the listing" (D3).
+  arrivedKeys = new Set(
+    [...q.entries()]
+      .filter(([k, v]) => k !== 'src' && k !== 'areaSrc' && k !== 'auction' && v.trim() !== '')
+      .map(([k]) => k),
+  );
   editedKeys.value = new Set();
   areaEpc.value = false;
 }

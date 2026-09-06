@@ -185,11 +185,92 @@ describe('personal criteria change the verdict AND name the user’s bar', () =>
 
 describe('smartDefaults suggests, never asserts', () => {
   it('HMO rooms = bedrooms; Flip/BRRRR end value from sector', () => {
-    expect(smartDefaults('hmo', rmFlat(), sector(), null).rooms).toEqual({ value: '2', label: 'suggested = bedrooms' });
+    // The fixture is a 2-BED. `rooms` is a select starting at 3, so "2" is not a
+    // value any surface can show: suggesting it made the panel display "3 rooms"
+    // and score 2. No suggestion at all is the honest answer (D3 review); the
+    // 4-bed case below is the one that suggests.
+    expect(smartDefaults('hmo', rmFlat(), sector(), null).rooms).toBeUndefined();
+    const fourBed = { ...rmFlat(), bedrooms: { status: 'found', value: 4 } } as ReturnType<typeof rmFlat>;
+    expect(smartDefaults('hmo', fourBed, sector(), null).rooms).toEqual({ value: '4', label: 'suggested = bedrooms' });
     const fv = smartDefaults('flip', rmFlat(), sector(), 90).gdv;
     expect(fv.value).toBe(String(2200 * 90));
     expect(fv.label).toMatch(/£2,200\/m²/);
     // too few sales ⇒ no suggestion + reason
     expect(smartDefaults('flip', rmFlat(), sector({ count: 2 }), 90).gdv).toEqual({ value: null, label: 'no suggestion — too few nearby sales' });
+  });
+});
+
+/**
+ * D3 — a surface that badges its evidence must read `hasSoldEvidence`, not
+ * `priceVsSold`. They answer different questions: priceVsSold judges the
+ * PURCHASE price against the sector, while the sold-evidence component judges
+ * the END value on a flip/BRRRR. The extension panel badged "Comps: evidenced"
+ * off the former on deals the engine had scored with no evidence at all.
+ */
+describe('hasSoldEvidence says what the SCORE was given (D3)', () => {
+  const enough = { rent: '1200', gdv: '260000', arv: '260000', refurbCost: '30000', rooms: '4', roomRent: '650' };
+
+  it.each(['btl', 'flip', 'brrrr'] as const)('%s: it agrees with the sold component the engine judged', (strategy) => {
+    const r = scoreListing(rmFlat(), { strategy, unknowns: enough, sector: sector() });
+    const sold = r.deal!.components.find((c) => /sold/i.test(c.name))!;
+    expect(r.hasSoldEvidence, strategy).toBe(sold.status !== 'unknown');
+  });
+
+  it('an end value far outside the local evidence gives the score NOTHING to judge', () => {
+    // p90 is 230,000 and the outside factor is 2 — a 600,000 end value is beyond it
+    const r = scoreListing(rmFlat(), { strategy: 'flip', unknowns: { ...enough, gdv: '600000' }, sector: sector() });
+    expect(r.hasSoldEvidence).toBe(false);
+    // …while priceVsSold still reads green off the PURCHASE price. That is the
+    // gap a chip built on priceVsSold papered over.
+    expect(r.priceVsSold.status).toBe('green');
+    if (r.deal) expect(r.deal.components.find((c) => /sold/i.test(c.name))!.status).toBe('unknown');
+  });
+
+  it('a thin sector is honest too', () => {
+    const r = scoreListing(rmFlat(), { strategy: 'btl', unknowns: enough, sector: sector({ count: 2 }) });
+    expect(r.hasSoldEvidence).toBe(false);
+  });
+});
+
+/**
+ * D3 review — `rooms` is a SELECT whose top option is the non-numeric '7plus'.
+ * Number('7plus') is NaN, which the number reader resolved to the config default
+ * of 4: a confident score on four rooms nobody chose, for a property the tool
+ * refuses to cover. And a suggestion the select cannot DISPLAY made the panel
+ * show one room count while scoring another.
+ */
+describe('the HMO room count is never silently something else (D3)', () => {
+  const enough = { roomRent: '650', refurbCost: '0' };
+
+  it("'7 or more' is refused, exactly as typing 7 is", () => {
+    const plus = scoreListing(rmFlat(), { strategy: 'hmo', unknowns: { ...enough, rooms: '7plus' }, sector: sector() });
+    const seven = scoreListing(rmFlat(), { strategy: 'hmo', unknowns: { ...enough, rooms: '7' }, sector: sector() });
+    expect(plus.deal).toBeNull();
+    expect(plus.note).toBe(seven.note);
+    expect(plus.note).toContain('sui generis');
+    // and it must NOT quietly become the 4-room answer
+    const four = scoreListing(rmFlat(), { strategy: 'hmo', unknowns: { ...enough, rooms: '4' }, sector: sector() });
+    expect(four.deal).not.toBeNull();
+    expect(plus.deal).toBeNull();
+  });
+
+  it('every suggested room count is a value the rooms select can show', () => {
+    const options = new Set(['3', '4', '5', '6', '7plus']);
+    for (const beds of [1, 2, 3, 4, 5, 6, 7, 8, 12]) {
+      const listing = { ...rmFlat(), bedrooms: { status: 'found', value: beds } } as ReturnType<typeof rmFlat>;
+      const s = smartDefaults('hmo', listing, sector(), 80, { minSectorSales: 5 });
+      const v = s.rooms?.value ?? null;
+      if (v !== null) expect(options.has(v), `beds=${beds} suggested ${v}`).toBe(true);
+    }
+  });
+
+  it('a 7-bed suggests the option that says so; a 2-bed suggests nothing at all', () => {
+    const at = (beds: number) => smartDefaults(
+      'hmo', { ...rmFlat(), bedrooms: { status: 'found', value: beds } } as ReturnType<typeof rmFlat>,
+      sector(), 80, { minSectorSales: 5 },
+    ).rooms;
+    expect(at(7)?.value).toBe('7plus');
+    expect(at(4)?.value).toBe('4');
+    expect(at(2)).toBeUndefined();
   });
 });

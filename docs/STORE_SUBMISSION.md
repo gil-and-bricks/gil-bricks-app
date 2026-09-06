@@ -56,12 +56,19 @@ store screenshot should show the actual running product. To retake:
 If you're happy to launch with the prepared renders for now, you can — but plan
 to replace them. **[YOU DECIDE]**
 
-## Step 1 — Create the item and upload the zip
+## Step 1 — Upload the new version to the item you already have
+
+The extension is already listed. Do NOT click **New item** — that would create a
+second, duplicate listing that nobody who already installed v0.1.0 would ever be
+offered.
 
 1. Go to https://chrome.google.com/webstore/devconsole and sign in.
-2. Click **New item** (top right).
-3. Drag in (or browse to) `packages/extension/store/proplaunch-deal-analyser-v0.2.0.zip`.
-4. Click **Upload**. Wait for it to process — you'll land on the item's editing pages.
+2. Open the EXISTING **PropLaunch Deal Analyser** item.
+3. **Package** tab → **Upload new package**.
+4. Drag in (or browse to) `packages/extension/store/proplaunch-deal-analyser-v0.2.0.zip`.
+5. Click **Upload**. Wait for it to process.
+6. **Privacy practices** tab → add the three new justifications (alarms,
+   notifications, and the developer's own web app) from `STORE_LISTING.md`.
 
 ## Step 2 — Store listing page
 

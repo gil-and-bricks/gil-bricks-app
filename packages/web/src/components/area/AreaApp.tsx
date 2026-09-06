@@ -284,6 +284,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
             )}
           </p>
           {entry?.typicalPriceByType && (
+            <div class="area-types-scroll" role="group" tabIndex={0} aria-label={AREA_COPY.propertyTypes.caption}>
             <table class="area-types">
               <caption class="area-types-caption">{AREA_COPY.propertyTypes.caption}</caption>
               <thead>
@@ -297,6 +298,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
                 </tr>
               </tbody>
             </table>
+            </div>
           )}
           <p class="area-vs" aria-live="polite">
             {mile === null ? (

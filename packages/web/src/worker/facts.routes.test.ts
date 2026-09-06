@@ -326,3 +326,20 @@ describe('the board is handed the facts to apply itself', () => {
     expect((await res.json() as { facts: unknown[] }).facts).toEqual([]);
   });
 });
+
+describe('the pipeline ends at purchase (D3)', () => {
+  it('refuses a fact on a deal that is no longer live, and stores nothing', async () => {
+    for (const status of ['bought', 'dead']) {
+      sqlite.prepare('UPDATE deals SET status = ? WHERE id = ?').run(status, DEAL);
+      const res = await addFact({ fact_type: 'builder-quote', value: 48000 }, await authed());
+      expect(res.status, `status=${status}`).toBe(409);
+      expect((sqlite.prepare('SELECT * FROM deal_facts').all() as unknown[]).length, `status=${status}`).toBe(0);
+    }
+  });
+
+  it('still accepts one while the deal is live — a positive control', async () => {
+    sqlite.prepare('UPDATE deals SET status = ? WHERE id = ?').run('live', DEAL);
+    expect((await addFact({ fact_type: 'builder-quote', value: 48000 }, await authed())).status).toBe(200);
+    expect((sqlite.prepare('SELECT * FROM deal_facts').all() as unknown[]).length).toBe(1);
+  });
+});

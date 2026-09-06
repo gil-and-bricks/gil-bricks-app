@@ -2,7 +2,7 @@
 import AppShell from '../../layouts/AppShell.astro';
 import { siteConfig } from '../../site.config';
 
-const updated = '5 September 2026';
+const updated = '6 September 2026';
 ---
 
 <AppShell
@@ -45,9 +45,18 @@ const updated = '5 September 2026';
         so you can measure it — the image is displayed on your device and nothing is uploaded.
       </li>
       <li>
-        <strong>No account, no tracking.</strong> You don’t need an account to use the panel. The extension contains no
-        analytics, advertising or tracking of any kind, and can only run its own code. It requests only two Chrome
-        permissions — the side panel and local storage — and access to Rightmove and Zoopla pages only.
+        <strong>Daily reminders, if you leave them on.</strong> Once a day while Chrome is running — and when Chrome
+        starts — the panel asks <em>your own signed-in account</em> on our website which of your saved deals need you.
+        That is the one request that identifies you: it carries your website sign-in cookie. The reply is a count and,
+        if a deal has a date due, that deal’s own line — which can appear once a day as a desktop notification carrying
+        the property’s title. The count and which deals you have already been told about are kept on your device.
+        Switch it off in the extension’s options and none of it runs.
+      </li>
+      <li>
+        <strong>No tracking. No account needed to score a listing.</strong> The extension contains no analytics,
+        advertising or tracking of any kind, and can only run its own code. It requests four Chrome permissions — the
+        side panel, local storage, a daily alarm and notifications (the last two only for the reminders above) — plus
+        access to Rightmove and Zoopla pages and to our own website.
       </li>
       <li>
         <strong>Sending a deal to the website.</strong> If you click “Send to my analyser”, the extension opens a new

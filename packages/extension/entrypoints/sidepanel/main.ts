@@ -8,6 +8,7 @@
  * → Send to my analyser.
  */
 import {
+  isListingUrl,
   scoreListing,
   smartDefaults,
   rentFitsProperty,
@@ -73,6 +74,10 @@ const WEB_BASE = coreConfig.appBaseUrl;
 const STRATEGIES: { id: StrategyId; label: string }[] = [
   { id: 'btl', label: 'BTL' }, { id: 'flip', label: 'Flip' }, { id: 'brrrr', label: 'BRRRR' }, { id: 'hmo', label: 'HMO' },
 ];
+/** The reader (content script) runs at document_idle, so on a slow listing the
+ * panel can be up BEFORE it is. That is transient — keep asking, and heal the
+ * moment it answers, instead of latching "refresh needed" forever (D3). */
+const READER = { attempts: 8, waitMs: 1500 } as const;
 const LIGHT: Record<DealScore['verdict'], string> = { good: 'ds-good', marginal: 'ds-marginal', 'walk away': 'ds-walk' };
 const COMP_PILL: Record<string, string> = { green: 'st-green', amber: 'st-amber', red: 'st-red', unknown: 'st-unknown' };
 
@@ -280,10 +285,12 @@ function youtubePrompt(strategy: StrategyId): HTMLElement {
   a.href = youtubeFor(strategy);
   a.target = '_blank';
   a.rel = 'noopener noreferrer';
-  a.textContent = 'Watch the free walkthrough →';
+  // It is the CHANNEL, not a per-strategy walkthrough: the web app corrected this
+  // wording in D2 and the panel must not promise more than the link delivers (D3).
+  a.textContent = 'Watch on YouTube →';
   // The accessible name must CONTAIN the visible text contiguously (WCAG 2.5.3
   // Label in Name) — so the strategy name is appended, never spliced mid-phrase.
-  a.setAttribute('aria-label', `Watch the free walkthrough for ${name} on YouTube (opens a new tab)`);
+  a.setAttribute('aria-label', `Watch on YouTube — ${name} videos on our channel (opens a new tab)`);
   p.append(a);
   return p;
 }
@@ -421,12 +428,14 @@ function evidenceInputs(view: PanelView): EvidenceInputs {
       if (val !== '' && val !== (defaults.get(k) ?? '')) present.push(k);
     }
   }
-  const sold = view.result.priceVsSold.status;
   return {
     facts: [],
     present,
-    // Real sold evidence, or an honest "we could not read any".
-    comps: sold === 'green' || sold === 'amber' || sold === 'red',
+    // The chip must say what the SCORE actually rested on. priceVsSold judges the
+    // PURCHASE price against the sector; the sold-evidence component judges the
+    // END value (gdv/arv on a flip/BRRRR), so the two disagree — and the chip was
+    // reading "evidenced" on deals the engine scored with no evidence at all (D3).
+    comps: view.result.hasSoldEvidence,
     // The SCORE's own room-size component, not a count of measured rooms: one
     // room of four measured is not an answer, and the component on this very
     // screen already says so. The chip must never disagree with it (P7 review).
@@ -456,7 +465,9 @@ function evidenceStrip(view: PanelView): HTMLElement | null {
 
 function componentsList(view: PanelView): HTMLElement {
   const ul = e('ul', 'components');
-  const sold = soldText(view.result.priceVsSold);
+  // The sold ROW judges the END value on a flip/BRRRR — its sentence has to be
+  // about the same number as its pill, or the two contradict each other (D3 review).
+  const sold = soldText(view.result.endVsSold);
   const deal = view.result.deal;
   const rows = deal ? deal.components : strategyById(view.strategy)!.score.map((c) => ({ name: c.name, status: 'pending', points: 0, max: c.weight }));
   // Cashflow is triaged on BEFORE-TAX (the real triage number); after-tax is
@@ -469,7 +480,12 @@ function componentsList(view: PanelView): HTMLElement {
     const li = e('li', isSold ? 'component component-note' : 'component');
     li.append(e('span', 'c-name', c.name));
     if (isSold) {
-      li.append(e('span', `c-status ${sold.pill}`, sold.label));
+      // The pill comes from the COMPONENT the engine scored (which judges the end
+      // value on a flip/BRRRR); `sold` is the sector context line beneath it. They
+      // are different judgements and a green pill over a zeroed component was a
+      // flat contradiction of the headline above (D3).
+      const st = (c as { status: string }).status;
+      li.append(e('span', `c-status ${COMP_PILL[st] ?? 'st-unknown'}`, deal ? st : 'pending'));
       li.append(e('span', 'c-note', sold.text));
     } else if (isRoom && (c as { status: string }).status === 'unknown') {
       li.append(e('span', 'c-status st-unknown', 'check analyser'));
@@ -551,6 +567,24 @@ function sellerSignalsCard(view: PanelView, h: PanelHandlers): HTMLElement | nul
   body.append(e('p', 'ss-foot', 'Context for negotiation — never moves the Deal Score.'));
   box.append(body);
   return box;
+}
+
+/** A triage unknown the strategy config declares as a select — the SAME options
+ * the web analyser offers, so a value it cannot accept can never be sent (D3). */
+function unknownSelect(
+  id: string, options: readonly { value: string; label: string }[], value: string, on?: (v: string) => void,
+): HTMLSelectElement {
+  const sel = e('select', 'input-field') as HTMLSelectElement;
+  sel.id = id;
+  for (const o of options) {
+    const opt = document.createElement('option');
+    opt.value = o.value;
+    opt.textContent = o.label;
+    if (o.value === value) opt.selected = true;
+    sel.append(opt);
+  }
+  if (on) sel.addEventListener('change', () => on(sel.value));
+  return sel;
 }
 
 function numberField(id: string, value: string, placeholder: string, on?: (v: string) => void): HTMLInputElement {
@@ -893,9 +927,15 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
     const sug = view.suggestions[f.key];
     const placeholder = f.key === 'rent' ? 'what it would let for' : sug && sug.value ? sug.label : 'you decide';
     const onRaw = h.onUnknown ? (v: string) => h.onUnknown!(f.key, v) : undefined;
-    const field = MONEY_KEYS.has(f.key)
-      ? moneyField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw)
-      : numberField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw);
+    // A field the WEB renders as a select must be a select here too. Typed free,
+    // the panel scored 2 lettable rooms and the analyser it handed off to
+    // silently fell back to its default of 4 — two answers for one property (D3).
+    const spec = strategyById(view.strategy)?.strategyInputs.find((x) => x.key === f.key);
+    const field = spec?.kind === 'select'
+      ? unknownSelect(`gb-u-${f.key}`, spec.options ?? [], view.unknowns[f.key] ?? spec.default, onRaw)
+      : MONEY_KEYS.has(f.key)
+        ? moneyField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw)
+        : numberField(`gb-u-${f.key}`, view.unknowns[f.key] ?? '', placeholder, onRaw);
     row.append(lab, field);
     if (sug) {
       // An end-value suggestion derived from £/sqm MUST name the source of the area
@@ -1235,6 +1275,15 @@ interface Ctx {
  * and the toolbar read the SAME window (ATTENTION.freshHours), so they can never
  * say different things about the same board (P10 review).
  */
+/** The daily count + its "open the board" action — the same object draw() builds,
+ * so the empty state and a scored listing show the identical banner (D3 review). */
+async function attentionBoard(): Promise<{ count: number; onOpen: () => void }> {
+  return {
+    count: await todaysAttention(),
+    onOpen: () => { void chrome.tabs.create({ url: `${WEB_BASE}${ATTENTION.board}` }); },
+  };
+}
+
 async function todaysAttention(): Promise<number> {
   const snap = await store.getAttention();
   const age = Date.now() - (snap.at ?? 0);
@@ -1481,15 +1530,23 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   // Tell the page the panel is up, so the in-page button retires whether it was
   // the thing that opened us or the toolbar icon was (D1 review).
   void chrome.tabs.sendMessage(tabId, { type: PANEL_OPEN_MESSAGE }).catch(() => undefined);
-  let result: ExtractResult;
-  try {
-    result = (await chrome.tabs.sendMessage(tabId, { type: EXTRACT_MESSAGE })) as ExtractResult;
-  } catch {
-    // No content script answered — the page isn't one of our portals (or hadn't
-    // loaded the reader yet). Honest, with the next action (E10).
-    ctx.failure = failureFor('no-content-script');
-    return draw(ctx);
+  let result: ExtractResult | null = null;
+  for (let attempt = 0; attempt < READER.attempts; attempt += 1) {
+    try {
+      result = (await chrome.tabs.sendMessage(tabId, { type: EXTRACT_MESSAGE })) as ExtractResult;
+      break;
+    } catch {
+      // No content script answered. Say so straight away — but the reader loads
+      // at document_idle, so on a slow listing it is simply not up YET. Keep
+      // asking quietly and heal the moment it answers (D3).
+      if (attempt === 0) { ctx.failure = failureFor('no-content-script'); draw(ctx); }
+      if (attempt === READER.attempts - 1) return; // the honest screen is already up
+      await new Promise((r) => setTimeout(r, READER.waitMs));
+      if (activeCtx !== ctx) return; // navigated away mid-wait — that load owns the panel now
+    }
   }
+  if (!result) return;
+  ctx.failure = null;
   if (!result.ok) { ctx.failure = failureFor(result.reason, result.message); return draw(ctx); }
   ctx.listing = result.listing;
   // Floor-plan availability from the listing (measure tool opens on demand — E9.1).
@@ -1545,7 +1602,22 @@ async function tick(): Promise<void> {
     const url = tab?.url ?? '';
     if (!tab?.id) return;
     const isPortal = url ? /(^|\.)(rightmove|zoopla)\.co\.uk$/.test(new URL(url).hostname) : false;
-    if (!isPortal) { if (lastUrl !== '') { lastUrl = ''; renderEmpty(); } return; }
+    // A portal SEARCH page is not a listing. Reading it fails, and the failure
+    // screen then blamed the portal for changing its format — a plain untruth on
+    // the page a person spends most of their time on. Say the honest thing the
+    // empty state already says: open a listing (D3).
+    if (!isPortal || !isListingUrl(url)) {
+      if (lastUrl !== '') {
+        lastUrl = '';
+        // This branch now OWNS the panel: any load still retrying the reader must
+        // not redraw its failure over the top of us (D3 review).
+        activeCtx = null;
+        // …and the daily count still belongs here. A search page is where people
+        // spend most of their time; dropping the banner would undo P10 (D3 review).
+        renderEmpty(await attentionBoard());
+      }
+      return;
+    }
     if (url !== lastUrl) { lastUrl = url; await loadFor(tab.id, url); }
   } catch {
     /* transient */

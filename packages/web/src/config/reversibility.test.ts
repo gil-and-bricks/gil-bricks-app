@@ -230,7 +230,7 @@ const INLINE_COPY_BASELINE: Record<string, number> = {
   'components/auth/AccountApp.tsx': 1,
   'components/auth/LoginWall.tsx': 2,
   'components/deals/DealBoard.tsx': 1,
-  'components/site/Footer.astro': 2,
+  'components/site/Footer.astro': 0,
   'components/site/TabBar.astro': 2,
   'lib/area/crime.ts': 5,
   'lib/area/flood.ts': 1,

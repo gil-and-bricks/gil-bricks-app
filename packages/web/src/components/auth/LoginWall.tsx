@@ -69,7 +69,12 @@ export function LoginWall() {
     }
     if (!blocked && !widgetRendered.current) {
       void loadTurnstile().then(() => {
-        if (widgetRendered.current || !widgetRef.current || !window.turnstile) return;
+        // The script never arrived (a blocker, a corporate proxy, an outage). The
+        // widget cannot render, no token is ever produced, and a NEW account is
+        // rejected server-side after the whole Google round trip — with nothing
+        // on screen to explain why. Say it here, before they set off (D3).
+        if (!window.turnstile) { setTsError(true); return; }
+        if (widgetRendered.current || !widgetRef.current) return;
         widgetRendered.current = true;
         window.turnstile.render(widgetRef.current, {
           sitekey: siteConfig.turnstileSiteKey,

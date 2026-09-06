@@ -26,6 +26,12 @@ export interface FactsProps {
   onAdd: (factType: string, value: number | null, note: string) => Promise<boolean>;
   onRemove: (factId: string) => Promise<boolean>;
   busy: boolean;
+  /**
+   * The pipeline ends at purchase: a bought or parked deal takes no NEW facts.
+   * The list itself always stays — it is the record of what you bought on, and
+   * hiding it was the very thing the guard meant to protect (D3 review).
+   */
+  canAdd: boolean;
 }
 
 const dayOf = (iso: string): string => {
@@ -33,7 +39,7 @@ const dayOf = (iso: string): string => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 };
 
-export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove, busy }: FactsProps) {
+export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove, busy, canAdd }: FactsProps) {
   const [state, setState] = useState<State>(STATE.closed);
   const saving = state === STATE.saving;
   const [picked, setPicked] = useState('');
@@ -122,7 +128,7 @@ export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove,
                 </span>
                 <span class="fact-when">{folded ? BOARD_COPY.card.factFolded : BOARD_COPY.card.factOn(dayOf(f.entered_at))}</span>
                 {(f.note ?? '').trim() !== '' && <span class="fact-note">{f.note}</span>}
-                {!folded && (
+                {!folded && canAdd && (
                   <button
                     type="button"
                     class="btn-link fact-remove"
@@ -141,7 +147,7 @@ export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove,
 
       {error !== null && state === STATE.closed && <p class="field-error" role="alert">{error}</p>}
 
-      {state === STATE.closed ? (
+      {!canAdd ? null : state === STATE.closed ? (
         <button type="button" class="btn-link dc-facts-open" ref={opener} disabled={busy} onClick={() => setState(STATE.picking)}>
           {BOARD_COPY.card.factsOpen}
         </button>

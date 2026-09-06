@@ -2,6 +2,180 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-06 — Sprint D3: the pre-tester pass (deployed)
+
+The pass before real people. Biased toward opening things in a browser: every fix
+below was reproduced on screen first and re-verified on screen after, not merely
+by test. A 113-agent adversarial audit ran alongside the browser work; 53 claims
+were raised, 17 survived two independent refuters each, and those are folded in
+here. The extension was driven on real Rightmove listings in Chrome for Testing.
+
+**What the browser found that no test did**
+
+- **JUDGMENT CALL — a transient reader failure latched for ever.** The content
+  script runs at `document_idle`; on a slow listing the panel is up before it is.
+  `tick()` set `lastUrl` before loading, so one failed `sendMessage` left "Just a
+  moment — refresh needed" on screen permanently — while the reader sat there
+  answering perfectly (proved by messaging it directly from the panel). It now
+  says the honest thing at once and keeps asking quietly (`READER`, 8 × 1.5s),
+  healing the moment the reader answers. This was reproducible roughly half the
+  time on a real listing.
+- **A portal SEARCH page was told "the site may have changed".** Not a listing,
+  so extraction failed, so the panel blamed Rightmove for changing its format —
+  on the page a person spends most of their time. It now shows the empty state it
+  already had ("open a listing"), gated on the shared `isListingUrl`.
+- **`aria-hidden`'s cousin: heading order.** `/account` and `/transaction` used
+  an `h3` for a top-level state heading, skipping `h2` — the same defect P11 fixed
+  on the board. Lighthouse accessibility 98 → **100** on both.
+- **320px overflow in two places.** The area-data property-type table cannot
+  shrink below its four columns, and took the whole page sideways with it; it now
+  scrolls in its own labelled box. The bottom tab bar came to 324px because the
+  "More" summary kept the wider padding the ≤400px rule takes off the links —
+  the exact thing that rule exists to prevent. Both were 0 at 390px and are 0 at
+  320px now, across all 23 page types.
+- **`Sold-price data as of —.`** The footer printed a dash where the date belongs
+  until the manifest loaded, and for ever if R2 was unreachable. The sentence is
+  now hidden until a real as-of month is in hand. Its copy moved to config while
+  it was open — Footer.astro's inline-copy baseline goes 2 → **0**.
+- **A truncated handoff badged empty boxes "from the listing".** `arrivedKeys`
+  counted a param key even with no value. It now requires a value.
+
+**The three surfaces**
+
+- **JUDGMENT CALL — the panel's Comps chip was reading the wrong number, and I
+  fixed the chip rather than the score.** `priceVsSold` judges the PURCHASE price
+  against the sector; the sold-evidence component judges the END value on a
+  flip/BRRRR. So the chip said "Comps: evidenced" on deals the engine had scored
+  with no evidence at all, two lines above a component saying so in plain English.
+  `scoreListing` now returns `hasSoldEvidence` — what the score was actually
+  given — and both the chip and the component's pill read it. A core test locks
+  the invariant.
+- **The HMO room count was silently rewritten to 4.** The panel let you type any
+  number; the web renders `rooms` as a select and clamps an unmatched value to its
+  default. Triage 2 rooms in the panel, press the one button it offers, and the
+  analyser answered about 4 rooms you never entered. The panel's triage fields
+  now render as selects wherever the strategy config says select, from the same
+  options — verified end to end on a real listing: panel 7.0 → analyser 7.0,
+  `rooms=3` preserved, identical chips.
+- **"Everything's filled in below" was not always true.** A cottage or a bungalow
+  has no D/S/T/F code, the type param is dropped, and the analyser then scores
+  nothing at all under a banner claiming a complete handoff. **I did not invent a
+  type mapping** — guessing "bungalow → detached" would put a fabricated attribute
+  into a valuation. The claim is fixed instead: when the analyser cannot score,
+  the note reads "Fill in what's missing below."
+
+**Honesty**
+
+- **The extension privacy page was materially wrong, and this is the finding I am
+  least comfortable with.** It told readers the extension asks for "only two Chrome
+  permissions — the side panel and local storage — and access to Rightmove and
+  Zoopla pages only". Since P10 it asks for **four** (adding `alarms` and
+  `notifications`) and **three hosts** (adding our own app). Chrome's install
+  screen shows the truth, so the page contradicted what the user had just agreed
+  to. It also never mentioned the **daily authenticated call** to `/api/attention`
+  — the one request that carries a session cookie and identifies the user — nor
+  that a deal's own title can appear in a desktop notification. Reminders default
+  **on**. All of it is now disclosed, on that page and on `/extension`.
+- **A test now compares the page to the manifest.** The manifest was locked by a
+  test while the prose was free to drift, which is exactly how this happened. The
+  new test reads `wxt.config.ts` and fails if a permission or host is not
+  accounted for in the page — including a permission added later with no wording
+  rule.
+- **The board promised "nothing is sent to you" while the extension could send a
+  desktop notification.** Now: "This is here when you open the board. We never
+  email you about it." — true with the extension installed.
+- **The policy said Kit emails the bridging enquiry to the broker. It does not.**
+  The outbox row carries the user's own email, first name and a tag; the phone
+  number, credit answer and free text never leave our database. The policy now
+  says what the code does. **This leaves a real product gap for you to close —
+  see the report.**
+- Also corrected: the store listing claimed scores use the UK House Price Index
+  (the extension never touches it) and that "no other site is contacted" (the R2
+  data bucket is); the submission guide walked you into creating a **duplicate
+  store item**; the policy omitted facts, dates and the kill-note free text, and
+  named no processor outside the UK/EU; the footer credited ONSPD and the
+  deprivation indices but not EPC, whose floor areas we republish.
+- **JUDGMENT CALL — I corrected the policy rather than softened it,** including
+  where the correction makes us look worse (a daily identified call home, a
+  notification carrying a property address). That is the instruction and it is
+  also the only version that survives someone comparing the page to Chrome's own
+  install prompt.
+
+**Failure states**
+
+- **Any `/api/me` failure read as "signed out".** A 500 told a signed-in person
+  "Sign in to see your pipeline" — their deals looked gone. Only a 200 with no
+  user, or a 401, now means signed out; anything else sets `meUnknown` and both
+  the board and the account say "We couldn't check your sign-in."
+- **A blocked Turnstile killed every new account silently.** The script's
+  `onerror` resolved, `tsError` was never set, the Google button enabled itself,
+  and a NEW user went through the whole OAuth round trip to be told "the quick
+  human check did not pass" — with retrying doing the same thing for ever. The
+  existing, already-correct message now actually appears.
+- **The analyser contradicted its own error.** With sold data down it showed the
+  honest "We couldn't load sold prices" and then three messages blaming the user:
+  "Add the floor area", "Not enough evidence yet", and "Waiting for a postcode…"
+  with the postcode on screen. It now says one thing. Save and share still work.
+
+**What the adversarial review caught in my own fixes**
+
+The pre-commit review found real damage in three of the fixes above, and it was
+right about all of it. Recorded because the pattern matters more than the bugs:
+
+- **The rooms select made the panel show one number and score another.** Turning
+  `rooms` into a select was correct; what I missed is that `smartDefaults`
+  suggests `rooms = bedrooms`, unclamped. A select cannot display a value it has
+  no option for, so a 2-bed listing showed "3 rooms" (the first option) while the
+  engine scored 2 — the same class of silent divergence the sprint set out to
+  remove, moved to the panel. The suggestion is now clamped where it is made: 7+
+  maps to the '7plus' option, and fewer than three suggests nothing at all,
+  because a two-room HMO is not an HMO.
+- **The select also exposed "7 or more", which the engine scored as four.**
+  `Number('7plus')` is NaN, which the number reader resolves to the config
+  default of 4 — so the option that describes a 7-bed HMO produced a confident
+  score built on four rooms, and the sui-generis refusal never fired. The guard
+  now reads the option, not the number. This was unreachable before I added the
+  select: my change made it reachable.
+- **Guarding facts by `isLive` hid the fact HISTORY, not just the add button.**
+  The moment a deal was marked bought, the builder's quote and survey finding
+  vanished from the card — destroying the record the guard existed to protect.
+  `DealFacts` now takes `canAdd`: the list always stays, only the add and remove
+  controls go.
+- **The search-page fix dropped P10's daily attention banner** on exactly the
+  page the extension exists to sit on, and did not clear the panel's load
+  ownership — so a reader retry from the previous listing could redraw its
+  failure over the empty state.
+- **On a flip or BRRRR the sold row's pill and its sentence judged different
+  numbers.** The pill now comes from the component (which judges the end value)
+  while the sentence still came from `priceVsSold` (the purchase price).
+  `scoreListing` returns `endVsSold` and the row reads that.
+- **"Fill in what's missing below" fired on an out-of-area postcode too**, which
+  would send someone hunting for a field that is not missing. The note is now
+  based on the missing-field test alone.
+
+**Scope**
+
+- **JUDGMENT CALL — a bought deal no longer takes new facts.** The dates block
+  was already guarded by `isLive`; the facts block was not, so a purchased deal's
+  Deal Score could be rewritten after the fact. The pipeline ends at purchase, and
+  that score is the record of what you bought on. Guarded on the card and refused
+  by the Worker with a 409.
+- **JUDGMENT CALL — WCAG 2.5.3 fixed on both surfaces, found by the extension's
+  own test.** Copying the web's honest YouTube wording into the panel tripped a
+  Label-in-Name assertion the web has no equivalent of: the visible text is "Watch
+  on YouTube" but the accessible name began "Watch {strategy} videos…". Both now
+  lead with the visible text.
+- **JUDGMENT CALL — what I did NOT change.** Three cross-surface differences are
+  real, are not lies, and each is a product decision rather than a bug: the web
+  analyser scores against the strategy's own minimums while the panel can score
+  against yours (the panel says "you set as your minimum" when it does); HMO room
+  measurements taken in the panel do not survive the handoff; and, most
+  consequentially, **the panel and the web derive their sold evidence from
+  different places** — the panel from the sector's own price distribution, the web
+  from the ValuationEngine — so a deal with no floor area scores 2.3 in the panel
+  and 1.1 on the board. Closing any of them changes the score of real saved deals,
+  which is not mine to decide in a bug-fix pass. All three are in the report.
+
 ## 2026-09-06 — Sprint F2: the broker fact-find (deployed)
 
 - **Two forms, two jobs, and they stay separate.** F1 asks about the DEAL and decides whether an enquiry is worth his time. This asks about the BORROWER, because it is what he needs to go and get quotes. Ours is a filter; his is a fact-find. It appears only when ours has passed, in the same flow — no second visit, no email round trip, nothing to lose somebody between two halves of one conversation.

@@ -10,7 +10,7 @@
  */
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
-import { loadMe, me, openLoginWall } from '../../lib/auth/session';
+import { loadMe, me, meUnknown, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { dealHref } from '../../lib/deals/deal';
@@ -544,6 +544,16 @@ export function DealBoard() {
       </div>
     );
   }
+  if (v === null && meUnknown.value) {
+    // We could not reach /api/me. Their deals are fine; telling them to sign in
+    // to see deals they are already signed in for is the lie D3 came for.
+    return (
+      <div key="board-unknown" class="glass card">
+        <h2 class="state-h">{COPY.account.sessionUnknownHeading}</h2>
+        <p class="hint">{COPY.account.sessionUnknown}</p>
+      </div>
+    );
+  }
   if (v === null) {
     return (
       <div key="board-signin" class="glass card">
@@ -666,6 +676,10 @@ export function DealBoard() {
           );
         })()}
 
+        {/* Only a LIVE deal takes NEW facts: the pipeline ends at purchase, and a
+            bought deal's score is the record of what you bought on. The facts
+            already recorded are that record, so the list always stays — only the
+            add and remove controls go (D3). */}
         {features.dealFacts && (
           <DealFacts
             dealId={d.id}
@@ -673,6 +687,7 @@ export function DealBoard() {
             strategy={d.strategy}
             facts={factsFor(d.id)}
             busy={busy}
+            canAdd={isLive(d)}
             onAdd={(t, val, n) => addFact(d, t, val, n)}
             onRemove={(id) => removeFact(d, id)}
           />

@@ -28,7 +28,10 @@ wording current at the time.
 figures behind it (the analyser's own settings, which include the postcode and
 any house number you typed), and the headline figure. Once it is in the
 pipeline, every stage change is kept with its time, along with a snapshot of
-the assumptions and the minimums the score was worked out against.
+the assumptions and the minimums the score was worked out against. So are any
+facts you add later — a builder's quote, a survey finding, a down-valuation —
+any dates you set, and the one line you can type when you kill a deal, which is
+kept as part of that deal's history.
 
 **3. You send a bridging enquiry.** Stored: your name and email from your
 account, the **phone number** you type on that form, how much you want to
@@ -78,9 +81,12 @@ There is no password to steal: sign-in is Google's.
   In that last case Kit also receives the figures from that answer, so the email
   can give you your own numbers back.
 - **The bridging broker** — only if you send a bridging enquiry and tick the
-  consent box. The enquiry is stored here and Kit emails it to him; this app
-  sends no email itself. He is an independent business and decides for himself
-  what he can help with. No saved deal and no analysis is ever passed to him.
+  consent box. Your answers are stored here, in this app's own database. Kit is
+  told your email address and your first name and tags you; it is never given
+  your phone number, your credit answer or what you wrote. His notification
+  comes from that tag, and this app sends no email itself. He is an independent
+  business and decides for himself what he can help with. No saved deal and no
+  analysis is ever passed to him.
   While his details are not yet set up the form does not appear at all, so
   nothing can be sent.
   **The broker's questions (the fourth thing above) never go through Kit.** Kit
@@ -110,6 +116,11 @@ The database is Cloudflare D1, created in Cloudflare's **EU jurisdiction**. The
 UK recognises the EU under its data adequacy arrangements, so this is lawful
 for UK users. There is no UK-only residency option for D1 — "EU jurisdiction
 with UK adequacy" is the honest description, and I will not claim more.
+
+Two of the processors above sit outside the UK and EU. **Kit** is a US company:
+it holds your email address, your first name and the tags described above.
+**Google** handles the sign-in itself. Both are used under the UK's own
+international transfer rules, on the standard clauses their contracts carry.
 
 ## Cookies
 

@@ -23,6 +23,10 @@ export const COPY = {
     loadFailedTitle: 'Couldn’t load the sales data',
     noVerdictYet: 'No verdict for this strategy yet. The comps and valuation below still work.',
     fromExtension: 'Brought over from the extension — everything’s filled in below.',
+    /** The portal did not give the panel every subject field (a cottage or a
+     *  bungalow has no D/S/T/F code), so the analyser cannot score yet. Saying
+     *  "everything's filled in" there was untrue (D3). */
+    fromExtensionPartial: 'Brought over from the extension. Fill in what’s missing below.',
     backToInputs: 'Back to inputs',
   },
   /** What each strategy needs before it can answer, and what it warns about. */
@@ -91,6 +95,9 @@ export const COPY = {
   },
   /** Signing in, saving, and the deals board. */
   account: {
+    /** /api/me could not answer. Not "signed out" — we do not know (D3). */
+    sessionUnknownHeading: 'We couldn’t check your sign-in',
+    sessionUnknown: 'Something went wrong at our end. Refresh the page to try again.',
     signInToSave: 'Your saved deals live here once you sign in. It’s free and takes one tap.',
     signedUp: 'You’re on the list. Untick any time.',
     deleteWarning: 'Deletes your account and saved deals, and unsubscribes you. This can’t be undone.',

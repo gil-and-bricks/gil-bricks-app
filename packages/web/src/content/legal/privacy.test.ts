@@ -118,3 +118,59 @@ describe('the consent it describes', () => {
     expect(WORKER).toContain("if (body.consent !== true) return json({ error: 'consent required' }, 400);");
   });
 });
+
+/**
+ * D3 — THE EXTENSION PRIVACY PAGE, CHECKED AGAINST THE MANIFEST.
+ *
+ * v0.2.0 added `alarms` and `notifications` and host access to our own web app.
+ * The page still told readers the extension asked for two permissions and two
+ * hosts. The manifest was locked by a test; the prose was free to drift. It is
+ * not any more: this reads the extension's real config and fails if the page
+ * does not account for every permission and host it declares.
+ */
+describe('the extension privacy page matches the shipped manifest (D3)', () => {
+  const WXT = read('../../../../extension/wxt.config.ts');
+  const EXT_PAGE = read('../../pages/extension/privacy.astro').replace(/\s+/g, ' ');
+  const declared = (key: string): string[] => {
+    const m = new RegExp(`${key}:\\s*\\[([^\\]]*)\\]`).exec(WXT);
+    return m ? [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]) : [];
+  };
+  /** What the page must SAY for each permission the manifest asks for. */
+  const SAYS: Record<string, RegExp> = {
+    sidePanel: /side panel/i,
+    storage: /local storage/i,
+    alarms: /daily alarm/i,
+    notifications: /notifications/i,
+  };
+
+  it('declares exactly the four permissions the page accounts for', () => {
+    expect([...declared('permissions')].sort()).toEqual(['alarms', 'notifications', 'sidePanel', 'storage']);
+  });
+
+  it('names every permission the manifest asks for', () => {
+    for (const p of declared('permissions')) {
+      expect(SAYS[p], `no wording rule for new permission "${p}" — add one`).toBeDefined();
+      expect(SAYS[p].test(EXT_PAGE), `the page never mentions "${p}"`).toBe(true);
+    }
+    // and says how many there are, so a fifth cannot slip in unmentioned
+    expect(EXT_PAGE).toContain('four Chrome permissions');
+  });
+
+  it('accounts for host access to our own web app, not just the two portals', () => {
+    // the third entry is a template literal (`${coreConfig.appBaseUrl}/*`), so it
+    // is matched on the raw line rather than the quoted-string list
+    const line = /host_permissions:\s*\[([^\]]*)\]/.exec(WXT)?.[1] ?? '';
+    expect(line).toMatch(/rightmove/);
+    expect(line).toMatch(/zoopla/);
+    expect(line, 'a third host — our own app — must be declared').toMatch(/appBaseUrl/);
+    expect(EXT_PAGE).toMatch(/to our own website/i);
+  });
+
+  it('discloses the daily signed-in call and the notification it can raise', () => {
+    expect(EXT_PAGE).toMatch(/once a day/i);
+    expect(EXT_PAGE).toMatch(/sign-in cookie/i);
+    expect(EXT_PAGE).toMatch(/desktop notification/i);
+    // and never claims outright that no account is involved
+    expect(EXT_PAGE).not.toContain('No account, no tracking');
+  });
+});

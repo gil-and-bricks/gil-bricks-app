@@ -25,7 +25,8 @@
 
 /* form */
 .subject-form { display: grid; grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr)); gap: var(--space-4); }
-.field label { display: flex; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-1); }
+/* wrap: a long provenance badge must drop to its own line at 320px rather than push the page sideways (D3) */
+.field label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-1); }
 .field input, .field select, .filter-strip input, .filter-strip select {
   width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px;
   border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
@@ -246,6 +247,9 @@
 .area-error { border-color: rgba(255,255,255,0.35); }
 .area-thin { border-color: var(--accent); }
 .badge { display: inline-block; border: 1px solid var(--accent); border-radius: 999px; padding: 0.1rem 0.6rem; font-size: var(--text-xs); margin-right: var(--space-2); }
+/* Four columns cannot shrink below their content: at 320px the table scrolls
+   inside its own box rather than taking the whole page sideways with it (D3). */
+.area-types-scroll { overflow-x: auto; }
 .area-types { width: 100%; border-collapse: collapse; margin: var(--space-4) 0; font-size: var(--text-sm); }
 .area-types th { text-align: left; color: var(--text-dim); font-weight: 500; padding: 0 var(--space-3) var(--space-1) 0; }
 .area-types td { padding: 0 var(--space-3) 0 0; font-weight: 600; }

@@ -105,6 +105,12 @@ const onMore = moreLinks().some((l) => matches(l.href));
       padding: var(--space-2) var(--space-3); gap: 4px;
     }
     .tabbar-v2 > .more-sheet > summary::-webkit-details-marker { display: none; }
+    /* The "More" summary kept the wider padding the 400px rule takes off the
+       links, so five destinations came to 324px on a 320px screen and pushed
+       the page sideways — the exact thing that rule exists to prevent (D3). */
+    @media (max-width: 400px) {
+      .tabbar-v2 > .more-sheet > summary { padding: var(--space-2); }
+    }
     .tabbar-v2 > .more-sheet > summary::after { content: '▴' / ''; color: var(--accent); }
     .more-sheet[open] > summary { color: var(--accent); }
     .more-sheet[open] > summary::after { content: '▾' / ''; }

@@ -6,7 +6,7 @@ import { FOOTER } from '../../config/nav';
 
 <footer class="site-footer">
   <p class="footer-maker">
-    <span>{siteConfig.siteName} is made by</span>
+    <span>{siteConfig.siteName} {FOOTER.madeBy}</span>
     <img src="/brand/gil-and-bricks-wordmark.png" alt={siteConfig.makerName} width="88" height="50" decoding="async" loading="lazy" />
   </p>
   <p class="footer-contact">
@@ -18,19 +18,23 @@ import { FOOTER } from '../../config/nav';
   </p>
   <p>{OGL_ATTRIBUTION}</p>
   <p>
-    Contains OS, Royal Mail and National Statistics data per the ONSPD licence.
-    Deprivation: English Indices of Deprivation 2025 (MHCLG) and Welsh Index of
-    Multiple Deprivation 2025 (Welsh Government), Open Government Licence v3.0.
-    Sold-price data as of <span data-asof>—</span>.
+    {FOOTER.dataLicences}{' '}
+    <span data-asof-line hidden>{FOOTER.asOfBefore}<span data-asof></span>{FOOTER.asOfAfter}</span>
   </p>
 </footer>
 
 <script>
   import { getManifest } from '@gil-bricks/core';
+  // Only ever shown once a REAL as-of date is in hand. A dash where a date
+  // belongs reads as broken, and if the manifest can't be reached we would be
+  // printing it for ever — better to say nothing than to say "as of —" (D3).
   getManifest()
     .then((m) => {
       const el = document.querySelector('[data-asof]');
-      if (el) el.textContent = m.ppdMonth;
+      const line = document.querySelector('[data-asof-line]');
+      if (!el || !line || !m.ppdMonth) return;
+      el.textContent = m.ppdMonth;
+      (line as HTMLElement).hidden = false;
     })
     .catch(() => {});
 </script>
