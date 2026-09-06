@@ -225,6 +225,18 @@ export const DEAL_DATES: readonly DealDateSpec[] = [
 ];
 export const DEAL_DATE_KEYS: readonly string[] = DEAL_DATES.map((d) => d.key);
 
+/**
+ * Does this date make sense on this deal RIGHT NOW? One rule, two callers: the
+ * card offers a date only where it applies, and the today line ranks one only
+ * where it applies. A date set earlier and stranded by a stage move stays
+ * visible and clearable — it simply stops shouting about an exchange that is no
+ * longer happening (P8 review).
+ */
+export function dateAppliesAt(spec: DealDateSpec, stage: string, isAuction: boolean): boolean {
+  if (spec.auctionOnly && !isAuction) return false;
+  return spec.stages ? spec.stages.includes(stage) : true;
+}
+
 /** The words for the today line and the date controls (P8). */
 export const TODAY_COPY = {
   /** Tier (a): a date you set is nearly here. */

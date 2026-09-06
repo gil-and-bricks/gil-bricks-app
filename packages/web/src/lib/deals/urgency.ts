@@ -12,7 +12,7 @@
  */
 import { CHIP_SPECS, evidenceChips, type ChipKey, type StrategyId } from '@gil-bricks/core';
 import { features } from '../../config/features';
-import { BOARD_COPY, TODAY_COPY, URGENCY, DEAL_DATES } from '../../config/pipeline';
+import { BOARD_COPY, TODAY_COPY, URGENCY, DEAL_DATES, dateAppliesAt } from '../../config/pipeline';
 import { daysInStage, dwellState, stageMeta, type BoardDeal } from './board';
 import { evidenceInputsFor } from './evidenceFor';
 import type { DealFact } from './facts';
@@ -55,10 +55,15 @@ export function endOfDay(day: string): number {
   return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
 }
 
-/** Every date set on a deal, soonest first. */
+/**
+ * The dates set on a deal that still APPLY to it, soonest first. A date stranded
+ * by a stage move — an exchange date on a deal the chain fell through on — stays
+ * on the card, and stays clearable, but stops driving the line (P8 review).
+ */
 export function datesOn(deal: BoardDeal): { key: string; noun: string; at: number }[] {
   const out: { key: string; noun: string; at: number }[] = [];
   for (const spec of DEAL_DATES) {
+    if (!dateAppliesAt(spec, deal.stage, deal.is_auction)) continue;
     const raw = (deal as unknown as Record<string, string | null | undefined>)[spec.key];
     if (typeof raw !== 'string' || raw === '') continue;
     // A date with no time is the END of that day: a chase set for today is not

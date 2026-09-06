@@ -5,7 +5,8 @@
  * why, not merely that it picked something.
  */
 import { describe, expect, it } from 'vitest';
-import { endOfDay, mostUrgent, priceOf, rankUrgent } from './urgency';
+import { datesOn, endOfDay, mostUrgent, priceOf, rankUrgent } from './urgency';
+import { datesShown } from '../../components/deals/DealDates';
 import type { BoardDeal } from './board';
 import type { DealFact } from './facts';
 import type { DealChange } from './changes';
@@ -61,6 +62,24 @@ describe('dates the person can still see', () => {
     })];
     const top = run(board, quoted('both'));
     expect(top?.text).toContain('the auction is tomorrow');
+  });
+
+  it('a date stranded by a stage move stops shouting — but is never hidden', () => {
+    // the chain fell through: the deal is back at going-to-view, and the
+    // exchange date it carried is no longer about anything
+    const stranded = deal({ id: 'stranded', stage: 'going-to-view', stage_since: daysAgo(1), exchange_date: isoDate(1) });
+    expect(datesOn(stranded)).toEqual([]);
+    expect(run([stranded], quoted('stranded'))).toBeNull();
+    // the card still shows it, so it can still be cleared
+    expect(datesShown('going-to-view', false, { exchange_date: isoDate(1) }).map((d) => d.key)).toContain('exchange_date');
+    // and back at the right stage it ranks again
+    const back = deal({ id: 'back', stage: 'nearly-there', stage_since: daysAgo(1), exchange_date: isoDate(1) });
+    expect(run([back], quoted('back'))?.reason).toBe('deadline');
+  });
+
+  it('an auction date on a deal that is not an auction never ranks', () => {
+    const d = deal({ id: 'noauction', stage: 'offer-in', stage_since: daysAgo(1), is_auction: false, auction_date: isoDate(1) });
+    expect(datesOn(d)).toEqual([]);
   });
 
   it('reads the end of the day in the reader’s own time, not UTC', () => {

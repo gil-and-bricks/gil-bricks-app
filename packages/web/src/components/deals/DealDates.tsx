@@ -8,7 +8,7 @@
  * A date that makes no sense here is never offered: no auction date unless the
  * deal came from an auction, no exchange date until the offer is accepted.
  */
-import { DEAL_DATES, TODAY_COPY, type DealDateSpec } from '../../config/pipeline';
+import { DEAL_DATES, TODAY_COPY, dateAppliesAt, type DealDateSpec } from '../../config/pipeline';
 
 export interface DealDatesProps {
   dealId: string;
@@ -23,8 +23,7 @@ export interface DealDatesProps {
 
 /** Which dates this deal can be OFFERED, from config — never a hardcoded rule. */
 export function datesFor(stage: string, isAuction: boolean): DealDateSpec[] {
-  return DEAL_DATES.filter((d) => (d.auctionOnly ? isAuction : true))
-    .filter((d) => (d.stages ? d.stages.includes(stage) : true));
+  return DEAL_DATES.filter((d) => dateAppliesAt(d, stage, isAuction));
 }
 
 /**
