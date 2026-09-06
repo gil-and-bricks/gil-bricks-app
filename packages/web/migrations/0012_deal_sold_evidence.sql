@@ -1,0 +1,14 @@
+-- P5.1: a deal's Deal Score includes a "price vs nearby sold prices" component worth
+-- 2.5 of 10 (3.0 on a flip), computed from the comparables the analyser had loaded.
+-- The board re-scores a deal in the browser when a fact lands, and it has no
+-- comparables, so that component silently fell to "unknown" (half credit) and the
+-- score moved for a reason that had nothing to do with the fact — up to 1.2 points
+-- on a weak deal. We store the sold-evidence BAND the score rested on so every
+-- re-score uses the same evidence the save used.
+--
+-- THREE STATES, deliberately:
+--   '{"estimate":210000,"high":232000}'  the band the score was judged against
+--   'null'                                scored with NO sold evidence, and we know it
+--   SQL NULL                              saved before this column existed — unknown,
+--                                         and the card says so rather than guessing.
+ALTER TABLE deals ADD COLUMN sold_evidence TEXT;

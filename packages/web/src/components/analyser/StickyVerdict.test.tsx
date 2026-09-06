@@ -13,7 +13,7 @@ import { StickyVerdict } from './StickyVerdict';
  * field takes focus, the score moves, the flag is turned off.
  */
 const snap = (score: number | null, headline = 'Cashflows £120/mo after tax; ROI clears your 8%.', lever: string | null = null) =>
-  ({ score, headline, criteriaJson: '{}', lever, boardFigure: '£120/mo' });
+  ({ score, headline, criteriaJson: '{}', lever, boardFigure: '£120/mo', soldEvidence: null });
 
 /** Every change runs inside Preact's act(): re-renders AND effects flush synchronously. */
 const set = (v: ReturnType<typeof snap> | null) => act(() => { verdictSnapshot.value = v; });

@@ -19,6 +19,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   const [saveNote, setSaveNote] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [savedToPipeline, setSavedToPipeline] = useState(false);
+  const [folded, setFolded] = useState(false);
   useEffect(() => {
     void loadMe();
   }, []);
@@ -27,6 +28,10 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   // When the score is ready and the user is signed in, silently persist it to THAT
   // deal by id (never creates, never pops the login wall) so the card fills in. Once.
   const backfillId = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('backfill'));
+  // P5.1: the deal this page was opened FROM. Read once at mount, because the URL
+  // writer drops unknown params on the first edit — and an edit is exactly when
+  // this matters: saving must update that deal, not create a twin beside it.
+  const openedDealId = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('deal'));
   const backfilled = useRef(false);
   const snap = verdictSnapshot.value; // subscribe so this re-runs when the score lands
   useEffect(() => {
@@ -40,7 +45,12 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
         method: 'POST', headers: { 'content-type': 'application/json' },
         // the snapshot carries what it was judged against, so the history this
         // writes is as complete as the one a save writes (P5).
-        body: JSON.stringify({ score: snap.score, verdict_line: snap.headline, headline_figure: snap.boardFigure, criteria_json: snap.criteriaJson }),
+        body: JSON.stringify({
+          score: snap.score, verdict_line: snap.headline, headline_figure: snap.boardFigure,
+          criteria_json: snap.criteriaJson,
+          // what this score rested on, so a later re-score uses the same band (P5.1)
+          sold_evidence: JSON.stringify(snap.soldEvidence),
+        }),
       }).catch(() => {});
     })();
   }, [snap]);
@@ -92,11 +102,21 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           evidence_json: evidenceSnapshot([...EVIDENCE_SUBJECT_KEYS, ...Object.keys(strategyParams.value)]),
           postcode_sector: pc.inEnglandWales ? pc.sector : '',
           source: isFromExtension() ? 'extension' : 'analyser',
+          // P5.1 — the deal this page came from, if any. With it, a re-save
+          // UPDATES that deal (keeping its stage and its history) however much
+          // the numbers have changed. Without it, nothing changes: identity is
+          // the params, as before.
+          deal_id: openedDealId.current ?? '',
+          // The sold-price band the score was judged against, so every later
+          // re-score uses the SAME evidence instead of quietly losing it.
+          sold_evidence: JSON.stringify(verdictSnapshot.value?.soldEvidence ?? null),
         }),
       });
       if (res.ok) {
-        const b = (await res.json().catch(() => ({}))) as { pipeline?: boolean };
+        const b = (await res.json().catch(() => ({}))) as { pipeline?: boolean; foldedFacts?: number };
         setSavedToPipeline(b.pipeline === true);
+        // Facts were folded into these numbers by this save. Never silent.
+        setFolded(typeof b.foldedFacts === 'number' && b.foldedFacts > 0);
         setSaveState('saved');
         setSaveNote('');
       } else if (res.status === 401) {
@@ -158,7 +178,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
       <span id="pdf-soon" class="hint" role="status">
         {saveState === 'saved' ? (
           savedToPipeline ? (
-            <>{ACTION_BAR.hint.pipelineBefore}<a href="/deals">{ACTION_BAR.hint.pipelineLink}</a>{ACTION_BAR.hint.pipelineAfter}</>
+            <>{ACTION_BAR.hint.pipelineBefore}<a href="/deals">{ACTION_BAR.hint.pipelineLink}</a>{ACTION_BAR.hint.pipelineAfter}{folded ? ` ${ACTION_BAR.foldedFacts}` : ''}</>
           ) : (
             <>{ACTION_BAR.hint.myDealsBefore}<a href="/deals">{ACTION_BAR.hint.myDealsLink}</a>{ACTION_BAR.hint.myDealsAfter}</>
           )

@@ -20,5 +20,12 @@ export interface VerdictSnapshot {
    * BTL monthly cashflow, BRRRR money left in, Flip profit, HMO ROI — the
    * analyser's own display string, so the card can never contradict the deal. */
   boardFigure: string;
+  /**
+   * The sold-price band this score was judged against (P5.1) — the SAME
+   * `{estimate, high}` handed to scoreDeal. Stored with the deal so a later
+   * re-score uses the evidence the save used, instead of quietly losing a
+   * component worth 2.5 of 10. `null` = there was no valuation, and we know it.
+   */
+  soldEvidence: { estimate: number; high: number } | null;
 }
 export const verdictSnapshot = signal<VerdictSnapshot | null>(null);

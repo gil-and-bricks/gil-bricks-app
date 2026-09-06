@@ -323,6 +323,9 @@ export const BOARD_COPY = {
     factLandsIn: (line: string) => `It shows in “${line}” in the analyser.`,
     factRemoved: 'Fact removed — score put back.',
     factDropped: 'Fact removed.',
+    /** Shown on a deal saved before we kept the sold prices behind its score. It is
+     * true whether or not the deal has been re-scored, and it names the one-tap fix. */
+    factNoEvidence: 'The sold prices behind this score were not kept. Open and save this deal to store them.',
     factsListHeading: 'What this deal has learned',
     factRemove: 'Remove',
     factRemoveLabel: (label: string) => `Remove ${label}`,

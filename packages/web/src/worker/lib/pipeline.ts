@@ -6,7 +6,7 @@
  * helpers only persist and read. Stage/fact keys are validated against config.
  */
 import { scoreFromParams } from '../../lib/deals/scoreFromParams';
-import { applyFacts, type DealFact } from '../../lib/deals/facts';
+import { applyFacts, factMoves, type DealFact } from '../../lib/deals/facts';
 import { features } from '../../config/features';
 import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES } from '../../config/pipeline';
 
@@ -41,6 +41,13 @@ export interface AnalyserDealPayload {
   isAuction: boolean;
   /** Honest arrival source: the deal came from the extension or the analyser page. */
   source: 'extension' | 'analyser';
+  /**
+   * The sold-price band the score was judged against (P5.1), as JSON:
+   * '{"estimate":n,"high":n}', or the string 'null' when the analyser had no
+   * valuation. Stored so a later re-score uses the SAME evidence — never a
+   * silently different one. See migrations/0012.
+   */
+  soldEvidence: string;
 }
 
 const isJson = (s: unknown): s is string => {
@@ -54,6 +61,25 @@ const isJson = (s: unknown): s is string => {
  * anything that isn't — so the save endpoint cannot create a deal from a
  * hand-authored / manual-entry body.
  */
+/**
+ * The band, or the string 'null' when there was none. Anything malformed is
+ * treated as 'no evidence' rather than trusted — a wrong band would move a score
+ * for a reason nobody could see.
+ */
+export function parseSoldEvidence(raw: unknown): string {
+  if (typeof raw !== 'string') return 'null';
+  try {
+    const v = JSON.parse(raw) as { estimate?: unknown; high?: unknown } | null;
+    if (v === null) return 'null';
+    const estimate = Number(v.estimate);
+    const high = Number(v.high);
+    if (!Number.isFinite(estimate) || !Number.isFinite(high) || estimate <= 0 || high <= 0) return 'null';
+    return JSON.stringify({ estimate, high });
+  } catch {
+    return 'null';
+  }
+}
+
 export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => boolean): AnalyserDealPayload | null {
   if (typeof body !== 'object' || body === null) return null;
   const b = body as Record<string, unknown>;
@@ -74,6 +100,7 @@ export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => 
     verdictLine: String(b.verdict_line ?? '').slice(0, 160).trim(),
     isAuction: b.is_auction === true,
     source,
+    soldEvidence: parseSoldEvidence(b.sold_evidence),
   } as AnalyserDealPayload;
 }
 
@@ -103,6 +130,24 @@ export interface DealRow {
   created_at: string;
   updated_at: string;
 }
+/**
+ * Saving from the analyser makes the numbers ON SCREEN the deal's own — and that
+ * page was opened with the deal's facts already applied, so those corrections are
+ * now IN the saved numbers. Leaving them attached would apply them twice (a
+ * survey finding would be added to a refurb that already includes it), so the
+ * facts that moved the maths are folded in and removed. A fact that changes no
+ * input — a covenant, a short lease, a cost this strategy cannot use — was never
+ * folded into anything, so it stays. The verdict snapshots keep the history (P5.1).
+ */
+export async function foldFactsIntoParams(db: D1Database, dealId: string, strategy: string): Promise<number> {
+  const rows = await db.prepare('SELECT id, fact_type FROM deal_facts WHERE deal_id = ?').bind(dealId).all<{ id: string; fact_type: string }>();
+  const folded = rows.results.filter((r) => factMoves(r.fact_type, strategy)).map((r) => r.id);
+  if (folded.length === 0) return 0;
+  const marks = folded.map(() => '?').join(',');
+  await db.prepare(`DELETE FROM deal_facts WHERE deal_id = ? AND id IN (${marks})`).bind(dealId, ...folded).run();
+  return folded.length;
+}
+
 export interface FactRow { id: string; deal_id: string; fact_type: string; value_json: string; entered_at: string }
 export interface VerdictRow { id: string; deal_id: string; score: number | null; criteria_json: string; evidence_json: string; at: string }
 export interface StageHistoryRow { id: string; deal_id: string; from_stage: string | null; to_stage: string; at: string }
@@ -342,8 +387,8 @@ export async function upsertPipelineDeal(
       // is_auction is STICKY: MAX keeps a once-true flag true across re-saves (a
       // re-opened deal's url no longer carries the auction marker, so the payload
       // would otherwise reset it to 0).
-      db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, verdict_line = ?, is_auction = MAX(is_auction, ?), updated_at = ? WHERE id = ? AND user_id = ?')
-        .bind(payload.score, payload.title, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, now, ctx.id, ctx.userId),
+      db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, verdict_line = ?, is_auction = MAX(is_auction, ?), sold_evidence = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+        .bind(payload.score, payload.title, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, payload.soldEvidence, now, ctx.id, ctx.userId),
       db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
         .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
     ]);
@@ -351,8 +396,8 @@ export async function upsertPipelineDeal(
   }
   if (!canAddLiveDeal(await countLiveDeals(db, ctx.userId))) return 'at-cap';
   await db.batch([
-    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)')
-      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, 'live', payload.source, now, now),
+    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, sold_evidence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)')
+      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, 'live', payload.source, payload.soldEvidence, now, now),
     db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, NULL, ?, ?)')
       .bind(crypto.randomUUID(), ctx.id, INITIAL_STAGE, now),
     db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
@@ -451,8 +496,10 @@ export async function seedDemoDeals(db: D1Database, userId: string): Promise<num
     stmts.push(
       db.prepare('INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)')
         .bind(id, userId, s.strategy, s.title, s.params, figure, created),
-      db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, score, figure, verdict, s.auction ? 1 : 0, s.status, s.dead ?? null, 'dev-seed', created, updated),
+      // 'null' not SQL NULL: the seed has no comparables and SAYS so, so a seeded
+      // card never carries the "we don't know what this was scored against" line.
+      db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, sold_evidence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, userId, s.strategy, s.title, s.sector, s.stage, score, figure, verdict, s.auction ? 1 : 0, s.status, s.dead ?? null, 'dev-seed', 'null', created, updated),
     );
     stages.forEach((to, i) => {
       stmts.push(

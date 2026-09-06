@@ -16,7 +16,7 @@ import { features } from '../../config/features';
 import { dealHref } from '../../lib/deals/deal';
 import { DealFacts } from './DealFacts';
 import { applyFacts, factMoves, factNotes, factTypeFor, type DealFact } from '../../lib/deals/facts';
-import { scoreFromParams } from '../../lib/deals/scoreFromParams';
+import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromParams';
 import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
 import { ALL_STAGES, BOARD_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
 
@@ -116,6 +116,20 @@ export function DealBoard() {
   /** The facts on one deal, oldest first. */
   const factsFor = (dealId: string): DealFact[] => facts.filter((f) => f.deal_id === dealId);
 
+  /**
+   * The sold-price band the SAVED score was judged against (P5.1). Re-scoring with
+   * it means a fact moves the score for the fact's own reason and nothing else.
+   */
+  const evidenceFor = (deal: BoardDeal) => parseStoredEvidence(deal.sold_evidence);
+
+  /**
+   * A deal saved before we stored the band. A re-score cannot use what the saved
+   * score used, so the card says so — and keeps saying so until the deal is saved
+   * again, because the drift does not go away when the fact that exposed it does.
+   */
+  const evidenceUnknown = (deal: BoardDeal): boolean =>
+    deal.sold_evidence === null || deal.sold_evidence === undefined;
+
   /** The deal's params AS THE FACTS LEAVE THEM — this is the truth from now on. */
   const paramsFor = (deal: BoardDeal): string => applyFacts(deal.strategy, deal.url_params, factsFor(deal.id));
 
@@ -128,7 +142,7 @@ export function DealBoard() {
   const rescoreBody = (deal: BoardDeal, dealFacts: DealFact[]): Record<string, unknown> | null => {
     const params = applyFacts(deal.strategy, deal.url_params, dealFacts);
     try {
-      const scored = scoreFromParams(deal.strategy, params);
+      const scored = scoreFromParams(deal.strategy, params, evidenceFor(deal));
       return {
         score: scored.score,
         verdict_line: scored.verdict,
@@ -277,7 +291,7 @@ export function DealBoard() {
       >
         {/* The link carries the FACT-CORRECTED params: once a quote exists, the
             analyser opens on the quote, not the original guess (P5). */}
-        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined)}>{d.title}</a>
+        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined, d.id)}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
             <span class={`board-score ${verdict.cls}`} aria-label={BOARD_COPY.card.scoreLabel((d.current_score as number).toFixed(1))}>
@@ -314,6 +328,9 @@ export function DealBoard() {
 
         {/* A fact that cannot move this strategy's maths says why, and never
             invents a cost (P5). */}
+        {features.dealFacts && evidenceUnknown(d) && d.current_score !== null && (
+          <p class="dc-fact-note" role="note">{BOARD_COPY.card.factNoEvidence}</p>
+        )}
         {features.dealFacts && factNotes(d.strategy, factsFor(d.id)).map((n) => (
           <p class="dc-fact-note" role="note">{n.label}: {n.note}</p>
         ))}

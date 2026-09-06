@@ -30,6 +30,13 @@ export interface BoardDeal {
    * Null for migrated/older deals (the card then says why it can't score). */
   verdict_line: string | null;
   updated_at: string;
+  /**
+   * The sold-price band the SAVED score was judged against (P5.1), as JSON, or
+   * the string 'null' when there was none. `null`/undefined = the deal was saved
+   * before we recorded it, so a re-score cannot use the same evidence and the
+   * card says so rather than pretending.
+   */
+  sold_evidence?: string | null;
   /** A date the user set for this deal (viewing booked, offer deadline). Ranks the
    * today line ABOVE dwell time. No date-entry UI exists yet (a later sprint), so
    * this is the structural seam and is absent for now. */

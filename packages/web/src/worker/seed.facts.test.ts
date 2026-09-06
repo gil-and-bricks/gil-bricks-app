@@ -17,7 +17,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): D1Database {
@@ -119,6 +119,13 @@ describe('the seed carries facts, and its cards tell the truth about them', () =
       if (f.length === 0) continue;
       const updated = (sqlite.prepare('SELECT updated_at u FROM deals WHERE id = ?').get(d.id) as { u: string }).u;
       expect(Date.parse(updated), d.id).toBeGreaterThanOrEqual(Date.parse(f[f.length - 1].entered_at));
+    }
+  });
+
+  it('the seed says honestly that it has no sold evidence, so no card carries the warning', () => {
+    for (const d of deals()) {
+      const ev = (sqlite.prepare('SELECT sold_evidence e FROM deals WHERE id = ?').get(d.id) as { e: string | null }).e;
+      expect(ev, d.id).toBe('null'); // known to be none — never SQL NULL, which means "we don't know"
     }
   });
 

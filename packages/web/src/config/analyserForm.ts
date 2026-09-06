@@ -126,6 +126,10 @@ export const ACTION_BAR = {
     myDealsLink: 'My deals',
     myDealsAfter: '.',
   },
+  /** P5.1 — this page was opened from a deal that had facts on it, and saving has
+   * just made these numbers the deal's own, so those facts are now part of them
+   * and are no longer listed separately. Said plainly, because it cannot be undone. */
+  foldedFacts: 'Its facts are now part of these numbers.',
   /** When the save did not go through. */
   saveFailed: "That didn't save — please try again.",
 } as const;

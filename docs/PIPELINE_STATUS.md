@@ -1,4 +1,4 @@
-# Deal pipeline — where we are (P5, 2026-09-05)
+# Deal pipeline — where we are (P5.1, 2026-09-06)
 
 P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
 called them deliberately deferred is gone. This records exactly what is built and what
@@ -44,6 +44,17 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   listed on the card and deletable; deleting restores the previous score. Non-numeric
   facts (covenant, short lease) flag and explain — they never invent a cost. Behind
   `features.dealFacts`. Adding a fact type is a config edit, never code.
+- **Stable identity + evidence-stable re-scoring (P5.1)** — BUILT. A deal's card link carries
+  `deal=<id>`; the analyser sends it back, so re-saving a deal you opened from the board UPDATES
+  it (stage and history kept) instead of creating a twin whose only difference was the numbers a
+  fact had corrected. The sold-price band the saved score was judged against is stored on the deal
+  (`deals.sold_evidence`, migration 0012) and passed back into the SAME `scoreDeal` argument on
+  every re-score, so adding and removing a fact returns the deal to its saved score exactly —
+  EXCEPT on a deal saved before the column existed, whose band is unknown and cannot be
+  reconstructed; those cards say so, and one save from the analyser fixes them for good.
+  Three states: a band; `'null'` (no comparables, and we know it); SQL `NULL` (saved before the
+  column existed — the card says so rather than guessing). A re-save FOLDS the applied facts into
+  the deal's numbers, because the page was opened with them applied; flags and no-effect facts stay.
 
 ## Deliberately NOT built yet (return with fresh eyes — do not half-build)
 - **Verdict-change messaging** — "this dropped from Green to Amber because the survey

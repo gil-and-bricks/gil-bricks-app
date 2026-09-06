@@ -14,7 +14,8 @@
  * WHAT THIS CANNOT SEE, said plainly. It scores from the URL alone, so it is
  * exactly the analyser page BEFORE its comparables land and before anyone
  * measures a room:
- *  - no sold-price evidence, so that component scores as unknown;
+ *  - the sold-price band only if the deal stored one (P5.1); without it, that
+ *    component scores as unknown, and the board says so on the card;
  *  - HMO room sizes are unmeasured (they live in the page, never in the URL);
  *  - the country comes from the postcode area, not from ONSPD.
  * Nothing here is invented — it is the same engine on less evidence.
@@ -33,6 +34,31 @@ import {
 // The board figure uses the analyser's OWN copy functions, so the card cannot
 // word a figure differently from the page it links to.
 import { BTL_COPY, FLIP_COPY, HMO_COPY } from '../../config/verdicts';
+
+/**
+ * The sold-price band a score was judged against — exactly what the analyser
+ * hands `scoreDeal`. Passing it through is why a fact can move a score only for
+ * the fact's own reason (P5.1).
+ */
+export interface SoldEvidence {
+  estimate: number;
+  high: number;
+}
+
+/** The band a deal stored, or null when it was scored without one. Anything
+ * malformed reads as null — a wrong band would move a score invisibly. */
+export function parseStoredEvidence(raw: string | null | undefined): SoldEvidence | null {
+  if (typeof raw !== 'string' || raw === '') return null;
+  try {
+    const v = JSON.parse(raw) as { estimate?: unknown; high?: unknown } | null;
+    if (v === null) return null;
+    const estimate = Number(v.estimate);
+    const high = Number(v.high);
+    return Number.isFinite(estimate) && Number.isFinite(high) && estimate > 0 && high > 0 ? { estimate, high } : null;
+  } catch {
+    return null;
+  }
+}
 
 export interface ParamScore {
   score: number;
@@ -79,9 +105,12 @@ const thresholdsOf = (config: StrategyConfig): Record<string, number> =>
  * Every strategy is a purchase in Wales or England; the country comes from the
  * postcode's own prefix so the tax is the one the analyser would charge.
  */
-export function scoreFromParams(strategy: string, urlParams: string): ParamScore {
+export function scoreFromParams(strategy: string, urlParams: string, evidence?: SoldEvidence | null): ParamScore {
   const params = new URLSearchParams(urlParams);
   const config = configFor(strategy);
+  // The SAME third argument the analyser passes: the sold-price band. Undefined
+  // means no evidence, which the engine scores as unknown — the honest answer.
+  const ev = evidence ?? undefined;
   const { num, str } = reader(config, params);
   const configDefault = (key: string): string => defaultOf(config, key);
   const price = Number(params.get('price') ?? 0);
@@ -104,7 +133,7 @@ export function scoreFromParams(strategy: string, urlParams: string): ParamScore
       refurb: num('refurbCost'), stressRatePct: num('stressRate'), taxBasis, thresholds: thresholdsOf(config),
     } as never;
     const a = analyseBtl(inputs);
-    const d = scoreDeal('btl', inputs);
+    const d = scoreDeal('btl', inputs, ev);
     return { score: d.score, figure: BTL_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline };
   }
 
@@ -120,7 +149,7 @@ export function scoreFromParams(strategy: string, urlParams: string): ParamScore
       contingencyPct: num('contingencyPct'), taxBasis, thresholds: thresholdsOf(config),
     } as never;
     const a = analyseFlip(inputs);
-    const d = scoreDeal('flip', inputs);
+    const d = scoreDeal('flip', inputs, ev);
     return { score: d.score, figure: FLIP_COPY.savedHeadline(fmtMoney(a.profitAfterTax.value)), verdict: d.headline };
   }
 
@@ -140,7 +169,7 @@ export function scoreFromParams(strategy: string, urlParams: string): ParamScore
       refiRatePct: num('rate'), stressRatePct: num('stressRate'), taxBasis, thresholds: thresholdsOf(config),
     } as never;
     const a = analyseBrrrr(inputs);
-    const d = scoreDeal('brrrr', inputs);
+    const d = scoreDeal('brrrr', inputs, ev);
     // BRRRR saves its outcome sentence as the board figure, like the analyser.
     return { score: d.score, figure: a.outcomeVerdict, verdict: d.headline };
   }
@@ -159,6 +188,6 @@ export function scoreFromParams(strategy: string, urlParams: string): ParamScore
     thresholds: thresholdsOf(config),
   } as never;
   const a = analyseHmo(inputs);
-  const d = scoreDeal('hmo', inputs);
+  const d = scoreDeal('hmo', inputs, ev);
   return { score: d.score, figure: HMO_COPY.savedHeadline(fmtPct(a.roi.value)), verdict: d.headline };
 }

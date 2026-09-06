@@ -26,7 +26,7 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { canAddLiveDeal, countLiveDeals, deleteDeal, deleteFact, getOwnedDeal, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactVerdict } from './lib/pipeline';
+import { canAddLiveDeal, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactVerdict } from './lib/pipeline';
 import { DEAD_STAGE, isFactType, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
@@ -411,9 +411,31 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
   const now = new Date().toISOString();
   // The stable id for (user, strategy, url_params): the SAME property+strategy is
   // the SAME deal; the same property under a DIFFERENT strategy is a separate deal.
-  const existing = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
+  const byParams = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
     .bind(user.sub, strategy, urlParams)
     .first<{ id: string }>();
+  // P5.1 — IDENTITY BY ID WHEN THE ANALYSER WAS OPENED FROM A DEAL. The board's
+  // card link carries `deal=<id>`; the analyser sends it back. A deal opened from
+  // the board and saved again is the SAME deal even though its numbers changed —
+  // and after a fact the numbers ALWAYS differ, so without this the board grew a
+  // stale twin. The id must be the signed-in user's own deal, under the same
+  // strategy, or it is ignored entirely.
+  const claimedId = typeof (body as { deal_id?: unknown }).deal_id === 'string'
+    ? String((body as { deal_id?: unknown }).deal_id) : '';
+  const claimed = /^[0-9a-f-]{36}$/.test(claimedId)
+    ? await env.DB.prepare('SELECT id, url_params FROM saved_deals WHERE id = ? AND user_id = ? AND strategy = ?')
+      .bind(claimedId, user.sub, strategy)
+      .first<{ id: string; url_params: string }>()
+    : null;
+  // ...and only while it is still the SAME PROPERTY. Someone can open a deal and
+  // then type a different address into the analyser; saving that must make a new
+  // deal, not overwrite the one they came from. The postcode is the check.
+  const pcOf = (params: string): string => (new URLSearchParams(params).get('postcode') ?? '').toUpperCase().replace(/\s+/g, '');
+  const owned = claimed !== null && pcOf(claimed.url_params) === pcOf(urlParams) && pcOf(urlParams) !== '' ? claimed : null;
+  // If some OTHER saved deal already holds these exact params, that row is this
+  // property under these numbers — merge onto it rather than breaking the unique
+  // index. Otherwise the deal we were opened from wins.
+  const existing = byParams ?? owned;
 
   // ---- P2: save into the deal PIPELINE (only when the flag is on) ----
   if (features.dealPipeline) {
@@ -431,9 +453,16 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
     // back from it — so the pipeline deal (which shares that id) can never be duplicated
     // by a divergent uuid. Mirroring first also keeps the legacy read path working.
     const id = existing?.id ?? crypto.randomUUID();
-    await env.DB.prepare(
-      'INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, strategy, url_params) DO UPDATE SET title = excluded.title, key_figure = excluded.key_figure',
-    ).bind(id, user.sub, strategy, title, urlParams, keyFigure, now).run();
+    if (byParams === null && owned !== null) {
+      // Same deal, new numbers: move the row's params rather than inserting a
+      // second one. The deal keeps its id, and so its stage and its whole history.
+      await env.DB.prepare('UPDATE saved_deals SET url_params = ?, title = ?, key_figure = ? WHERE id = ? AND user_id = ?')
+        .bind(urlParams, title, keyFigure, owned.id, user.sub).run();
+    } else {
+      await env.DB.prepare(
+        'INSERT INTO saved_deals (id, user_id, strategy, title, url_params, key_figure, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, strategy, url_params) DO UPDATE SET title = excluded.title, key_figure = excluded.key_figure',
+      ).bind(id, user.sub, strategy, title, urlParams, keyFigure, now).run();
+    }
     const canonical = await env.DB.prepare('SELECT id FROM saved_deals WHERE user_id = ? AND strategy = ? AND url_params = ?')
       .bind(user.sub, strategy, urlParams)
       .first<{ id: string }>();
@@ -443,15 +472,28 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
     // backstop for the tiny check-then-write race (self-heals on the next save).
     const r = await upsertPipelineDeal(env.DB, { id: dealId, userId: user.sub, postcodeSector }, payload);
     if (r === 'at-cap') return json({ error: LIVE_CAP_MESSAGE }, 409);
-    return json({ ok: true, id: dealId, updated: r === 'updated', pipeline: true });
+    // The page was opened from this deal WITH its facts applied, and those numbers
+    // have just been saved as the deal's own. Fold the corrections in so nothing
+    // is counted twice — see foldFactsIntoParams.
+    let folded = 0;
+    // ONLY when we actually saved onto the deal we were opened from: in the merge
+    // case above the save lands on a different row, and that row's facts were
+    // never folded into these numbers.
+    if (features.dealFacts && owned !== null && dealId === owned.id && owned.url_params !== urlParams) {
+      folded = await foldFactsIntoParams(env.DB, dealId, strategy);
+    }
+    return json({ ok: true, id: dealId, updated: r === 'updated', pipeline: true, foldedFacts: folded });
   }
 
   // ---- flag OFF: exactly today's behaviour (the flat saved-deals list) ----
-  if (existing) {
+  // Identity by PARAMS only here. The flat list has no board to open a deal from,
+  // so `deal_id` means nothing to it — honouring it would report "updated" while
+  // leaving the stored numbers untouched.
+  if (byParams) {
     await env.DB.prepare('UPDATE saved_deals SET title = ?, key_figure = ? WHERE id = ?')
-      .bind(title, keyFigure, existing.id)
+      .bind(title, keyFigure, byParams.id)
       .run();
-    return json({ ok: true, id: existing.id, updated: true });
+    return json({ ok: true, id: byParams.id, updated: true });
   }
   const countRow = await env.DB.prepare('SELECT COUNT(*) AS n FROM saved_deals WHERE user_id = ?')
     .bind(user.sub)
@@ -486,7 +528,7 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // honest fallback for migrated/older deals that predate it.
     const rows = await env.DB.prepare(
       `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
-              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, s.url_params, s.key_figure,
+              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, s.url_params, s.key_figure,
               COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
          FROM deals d JOIN saved_deals s ON s.id = d.id
         WHERE d.user_id = ?
@@ -747,6 +789,13 @@ async function handleScoreDeal(request: Request, env: Env, dealId: string): Prom
   // be complete from the very first fact.
   const v = readFactVerdict(body as Record<string, unknown>);
   if (v === 'bad' || v === undefined) return json({ error: 'bad request' }, 400);
+  // P5.1: whoever scored it says what sold evidence it rested on, so the next
+  // re-score uses the same band instead of quietly losing the component.
+  const b2 = body as { sold_evidence?: unknown };
+  if (typeof b2.sold_evidence === 'string') {
+    await env.DB.prepare('UPDATE deals SET sold_evidence = ? WHERE id = ? AND user_id = ?')
+      .bind(parseSoldEvidence(b2.sold_evidence), dealId, user.sub).run();
+  }
   await recordVerdict(env.DB, dealId, { score, criteriaJson: v.criteriaJson, evidenceJson: v.evidenceJson });
   return json({ ok: true });
 }
