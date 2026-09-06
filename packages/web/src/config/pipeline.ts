@@ -781,6 +781,12 @@ export const RETRADE = {
    * bar, it aims at this instead — the lowest band the score still calls a deal.
    */
   floorTarget: 'marginal' as 'good' | 'marginal',
+  /**
+   * The smallest discount worth asking for. Below this the radar says nothing:
+   * a deal that needs £200 off a £250,000 purchase has not been re-traded, and
+   * asking for it would make you look like you were counting paperclips.
+   */
+  minAsk: 1000,
   heading: 'What it is worth now',
   max: (money: string): string => `Your new maximum is ${money}.`,
   /** When no price fixes it. The honest answer, and never a message to send. */

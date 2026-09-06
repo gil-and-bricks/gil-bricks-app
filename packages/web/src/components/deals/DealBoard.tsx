@@ -114,6 +114,26 @@ export function DealBoard() {
     return () => document.removeEventListener('visibilitychange', onShow);
   }, []);
 
+  /**
+   * A reverse solve is a search: about ten scorings per deal. Running it inside
+   * the render would put that on the main thread before the board had painted,
+   * on every card carrying a survey (P11 review). It runs here instead — after
+   * the paint — and each answer is kept until the deal, its numbers or its facts
+   * change, which is exactly when it stops being true.
+   */
+  useEffect(() => {
+    if (!features.retradeRadar || !Array.isArray(deals)) return;
+    let found = false;
+    for (const d of deals) {
+      if (d.status !== 'live') continue;
+      const key = retradeKey(d);
+      if (retradeMemo.current.has(key)) continue;
+      retradeMemo.current.set(key, retradeFor(d, factsFor(d.id), evidenceFor(d), d.room_size_failures ?? null));
+      found = true;
+    }
+    if (found) setRadarTick((n) => n + 1);
+  }, [deals, facts]);
+
   // ---- optimistic move + honest rollback ----
   // Updates are FUNCTIONAL and keyed by id: they touch only the one deal, so an
   // overlapping move/park on another card can never be clobbered, and a rollback
@@ -416,14 +436,12 @@ export function DealBoard() {
    * re-render for reasons that have nothing to do with it.
    */
   const retradeMemo = useRef(new Map<string, ReturnType<typeof retradeFor>>());
-  const retradeOn = (deal: BoardDeal): ReturnType<typeof retradeFor> => {
-    if (!features.retradeRadar) return null;
-    const dealFacts = factsFor(deal.id);
-    const key = `${deal.id}|${deal.status}|${paramsFor(deal)}|${dealFacts.map((f) => `${f.id}${f.folded_at ?? ''}`).join(',')}`;
-    const memo = retradeMemo.current;
-    if (!memo.has(key)) memo.set(key, retradeFor(deal, dealFacts, evidenceFor(deal), deal.room_size_failures ?? null));
-    return memo.get(key) ?? null;
-  };
+  const [, setRadarTick] = useState(0);
+  /** What a radar's answer belongs to: this deal, these numbers, these facts. */
+  const retradeKey = (deal: BoardDeal): string =>
+    `${deal.id}|${deal.status}|${paramsFor(deal)}|${factsFor(deal.id).map((f) => `${f.id}${f.folded_at ?? ''}`).join(',')}`;
+  const retradeOn = (deal: BoardDeal): ReturnType<typeof retradeFor> =>
+    (features.retradeRadar ? retradeMemo.current.get(retradeKey(deal)) ?? null : null);
 
   /**
    * P10 — the deal's dates as a calendar file. Built only when somebody asks for

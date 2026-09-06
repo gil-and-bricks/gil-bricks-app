@@ -52,14 +52,16 @@ export function retradeFor(
   if (deal.status !== 'live') return null;
   // The newest un-folded fact that re-trades. A folded fact is already IN the
   // deal's numbers — that conversation has been had.
+  // A fact this strategy has no input for cannot have moved the price, so it is
+  // not a candidate at all — testing it AFTER choosing the newest one let a
+  // down-valuation (which no BTL or HMO can use) silence a live radar the
+  // survey before it had opened (P11 review).
   const trigger = [...facts]
-    .filter((f) => RETRADE.facts.includes(f.fact_type))
+    .filter((f) => RETRADE.facts.includes(f.fact_type) && factMoves(f.fact_type, deal.strategy))
     .filter((f) => (f.folded_at ?? null) === null && f.value !== null)
     .sort((a, b) => a.entered_at.localeCompare(b.entered_at) || a.id.localeCompare(b.id))
     .pop();
   if (!trigger) return null;
-  // A fact this strategy has no input for cannot have moved the price.
-  if (!factMoves(trigger.fact_type, deal.strategy)) return null;
 
   const withFact = applyFacts(deal.strategy, deal.url_params, facts);
   const without = applyFacts(deal.strategy, deal.url_params, facts.filter((f) => f.id !== trigger.id));
@@ -80,8 +82,9 @@ export function retradeFor(
   const target: Verdict = held === 'walk away' ? RETRADE.floorTarget : held;
   const price = priceOf(withFact);
   const maxOffer = maxOfferFromParams(deal.strategy, withFact, target, evidence, roomSizeFailures);
-  // No discount needed is not a re-trade either.
-  if (maxOffer !== null && maxOffer >= price) return null;
+  // No discount needed is not a re-trade — and neither is one too small to be
+  // worth making. Both are how a radar starts manufacturing negotiations.
+  if (maxOffer !== null && maxOffer > price - RETRADE.minAsk) return null;
 
   const opener = factTypeFor(trigger.fact_type)?.retrade?.(fmtMoney(trigger.value as number)) ?? '';
   const message = maxOffer === null || opener === ''

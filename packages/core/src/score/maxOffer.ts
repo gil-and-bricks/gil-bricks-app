@@ -50,9 +50,11 @@ export function maxOfferForVerdict(
     }
   };
   const round = (n: number): number => Math.floor(n / step) * step;
-  // Already there: the honest answer is the price on the table, not a discount
-  // nobody needs to ask for.
-  if (clears(inputs.price)) return round(inputs.price);
+  // Already there: the honest answer is THE PRICE ON THE TABLE, unrounded.
+  // Rounding it down here invented a discount of up to one step on any price
+  // that is not already on the grid — and £249,995 is what asking prices look
+  // like (P11 review).
+  if (clears(inputs.price)) return inputs.price;
   if (!clears(floor)) return null;
   let lo = floor;          // clears
   let hi = inputs.price;   // does not

@@ -47,10 +47,14 @@ describe('the most you could pay', () => {
     expect(maxOfferForVerdict('btl', btl(250_000, { monthlyRent: 1 }) as never, 'good')).toBeNull();
   });
 
-  it('hands back the asking price when the deal already clears it', () => {
+  it('hands back the asking price when the deal already clears it — UNROUNDED', () => {
     const inputs = btl(70_000);
     expect(verdictForScore(scoreDeal('btl', inputs as never).score)).not.toBe('walk away');
     expect(maxOfferForVerdict('btl', inputs as never, 'marginal')).toBe(70_000);
+    // £69,995 is what asking prices look like: rounding it down here invented a
+    // discount on a deal that never needed one (P11 review).
+    const odd = btl(69_995);
+    expect(maxOfferForVerdict('btl', odd as never, 'marginal')).toBe(69_995);
   });
 
   it('asking for a HIGHER bar never returns a higher price', () => {

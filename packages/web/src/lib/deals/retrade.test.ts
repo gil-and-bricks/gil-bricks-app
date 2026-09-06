@@ -88,6 +88,30 @@ describe('when it says nothing at all', () => {
     expect(retradeFor(deal(), [fact({ folded_at: '2026-09-05T00:00:00Z' })])).toBeNull();
   });
 
+  it('a price that is not a round number does NOT invent a discount (P11 review)', () => {
+    // £249,995 is what asking prices look like. The old rounding turned "you are
+    // still fine" into a £245 ask with a message saying the numbers no longer work.
+    const odd = deal({ url_params: PARAMS.replace('price=185000', 'price=185995') });
+    const tiny = retradeFor(odd, [fact({ value: 500 })]);
+    expect(tiny, 'a fact that costs almost nothing is not a negotiation').toBeNull();
+    // and the real one is still found, at a real number
+    const real = retradeFor(odd, [fact()]);
+    expect(real?.maxOffer).toBeLessThan(185_995 - RETRADE.minAsk);
+  });
+
+  it('an ask too small to make is not an ask', () => {
+    const r = retradeFor(deal(), [fact({ value: 200 })]);
+    expect(r).toBeNull();
+  });
+
+  it('a newer fact this strategy cannot use never silences a live radar', () => {
+    // a down-valuation has no end value to replace on a BTL, and the card says so
+    const survey = fact({ id: 'f1', entered_at: '2026-09-04T10:00:00Z' });
+    const later = fact({ id: 'f2', fact_type: 'down-valuation', value: 150_000, entered_at: '2026-09-06T10:00:00Z' });
+    const r = retradeFor(deal(), [survey, later]);
+    expect(r?.factId, 'the survey is still the one being re-traded').toBe('f1');
+  });
+
   it('no triggering fact, no radar — a builder’s quote is not a re-trade', () => {
     expect(retradeFor(deal(), [fact({ fact_type: 'builder-quote', value: 30_000 })])).toBeNull();
     expect(retradeFor(deal(), [])).toBeNull();
