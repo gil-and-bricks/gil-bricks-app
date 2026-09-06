@@ -110,23 +110,29 @@ export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove,
           {facts.map((f) => {
             const t = factTypeFor(f.fact_type);
             const moves = factMoves(f.fact_type, strategy);
+            // A folded fact is already IN the deal's numbers: it is the record of
+            // why the deal moved, so it stays visible, but removing it could not
+            // put anything back (P6 review).
+            const folded = (f.folded_at ?? null) !== null;
             return (
-              <li class={moves ? 'fact-row' : 'fact-row fact-flagged'}>
+              <li class={`fact-row${moves ? '' : ' fact-flagged'}${folded ? ' fact-folded' : ''}`}>
                 <span class="fact-what">
                   {t?.label ?? f.fact_type}
                   {f.value !== null && f.value !== undefined && <strong> {fmtMoney(f.value)}</strong>}
                 </span>
-                <span class="fact-when">{BOARD_COPY.card.factOn(dayOf(f.entered_at))}</span>
+                <span class="fact-when">{folded ? BOARD_COPY.card.factFolded : BOARD_COPY.card.factOn(dayOf(f.entered_at))}</span>
                 {(f.note ?? '').trim() !== '' && <span class="fact-note">{f.note}</span>}
-                <button
-                  type="button"
-                  class="btn-link fact-remove"
-                  disabled={busy}
-                  aria-label={BOARD_COPY.card.factRemoveLabel(t?.label ?? f.fact_type)}
-                  onClick={() => void onRemove(f.id).then((ok) => { if (!ok) setError(BOARD_COPY.card.factFailed); })}
-                >
-                  {BOARD_COPY.card.factRemove}
-                </button>
+                {!folded && (
+                  <button
+                    type="button"
+                    class="btn-link fact-remove"
+                    disabled={busy}
+                    aria-label={BOARD_COPY.card.factRemoveLabel(t?.label ?? f.fact_type)}
+                    onClick={() => void onRemove(f.id).then((ok) => { if (!ok) setError(BOARD_COPY.card.factFailed); })}
+                  >
+                    {BOARD_COPY.card.factRemove}
+                  </button>
+                )}
               </li>
             );
           })}

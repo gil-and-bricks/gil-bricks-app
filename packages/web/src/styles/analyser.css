@@ -1019,6 +1019,8 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
   border-radius: 10px; background: rgba(255,255,255,0.04);
   font-size: var(--text-sm);
 }
+/* Already in the deal's own numbers: kept as the record, quieter, no Remove. */
+.fact-row.fact-folded { border-left-color: rgba(255,255,255,0.35); opacity: 0.75; }
 /* A flag is not a number: it gets the amber edge, not the lime one. */
 .fact-row.fact-flagged { border-left-color: var(--verdict-amber); }
 .fact-what { flex: 1 1 8rem; color: var(--text); }
@@ -1055,3 +1057,37 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
   background: rgba(255, 200, 97, 0.10); color: var(--text);
   font-size: var(--text-sm); line-height: 1.35;
 }
+
+/* ---- Pipeline P6: the answer changed, and the score history --------------- */
+/* The most valuable sentence the product says. It sits under the verdict, holds
+   its own space, and stays until it is dismissed. Amber for worse, lime for
+   better — never red: this is news, not an alarm. */
+.dc-change {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  margin: var(--space-1) 0; padding: var(--space-3);
+  border: 1px solid var(--glass-border); border-left: 4px solid var(--verdict-amber);
+  border-radius: 12px; background: rgba(255, 200, 97, 0.10);
+}
+.dc-change.change-better { border-left-color: var(--accent); background: rgba(220, 255, 0, 0.08); }
+.dc-change-h {
+  margin: 0; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-dim);
+}
+.dc-change-line { margin: 0; font-size: var(--text-base); font-weight: 600; color: var(--text); line-height: 1.35; }
+.dc-change-verdict { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.35; }
+.dc-change-kill { margin: var(--space-1) 0 0; font-size: var(--text-sm); font-weight: 700; color: var(--verdict-walk); }
+.dc-change-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
+.dc-change-actions .btn-secondary, .dc-change-actions .btn-link { min-height: 44px; }
+.dc-change-park { flex: 0 1 auto; }
+
+/* The history: closed by default, so the card says ONE thing at a time. */
+.dc-history { margin-top: var(--space-1); }
+.dc-history-open { min-height: 44px; }
+.dc-history-body { display: flex; flex-direction: column; gap: var(--space-1); margin-top: var(--space-1); }
+.sparkline { display: block; width: 100%; height: 34px; color: var(--accent); overflow: visible; }
+.dc-history-steps {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3);
+  color: var(--text-dim); font-size: var(--text-xs);
+}
+.dc-history-steps .step-now { color: var(--text); }

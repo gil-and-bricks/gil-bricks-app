@@ -20,7 +20,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0009_bridging_enquiries.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0009_bridging_enquiries.sql',
   '0010_tool_saves.sql', '0011_outbox_fields.sql',
 ];
 

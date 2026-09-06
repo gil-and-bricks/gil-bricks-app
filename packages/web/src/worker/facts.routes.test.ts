@@ -16,7 +16,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -220,6 +220,78 @@ describe('every re-score writes a verdict snapshot', () => {
     }), env());
     expect(res.status).toBe(404);
     expect(count('deal_verdicts')).toBe(0);
+  });
+});
+
+describe('a verdict change (P6) is stored with the fact that caused it', () => {
+  const SCORE = { score: 6.8, verdict_line: 'The quote eats the margin', headline_figure: '£16,341 left in', criteria_json: '{}', evidence_json: '{}' };
+  const CHANGE = { from_score: 9.4, to_score: 6.8, previous_value: 30000, to_verdict_line: '£16,341 would stay stuck after refinancing.' };
+  const changes = () => sqlite.prepare('SELECT * FROM deal_changes').all() as Record<string, unknown>[];
+
+  beforeEach(() => { features.verdictChanges = true; });
+  afterEach(() => { features.verdictChanges = true; });
+
+  it('stores the facts of the change, never a finished sentence', async () => {
+    const res = await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE, change: CHANGE }, await authed());
+    const { changeId } = await res.json() as { changeId: string };
+    expect(changeId).toMatch(/^[0-9a-f-]{36}$/);
+    const c = changes()[0];
+    expect(c.fact_type).toBe('builder-quote');
+    expect(c.fact_value).toBe(48000);
+    expect(c.previous_value).toBe(30000);
+    expect(c.from_score).toBe(9.4);
+    expect(c.to_score).toBe(6.8);
+    expect(c.to_verdict_line).toBe('£16,341 would stay stuck after refinancing.');
+    expect(c.acknowledged_at).toBeNull();
+  });
+
+  it('a fact sent without a change stores none — the browser decides what is news', async () => {
+    await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE }, await authed());
+    expect(changes().length).toBe(0);
+  });
+
+  it('refuses a change with impossible scores, and stores no fact either', async () => {
+    const res = await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE, change: { ...CHANGE, to_score: 42 } }, await authed());
+    expect(res.status).toBe(400);
+    expect(count('deal_facts')).toBe(0);
+    expect(changes().length).toBe(0);
+  });
+
+  it('the board is handed only what nobody has seen, and acknowledging removes it', async () => {
+    const { changeId } = await (await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE, change: CHANGE }, await authed())).json() as { changeId: string };
+    const list = async () => (await (await worker.fetch(new Request('https://s.test/api/deals', { headers: await authed() }), env())).json() as { changes: unknown[] }).changes;
+    expect((await list()).length).toBe(1);
+    const ack = await worker.fetch(new Request(`https://s.test/api/deals/${DEAL}/changes/${changeId}/ack`, { method: 'POST', headers: await authed() }), env());
+    expect(ack.status).toBe(200);
+    expect((await list()).length, 'it survives a reload only until it is seen').toBe(0);
+    expect(changes()[0].acknowledged_at, 'and the row is kept for P8').toBeTruthy();
+  });
+
+  it('nobody can acknowledge someone else’s change', async () => {
+    const { changeId } = await (await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE, change: CHANGE }, await authed())).json() as { changeId: string };
+    const res = await worker.fetch(new Request(`https://s.test/api/deals/${DEAL}/changes/${changeId}/ack`, { method: 'POST', headers: await authed('u2') }), env());
+    expect(res.status).toBe(404);
+    expect(changes()[0].acknowledged_at).toBeNull();
+  });
+
+  it('the score history is the snapshots, oldest first, and only for your own deal', async () => {
+    await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE, change: CHANGE }, await authed());
+    const res = await worker.fetch(new Request(`https://s.test/api/deals/${DEAL}/history`, { headers: await authed() }), env());
+    const { points } = await res.json() as { points: { score: number }[] };
+    expect(points.map((p) => p.score)).toEqual([6.8]);
+    const theirs = await worker.fetch(new Request(`https://s.test/api/deals/${OTHER}/history`, { headers: await authed() }), env());
+    expect((await theirs.json() as { points: unknown[] }).points).toEqual([]);
+  });
+
+  it('with the flag off nothing is announced and both routes are gone', async () => {
+    features.verdictChanges = false;
+    await addFact({ fact_type: 'builder-quote', value: 48000, ...SCORE, change: CHANGE }, await authed());
+    expect(count('deal_facts'), 'the fact still lands and still re-scores').toBe(1);
+    expect(changes().length).toBe(0);
+    const ack = await worker.fetch(new Request(`https://s.test/api/deals/${DEAL}/changes/11111111-1111-4111-8111-111111111112/ack`, { method: 'POST', headers: await authed() }), env());
+    expect(ack.status).toBe(404);
+    const hist = await worker.fetch(new Request(`https://s.test/api/deals/${DEAL}/history`, { headers: await authed() }), env());
+    expect(hist.status).toBe(404);
   });
 });
 

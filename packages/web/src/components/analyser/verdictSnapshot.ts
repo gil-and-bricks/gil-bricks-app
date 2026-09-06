@@ -27,5 +27,11 @@ export interface VerdictSnapshot {
    * component worth 2.5 of 10. `null` = there was no valuation, and we know it.
    */
   soldEvidence: { estimate: number; high: number } | null;
+  /**
+   * HMO only: how many rooms failed the statutory minimum, or null when they
+   * were not measured. Stored with the deal so a later re-score knows what this
+   * score knew — the measurements live in this page, never in the URL (P6).
+   */
+  roomSizeFailures?: number | null;
 }
 export const verdictSnapshot = signal<VerdictSnapshot | null>(null);

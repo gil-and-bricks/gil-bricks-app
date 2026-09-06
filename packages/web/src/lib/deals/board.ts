@@ -37,6 +37,8 @@ export interface BoardDeal {
    * card says so rather than pretending.
    */
   sold_evidence?: string | null;
+  /** HMO only: how many rooms failed the minimum at save time, null if unmeasured. */
+  room_size_failures?: number | null;
   /** A date the user set for this deal (viewing booked, offer deadline). Ranks the
    * today line ABOVE dwell time. No date-entry UI exists yet (a later sprint), so
    * this is the structural seam and is absent for now. */

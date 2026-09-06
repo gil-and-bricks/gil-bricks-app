@@ -1,4 +1,4 @@
-# Deal pipeline — where we are (P5.1, 2026-09-06)
+# Deal pipeline — where we are (P6, 2026-09-06)
 
 P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
 called them deliberately deferred is gone. This records exactly what is built and what
@@ -49,16 +49,25 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   it (stage and history kept) instead of creating a twin whose only difference was the numbers a
   fact had corrected. The sold-price band the saved score was judged against is stored on the deal
   (`deals.sold_evidence`, migration 0012) and passed back into the SAME `scoreDeal` argument on
-  every re-score, so adding and removing a fact returns the deal to its saved score exactly —
-  EXCEPT on a deal saved before the column existed, whose band is unknown and cannot be
-  reconstructed; those cards say so, and one save from the analyser fixes them for good.
+  every re-score, so adding and removing a fact returns the deal to its saved score exactly.
+  P6 closed the same gap for HMO ROOM SIZES (`deals.room_size_failures`, migration 0014), which
+  live in the analyser page and never in the URL. The round trip is now exact EXCEPT on a deal
+  saved before those columns existed: its band is unknown and cannot be reconstructed, so the
+  card says so (only where the strategy actually scores sold prices) and one save fixes it.
+  A save with NOTHING computed never blanks a score, a verdict line or the evidence behind them.
+- **Verdict-change messaging (P6)** — BUILT, behind `features.verdictChanges`. When a fact moves a
+  deal across a verdict band, or by a full point (`CHANGE_RULES` in src/config/pipeline.ts), the
+  card says what it was, what landed, what it is now, and — in @gil-bricks/core's own words — what
+  that means and what would fix it. It is stored (`deal_changes`, migration 0013) so it survives a
+  reload, and it stays until dismissed; P8 can rank unacknowledged changes as urgent. A deal a fact
+  has taken below walk-away is OFFERED a park with the reason pre-filled, and is never parked
+  automatically. A closed **score history** opens a sparkline built from the `deal_verdicts`
+  snapshots. Facts folded into a deal's own numbers are MARKED, never deleted (migration 0014).
   Three states: a band; `'null'` (no comparables, and we know it); SQL `NULL` (saved before the
   column existed — the card says so rather than guessing). A re-save FOLDS the applied facts into
   the deal's numbers, because the page was opened with them applied; flags and no-effect facts stay.
 
 ## Deliberately NOT built yet (return with fresh eyes — do not half-build)
-- **Verdict-change messaging** — "this dropped from Green to Amber because the survey
-  found damp" when a fact moves the score.
 - **Evidence chips** — showing which inputs were listing / EPC / estimated / typed on
   the card (data captured in `evidence_json`; not surfaced).
 - **The dead-deal graveyard with patterns** — a proper P9 view of parked deals that
@@ -67,7 +76,6 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
 - **Chain-risk card at Offer accepted** — surfacing chain/searches risk in the legal phase.
 
 ## Where to pick up
-The board answers "what needs me?", and a deal now re-scores itself as the facts land.
-The next layer is P6: reading the `deal_verdicts` history back — "this dropped from Green
-to Amber because the survey found damp". The history is complete from the first fact, on
-seeded deals too, so P6 has something true to read.
+The board answers "what needs me?", a deal re-scores itself as the facts land, and it now SAYS
+when the answer has changed. P8 is next: ranking. An unacknowledged change is the strongest
+"this needs you" signal the pipeline has — `deal_changes.acknowledged_at IS NULL` is the query.

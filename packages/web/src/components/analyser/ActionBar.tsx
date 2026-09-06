@@ -32,6 +32,9 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
   // writer drops unknown params on the first edit — and an edit is exactly when
   // this matters: saving must update that deal, not create a twin beside it.
   const openedDealId = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('deal'));
+  /** When the deal's facts were last read for this page — a fact entered after
+   * it was opened was never in these numbers, so it must not be folded in. */
+  const openedFactsAsOf = useRef<string | null>(typeof window === 'undefined' ? null : new URLSearchParams(location.search).get('factsAt'));
   const backfilled = useRef(false);
   const snap = verdictSnapshot.value; // subscribe so this re-runs when the score lands
   useEffect(() => {
@@ -110,6 +113,10 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
           // The sold-price band the score was judged against, so every later
           // re-score uses the SAME evidence instead of quietly losing it.
           sold_evidence: JSON.stringify(verdictSnapshot.value?.soldEvidence ?? null),
+          // HMO room sizes: measured in this page, so the deal has to keep them.
+          room_size_failures: verdictSnapshot.value?.roomSizeFailures ?? null,
+          // The facts this page was opened with — only those get folded in.
+          facts_as_of: openedFactsAsOf.current ?? '',
         }),
       });
       if (res.ok) {

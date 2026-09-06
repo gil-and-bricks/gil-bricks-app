@@ -23,6 +23,12 @@ export interface DealFact {
   value: number | null;
   note?: string | null;
   entered_at: string;
+  /**
+   * Set once the fact has been folded into the deal's own numbers by a save from
+   * the analyser (P6). It is still shown — it is why the deal moved — but it is
+   * no longer applied, or it would be counted twice.
+   */
+  folded_at?: string | null;
 }
 
 export const factTypeFor = (key: string): FactType | undefined => FACT_TYPES.find((f) => f.key === key);
@@ -50,7 +56,10 @@ export function applyFacts(strategy: string, urlParams: string, facts: readonly 
   const params = new URLSearchParams(urlParams);
   // Oldest first. Two facts entered in the same millisecond fall back to their
   // ids, so the order is the same on every device and every reload.
-  const ordered = [...facts].sort((a, b) => a.entered_at.localeCompare(b.entered_at) || a.id.localeCompare(b.id));
+  const ordered = [...facts]
+    // A folded fact is already IN these params. Applying it again double-counts.
+    .filter((f) => f.folded_at === null || f.folded_at === undefined)
+    .sort((a, b) => a.entered_at.localeCompare(b.entered_at) || a.id.localeCompare(b.id));
   for (const fact of ordered) {
     const type = factTypeFor(fact.fact_type);
     const rule = type?.kind === 'number' ? type.applies?.[strategy] : undefined;
@@ -70,6 +79,24 @@ export function applyFacts(strategy: string, urlParams: string, facts: readonly 
     params.set(rule.param, String(base + value));
   }
   return params.toString();
+}
+
+/**
+ * The number a fact is about to replace, or be added to — so the change line can
+ * say "you'd put £30,000". Reads the deal's own param, or the strategy's own
+ * default when the param is absent. Returns null when the fact carries no number
+ * for this strategy, or when it is an added cost with nothing to name. (P6)
+ */
+export function previousValueFor(strategy: string, urlParams: string, factType: string): number | null {
+  const type = factTypeFor(factType);
+  const rule = type?.kind === 'number' ? type.applies?.[strategy] : undefined;
+  if (!rule || rule.mode !== 'replace') return null;
+  const params = new URLSearchParams(urlParams);
+  const raw = params.get(rule.param);
+  const typed = Number(raw);
+  if (raw !== null && raw !== '' && Number.isFinite(typed)) return typed;
+  const fallback = defaultFor(strategy, rule.param);
+  return fallback > 0 ? fallback : null;
 }
 
 /** Facts that carry no maths for this strategy: what the deal should say. */

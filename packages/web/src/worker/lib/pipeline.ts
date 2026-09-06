@@ -48,6 +48,12 @@ export interface AnalyserDealPayload {
    * silently different one. See migrations/0012.
    */
   soldEvidence: string;
+  /**
+   * HMO only: how many rooms failed the statutory minimum at save time, or null
+   * when they were never measured. Lives in the analyser page, never in the URL,
+   * so a browser re-score cannot know it unless we keep it (P6 review).
+   */
+  roomSizeFailures: number | null;
 }
 
 const isJson = (s: unknown): s is string => {
@@ -101,6 +107,8 @@ export function parseAnalyserDeal(body: unknown, isDealStrategy: (s: string) => 
     isAuction: b.is_auction === true,
     source,
     soldEvidence: parseSoldEvidence(b.sold_evidence),
+    roomSizeFailures: typeof b.room_size_failures === 'number' && Number.isFinite(b.room_size_failures) && b.room_size_failures >= 0
+      ? Math.round(b.room_size_failures) : null,
   } as AnalyserDealPayload;
 }
 
@@ -133,19 +141,98 @@ export interface DealRow {
 /**
  * Saving from the analyser makes the numbers ON SCREEN the deal's own — and that
  * page was opened with the deal's facts already applied, so those corrections are
- * now IN the saved numbers. Leaving them attached would apply them twice (a
- * survey finding would be added to a refurb that already includes it), so the
- * facts that moved the maths are folded in and removed. A fact that changes no
- * input — a covenant, a short lease, a cost this strategy cannot use — was never
- * folded into anything, so it stays. The verdict snapshots keep the history (P5.1).
+ * now IN the saved numbers. Applying them again would count an added cost twice.
+ *
+ * They are MARKED folded, never deleted (P6 review): the deal still lists them,
+ * with the note the person typed, and `applyFacts` stops applying them. A fact
+ * that changes no input — a covenant, a short lease, a cost this strategy cannot
+ * use — was never folded into anything, so it is left alone.
+ *
+ * Returns the statements to run, so the fold lands in the SAME batch as the
+ * numbers it belongs to.
  */
-export async function foldFactsIntoParams(db: D1Database, dealId: string, strategy: string): Promise<number> {
-  const rows = await db.prepare('SELECT id, fact_type FROM deal_facts WHERE deal_id = ?').bind(dealId).all<{ id: string; fact_type: string }>();
-  const folded = rows.results.filter((r) => factMoves(r.fact_type, strategy)).map((r) => r.id);
-  if (folded.length === 0) return 0;
+export async function foldFactsIntoParams(
+  db: D1Database, dealId: string, strategy: string, upTo?: string,
+): Promise<D1PreparedStatement[]> {
+  const rows = await db
+    .prepare('SELECT id, fact_type, entered_at FROM deal_facts WHERE deal_id = ? AND folded_at IS NULL')
+    .bind(dealId)
+    .all<{ id: string; fact_type: string; entered_at: string }>();
+  // Only the facts that were ON THE PAGE. A fact entered after it was opened —
+  // in another tab — was never in these numbers and must keep applying.
+  const folded = rows.results
+    .filter((r) => factMoves(r.fact_type, strategy))
+    .filter((r) => upTo === undefined || r.entered_at <= upTo)
+    .map((r) => r.id);
+  if (folded.length === 0) return [];
   const marks = folded.map(() => '?').join(',');
-  await db.prepare(`DELETE FROM deal_facts WHERE deal_id = ? AND id IN (${marks})`).bind(dealId, ...folded).run();
-  return folded.length;
+  return [
+    db.prepare(`UPDATE deal_facts SET folded_at = ? WHERE deal_id = ? AND id IN (${marks})`)
+      .bind(new Date().toISOString(), dealId, ...folded),
+  ];
+}
+
+/**
+ * A verdict CHANGE worth telling someone about (P6). Stored in the same batch as
+ * the fact that caused it, so a card can never announce something the database
+ * does not hold — and so the announcement survives the tab being closed.
+ */
+export interface ChangeRow {
+  id: string;
+  deal_id: string;
+  fact_type: string;
+  fact_value: number | null;
+  previous_value: number | null;
+  from_score: number;
+  to_score: number;
+  to_verdict_line: string;
+  at: string;
+  acknowledged_at: string | null;
+}
+
+/** What the browser sends when a re-score crossed a threshold. */
+export interface FactChange {
+  fromScore: number;
+  toScore: number;
+  previousValue: number | null;
+  toVerdictLine: string;
+}
+
+/** Every unacknowledged-or-recent change on a user's deals, newest first. */
+export async function listChanges(db: D1Database, userId: string): Promise<ChangeRow[]> {
+  const rows = await db
+    .prepare(
+      `SELECT c.id, c.deal_id, c.fact_type, c.fact_value, c.previous_value, c.from_score,
+              c.to_score, c.to_verdict_line, c.at, c.acknowledged_at
+         FROM deal_changes c JOIN deals d ON d.id = c.deal_id
+        WHERE d.user_id = ? AND c.acknowledged_at IS NULL
+        ORDER BY c.at DESC`,
+    )
+    .bind(userId)
+    .all<ChangeRow>();
+  return rows.results;
+}
+
+/** Mark one change seen. Ownership is enforced through the deal. */
+export async function ackChange(db: D1Database, userId: string, dealId: string, changeId: string): Promise<boolean> {
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned) return false;
+  const res = await db
+    .prepare('UPDATE deal_changes SET acknowledged_at = ? WHERE id = ? AND deal_id = ? AND acknowledged_at IS NULL')
+    .bind(new Date().toISOString(), changeId, dealId)
+    .run();
+  return (res.meta?.changes ?? 0) > 0;
+}
+
+/** The score at each evidence step, oldest first — the sparkline's own data. */
+export async function scoreHistory(db: D1Database, userId: string, dealId: string): Promise<{ score: number; at: string }[]> {
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned) return [];
+  const rows = await db
+    .prepare('SELECT score, at FROM deal_verdicts WHERE deal_id = ? AND score IS NOT NULL ORDER BY at, rowid')
+    .bind(dealId)
+    .all<{ score: number; at: string }>();
+  return rows.results;
 }
 
 export interface FactRow { id: string; deal_id: string; fact_type: string; value_json: string; entered_at: string }
@@ -228,6 +315,7 @@ function verdictStatements(db: D1Database, dealId: string, v: FactVerdict, at: s
 
 export async function recordFact(
   db: D1Database, dealId: string, factType: string, valueJson: string, verdict?: FactVerdict,
+  change?: { id: string; value: number | null; change: FactChange },
 ): Promise<string> {
   if (!isFactType(factType)) throw new Error(`unknown fact type: ${factType}`);
   const now = new Date().toISOString();
@@ -237,6 +325,10 @@ export async function recordFact(
       .bind(id, dealId, factType, valueJson, now),
     db.prepare('UPDATE deals SET updated_at = ? WHERE id = ?').bind(now, dealId),
     ...(verdict ? verdictStatements(db, dealId, verdict, now) : []),
+    ...(change
+      ? [db.prepare('INSERT INTO deal_changes (id, deal_id, fact_type, fact_value, previous_value, from_score, to_score, to_verdict_line, at, acknowledged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)')
+        .bind(change.id, dealId, factType, change.value, change.change.previousValue, change.change.fromScore, change.change.toScore, change.change.toVerdictLine, now)]
+      : []),
   ]);
   return id;
 }
@@ -247,13 +339,15 @@ export interface FactRow {
   fact_type: string;
   value_json: string;
   entered_at: string;
+  /** Set when the fact was folded into the deal's own numbers (P6). */
+  folded_at: string | null;
 }
 
 /** Every fact on a user's deals, oldest first — the board applies them itself. */
 export async function listFacts(db: D1Database, userId: string): Promise<FactRow[]> {
   const rows = await db
     .prepare(
-      `SELECT f.id, f.deal_id, f.fact_type, f.value_json, f.entered_at
+      `SELECT f.id, f.deal_id, f.fact_type, f.value_json, f.entered_at, f.folded_at
          FROM deal_facts f JOIN deals d ON d.id = f.deal_id
         WHERE d.user_id = ? ORDER BY f.entered_at`,
     )
@@ -387,8 +481,14 @@ export async function upsertPipelineDeal(
       // is_auction is STICKY: MAX keeps a once-true flag true across re-saves (a
       // re-opened deal's url no longer carries the auction marker, so the payload
       // would otherwise reset it to 0).
-      db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, verdict_line = ?, is_auction = MAX(is_auction, ?), sold_evidence = ?, updated_at = ? WHERE id = ? AND user_id = ?')
-        .bind(payload.score, payload.title, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, payload.soldEvidence, now, ctx.id, ctx.userId),
+      // A save with NOTHING COMPUTED (no comparables, incomplete inputs) updates
+      // the title and nothing else. It must never blank a score, a verdict line
+      // or the evidence a real analysis left behind (P6 review).
+      payload.score === null
+        ? db.prepare('UPDATE deals SET title = ?, is_auction = MAX(is_auction, ?), updated_at = ? WHERE id = ? AND user_id = ?')
+          .bind(payload.title, payload.isAuction ? 1 : 0, now, ctx.id, ctx.userId)
+        : db.prepare('UPDATE deals SET current_score = ?, title = ?, headline_figure = ?, verdict_line = ?, is_auction = MAX(is_auction, ?), sold_evidence = ?, room_size_failures = ?, updated_at = ? WHERE id = ? AND user_id = ?')
+          .bind(payload.score, payload.title, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, payload.soldEvidence, payload.roomSizeFailures, now, ctx.id, ctx.userId),
       db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')
         .bind(crypto.randomUUID(), ctx.id, payload.score, payload.criteriaJson, payload.evidenceJson, now),
     ]);
@@ -396,8 +496,8 @@ export async function upsertPipelineDeal(
   }
   if (!canAddLiveDeal(await countLiveDeals(db, ctx.userId))) return 'at-cap';
   await db.batch([
-    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, sold_evidence, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)')
-      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, 'live', payload.source, payload.soldEvidence, now, now),
+    db.prepare('INSERT INTO deals (id, user_id, strategy, title, postcode_sector, stage, current_score, headline_figure, verdict_line, is_auction, status, dead_reason, source, sold_evidence, room_size_failures, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)')
+      .bind(ctx.id, ctx.userId, payload.strategy, payload.title, ctx.postcodeSector, INITIAL_STAGE, payload.score, payload.headlineFigure, payload.verdictLine, payload.isAuction ? 1 : 0, 'live', payload.source, payload.soldEvidence, payload.roomSizeFailures, now, now),
     db.prepare('INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES (?, ?, NULL, ?, ?)')
       .bind(crypto.randomUUID(), ctx.id, INITIAL_STAGE, now),
     db.prepare('INSERT INTO deal_verdicts (id, deal_id, score, criteria_json, evidence_json, at) VALUES (?, ?, ?, ?, ?, ?)')

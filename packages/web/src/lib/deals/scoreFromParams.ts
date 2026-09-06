@@ -16,7 +16,8 @@
  * measures a room:
  *  - the sold-price band only if the deal stored one (P5.1); without it, that
  *    component scores as unknown, and the board says so on the card;
- *  - HMO room sizes are unmeasured (they live in the page, never in the URL);
+ *  - HMO room sizes only if the deal stored the result (P6); without it they
+ *    score as unmeasured, exactly as a freshly opened page does;
  *  - the country comes from the postcode area, not from ONSPD.
  * Nothing here is invented — it is the same engine on less evidence.
  */
@@ -105,7 +106,9 @@ const thresholdsOf = (config: StrategyConfig): Record<string, number> =>
  * Every strategy is a purchase in Wales or England; the country comes from the
  * postcode's own prefix so the tax is the one the analyser would charge.
  */
-export function scoreFromParams(strategy: string, urlParams: string, evidence?: SoldEvidence | null): ParamScore {
+export function scoreFromParams(
+  strategy: string, urlParams: string, evidence?: SoldEvidence | null, roomSizeFailures?: number | null,
+): ParamScore {
   const params = new URLSearchParams(urlParams);
   const config = configFor(strategy);
   // The SAME third argument the analyser passes: the sold-price band. Undefined
@@ -177,6 +180,11 @@ export function scoreFromParams(strategy: string, urlParams: string, evidence?: 
   // The analyser defaults to four rooms and reports room sizes as UNKNOWN
   // (null, not zero) until someone types them — match both exactly, or the card
   // and the page disagree.
+  // '7plus' is sui generis: the analyser REFUSES to score it (it is a planning
+  // question, not a maths one). Refuse it here too, rather than inventing a
+  // score for a deal the page itself will not score (P6 review).
+  const roomsRaw = str('rooms');
+  if (roomsRaw !== '' && !(Number(roomsRaw) > 0)) throw new Error(`hmo cannot be scored with rooms "${roomsRaw}"`);
   const rooms = num('rooms') > 0 ? num('rooms') : 4;
   const selfManaged = str('mgmt') === 'self';
   const inputs = {
@@ -184,7 +192,9 @@ export function scoreFromParams(strategy: string, urlParams: string, evidence?: 
     refurb: num('refurbCost'), buyingAs, selfManaged, depositPct: num('deposit'), ratePct: num('rate'),
     opCostPct: selfManaged ? num('opCostPctSelf') : num('opCostPctAgent'),
     licenceFee: num('licenceFee'), licenceYears: 5, compliancePerYear: num('compliancePerYear'),
-    legals: num('legals'), stressRatePct: num('stressRate'), taxBasis, roomSizeFailures: null,
+    legals: num('legals'), stressRatePct: num('stressRate'), taxBasis,
+    // What the SAVE knew: null only when the rooms were never measured.
+    roomSizeFailures: roomSizeFailures ?? null,
     thresholds: thresholdsOf(config),
   } as never;
   const a = analyseHmo(inputs);

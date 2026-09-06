@@ -94,6 +94,34 @@ describe('the stored band is genuinely what moves it', () => {
   });
 });
 
+describe('an HMO knows what its score knew (P6 review)', () => {
+  const HMO = 'postcode=SA1+6HW&price=220000&type=T&roomRent=650&refurbCost=45000&rooms=6';
+
+  it('measured rooms are not forgotten by a re-score', () => {
+    // The measurements live in the analyser page, never in the URL. A deal that
+    // stored the result must keep scoring against it.
+    const measured = scoreFromParams('hmo', HMO, null, 0);
+    const unmeasured = scoreFromParams('hmo', HMO, null, null);
+    const failing = scoreFromParams('hmo', HMO, null, 2);
+    expect(measured.score).not.toBe(unmeasured.score);
+    expect(failing.score).toBeLessThan(measured.score);
+  });
+
+  it('add a fact and remove it: an HMO with measured rooms lands back exactly', () => {
+    const saved = scoreFromParams('hmo', HMO, null, 0);
+    const added = scoreFromParams('hmo', applyFacts('hmo', HMO, [quote(63_000)]), null, 0);
+    expect(added).not.toEqual(saved);
+    expect(scoreFromParams('hmo', applyFacts('hmo', HMO, []), null, 0)).toEqual(saved);
+  });
+
+  it('a sui generis HMO is REFUSED, never given a made-up score', () => {
+    // '7plus' is a planning question the analyser will not score. Nor will this.
+    expect(() => scoreFromParams('hmo', 'postcode=SA1+6HW&price=220000&roomRent=650&rooms=7plus')).toThrow();
+    // and a real room count still scores
+    expect(scoreFromParams('hmo', HMO, null, null).score).toBeGreaterThan(0);
+  });
+});
+
 describe('reading a stored band', () => {
   it('reads a real band, and treats every other shape as no evidence', () => {
     expect(parseStoredEvidence('{"estimate":210000,"high":232000}')).toEqual({ estimate: 210_000, high: 232_000 });

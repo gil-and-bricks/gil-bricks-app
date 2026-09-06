@@ -65,6 +65,13 @@ export interface FeatureFlags {
    * and a deal keeps the score it was saved with. */
   dealFacts: boolean;
 
+  /** Verdict-change messaging and the score history (P6): when a fact moves a
+   * deal's score across a meaningful threshold, the deal says so in the user's
+   * own voice and keeps saying so until they dismiss it. Off: facts still
+   * re-score exactly as they do today, but nothing announces it, no change is
+   * stored and the score history does not open. */
+  verdictChanges: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -94,6 +101,7 @@ export const features: FeatureFlags = {
   navV2: true,
   bridgingFinance: true,
   dealFacts: true,
+  verdictChanges: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,

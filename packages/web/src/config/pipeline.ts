@@ -149,6 +149,64 @@ export interface FactType {
  * the same input a person could have typed — there is no second pathway into
  * the maths, and no formula lives here.
  */
+
+/**
+ * WHEN A CHANGE IS NEWS (P6). A tenth of a point is noise; crossing from green
+ * to amber is news. Two rules, both editable here and nowhere else:
+ *  - crossing a verdict band (green ≥8 / amber ≥6 / walk away below 6) always
+ *    announces, because the ANSWER changed, not just the number;
+ *  - inside one band, a move of at least `minPoints` announces. A band is two
+ *    points wide, so a full point is half a band — enough that the deal is
+ *    materially different, while anything smaller sits inside the slack of
+ *    assumptions nobody set to the decimal.
+ * A change that clears neither rule updates the score quietly.
+ */
+export const CHANGE_RULES = {
+  onBandChange: true,
+  minPoints: 1,
+} as const;
+
+/**
+ * THE CHANGE LINE (P6). Exempt from the two-sentence copy rule by rule 7:
+ * naming the binding number IS the plain-English win, and this line is a Deal
+ * Score line. Every part is its own string, so any word can be changed here.
+ *
+ * It reads: "This was 9.4. The builder's quote £48,000 — you'd put £30,000 —
+ * moves it down to 6.8." followed by the engine's OWN verdict line, which
+ * carries the consequence and the fix.
+ */
+export const CHANGE_COPY = {
+  heading: 'The answer changed',
+  /** What the deal scored before this fact landed. */
+  was: (score: string): string => `This was ${score}.`,
+  /** The fact replaced a number the person had assumed. */
+  movesReplaced: (fact: string, value: string, previous: string, direction: string, score: string): string =>
+    `The ${fact} ${value} — you’d put ${previous} — moves it ${direction} to ${score}.`,
+  /** The fact added a cost, so there is no earlier figure to name. */
+  movesAdded: (fact: string, value: string, direction: string, score: string): string =>
+    `The ${fact} ${value} moves it ${direction} to ${score}.`,
+  /** Which way it went. Good news reads as good news. */
+  direction: { down: 'down', up: 'up' },
+  /** Said when the deal has fallen below where the score says walk away. */
+  /** Which park reason a killed deal is offered with. A KEY, so the label can be
+   * reworded above without touching this. */
+  killReasonKey: 'numbers-fail',
+  killOffer: 'That is below where you walk away.',
+  killPark: 'Park it',
+  /** Never park anything without a tap: this is the confirmation, not the act. */
+  killParkLabel: (title: string): string => `Park ${title}`,
+  dismiss: 'Got it',
+  dismissLabel: (title: string): string => `Dismiss the change on ${title}`,
+  /** The score history, opened from the deal — never sitting open on the card. */
+  historyOpen: 'Score history',
+  historyClose: 'Hide score history',
+  historyLabel: (title: string): string => `Score history for ${title}`,
+  historyPoint: (score: string, date: string): string => `${score} on ${date}`,
+  /** The score it holds today — no date, because it is the one you are looking at. */
+  historyNow: (score: string): string => `${score} now`,
+  historyEmpty: 'No history yet.',
+} as const;
+
 /**
  * Said when a fact cannot re-score THIS deal. A comparables deal has no strategy
  * maths at all; a scored deal can still meet a fact its strategy has no input
@@ -330,6 +388,8 @@ export const BOARD_COPY = {
     factRemove: 'Remove',
     factRemoveLabel: (label: string) => `Remove ${label}`,
     factOn: (date: string) => `added ${date}`,
+    /** A fact already inside the deal's own numbers: kept as the record, not removable. */
+    factFolded: 'in the numbers',
     /** Said back after a successful move or park — the card jumps columns, so
      *  without this nothing confirmed anything happened (D1). */
     moved: (stage: string): string => `Moved to ${stage}.`,

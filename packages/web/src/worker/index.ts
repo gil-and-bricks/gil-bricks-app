@@ -26,7 +26,7 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { canAddLiveDeal, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactVerdict } from './lib/pipeline';
+import { ackChange, canAddLiveDeal, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
 import { DEAD_STAGE, isFactType, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
@@ -422,16 +422,39 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
   // strategy, or it is ignored entirely.
   const claimedId = typeof (body as { deal_id?: unknown }).deal_id === 'string'
     ? String((body as { deal_id?: unknown }).deal_id) : '';
+  // A LIVE deal only. A re-save must never quietly rewrite one that has been
+  // parked or bought: that record is the story of a decision already made, and
+  // the numbers it died on are the evidence for it (P6 review).
   const claimed = /^[0-9a-f-]{36}$/.test(claimedId)
-    ? await env.DB.prepare('SELECT id, url_params FROM saved_deals WHERE id = ? AND user_id = ? AND strategy = ?')
+    ? await env.DB.prepare(
+      `SELECT s.id, s.url_params FROM saved_deals s JOIN deals d ON d.id = s.id
+        WHERE s.id = ? AND s.user_id = ? AND s.strategy = ? AND d.status = 'live'`,
+    )
       .bind(claimedId, user.sub, strategy)
       .first<{ id: string; url_params: string }>()
     : null;
   // ...and only while it is still the SAME PROPERTY. Someone can open a deal and
   // then type a different address into the analyser; saving that must make a new
   // deal, not overwrite the one they came from. The postcode is the check.
-  const pcOf = (params: string): string => (new URLSearchParams(params).get('postcode') ?? '').toUpperCase().replace(/\s+/g, '');
-  const owned = claimed !== null && pcOf(claimed.url_params) === pcOf(urlParams) && pcOf(urlParams) !== '' ? claimed : null;
+  const partOf = (params: string, key: string): string =>
+    (new URLSearchParams(params).get(key) ?? '').toUpperCase().replace(/\s+/g, '');
+  /**
+   * The same property, or a different one? The postcode must match. Where BOTH
+   * sides also name a building or a flat, those must match too — two flats share
+   * one postcode, and overwriting the wrong deal loses it. Where one side is
+   * silent we do not block: adding a house number to a deal that never had one
+   * is the same deal gaining detail, not a different property (P6 review).
+   */
+  const samePlace = (a: string, b: string): boolean => {
+    if (partOf(a, 'postcode') === '' || partOf(a, 'postcode') !== partOf(b, 'postcode')) return false;
+    for (const key of ['paon', 'saon']) {
+      const x = partOf(a, key);
+      const y = partOf(b, key);
+      if (x !== '' && y !== '' && x !== y) return false;
+    }
+    return true;
+  };
+  const owned = claimed !== null && samePlace(claimed.url_params, urlParams) ? claimed : null;
   // If some OTHER saved deal already holds these exact params, that row is this
   // property under these numbers — merge onto it rather than breaking the unique
   // index. Otherwise the deal we were opened from wins.
@@ -475,12 +498,20 @@ async function handleSaveDeal(request: Request, env: Env): Promise<Response> {
     // The page was opened from this deal WITH its facts applied, and those numbers
     // have just been saved as the deal's own. Fold the corrections in so nothing
     // is counted twice — see foldFactsIntoParams.
+    // ONLY when we actually saved onto the deal we were opened from, and only
+    // when there was a real verdict to save: a page with nothing computed put
+    // nothing into these numbers, so it can fold nothing in (P6 review).
     let folded = 0;
-    // ONLY when we actually saved onto the deal we were opened from: in the merge
-    // case above the save lands on a different row, and that row's facts were
-    // never folded into these numbers.
-    if (features.dealFacts && owned !== null && dealId === owned.id && owned.url_params !== urlParams) {
-      folded = await foldFactsIntoParams(env.DB, dealId, strategy);
+    if (features.dealFacts && owned !== null && dealId === owned.id && owned.url_params !== urlParams && payload.score !== null) {
+      // Only the facts that were on the page when it opened — one entered since,
+      // in another tab, was never in these numbers and must keep applying.
+      const asOfRaw = (body as { facts_as_of?: unknown }).facts_as_of;
+      const asOf = typeof asOfRaw === 'string' ? asOfRaw.slice(0, 40) : undefined;
+      const stmts = await foldFactsIntoParams(env.DB, dealId, strategy, asOf);
+      if (stmts.length > 0) {
+        await env.DB.batch(stmts);
+        folded = stmts.length;
+      }
     }
     return json({ ok: true, id: dealId, updated: r === 'updated', pipeline: true, foldedFacts: folded });
   }
@@ -528,7 +559,7 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // honest fallback for migrated/older deals that predate it.
     const rows = await env.DB.prepare(
       `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
-              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, s.url_params, s.key_figure,
+              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures, s.url_params, s.key_figure,
               COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
          FROM deals d JOIN saved_deals s ON s.id = d.id
         WHERE d.user_id = ?
@@ -559,9 +590,12 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
       } catch {
         /* a malformed row is shown as a fact with no number rather than lost */
       }
-      return { id: r.id, deal_id: r.deal_id, fact_type: r.fact_type, value, note, entered_at: r.entered_at };
+      return { id: r.id, deal_id: r.deal_id, fact_type: r.fact_type, value, note, entered_at: r.entered_at, folded_at: r.folded_at };
     });
-    return json({ pipeline: true, deals, facts, liveCount, cap: MAX_LIVE_DEALS });
+    // P6: the changes nobody has seen yet travel with the board, so an
+    // announcement survives a reload exactly as it survives a closed tab.
+    const changes = features.verdictChanges ? await listChanges(env.DB, user.sub) : [];
+    return json({ pipeline: true, deals, facts, changes, liveCount, cap: MAX_LIVE_DEALS });
   }
 
   // ---- flag OFF: exactly today's flat saved-deals list ----
@@ -837,6 +871,30 @@ function readFactVerdict(body: Record<string, unknown>): FactVerdict | undefined
   };
 }
 
+/**
+ * The verdict CHANGE a fact caused (P6). The browser decided it was worth saying
+ * — it has both scores and the rules from config — and sends the facts of it.
+ * The server stores those facts, never a finished sentence: the wording lives in
+ * config so it can be reworded later, for old changes too.
+ */
+function readFactChange(body: Record<string, unknown>): FactChange | undefined | 'bad' {
+  const raw = body.change;
+  if (raw === undefined || raw === null) return undefined;
+  if (typeof raw !== 'object') return 'bad';
+  const c = raw as Record<string, unknown>;
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+  const from = num(c.from_score);
+  const to = num(c.to_score);
+  if (from === null || to === null || from < 0 || from > 10 || to < 0 || to > 10) return 'bad';
+  const previous = num(c.previous_value);
+  return {
+    fromScore: from,
+    toScore: to,
+    previousValue: previous !== null && previous >= 0 ? previous : null,
+    toVerdictLine: String(c.to_verdict_line ?? '').slice(0, 200).trim(),
+  };
+}
+
 async function handleAddFact(request: Request, env: Env, dealId: string): Promise<Response> {
   if (!features.dealPipeline || !features.dealFacts) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
@@ -857,8 +915,14 @@ async function handleAddFact(request: Request, env: Env, dealId: string): Promis
   const note = String(body.note ?? '').slice(0, 200).trim();
   const verdict = readFactVerdict(body);
   if (verdict === 'bad') return json({ error: 'bad request' }, 400);
-  const id = await recordFact(env.DB, dealId, factType, JSON.stringify({ value, note: note === '' ? null : note }), verdict);
-  return json({ id });
+  const change = features.verdictChanges ? readFactChange(body) : undefined;
+  if (change === 'bad') return json({ error: 'bad request' }, 400);
+  const changeId = change ? crypto.randomUUID() : null;
+  const id = await recordFact(
+    env.DB, dealId, factType, JSON.stringify({ value, note: note === '' ? null : note }), verdict,
+    change && changeId ? { id: changeId, value, change } : undefined,
+  );
+  return json({ id, changeId });
 }
 
 /** P5 — remove a fact entered wrongly. The browser re-scores without it. */
@@ -878,6 +942,24 @@ async function handleDeleteFact(request: Request, env: Env, dealId: string, fact
   if (verdict === 'bad') return json({ error: 'bad request' }, 400);
   const ok = await deleteFact(env.DB, user.sub, dealId, factId, verdict);
   return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
+}
+
+/** P6: the person has seen the change. It stops showing, and P8 stops ranking it. */
+async function handleAckChange(request: Request, env: Env, dealId: string, changeId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.verdictChanges) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const ok = await ackChange(env.DB, user.sub, dealId, changeId);
+  return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
+}
+
+/** P6: the score at each evidence step, from the snapshots P5 has been writing. */
+async function handleDealHistory(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.verdictChanges) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const points = await scoreHistory(env.DB, user.sub, dealId);
+  return json({ points });
 }
 
 /** P4: park/kill a deal with a one-chip reason (P9 builds the full graveyard). */
@@ -972,6 +1054,10 @@ export default {
       if (fa && method === 'POST') return handleAddFact(request, env, fa[1]);
       const fd = /^\/api\/deals\/([0-9a-f-]{36})\/facts\/([0-9a-f-]{36})$/.exec(pathname);
       if (fd && method === 'DELETE') return handleDeleteFact(request, env, fd[1], fd[2]);
+      const ac = /^\/api\/deals\/([0-9a-f-]{36})\/changes\/([0-9a-f-]{36})\/ack$/.exec(pathname);
+      if (ac && method === 'POST') return handleAckChange(request, env, ac[1], ac[2]);
+      const hi = /^\/api\/deals\/([0-9a-f-]{36})\/history$/.exec(pathname);
+      if (hi && method === 'GET') return handleDealHistory(request, env, hi[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

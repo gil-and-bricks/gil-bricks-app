@@ -20,7 +20,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -139,6 +139,26 @@ describe('re-saving a deal opened from its own card', () => {
     expect((sqlite.prepare('SELECT url_params u FROM saved_deals WHERE id = ?').get(first.id) as { u: string }).u).toBe(BASE.url_params);
   });
 
+  it('a different flat at the SAME postcode is a different deal', async () => {
+    const h = await authed();
+    const flat2 = await (await save(h, { url_params: 'postcode=CF10+1AA&paon=12&saon=Flat+2&price=135000&type=F&rent=1100' })).json() as { id: string };
+    const res = await (await save(h, {
+      deal_id: flat2.id, title: 'Flat · CF10 1AA · £150,000',
+      url_params: 'postcode=CF10+1AA&paon=12&saon=Flat+5&price=150000&type=F&rent=1200',
+    })).json() as { id: string };
+    expect(res.id).not.toBe(flat2.id);
+    expect(count('deals')).toBe(2);
+    expect((sqlite.prepare('SELECT url_params u FROM saved_deals WHERE id = ?').get(flat2.id) as { u: string }).u).toContain('Flat+2');
+  });
+
+  it('adding a house number to a deal that never had one is the SAME deal', async () => {
+    const h = await authed();
+    const first = await (await save(h)).json() as { id: string };
+    const again = await (await save(h, { deal_id: first.id, url_params: `${BASE.url_params}&paon=31` })).json() as { id: string };
+    expect(again.id).toBe(first.id);
+    expect(count('deals')).toBe(1);
+  });
+
   it('the same postcode written differently is still the same property', async () => {
     const h = await authed();
     const first = await (await save(h)).json() as { id: string };
@@ -209,7 +229,7 @@ describe('a re-save folds the corrections into the numbers', () => {
 
   beforeEach(() => { features.dealFacts = true; });
 
-  it('a fact that moved the numbers is folded in, so nothing is counted twice', async () => {
+  it('a fact that moved the numbers is MARKED folded — kept, but no longer applied', async () => {
     const h = await authed();
     const first = await (await save(h)).json() as { id: string };
     await addFact(h, first.id, 'survey-finding', 6000); // an ADD: double counting would show here
@@ -217,9 +237,10 @@ describe('a re-save folds the corrections into the numbers', () => {
     // the analyser is opened on the corrected numbers and saved
     const res = await (await save(h, { deal_id: first.id, url_params: BASE.url_params.replace('refurbCost=30000', 'refurbCost=36000') })).json() as { foldedFacts: number };
     expect(res.foldedFacts).toBe(1);
-    expect(count('deal_facts')).toBe(0);
+    // NOTHING is destroyed: the fact and the note the person typed are still there
+    expect(count('deal_facts')).toBe(1);
+    expect((sqlite.prepare('SELECT folded_at f FROM deal_facts').get() as { f: string | null }).f).toBeTruthy();
     expect(count('deals')).toBe(1);
-    // the history is NOT lost: the snapshots the fact wrote are still there
     expect(count('deal_verdicts')).toBeGreaterThanOrEqual(2);
   });
 
@@ -230,8 +251,51 @@ describe('a re-save folds the corrections into the numbers', () => {
     await addFact(h, first.id, 'builder-quote', 48000);
     expect(count('deal_facts')).toBe(2);
     await save(h, { deal_id: first.id, url_params: CORRECTED });
-    const left = sqlite.prepare('SELECT fact_type FROM deal_facts').all() as { fact_type: string }[];
-    expect(left.map((f) => f.fact_type)).toEqual(['covenant']);
+    const left = sqlite.prepare('SELECT fact_type, folded_at FROM deal_facts ORDER BY fact_type').all() as { fact_type: string; folded_at: string | null }[];
+    expect(left.find((f) => f.fact_type === 'covenant')?.folded_at).toBeNull();
+    expect(left.find((f) => f.fact_type === 'builder-quote')?.folded_at).toBeTruthy();
+  });
+
+  it('a fact entered AFTER the page was opened is not folded — it was never in those numbers', async () => {
+    const h = await authed();
+    const first = await (await save(h)).json() as { id: string };
+    await addFact(h, first.id, 'builder-quote', 48000);
+    const openedAt = (sqlite.prepare('SELECT entered_at e FROM deal_facts').get() as { e: string }).e;
+    // a second fact lands in another tab, after the analyser page was opened
+    sqlite.prepare("INSERT INTO deal_facts (id, deal_id, fact_type, value_json, entered_at) VALUES (?, ?, 'survey-finding', '{\"value\":900}', ?)")
+      .run('44444444-4444-4444-8444-444444444444', first.id, '2099-01-01T00:00:00.000Z');
+    const res = await (await save(h, { deal_id: first.id, url_params: CORRECTED, facts_as_of: openedAt })).json() as { foldedFacts: number };
+    expect(res.foldedFacts).toBe(1);
+    const later = sqlite.prepare("SELECT folded_at f FROM deal_facts WHERE fact_type = 'survey-finding'").get() as { f: string | null };
+    expect(later.f, 'the later fact still applies').toBeNull();
+  });
+
+  it('a save with nothing computed never blanks the score, the band or the facts', async () => {
+    const h = await authed();
+    const first = await (await save(h)).json() as { id: string };
+    await addFact(h, first.id, 'builder-quote', 48000);
+    // the analyser with no verdict yet: no score, no evidence
+    const res = await (await save(h, { deal_id: first.id, url_params: CORRECTED, score: null, sold_evidence: 'null', headline_figure: '', verdict_line: '' })).json() as { foldedFacts: number };
+    expect(res.foldedFacts).toBe(0);
+    const d = deal();
+    expect(d.current_score).toBe(7.2);
+    expect(d.verdict_line).toBe(BASE.verdict_line);
+    expect(d.sold_evidence).toBe('{"estimate":157500,"high":172500}');
+    expect((sqlite.prepare('SELECT folded_at f FROM deal_facts').get() as { f: string | null }).f).toBeNull();
+  });
+
+  it('a PARKED deal is never rewritten by a re-save from its own page', async () => {
+    const h = await authed();
+    const first = await (await save(h)).json() as { id: string };
+    await worker.fetch(new Request(`https://s.test/api/deals/${first.id}/dead`, {
+      method: 'POST', headers: { ...h, 'content-type': 'application/json' }, body: JSON.stringify({ reason: 'Numbers don’t work' }),
+    }), env());
+    expect((sqlite.prepare('SELECT status FROM deals WHERE id = ?').get(first.id) as { status: string }).status, 'the park must have worked').toBe('dead');
+    const res = await (await save(h, { deal_id: first.id, url_params: CORRECTED, score: 3.1 })).json() as { id: string };
+    expect(res.id).not.toBe(first.id);
+    const parked = sqlite.prepare('SELECT status, current_score FROM deals WHERE id = ?').get(first.id) as { status: string; current_score: number };
+    expect(parked.status).toBe('dead');
+    expect(parked.current_score, 'the parked deal keeps the numbers it died on').toBe(7.2);
   });
 
   it('a save that lands on another row folds nothing — those facts were never in it', async () => {

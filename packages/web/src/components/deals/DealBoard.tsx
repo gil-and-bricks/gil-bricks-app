@@ -15,15 +15,20 @@ import { strategies } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { dealHref } from '../../lib/deals/deal';
 import { DealFacts } from './DealFacts';
-import { applyFacts, factMoves, factNotes, factTypeFor, type DealFact } from '../../lib/deals/facts';
+import { applyFacts, factMoves, factNotes, factTypeFor, previousValueFor, type DealFact } from '../../lib/deals/facts';
+import { isNews, unseen, type DealChange } from '../../lib/deals/changes';
+import { DealChangeNote } from './DealChange';
+import { ScoreHistory } from './ScoreHistory';
 import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromParams';
 import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
-import { ALL_STAGES, BOARD_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
+import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
   id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
 
 const STAGE_ORDER = PROGRESS_STAGES.map((s) => s.key);
+/** The reason a deal killed by a fact is offered with — chosen in config by key. */
+const KILL_REASON = PARK_REASONS.find((r) => r.key === CHANGE_COPY.killReasonKey)?.label ?? '';
 
 export function DealBoard() {
   const [deals, setDeals] = useState<BoardDeal[] | null | 'error'>(null);
@@ -38,25 +43,41 @@ export function DealBoard() {
   const [showParked, setShowParked] = useState(false);
   /** P5: every fact on every deal, applied in the browser before re-scoring. */
   const [facts, setFacts] = useState<DealFact[]>([]);
+  /** P6: the verdict changes nobody has seen yet. They outlive the tab. */
+  const [changes, setChanges] = useState<DealChange[]>([]);
   const isBusy = (id: string): boolean => (pending[id] ?? 0) > 0;
   const setBusy = (id: string, on: boolean): void =>
     setPending((prev) => ({ ...prev, [id]: Math.max(0, (prev[id] ?? 0) + (on ? 1 : -1)) }));
 
+  const loadBoard = (first: boolean): void => {
+    fetch('/api/deals')
+      .then((r) => {
+        if (!r.ok) throw new Error(String(r.status));
+        return r.json();
+      })
+      .then((b: { deals: BoardDeal[]; cap: number; facts?: DealFact[]; changes?: DealChange[] }) => {
+        setDeals(b.deals);
+        setCap(b.cap);
+        setFacts(b.facts ?? []);
+        setChanges(b.changes ?? []);
+      })
+      .catch(() => { if (first) setDeals('error'); });
+  };
+
   useEffect(() => {
     void loadMe().then((v) => {
       if (v === null) return;
-      fetch('/api/deals')
-        .then((r) => {
-          if (!r.ok) throw new Error(String(r.status));
-          return r.json();
-        })
-        .then((b: { deals: BoardDeal[]; cap: number; facts?: DealFact[] }) => {
-          setDeals(b.deals);
-          setCap(b.cap);
-          setFacts(b.facts ?? []);
-        })
-        .catch(() => setDeals('error'));
+      loadBoard(true);
     });
+    // A deal can change in the OTHER tab — the analyser saves, folds facts in and
+    // moves the numbers. Coming back to this tab re-reads the board, so it can
+    // never re-score from params the deal no longer has (P6 review).
+    if (typeof document === 'undefined') return undefined;
+    const onShow = (): void => {
+      if (document.visibilityState === 'visible' && me.value) loadBoard(false);
+    };
+    document.addEventListener('visibilitychange', onShow);
+    return () => document.removeEventListener('visibilitychange', onShow);
   }, []);
 
   // ---- optimistic move + honest rollback ----
@@ -128,7 +149,16 @@ export function DealBoard() {
    * again, because the drift does not go away when the fact that exposed it does.
    */
   const evidenceUnknown = (deal: BoardDeal): boolean =>
-    deal.sold_evidence === null || deal.sold_evidence === undefined;
+    // ...and only where the strategy actually scores sold prices. An HMO has no
+    // such component, so it has nothing to have lost (P6 review).
+    (deal.sold_evidence === null || deal.sold_evidence === undefined)
+    && (strategies.find((s) => s.id === deal.strategy)?.score ?? []).some((c) => c.key === 'evidence');
+
+  /** The newest fact these params include, so a save folds in only what was here. */
+  const factsAsOf = (dealId: string): string | undefined => {
+    const applied = factsFor(dealId).filter((f) => f.folded_at === null || f.folded_at === undefined);
+    return applied.length === 0 ? undefined : applied.map((f) => f.entered_at).sort().slice(-1)[0];
+  };
 
   /** The deal's params AS THE FACTS LEAVE THEM — this is the truth from now on. */
   const paramsFor = (deal: BoardDeal): string => applyFacts(deal.strategy, deal.url_params, factsFor(deal.id));
@@ -142,7 +172,7 @@ export function DealBoard() {
   const rescoreBody = (deal: BoardDeal, dealFacts: DealFact[]): Record<string, unknown> | null => {
     const params = applyFacts(deal.strategy, deal.url_params, dealFacts);
     try {
-      const scored = scoreFromParams(deal.strategy, params, evidenceFor(deal));
+      const scored = scoreFromParams(deal.strategy, params, evidenceFor(deal), deal.room_size_failures ?? null);
       return {
         score: scored.score,
         verdict_line: scored.verdict,
@@ -176,15 +206,33 @@ export function DealBoard() {
       // The fact we are about to add, scored the way the analyser would score it.
       const provisional: DealFact = { id: 'pending', deal_id: deal.id, fact_type: factType, value, note, entered_at: new Date().toISOString() };
       const body = moves ? rescoreBody(deal, [...factsFor(deal.id), provisional]) : null;
+      // P6 — is the move NEWS? The rules live in config; this only asks them.
+      const from = deal.current_score;
+      const to = body ? (body.score as number) : null;
+      const announce = features.verdictChanges && body !== null && from !== null && to !== null && isNews(from, to)
+        ? {
+          from_score: from,
+          to_score: to,
+          previous_value: value === null ? null : previousValueFor(deal.strategy, deal.url_params, factType),
+          to_verdict_line: body.verdict_line as string,
+        }
+        : null;
       const res = await fetch(`/api/deals/${deal.id}/facts`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ fact_type: factType, value, note, ...(body ?? {}) }),
+        body: JSON.stringify({ fact_type: factType, value, note, ...(body ?? {}), ...(announce ? { change: announce } : {}) }),
       });
       if (!res.ok) return false;
-      const { id } = (await res.json()) as { id: string };
+      const { id, changeId } = (await res.json()) as { id: string; changeId?: string };
       setFacts((cur) => [...cur, { ...provisional, id }]);
       applyScore(deal.id, body);
+      if (announce && changeId) {
+        setChanges((cur) => [{
+          id: changeId, deal_id: deal.id, fact_type: factType, fact_value: value,
+          previous_value: announce.previous_value, from_score: announce.from_score, to_score: announce.to_score,
+          to_verdict_line: announce.to_verdict_line, at: new Date().toISOString(), acknowledged_at: null,
+        }, ...cur]);
+      }
       const label = factTypeFor(factType)?.label ?? factType;
       setNote({ id: deal.id, text: body ? BOARD_COPY.card.factAdded(label) : BOARD_COPY.card.factFlagged(label) });
       return true;
@@ -220,6 +268,22 @@ export function DealBoard() {
     } finally {
       setBusy(deal.id, false);
     }
+  };
+
+  /** P6 — the person has seen it. Marked on the server, so a reload agrees. */
+  const dismissChange = async (deal: BoardDeal, changeId: string): Promise<void> => {
+    setChanges((cur) => cur.filter((c) => c.id !== changeId));
+    await fetch(`/api/deals/${deal.id}/changes/${changeId}/ack`, { method: 'POST' }).catch(() => undefined);
+  };
+
+  /**
+   * P6 — the deal has fallen below walk-away and the person has TAPPED to park
+   * it. Nothing here happens on its own: this runs from their tap, with the
+   * reason the numbers already gave.
+   */
+  const parkKilled = async (deal: BoardDeal, changeId: string): Promise<void> => {
+    await dismissChange(deal, changeId);
+    await park(deal, KILL_REASON);
   };
 
   const now = Date.now();
@@ -291,7 +355,7 @@ export function DealBoard() {
       >
         {/* The link carries the FACT-CORRECTED params: once a quote exists, the
             analyser opens on the quote, not the original guess (P5). */}
-        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined, d.id)}>{d.title}</a>
+        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined, d.id, factsAsOf(d.id))}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
             <span class={`board-score ${verdict.cls}`} aria-label={BOARD_COPY.card.scoreLabel((d.current_score as number).toFixed(1))}>
@@ -314,6 +378,18 @@ export function DealBoard() {
 
         {note && note.id === d.id && <p class="dc-note" role="status">{note.text}</p>}
 
+        {/* P6 — the answer changed. It stays until it has been seen, and it is
+            the first thing on the card after the verdict itself. */}
+        {features.verdictChanges && unseen(changes, d.id).map((c) => (
+          <DealChangeNote
+            change={c}
+            dealTitle={d.title}
+            busy={busy}
+            onDismiss={() => void dismissChange(d, c.id)}
+            onPark={() => void parkKilled(d, c.id)}
+          />
+        ))}
+
         {features.dealFacts && (
           <DealFacts
             dealId={d.id}
@@ -325,6 +401,8 @@ export function DealBoard() {
             onRemove={(id) => removeFact(d, id)}
           />
         )}
+
+        {features.verdictChanges && verdict.scored && <ScoreHistory dealId={d.id} dealTitle={d.title} />}
 
         {/* A fact that cannot move this strategy's maths says why, and never
             invents a cost (P5). */}

@@ -7,7 +7,7 @@ import { fmtMoney, strategies } from '@gil-bricks/core';
  * strategy route plus its saved url params (exactly how a saved deal re-opens
  * today). The board is read-only: tapping a card just opens the analyser.
  */
-export function dealHref(strategy: string, urlParams: string, backfillId?: string, dealId?: string): string {
+export function dealHref(strategy: string, urlParams: string, backfillId?: string, dealId?: string, factsAt?: string): string {
   const route = strategies.find((s) => s.id === strategy)?.route;
   const base = route ? `${route}/analyser` : '/comparables';
   let href = urlParams !== '' ? `${base}?${urlParams}` : base;
@@ -15,6 +15,8 @@ export function dealHref(strategy: string, urlParams: string, backfillId?: strin
   // opens UPDATES this deal instead of creating a twin. After a fact the params
   // always differ, and params used to be the only identity there was.
   if (dealId) href += `${href.includes('?') ? '&' : '?'}deal=${encodeURIComponent(dealId)}`;
+  // The newest fact these params include. Saving folds in only what was here.
+  if (factsAt) href += `&factsAt=${encodeURIComponent(factsAt)}`;
   // A scoreless deal links with backfill=<id>: the analyser scores it on open and
   // silently persists that score to THIS deal (by id), so the card fills in.
   if (backfillId) href += `${href.includes('?') ? '&' : '?'}backfill=${encodeURIComponent(backfillId)}`;
