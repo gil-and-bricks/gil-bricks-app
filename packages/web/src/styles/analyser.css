@@ -1305,3 +1305,50 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 .dc-moved-h { margin: 0 0 var(--space-1); font-family: var(--font-display); font-weight: 700; font-size: var(--text-sm); }
 .dc-moved-line { margin: 0 0 var(--space-1); font-size: var(--text-base); font-weight: 600; line-height: 1.35; }
 .dc-moved .btn-secondary { margin-top: var(--space-2); }
+
+/* ---- D5: space reserved BEFORE the first paint -------------------------- */
+/* Two bands arrive with JavaScript and used to push the whole page down as they
+   landed. Both are knowable from the URL, so an inline script stamps <html>
+   before anything paints and the space is held from the start.
+
+   THE ARRIVAL NOTE is in the server HTML always and hidden here unless the deal
+   really came from the extension — but under a throttled load the browser still
+   painted the card before the note had space, so the space is ALSO held by the
+   container itself. The note pulls up into the band it was given, and the total
+   is identical whether it has painted yet or not.
+
+   The band is measured, not guessed: the sentence is one line down to 520px,
+   two lines to 340px, three below that. */
+html:not([data-arrived]) .arrived-note { display: none; }
+html[data-arrived] { --arrived-band: 101px; }
+@media (min-width: 340px) { html[data-arrived] { --arrived-band: 78px; } }
+@media (min-width: 520px) { html[data-arrived] { --arrived-band: 55px; } }
+html[data-arrived] .analyser { padding-top: var(--arrived-band); }
+html[data-arrived] .arrived-note { margin-top: calc(-1 * var(--arrived-band)); }
+/* Dismissing it is a tap, so the space coming back is expected, not a jolt. */
+html[data-arrived] .analyser:not(:has(.arrived-note)) { padding-top: 0; }
+
+/* THE ASYNC CARDS. The valuation, the comparables and the map all arrive after
+   the first paint, and before they do the page is short enough that the FOOTER
+   sits on screen — so every card that landed shoved it about. Holding a screen's
+   worth of height means the footer starts below the fold and stays there, and
+   the cards fill the space rather than creating it. Once the real content is
+   taller than a screen (which a loaded deal always is) this binds on nothing.
+   `svh` so a phone's collapsing address bar cannot re-trigger it.
+
+   The board does exactly the same thing: it starts as a skeleton while the
+   deals are fetched, and thirteen cards landing at once shoved the footer down
+   a screen and a half. */
+.analyser, .board-wrap { min-height: 100svh; }
+
+/* THE PROVENANCE BADGES arrive with the island and can wrap a field's label
+   onto a second line. Measured at 0.007 of shift — not worth 19px of extra
+   height on every label of every extension deal to reserve, which is what a
+   min-height here costs. Left alone deliberately (D5). */
+
+/* The sticky verdict bar is a fixed height at every width, so its own anchor
+   holds the space and the bar pulls up into it. Reserved only where a verdict
+   can actually exist — an analyser opened blank keeps its clean top. */
+:root { --sv-reserve: 53px; }
+html[data-verdict] .sv-anchor { height: var(--sv-reserve); }
+html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }

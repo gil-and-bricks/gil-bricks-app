@@ -182,9 +182,18 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
   // Quiet, one-line confirmation when opened from the extension deep link.
   // Dismisses on the first edit (editedKeys grows) or the ✕ — never nags.
   const showArrived = isFromExtension() && !arrivedDismissed && editedKeys.value.size === 0;
+  /**
+   * D5 — the note is ALWAYS in the server-rendered HTML, so it occupies its own
+   * natural height at every width from the very first paint. An inline script
+   * has already set `data-arrived` on <html> when the deal came from the
+   * extension; CSS hides the note when it has not, and hydration then drops it
+   * from a box that was taking no space. Reserving a fixed pixel height instead
+   * would be wrong at three different widths (39px, 62px, 85px).
+   */
+  const serverPass = typeof window === 'undefined';
   return (
     <div class="analyser">
-      {showArrived && (
+      {(serverPass || showArrived) && (
         <p class="arrived-note" role="status">
           <span>{complete ? COPY.analyser.fromExtension : COPY.analyser.fromExtensionPartial}</span>
           <button type="button" class="arrived-x" aria-label={ANALYSER_SHELL.dismissArrived} onClick={() => setArrivedDismissed(true)}>✕</button>

@@ -19,22 +19,24 @@ import { FOOTER } from '../../config/nav';
   <p>{OGL_ATTRIBUTION}</p>
   <p>
     {FOOTER.dataLicences}{' '}
-    <span data-asof-line hidden>{FOOTER.asOfBefore}<span data-asof></span>{FOOTER.asOfAfter}</span>
+    <span data-asof-line>{FOOTER.asOfBefore}<span data-asof></span>{FOOTER.asOfAfter}</span>
   </p>
 </footer>
 
 <script>
   import { getManifest } from '@gil-bricks/core';
-  // Only ever shown once a REAL as-of date is in hand. A dash where a date
+  // Only ever shown once a REAL as-of date is in hand — a dash where a date
   // belongs reads as broken, and if the manifest can't be reached we would be
-  // printing it for ever — better to say nothing than to say "as of —" (D3).
+  // printing it for ever (D3). It is hidden with VISIBILITY, not `hidden`, so
+  // the line holds its own space from the first paint and revealing it moves
+  // nothing (D5).
   getManifest()
     .then((m) => {
       const el = document.querySelector('[data-asof]');
       const line = document.querySelector('[data-asof-line]');
       if (!el || !line || !m.ppdMonth) return;
       el.textContent = m.ppdMonth;
-      (line as HTMLElement).hidden = false;
+      (line as HTMLElement).dataset.asofLine = 'ready';
     })
     .catch(() => {});
 </script>
@@ -42,6 +44,13 @@ import { FOOTER } from '../../config/nav';
 <style>
   .footer-contact { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
   .footer-contact a { color: var(--accent); }
+  /* D5 — the as-of line holds its space from the first paint and is revealed in
+     place, so the footer never grows under the page. */
+  /* The month itself is the only part that arrives late; holding its width in
+     CSS keeps the line from reflowing when it lands. */
+  [data-asof-line] { visibility: hidden; }
+  [data-asof] { display: inline-block; min-width: 4.5em; }
+  [data-asof-line='ready'] { visibility: visible; }
   .site-footer {
     max-width: 72rem;
     margin: var(--space-8) auto 0;

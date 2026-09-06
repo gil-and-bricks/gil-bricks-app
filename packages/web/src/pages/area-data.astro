@@ -7,10 +7,26 @@ const dataBase = sc.dataBaseUrl.replace(/\/+$/, '');
 ---
 
 <AppShell title={`Area data — ${siteConfig.siteName}`} description="What the sold data says about any England & Wales postcode: prices, trend, activity and deprivation.">
-  {/* body-level preloads are honoured by browsers; the layouts expose no head slot */}
-  <link rel="preconnect" href={dataBase} crossorigin />
-  <link rel="preload" as="fetch" href={`${dataBase}/manifest.json`} crossorigin />
-  <link rel="preload" as="fetch" href={`${dataBase}/ukhpi.json`} crossorigin />
+  {/* In the HEAD now that the shell exposes the slot (D5) — earlier than a
+      body-level preload, which is the whole point of a preload. The postcode
+      file cannot be named until we know the outcode, so it is started from the
+      URL by the script below: it is the first link in the chain that ends with
+      the number this page exists to show. */}
+  <link rel="preconnect" href={dataBase} crossorigin slot="head" />
+  <link rel="preload" as="fetch" href={`${dataBase}/manifest.json`} crossorigin slot="head" />
+  <link rel="preload" as="fetch" href={`${dataBase}/ukhpi.json`} crossorigin slot="head" />
+  <script is:inline define:vars={{ dataBase }} slot="head">
+    (function warmPostcodeFile() {
+      var pc = new URLSearchParams(location.search).get('pc');
+      if (!pc) return;
+      var outcode = pc.trim().toUpperCase().replace(/\s+/g, ' ').split(' ')[0];
+      if (!/^[A-Z]{1,2}[0-9][A-Z0-9]?$/.test(outcode)) return;
+      var l = document.createElement('link');
+      l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous';
+      l.href = dataBase + '/postcodes/' + outcode + '.json';
+      document.head.appendChild(l);
+    })();
+  </script>
   <h1 class="page-title">Area data</h1>
   <p class="page-sub">
     The standard sales near any England &amp; Wales postcode. No asking prices, no guesswork.

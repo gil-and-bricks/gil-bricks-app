@@ -2,6 +2,77 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint D5: the last two (deployed)
+
+**1. The three-surface proof, run again and shown**
+
+The same three real Rightmove listings through the panel, the analyser and the
+saved card. All three agree to the decimal, including the case that split 2.3
+against 1.1 before D4. The table is in the report; nothing differs.
+
+**2. The analyser's layout shift — found, not guessed**
+
+The page scored 84 with a full deal. Chasing it properly meant instrumenting
+`layout-shift` with its source nodes rather than trusting a summary, and the
+cause was three separate things, none of them "the async cards":
+
+- **The "brought over from the extension" note.** It is rendered by the island,
+  so it landed after the first paint and pushed the whole page down 55px. Fixed
+  twice over, because one fix alone did not hold under throttling: the note is
+  now in the SERVER HTML always, and an inline script in the `<head>` stamps
+  `data-arrived` on `<html>` from the URL before a pixel is painted, so CSS can
+  show or hide it from the start. The container ALSO holds the band, measured
+  per breakpoint (55px to 520px, 78px to 340px, 101px below), with the note
+  pulling up into it — so the total is identical whether the note has painted
+  yet or not. **JUDGMENT CALL:** a fixed pixel reservation alone would have been
+  wrong at two of three widths, and rendering alone was not enough under a
+  throttled load. It needed both.
+- **The sticky verdict bar**, `client:idle`, inserting 53px at ~1.4s. Its own
+  anchor now holds that height, and the bar pulls up into it. Reserved only
+  where a verdict can exist — the condition comes from core's own
+  `REQUIRED_UNKNOWNS`, so it cannot drift from the rule that decides whether the
+  bar appears, and a blank analyser keeps its clean top.
+- **The footer, and this was the big one.** Before the data landed the page was
+  short enough that the FOOTER sat on screen, and every card that arrived shoved
+  it about — 0.09 of shift on comparables, 0.30 on the board with thirteen
+  deals. `.analyser` and `.board-wrap` now hold `min-height: 100svh`, so the
+  footer starts below the fold and stays there and the cards fill space rather
+  than creating it. Once the real content is taller than a screen — which a
+  loaded deal always is — it binds on nothing.
+
+**JUDGMENT CALL — what I did NOT reserve.** The provenance badges wrap a field's
+label onto a second line when a deal arrives from the extension. Reserving for
+that costs 19px on every label of every extension deal, and it is worth 0.007 of
+shift. The page scores 100 without it. Measured, then left alone.
+
+**JUDGMENT CALL — the honest cost of fixing it.** Reserving the height moved
+comparables from 96 to 91 before I understood why: the old 0.4s LCP was an
+artefact of the footer being visible on a too-short page. Pushing the footer off
+screen removed it as an LCP candidate and revealed the page's TRUE largest
+paint. I kept the fix. A page that does not jump and reports an honest 2.0s is
+better than one that jumps and reports a flattering 0.4s.
+
+**3. Every page measured loaded, not blank**
+
+Fourteen of sixteen states are 100 across all four metrics. Two are not, both on
+LCP and neither on layout shift — they are in the report with their reasons. One
+real win came out of the sweep: the area page and the analysers now start the
+postcode file at parse time from the outcode in the URL (it cannot be a static
+preload because its name depends on the URL), which took area data from 95 to
+100. Comparables gained the two preloads the analysers already had.
+
+Also corrected: `AppShell` had no `head` slot, so `area-data` was doing its
+preloads from the body with a comment saying the layout offered nowhere better.
+It does now, and they moved.
+
+**A test that failed for one hour a day.** `attention.test.ts` built its day
+strings with `toISOString()` — a UTC day — while the app deliberately reads a
+plain day in the reader's OWN time (`endOfDay`, fixed in the P8 review for this
+exact reason). Between 23:00 UTC and midnight BST the test's "tomorrow" was
+already today and three assertions failed. It failed on a clean tree, so it was
+not this sprint's doing; it is fixed here because a suite that goes red on the
+clock is worthless as a gate.
+
 ## 2026-09-06 — Sprint D4: close the trust gaps (deployed)
 
 The five things D3 left for the operator, decided and built. A 65-agent

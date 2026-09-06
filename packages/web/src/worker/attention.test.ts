@@ -44,7 +44,18 @@ const authed = async (user = 'u1') => ({ Cookie: `${SESSION_COOKIE}=${await sign
 const attention = async (headers: Record<string, string> = {}) =>
   worker.fetch(new Request('https://s.test/api/attention', { headers }), env());
 
-const day = (offsetDays: number): string => new Date(Date.now() + offsetDays * 86_400_000).toISOString().slice(0, 10);
+/**
+ * A plain day, offset from today, in the READER'S OWN time — the same clock
+ * `endOfDay` uses (urgency.ts). Building it with toISOString() made it a UTC
+ * day, so for the hour between 23:00 UTC and midnight BST "tomorrow" was
+ * already today and these tests failed once a day, every day. The app had this
+ * right since the P8 review; the test did not (D5).
+ */
+const day = (offsetDays: number): string => {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const PARAMS = 'postcode=CF37+1HR&price=150000&rent=1200&refurbCost=20000';
 
 /** A deal, written the way the board reads it (saved_deals mirror + deals row). */

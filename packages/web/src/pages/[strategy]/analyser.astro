@@ -3,7 +3,7 @@ import AppShell from '../../layouts/AppShell.astro';
 import { AnalyserApp } from '../../components/analyser/AnalyserApp';
 import { StickyVerdict } from '../../components/analyser/StickyVerdict';
 import SectionStrip from '../../components/analyser/SectionStrip.astro';
-import { strategies } from '@gil-bricks/core';
+import { REQUIRED_UNKNOWNS, strategies } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
 
 const dataBase = () => siteConfig.dataBaseUrl.replace(/\/+$/, '');
@@ -12,9 +12,40 @@ export function getStaticPaths() {
   return strategies.map((s) => ({ params: { strategy: s.route.slice(1) }, props: { config: s } }));
 }
 const { config } = Astro.props;
+/** What this strategy must have before it can produce a verdict — from core's
+ *  own list, so the space we reserve for the sticky bar cannot drift from the
+ *  rule that decides whether the bar appears (D5). */
+const requiredKeys = REQUIRED_UNKNOWNS[config.id].map((u) => u.key);
 ---
 
 <AppShell title={`${config.name} analyser — ${siteConfig.siteName}`} description={config.tagline}>
+  {/* D5 — the two bands that arrive WITH JavaScript are decided HERE, in the
+      head, before a single pixel is painted, so nothing below them ever jumps:
+      the "brought over from the extension" note, and the sticky verdict bar.
+      Both are knowable from the URL alone. */}
+  <script is:inline define:vars={{ requiredKeys, dataBaseUrl: dataBase() }} slot="head">
+    (function reserve() {
+      var q = new URLSearchParams(location.search);
+      var el = document.documentElement;
+      if (q.get('src') === 'ext') el.setAttribute('data-arrived', '');
+      var scorable = q.get('price') && q.get('postcode')
+        && requiredKeys.every(function (k) { return q.get(k); });
+      if (scorable) el.setAttribute('data-verdict', '');
+      // …and start the postcode file now. It is the first link in the chain
+      // that ends with the verdict, and it cannot be a static preload because
+      // its name depends on the outcode in the URL (D5).
+      var pc = q.get('postcode');
+      if (pc) {
+        var outcode = pc.trim().toUpperCase().replace(/\s+/g, ' ').split(' ')[0];
+        if (/^[A-Z]{1,2}[0-9][A-Z0-9]?$/.test(outcode)) {
+          var l = document.createElement('link');
+          l.rel = 'preload'; l.as = 'fetch'; l.crossOrigin = 'anonymous';
+          l.href = dataBaseUrl + '/postcodes/' + outcode + '.json';
+          document.head.appendChild(l);
+        }
+      }
+    })();
+  </script>
   {/* the comps engine needs these on every analysis — start them at HTML parse */}
   <link rel="preload" as="fetch" href={`${dataBase()}/manifest.json`} crossorigin />
   <link rel="preload" as="fetch" href={`${dataBase()}/sectors-index.json`} crossorigin />

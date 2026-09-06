@@ -17,6 +17,9 @@ const { title, description, noindex = false } = Astro.props;
 ---
 
 <Base title={title} description={description} noindex={noindex}>
+  {/* Pages that need their own head tags pass them straight through to Base —
+      the analyser reserves its pre-paint layout there (D5). */}
+  <slot name="head" slot="head" />
   <Header />
   {/* One wrapper so the pinned things and the page can become a two-column grid
       on a desktop (N4) without any page knowing about it. On a phone it is a
