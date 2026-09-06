@@ -21,6 +21,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   - **2026-02-31 was accepted**, stored verbatim, and shown as a different day than the picker held: a date must now come back as the same day it went in.
   - **The date control's accessible name did not contain its visible words** (WCAG label-in-name), and the Clear button announced "Clear the chase on date on…". The announced name is now the visible words plus the deal, and Clear reads "Clear your chase date on 12 Test Street".
   - **The cron string lived in two files with nothing tying them**; a test now reads wrangler.jsonc and asserts both triggers, and another proves the 15-minute outbox branch still runs exactly as before.
+- **Live, verified in production:** migration 0015 applied to the production D1 before the deploy; `/` and `/deals` 200; `POST /api/deals/:id/date` is **401** signed out (gated, not missing); **both cron triggers are registered on the deployed Worker** — `*/15 * * * *` and `0 6 * * *` — on the free plan. Mobile Lighthouse on /deals: **100 / 98 / 100 / 66**, unchanged (the 66 is the deliberate `noindex`, pinned in P7). The daily stamp was exercised against the local Worker with the real D1: eight live seeded deals stamped, one cold and seven fresh, matching the board exactly.
 - **Commit message:** `feat(pipeline): urgency ranking, dated deadlines and stage-aware ageing`
 
 ## 2026-09-06 — Sprint P7: evidence chips, and two loose ends (deployed)
