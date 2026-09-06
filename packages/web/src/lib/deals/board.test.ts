@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { features } from '../../config/features';
 import {
   cardFigure, parkedDeals, scoreClass, stageColumns,
-  daysInStage, dwellState, nextStepLine, todayLine, stageMeta, cardVerdict, missingRequiredInput, boardCounts, counterLine, type BoardDeal,
+  daysInStage, dwellState, nextStepLine, stageMeta, cardVerdict, missingRequiredInput, boardCounts, counterLine, type BoardDeal,
 } from './board';
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
@@ -22,7 +22,7 @@ const mk = (o: Partial<BoardDeal>): BoardDeal => ({
   is_auction: o.is_auction ?? false,
   verdict_line: o.verdict_line === undefined ? 'Just 6.5% back, short of the 12% you set' : o.verdict_line,
   updated_at: o.updated_at ?? '2026-01-01T00:00:00Z',
-  due_date: o.due_date ?? null,
+  chase_date: o.chase_date ?? null,
 });
 
 describe('stageColumns', () => {
@@ -190,54 +190,8 @@ describe('boardCounts + counterLine — the four combinations', () => {
   });
 });
 
-describe('todayLine — one deal, one action, honest precedence', () => {
-  it('picks the genuinely most urgent across stages (offer-in 9d beats searches 20d)', () => {
-    const t = todayLine([
-      mk({ id: 'searches', stage: 'offer-accepted', stage_since: daysAgo(20), title: '5 Elm Close' }), // normal 21 → not overdue
-      mk({ id: 'offer', stage: 'offer-in', stage_since: daysAgo(9), title: '14 Maple Street' }),        // normal 4 → 2.25x over
-      mk({ id: 'fresh', stage: 'worth-a-look', stage_since: daysAgo(1), title: '9 Oak Rd' }),
-    ], NOW);
-    expect(t.dealId).toBe('offer');
-    expect(t.text).toContain('14 Maple Street');
-    expect(t.text).toContain('9 days');
-  });
-
-  it('a user-set due date outranks dwell (structural tier 1)', () => {
-    const t = todayLine([
-      mk({ id: 'overdue', stage: 'offer-in', stage_since: daysAgo(20) }),
-      mk({ id: 'dated', stage: 'going-to-view', stage_since: daysAgo(1), title: '22 Bryn Road', due_date: daysAgo(0) }),
-    ], NOW);
-    expect(t.dealId).toBe('dated');
-  });
-
-  it('falls to a brand-new unactioned deal when nothing is overdue', () => {
-    const t = todayLine([
-      mk({ id: 'ok', stage: 'offer-accepted', stage_since: daysAgo(5) }),   // within normal
-      mk({ id: 'new', stage: 'worth-a-look', stage_since: daysAgo(2), title: '9 Oak Rd' }), // untouched ≥1d
-    ], NOW);
-    expect(t.dealId).toBe('new');
-    expect(t.text).toContain('9 Oak Rd');
-  });
-
-  it('says nothing plainly when all deals are ticking along — no manufactured urgency', () => {
-    const t = todayLine([
-      mk({ stage: 'offer-accepted', stage_since: daysAgo(3) }),
-      mk({ stage: 'getting-real-numbers', stage_since: daysAgo(2) }),
-      mk({ stage: 'worth-a-look', stage_since: daysAgo(0) }), // day 0 → not nagged
-    ], NOW);
-    expect(t.dealId).toBeNull();
-    expect(t.text).toBe('Nothing needs you today. 3 deals ticking along.');
-  });
-
-  it('ignores dead/done deals entirely', () => {
-    const t = todayLine([
-      mk({ stage: 'parked-dead', status: 'dead', stage_since: daysAgo(99) }),
-      mk({ stage: 'bought-it', status: 'done', stage_since: daysAgo(99) }),
-    ], NOW);
-    expect(t.dealId).toBeNull();
-    expect(t.text).toBe('Nothing needs you today.');
-  });
-});
+/* The today line moved to urgency.ts in P8 — its ranking now reads unread
+   changes and evidence as well as dwell. Tested in urgency.test.ts. */
 
 describe('stageMeta', () => {
   it('exposes the config dwell + copy, and never throws on an unknown key', () => {

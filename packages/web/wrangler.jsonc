@@ -15,7 +15,10 @@
   },
   "triggers": {
     // Kit outbox safety net — the inline push handles the common case.
-    "crons": ["*/15 * * * *"]
+    // Plus the DAILY staleness stamp (P8, 06:00 UTC): it computes and stores
+    // each live deal's stage-aware age; it never notifies anybody. Cloudflare's
+    // free plan allows cron triggers, so this stays at £0.
+    "crons": ["*/15 * * * *", "0 6 * * *"]
   },
   "d1_databases": [
     {

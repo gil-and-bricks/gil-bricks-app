@@ -7,8 +7,9 @@
  */
 import { scoreFromParams } from '../../lib/deals/scoreFromParams';
 import { applyFacts, factMoves, type DealFact } from '../../lib/deals/facts';
+import { dwellState } from '../../lib/deals/board';
 import { features } from '../../config/features';
-import { INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES } from '../../config/pipeline';
+import { DEAL_DATE_KEYS, INITIAL_STAGE, isFactType, isStage, statusForStage, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES } from '../../config/pipeline';
 
 /**
  * A deal can ONLY be born from an analysed listing (P2 boundary — enforced by
@@ -177,6 +178,71 @@ export async function foldFactsIntoParams(
  * the fact that caused it, so a card can never announce something the database
  * does not hold — and so the announcement survives the tab being closed.
  */
+/**
+ * A date the person set on a deal (P8). Only the three configured columns can be
+ * written, only a plain ISO day, and only ever by the person: the app never sets
+ * one, and clearing it is as easy as setting it.
+ */
+export async function setDealDate(
+  db: D1Database, userId: string, dealId: string, column: string, value: string | null,
+): Promise<boolean> {
+  if (!DEAL_DATE_KEYS.includes(column)) throw new Error(`unknown deal date: ${column}`);
+  const owned = await getOwnedDeal(db, userId, dealId);
+  if (!owned) return false;
+  const now = new Date().toISOString();
+  // The column name is checked against the config list above, never interpolated
+  // from the request.
+  await db.prepare(`UPDATE deals SET ${column} = ?, updated_at = ? WHERE id = ? AND user_id = ?`)
+    .bind(value, now, dealId, userId)
+    .run();
+  return true;
+}
+
+/**
+ * The daily cron, matched against the schedule in wrangler.jsonc. It lives here
+ * rather than in the Worker entry module: that file may only export handlers.
+ */
+export const DAILY_CRON = '0 6 * * *';
+
+/**
+ * THE DAILY STAMP (P8). Once a day a Cloudflare cron writes each live deal's
+ * stage-aware staleness, so a surface that cannot compute it can still read it.
+ * It COMPUTES ONLY — it never notifies anybody, and this app still sends no
+ * email of any kind. The value comes from the same pure `dwellState` the board
+ * runs, so the stamp and the screen can never mean different things.
+ */
+export async function stampStaleness(db: D1Database, now = Date.now()): Promise<number> {
+  const rows = await db
+    .prepare("SELECT d.id, d.stage, d.status, COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since FROM deals d WHERE d.status = 'live'")
+    .all<{ id: string; stage: string; status: string; stage_since: string }>();
+  const at = new Date(now).toISOString();
+  // Grouped by state, so the number of statements depends on the number of
+  // STATES (three) and not on the number of deals — one UPDATE per deal would
+  // have run into Cloudflare's per-invocation limits long before this product's
+  // own 100-deals-per-user cap (P8 review). Chunked to stay inside SQLite's
+  // bound-variable limit.
+  const byState = new Map<string, string[]>();
+  for (const r of rows.results) {
+    const state = dwellState(r, now);
+    const ids = byState.get(state) ?? [];
+    ids.push(r.id);
+    byState.set(state, ids);
+  }
+  const stmts: D1PreparedStatement[] = [];
+  for (const [state, ids] of byState) {
+    for (let i = 0; i < ids.length; i += 400) {
+      const chunk = ids.slice(i, i + 400);
+      stmts.push(db.prepare(`UPDATE deals SET stale_state = ?, stale_at = ? WHERE id IN (${chunk.map(() => '?').join(',')})`)
+        .bind(state, at, ...chunk));
+    }
+  }
+  // A deal that has been parked or bought keeps no stale mark: the stamp and the
+  // board must never say different things about the same deal.
+  stmts.push(db.prepare("UPDATE deals SET stale_state = NULL, stale_at = NULL WHERE status != 'live' AND stale_state IS NOT NULL"));
+  for (let i = 0; i < stmts.length; i += 20) await db.batch(stmts.slice(i, i + 20));
+  return rows.results.length;
+}
+
 export interface ChangeRow {
   id: string;
   deal_id: string;

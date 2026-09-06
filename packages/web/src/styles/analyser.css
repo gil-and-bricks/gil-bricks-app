@@ -1111,3 +1111,26 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 @media (prefers-contrast: more) {
   .ev-chip.ev-assumed { border-color: var(--text); }
 }
+
+/* ---- P8: dates you set, and the honest limit on the today line ----------- */
+/* The board can only tell you this when you open it — said once, quietly. */
+.today-only-here { margin: calc(var(--space-2) * -1) 0 var(--space-3); color: var(--text-dim); font-size: var(--text-xs); }
+
+/* One tap, the phone's own date wheel, done. The whole row is the target. */
+.dc-dates { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-1) 0 0; padding: 0; }
+.dc-date { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); }
+.dc-date label {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.7rem;
+  border: 1px dashed var(--glass-border); border-radius: 999px;
+  color: var(--text-dim); font-size: var(--text-xs); cursor: pointer;
+}
+.dc-date-set label { border-style: solid; border-color: var(--accent); color: var(--text); }
+/* The input covers its label so a tap anywhere opens the picker, and it stays
+   focusable and announced rather than hidden from the keyboard. */
+.dc-date input[type='date'] {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  opacity: 0; border: 0; padding: 0; cursor: pointer;
+}
+.dc-date input[type='date']:focus-visible + * , .dc-date label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dc-date:focus-within label { outline: 2px solid var(--accent); outline-offset: 2px; }
+.dc-date-clear { position: relative; z-index: 1; min-height: 44px; }

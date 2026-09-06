@@ -79,6 +79,13 @@ export interface FeatureFlags {
    * score, verdict and fact behaves exactly as it does today. */
   evidenceChips: boolean;
 
+  /** Dated deadlines and the urgency ranking they feed (P8): a chase date on any
+   * deal, an auction date on an auction deal, an exchange date once the offer is
+   * accepted. Off: no date controls, `POST /api/deals/:id/date` is 404, and the
+   * today line simply ranks without its top tier. Dates already set stay in the
+   * database and are never shown. */
+  dealDates: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -110,6 +117,7 @@ export const features: FeatureFlags = {
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,
+  dealDates: true,
   toolsSection: true,
   toolCapture: true,
   creditPage: true,

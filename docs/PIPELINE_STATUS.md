@@ -1,4 +1,4 @@
-# Deal pipeline — where we are (P7, 2026-09-06)
+# Deal pipeline — where we are (P8, 2026-09-06)
 
 P5 SUPERSEDES the P4.2 pause: facts and re-scoring are now built, so the section that
 called them deliberately deferred is gone. This records exactly what is built and what
@@ -87,7 +87,19 @@ buy-side only, ends at purchase; deals are born ONLY from an analyser payload.
   postcode must match AND both sides must name the building. Two properties sharing a postcode with no
   house number make a new deal rather than overwriting the wrong one.
 
+- **What needs you today (P8)** — BUILT. The today line ranks over four tiers, all in config
+  (`URGENCY` in src/config/pipeline.ts): a date you set inside 48 hours, then an unacknowledged
+  verdict change, then stage-aware staleness, then a decision resting on a guess at a stage that
+  should know better. Ties go to the deal with the most money at stake. If nothing qualifies it says
+  so — urgency is never manufactured. **Dated deadlines** finally exist (migration 0015): a chase
+  date on any live deal, an auction date on an auction deal, an exchange date once the offer is
+  accepted, set with the phone's own picker and behind `features.dealDates`. A **daily cron**
+  (06:00 UTC, free tier) stamps each live deal's staleness with the SAME pure function the board
+  runs — it computes and stores, it never notifies, and the app still sends no email. The board says
+  so out loud under the line: it is here when you open it, and nothing is sent to you.
+
 ## Where to pick up
 The board answers "what needs me?", a deal re-scores itself as the facts land, and it now SAYS
-when the answer has changed. P8 is next: ranking. An unacknowledged change is the strongest
-"this needs you" signal the pipeline has — `deal_changes.acknowledged_at IS NULL` is the query.
+when the answer has changed. P9 is next: the graveyard — parked deals with the patterns behind them ("you keep killing deals for
+X"). P10 is the extension badge, which is the closest thing to a real reminder we can honestly build:
+the today line can only reach somebody who opens the site.

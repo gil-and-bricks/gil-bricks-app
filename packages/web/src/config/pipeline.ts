@@ -28,8 +28,14 @@ export interface Stage {
    */
   dwellNormalDays: number;
   dwellColdDays: number;
-  /** The ONE thing to do, imperative — used by the today line. '' = terminal. */
+  /** The ONE thing to do, imperative — the card's next-step line. '' = terminal. */
   todo: string;
+  /**
+   * The same instruction as a short verb that takes a deal's name, for the today
+   * line: "Chase the agent on 14 Maple Street". Ends with its own preposition so
+   * the line reads as one sentence. '' = terminal (P8).
+   */
+  act: string;
 }
 
 /**
@@ -38,13 +44,13 @@ export interface Stage {
  * copy are all editable here without a migration.
  */
 export const PROGRESS_STAGES: readonly Stage[] = [
-  { key: 'worth-a-look', label: 'Worth a look', blurb: 'A deal you’ve sent over that looks worth checking.', dwellNormalDays: 3, dwellColdDays: 10, todo: 'Decide if it’s worth a viewing' },
-  { key: 'going-to-view', label: 'Going to view', blurb: 'You’re booked in or planning to see it.', dwellNormalDays: 7, dwellColdDays: 21, todo: 'Book the viewing, or bin it' },
-  { key: 'getting-real-numbers', label: 'Getting real numbers', blurb: 'Chasing the figures that firm up the estimate — rent, refurb, quotes.', dwellNormalDays: 14, dwellColdDays: 35, todo: 'Get the numbers that firm it up' },
-  { key: 'offer-in', label: 'Offer in', blurb: 'You’ve made an offer and are waiting.', dwellNormalDays: 4, dwellColdDays: 10, todo: 'Chase the agent on your offer' },
-  { key: 'offer-accepted', label: 'Offer accepted', blurb: 'Offer agreed — into the legal and survey work.', dwellNormalDays: 21, dwellColdDays: 49, todo: 'Push the solicitor along' },
-  { key: 'nearly-there', label: 'Nearly there', blurb: 'Exchange in sight — final checks landing.', dwellNormalDays: 21, dwellColdDays: 49, todo: 'Chase exchange' },
-  { key: 'bought-it', label: 'Bought it', blurb: 'Completed. The deal is done.', dwellNormalDays: 0, dwellColdDays: 0, todo: '' },
+  { key: 'worth-a-look', label: 'Worth a look', blurb: 'A deal you’ve sent over that looks worth checking.', dwellNormalDays: 3, dwellColdDays: 10, todo: 'Decide if it’s worth a viewing', act: 'Decide on' },
+  { key: 'going-to-view', label: 'Going to view', blurb: 'You’re booked in or planning to see it.', dwellNormalDays: 7, dwellColdDays: 21, todo: 'Book the viewing, or bin it', act: 'Book the viewing for' },
+  { key: 'getting-real-numbers', label: 'Getting real numbers', blurb: 'Chasing the figures that firm up the estimate — rent, refurb, quotes.', dwellNormalDays: 14, dwellColdDays: 35, todo: 'Get the numbers that firm it up', act: 'Get the numbers on' },
+  { key: 'offer-in', label: 'Offer in', blurb: 'You’ve made an offer and are waiting.', dwellNormalDays: 4, dwellColdDays: 10, todo: 'Chase the agent on your offer', act: 'Chase the agent on' },
+  { key: 'offer-accepted', label: 'Offer accepted', blurb: 'Offer agreed — into the legal and survey work.', dwellNormalDays: 21, dwellColdDays: 49, todo: 'Push the solicitor along', act: 'Push the solicitor on' },
+  { key: 'nearly-there', label: 'Nearly there', blurb: 'Exchange in sight — final checks landing.', dwellNormalDays: 21, dwellColdDays: 49, todo: 'Chase exchange', act: 'Chase exchange on' },
+  { key: 'bought-it', label: 'Bought it', blurb: 'Completed. The deal is done.', dwellNormalDays: 0, dwellColdDays: 0, todo: '', act: '' },
 ] as const;
 
 /** The dead terminal stage (status `dead`). Kept out of the ordered list. */
@@ -55,6 +61,7 @@ export const DEAD_STAGE: Stage = {
   dwellNormalDays: 0,
   dwellColdDays: 0,
   todo: '',
+  act: '',
 };
 
 /**
@@ -149,6 +156,104 @@ export interface FactType {
  * the same input a person could have typed — there is no second pathway into
  * the maths, and no formula lives here.
  */
+
+
+/**
+ * WHAT NEEDS YOU TODAY (P8) — the urgency ranking, in strict order.
+ *
+ * Retune it here: reorder `order` to change what shouts loudest, move
+ * `deadlineWithinHours`, or change which evidence a stage expects. Nothing about
+ * this lives in code. If nothing qualifies the board says so plainly — urgency
+ * is never manufactured to fill the line.
+ */
+export const URGENCY = {
+  /**
+   * Strict precedence. First match wins; a tie inside one tier goes to the deal
+   * with the most money at stake, because that is the one you cannot afford to
+   * get wrong.
+   *  - `deadline`         a date YOU set that is nearly here or past
+   *  - `unread-change`    the answer moved and you have not read it (P6)
+   *  - `stale`            sat longer than is normal FOR ITS STAGE
+   *  - `missing-evidence` at a stage that should have it, still guessing (P7)
+   */
+  order: ['deadline', 'unread-change', 'stale', 'missing-evidence'] as const,
+  /**
+   * A dated deadline this close is the most urgent thing on the board. 48 hours
+   * because that is the last point at which you can still DO something about an
+   * auction, an exchange or a chase you promised yourself.
+   */
+  deadlineWithinHours: 48,
+  /**
+   * Which evidence a stage should have by now, as P7 chip keys. Nothing is
+   * expected while you are still deciding whether to view it; a refurb is
+   * expected the moment the stage is ABOUT getting real numbers, and the rent
+   * once money is committed. A deal missing one of these is the quietest kind of
+   * urgent: nothing has gone wrong, but the number under the decision is a guess.
+   */
+  expectedEvidence: {
+    'getting-real-numbers': ['refurb'],
+    'offer-in': ['refurb'],
+    'offer-accepted': ['refurb', 'rent'],
+    'nearly-there': ['refurb', 'rent'],
+  } as Record<string, readonly string[]>,
+} as const;
+
+/**
+ * The dates a person can set on a deal (P8). Each says WHERE it can be set, so a
+ * date that makes no sense at this stage is never offered. Keys are stable (they
+ * are columns); labels and prompts are yours to reword.
+ */
+export interface DealDateSpec {
+  key: 'chase_date' | 'auction_date' | 'exchange_date';
+  label: string;
+  /** The button before a date is set. */
+  add: string;
+  /** How the today line names it: "the auction is tomorrow". */
+  noun: string;
+  /** Only offered on an auction deal. */
+  auctionOnly?: boolean;
+  /** Only offered at these stages; absent means any live stage. */
+  stages?: readonly string[];
+}
+export const DEAL_DATES: readonly DealDateSpec[] = [
+  { key: 'chase_date', label: 'Chase on', add: 'Set a chase date', noun: 'your chase date' },
+  { key: 'auction_date', label: 'Auction', add: 'Set the auction date', noun: 'the auction', auctionOnly: true },
+  {
+    key: 'exchange_date', label: 'Exchange', add: 'Set the exchange date', noun: 'exchange',
+    stages: ['offer-accepted', 'nearly-there'],
+  },
+];
+export const DEAL_DATE_KEYS: readonly string[] = DEAL_DATES.map((d) => d.key);
+
+/** The words for the today line and the date controls (P8). */
+export const TODAY_COPY = {
+  /** Tier (a): a date you set is nearly here. */
+  deadline: (act: string, title: string, noun: string, when: string): string => `${act} ${title} — ${noun} is ${when}.`,
+  /** Tier (b): the answer moved and you have not read it. */
+  unreadChange: (title: string, score: string): string => `Read what changed on ${title} — the answer moved to ${score}.`,
+  /** Tier (c): sat longer than is normal for its stage. */
+  stale: (act: string, title: string, days: string): string => `${act} ${title} — ${days} at this stage.`,
+  /** Tier (d): the number under the decision is still a guess. */
+  missing: (action: string, title: string, stage: string): string => `${action} for ${title} — you are at ${stage} on a guess.`,
+  /** When a date has passed. */
+  when: { today: 'today', tomorrow: 'tomorrow', overdue: 'past' },
+  /** Days, for the staleness line. */
+  days: (n: number): string => `${n} ${n === 1 ? 'day' : 'days'}`,
+  /** The date controls on the card. */
+  dateSet: (label: string, date: string): string => `${label} ${date}`,
+  dateClear: 'Clear',
+  dateClearLabel: (noun: string, title: string): string => `Clear ${noun} on ${title}`,
+  /** Appended to the control's own visible words, so what a screen reader
+   * announces CONTAINS what a sighted person reads (WCAG label in name). */
+  dateFor: (title: string): string => ` for ${title}`,
+  dateSaved: 'Date set.',
+  dateFailed: 'That date did not save. Try again.',
+  /**
+   * Said under the today line, once. The board can only tell you this when you
+   * open it — we never email, and nothing here runs on your phone (P8, rule 6).
+   */
+  onlyHere: 'This is here when you open the board — nothing is sent to you.',
+} as const;
 
 /**
  * WHEN A CHANGE IS NEWS (P6). A tenth of a point is noise; crossing from green

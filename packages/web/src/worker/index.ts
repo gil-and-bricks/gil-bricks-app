@@ -26,8 +26,8 @@ import { SESSION_DAYS, signSession, verifySession, type SessionClaims } from './
 import { verifyGoogleIdToken } from './lib/googleIdToken';
 import { canSaveAnotherDeal, MAX_DEALS_PER_USER } from './lib/deals';
 import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow } from './lib/outbox';
-import { ackChange, canAddLiveDeal, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
-import { DEAD_STAGE, isFactType, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
+import { ackChange, canAddLiveDeal, DAILY_CRON, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, MAX_LIVE_DEALS, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
+import { DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, statusForStage } from '../config/pipeline';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
 
 export interface Env {
@@ -579,7 +579,8 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     // honest fallback for migrated/older deals that predate it.
     const rows = await env.DB.prepare(
       `SELECT d.id, d.strategy, d.title, d.stage, d.current_score, d.status,
-              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures, s.url_params, s.key_figure,
+              d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
+              d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at, s.url_params, s.key_figure,
               COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since
          FROM deals d JOIN saved_deals s ON s.id = d.id
         WHERE d.user_id = ?
@@ -964,6 +965,38 @@ async function handleDeleteFact(request: Request, env: Env, dealId: string, fact
   return ok ? json({ ok: true }) : json({ error: 'not found' }, 404);
 }
 
+/**
+ * P8 — a date the person set on a deal: a chase, an auction, an exchange. Only
+ * the three configured columns, only a plain ISO day, and clearing it is the
+ * same call with an empty value. The app never sets one itself.
+ */
+async function handleSetDate(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.dealPipeline || !features.dealDates) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const column = typeof body.date_key === 'string' ? body.date_key : '';
+  if (!DEAL_DATE_KEYS.includes(column)) return json({ error: 'bad request' }, 400);
+  const raw = typeof body.value === 'string' ? body.value.trim() : '';
+  // A plain day, or nothing. Never a timestamp, never a free string.
+  if (raw !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return json({ error: 'bad request' }, 400);
+  // A day that does not exist (2026-02-31) parses fine and rolls over, so the
+  // only honest check is that it comes back as the same day (P8 review).
+  if (raw !== '') {
+    const parsed = new Date(`${raw}T12:00:00Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== raw) {
+      return json({ error: 'bad request' }, 400);
+    }
+  }
+  const ok = await setDealDate(env.DB, user.sub, dealId, column, raw === '' ? null : raw);
+  return ok ? json({ ok: true, date_key: column, value: raw }) : json({ error: 'not found' }, 404);
+}
+
 /** P6: the person has seen the change. It stops showing, and P8 stops ranking it. */
 async function handleAckChange(request: Request, env: Env, dealId: string, changeId: string): Promise<Response> {
   if (!features.dealPipeline || !features.verdictChanges) return json({ error: 'not found' }, 404);
@@ -1078,6 +1111,8 @@ export default {
       if (ac && method === 'POST') return handleAckChange(request, env, ac[1], ac[2]);
       const hi = /^\/api\/deals\/([0-9a-f-]{36})\/history$/.exec(pathname);
       if (hi && method === 'GET') return handleDealHistory(request, env, hi[1]);
+      const dt = /^\/api\/deals\/([0-9a-f-]{36})\/date$/.exec(pathname);
+      if (dt && method === 'POST') return handleSetDate(request, env, dt[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {
@@ -1086,7 +1121,20 @@ export default {
     return env.ASSETS.fetch(request);
   },
 
-  async scheduled(_event: unknown, env: Env): Promise<void> {
+  async scheduled(event: { cron?: string }, env: Env): Promise<void> {
+    // The daily trigger only stamps staleness (P8): it computes, it never
+    // notifies, and this app still sends no email of any kind. Every other
+    // trigger is the Kit outbox safety net.
+    if (event?.cron === DAILY_CRON) {
+      // A failure here must never take the whole invocation down silently: it is
+      // an index, and the board computes the same value on load regardless.
+      try {
+        if (features.dealPipeline) await stampStaleness(env.DB);
+      } catch (err) {
+        console.error(`daily staleness stamp failed: ${String(err)}`);
+      }
+      return;
+    }
     await processOutbox(env);
   },
 };

@@ -22,8 +22,10 @@ import { ScoreHistory } from './ScoreHistory';
 import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromParams';
 import { evidenceInputsFor } from '../../lib/deals/evidenceFor';
 import { EvidenceChips } from './EvidenceChips';
-import { boardCounts, cardVerdict, counterLine, dwellState, nextStepLine, parkedDeals, stageColumns, todayLine, type BoardDeal } from '../../lib/deals/board';
-import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, statusForStage } from '../../config/pipeline';
+import { DealDates } from './DealDates';
+import { boardCounts, cardVerdict, counterLine, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, type BoardDeal } from '../../lib/deals/board';
+import { todayLine } from '../../lib/deals/urgency';
+import { ALL_STAGES, BOARD_COPY, CHANGE_COPY, DEAD_STAGE, PARK_REASONS, PROGRESS_STAGES, TODAY_COPY, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
   id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
@@ -278,6 +280,30 @@ export function DealBoard() {
     }
   };
 
+  /**
+   * P8 — a date the person set. Stored at once, because the whole point of it is
+   * that the board still knows tomorrow.
+   */
+  const setDate = async (deal: BoardDeal, key: string, value: string): Promise<void> => {
+    setBusy(deal.id, true);
+    try {
+      const res = await fetch(`/api/deals/${deal.id}/date`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ date_key: key, value }),
+      });
+      if (!res.ok) throw new Error();
+      setDeals((cur) => (Array.isArray(cur)
+        ? cur.map((d) => (d.id === deal.id ? { ...d, [key]: value === '' ? null : value } : d))
+        : cur));
+      setNote({ id: deal.id, text: TODAY_COPY.dateSaved });
+    } catch {
+      setNote({ id: deal.id, text: TODAY_COPY.dateFailed });
+    } finally {
+      setBusy(deal.id, false);
+    }
+  };
+
   /** P6 — the person has seen it. Marked on the server, so a reload agrees. */
   const dismissChange = async (deal: BoardDeal, changeId: string): Promise<void> => {
     setChanges((cur) => cur.filter((c) => c.id !== changeId));
@@ -340,7 +366,9 @@ export function DealBoard() {
   const columns = stageColumns(deals);
   const parked = parkedDeals(deals);
   const counts = boardCounts(deals);
-  const today = todayLine(deals, now);
+  // P8 — the one thing that needs you, ranked over dates, unread changes,
+  // stage-aware staleness and a decision resting on a guess.
+  const today = todayLine({ deals, facts, changes, now });
 
   // Card is a render HELPER, invoked as Card({ d }) (not <Card/>), so it doesn't
   // create a child component whose identity changes every render — that would
@@ -419,6 +447,18 @@ export function DealBoard() {
           />
         )}
 
+        {features.dealDates && isLive(d) && (
+          <DealDates
+            dealId={d.id}
+            dealTitle={d.title}
+            stage={d.stage}
+            isAuction={d.is_auction}
+            dates={{ chase_date: d.chase_date, auction_date: d.auction_date, exchange_date: d.exchange_date }}
+            busy={busy}
+            onSet={(key, value) => void setDate(d, key, value)}
+          />
+        )}
+
         {features.verdictChanges && verdict.scored && <ScoreHistory dealId={d.id} dealTitle={d.title} />}
 
         {/* A fact that cannot move this strategy's maths says why, and never
@@ -458,6 +498,9 @@ export function DealBoard() {
   return (
     <div class="board">
       <p class={`today-line${today.dealId ? ' today-act' : ''}`} role="status">{today.text}</p>
+      {/* P8 rule 6 — the board can only say this when you open it. Nothing here
+          reaches anybody: the app sends no email and runs nothing on your phone. */}
+      <p class="today-only-here">{TODAY_COPY.onlyHere}</p>
       <p class="board-count">{counterLine(counts, cap)}</p>
 
       <div class="board-stages">

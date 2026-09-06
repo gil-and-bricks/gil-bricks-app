@@ -39,11 +39,26 @@ export interface BoardDeal {
   sold_evidence?: string | null;
   /** HMO only: how many rooms failed the minimum at save time, null if unmeasured. */
   room_size_failures?: number | null;
-  /** A date the user set for this deal (viewing booked, offer deadline). Ranks the
-   * today line ABOVE dwell time. No date-entry UI exists yet (a later sprint), so
-   * this is the structural seam and is absent for now. */
-  due_date?: string | null;
+  /**
+   * The dates the person set (P8). Each is a plain ISO day (YYYY-MM-DD) or null,
+   * never set by the app. A date nearly here is the most urgent thing the board
+   * can say — see URGENCY in src/config/pipeline.ts.
+   */
+  chase_date?: string | null;
+  auction_date?: string | null;
+  exchange_date?: string | null;
+  /**
+   * The stage-aware staleness the daily cron stamped (P8). The board recomputes
+   * the same value from the same function on load, so what you SEE is never a
+   * day behind; this is the index a surface that cannot compute it reads.
+   */
+  stale_state?: string | null;
+  stale_at?: string | null;
 }
+
+/** Still moving. A status KEY, kept out of the components so the board reads it
+ * from one place (and the inline-copy ratchet is not asked to judge a key). */
+export const isLive = (d: Pick<BoardDeal, 'status'>): boolean => d.status === 'live';
 
 const STAGE_BY_KEY: Record<string, Stage> = Object.fromEntries([...PROGRESS_STAGES, DEAD_STAGE].map((s) => [s.key, s]));
 /** The stage config for a key (never throws; unknown keys get the initial stage). */
@@ -177,59 +192,8 @@ export function scoreClass(score: number | null): 'ds-good' | 'ds-marginal' | 'd
 }
 
 /** The single most important thing to do today, or an honest "nothing". */
-export interface TodayLine {
-  /** The line to show, in the operator's voice. */
-  text: string;
-  /** The deal it names (for a link/highlight), or null for the "nothing" line. */
-  dealId: string | null;
-}
-
-/**
- * "What do I need to do today?" — ONE deal, ONE action. Ranked by a strict
- * precedence (P4): (1) a date the user set that's due/overdue; (2) how long a deal
- * has sat past what's NORMAL for its stage (stage-aware, so chasing an offer beats
- * waiting on searches); (3) a brand-new deal nobody has actioned yet. If nothing
- * qualifies it says so plainly — never manufactured urgency.
- */
-export function todayLine(deals: readonly BoardDeal[], now: number): TodayLine {
-  const live = deals.filter((d) => d.status === 'live');
-  const dwellPhrase = (d: BoardDeal): string => {
-    const days = daysInStage(d, now);
-    const age = dwellState(d, now);
-    const c = BOARD_COPY.dwell;
-    const dp = days === 0 ? c.today : `${days} ${days === 1 ? c.day : c.days}`;
-    return `${dp}${age === 'cold' ? `, ${c.goneCold}` : age === 'amber' ? `, ${c.noUpdate}` : ''}`;
-  };
-  const line = (d: BoardDeal): string => `${stageMeta(d.stage).todo} — ${d.title} · ${dwellPhrase(d)}`;
-
-  // (1) A date the user set, due or overdue. Structural seam — no date-entry yet.
-  const dated = live
-    .filter((d) => d.due_date && Date.parse(d.due_date) <= now)
-    .sort((a, b) => Date.parse(a.due_date as string) - Date.parse(b.due_date as string));
-  if (dated.length > 0) return { text: line(dated[0]), dealId: dated[0].id };
-
-  // (2) Past its stage's NORMAL dwell — most overdue first (by ratio, so a stage with
-  // a short normal dwell that's blown wins over a long-dwell stage barely over).
-  const overdue = live
-    .map((d) => ({ d, ratio: daysInStage(d, now) / stageMeta(d.stage).dwellNormalDays }))
-    .filter((x) => Number.isFinite(x.ratio) && x.ratio > 1)
-    .sort((a, b) => b.ratio - a.ratio);
-  if (overdue.length > 0) return { text: line(overdue[0].d), dealId: overdue[0].d.id };
-
-  // (3) A brand-new deal nobody has actioned — still in the initial stage, sat ≥1 day
-  // (never nag on day zero). Oldest first.
-  const untouched = live
-    .filter((d) => d.stage === INITIAL_STAGE && daysInStage(d, now) >= 1)
-    .sort((a, b) => daysInStage(b, now) - daysInStage(a, now));
-  if (untouched.length > 0) return { text: line(untouched[0]), dealId: untouched[0].id };
-
-  // Nothing needs you — say so plainly, and NEVER imply the board is empty when a
-  // bought/parked deal is sitting right there (the "analyse a listing" call to action
-  // belongs only to the genuinely-empty board, which the board renders separately).
-  const n = live.length;
-  if (n === 0) return { text: BOARD_COPY.nothingToday, dealId: null };
-  return { text: BOARD_COPY.tickingAlong(n), dealId: null };
-}
+/* The today line moved to urgency.ts in P8: it now reads facts and changes as
+   well as dwell, and board.ts must not import that (it would be a cycle). */
 
 /** Board tallies for the quiet counter. `live` is the only figure the 100-cap
  * counts; `done`/`dead` are terminal wins/memory and are shown so a bought-only
