@@ -105,6 +105,6 @@ kill are kept as the memory. Nothing about it teaches, packages, sells or sends.
 ## Where to pick up
 
 The pipeline is done. What is left is not more pipeline: it is the operator's
-design pass (name, logo, colours — all tokenised and slot-ready), the ICO fee
+design pass (name, logo, colours — all tokenised and slot-ready), the ICO fee (paid 2026-09-06)
 before `/bridging-finance` goes public, and whatever the first real users ask
 for. Every knob they might want turned is in `docs/PIPELINE_CONFIG.md`.

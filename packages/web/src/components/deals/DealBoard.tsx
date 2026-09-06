@@ -11,12 +11,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
 import { loadMe, me, meUnknown, openLoginWall } from '../../lib/auth/session';
-import { strategies } from '@gil-bricks/core';
+import { getSector, strategies, type SectorFile } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { dealHref } from '../../lib/deals/deal';
 import { DealFacts } from './DealFacts';
 import { applyFacts, factMoves, factNotes, factTypeFor, previousValueFor, type DealFact } from '../../lib/deals/facts';
-import { isNews, unseen, type DealChange } from '../../lib/deals/changes';
+import { cashIsNews, isNews, unseen, type DealChange } from '../../lib/deals/changes';
+import { scoreMoveFor, sectorOf, type ScoreMove } from '../../lib/deals/scoreMoved';
 import { DealChangeNote } from './DealChange';
 import { ScoreHistory } from './ScoreHistory';
 import { parseStoredEvidence, scoreFromParams } from '../../lib/deals/scoreFromParams';
@@ -34,7 +35,7 @@ import { auctionWarningDue, boardCounts, cardVerdict, chainRiskDue, counterLine,
 import { headstones, toDeath, type DealDeath, type DeathRowJson } from '../../lib/deals/graveyard';
 import { Graveyard } from './Graveyard';
 import { todayLine } from '../../lib/deals/urgency';
-import { ALL_STAGES, AUCTION_FEES_FACT, BOARD_COPY, CALENDAR, CHANGE_COPY, DEAD_STAGE, GRAVEYARD_COPY, LIVE_CAP_MESSAGE, PARK_REASONS, PROGRESS_STAGES, TODAY_COPY, parkReason, statusForStage } from '../../config/pipeline';
+import { ALL_STAGES, AUCTION_FEES_FACT, BOARD_COPY, CALENDAR, CHANGE_COPY, DEAD_STAGE, GRAVEYARD_COPY, LIVE_CAP_MESSAGE, PARK_REASONS, PROGRESS_STAGES, SCORE_MOVED_COPY, TODAY_COPY, parkReason, statusForStage } from '../../config/pipeline';
 
 const strategyBadge = (id: string): string =>
   id === 'comparables' ? BOARD_COPY.card.compsBadge : strategies.find((s) => s.id === id)?.shortName ?? id.toUpperCase();
@@ -58,6 +59,10 @@ export function DealBoard() {
   const [facts, setFacts] = useState<DealFact[]>([]);
   /** P6: the verdict changes nobody has seen yet. They outlive the tab. */
   const [changes, setChanges] = useState<DealChange[]>([]);
+  /** D4 — sector files for the score-moved check, fetched once each. */
+  const sectorCache = useRef<Map<string, SectorFile | null>>(new Map());
+  const [movesTick, setMovesTick] = useState(0);
+  const movedMemo = useRef<Map<string, ScoreMove | null>>(new Map());
   /** P9: the deaths — each one a frozen card, kept as the memory. */
   const [deaths, setDeaths] = useState<DealDeath[]>([]);
   /**
@@ -133,6 +138,75 @@ export function DealBoard() {
     }
     if (found) setRadarTick((n) => n + 1);
   }, [deals, facts]);
+
+  /**
+   * D4 — which saved scores no longer match what their own inputs produce.
+   *
+   * Runs AFTER the board has painted and fetches nothing the board needed to
+   * render: one sector file per distinct sector, deduped and cached by core, and
+   * only for live scored deals. A sector that will not load simply produces no
+   * note — a missing note is honest, a guessed one is not.
+   */
+  useEffect(() => {
+    if (!features.scoreMovedNote || !Array.isArray(deals)) return;
+    let live = true;
+    const wanted = new Set<string>();
+    for (const d of deals) {
+      if (d.status !== 'live' || d.current_score === null) continue;
+      const sec = sectorOf(d);
+      if (sec !== null && !sectorCache.current.has(sec)) wanted.add(sec);
+    }
+    if (wanted.size === 0) { setMovesTick((n) => n + 1); return undefined; }
+    void Promise.all([...wanted].map((sec) => getSector(sec)
+      .then((f) => sectorCache.current.set(sec, f))
+      .catch(() => sectorCache.current.set(sec, null))))
+      .then(() => { if (live) setMovesTick((n) => n + 1); });
+    return () => { live = false; };
+  }, [deals, facts]);
+
+  /**
+   * The move on one deal. MEMOISED exactly like the re-trade radar: this runs a
+   * full scoreDeal, and doing that for every card on every render is the cost
+   * the radar was memoised to avoid (D4 review). The key carries everything the
+   * answer depends on, so it recomputes when — and only when — one changes.
+   */
+  const moveFor = (deal: BoardDeal): ScoreMove | null => {
+    if (!features.scoreMovedNote) return null;
+    void movesTick; // a sector landing invalidates nothing, but does re-render
+    const sec = sectorOf(deal);
+    if (sec === null) return null;
+    const file = sectorCache.current.get(sec) ?? null;
+    const key = `${retradeKey(deal)}|${deal.current_score ?? ''}|${file === null ? 'x' : sec}`;
+    const hit = movedMemo.current.get(key);
+    if (hit !== undefined) return hit;
+    const mv = scoreMoveFor(deal, factsFor(deal.id), file);
+    movedMemo.current.set(key, mv);
+    return mv;
+  };
+
+  /** Take the new score. Nothing is written until they ask for it. */
+  const acceptMove = async (deal: BoardDeal, move: ScoreMove): Promise<void> => {
+    if (isBusy(deal.id)) return;
+    setBusy(deal.id, true);
+    try {
+      const res = await fetch(`/api/deals/${deal.id}/score`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(move.body),
+      });
+      if (!res.ok) { setNote({ id: deal.id, text: SCORE_MOVED_COPY.failed }); return; }
+      setDeals((cur) => (Array.isArray(cur)
+        ? cur.map((d) => (d.id === deal.id
+          ? { ...d, current_score: move.body.score as number, verdict_line: move.body.verdict_line as string,
+              headline_figure: move.body.headline_figure as string, sold_evidence: move.body.sold_evidence as string }
+          : d))
+        : cur));
+    } catch {
+      setNote({ id: deal.id, text: SCORE_MOVED_COPY.failed });
+    } finally {
+      setBusy(deal.id, false);
+    }
+  };
 
   // ---- optimistic move + honest rollback ----
   // Updates are FUNCTIONAL and keyed by id: they touch only the one deal, so an
@@ -336,6 +410,9 @@ export function DealBoard() {
         // assumptions, a fact re-score writes the params it scored.
         criteria_json: JSON.stringify({ source: 'fact-rescore', params }),
         evidence_json: JSON.stringify({ facts: dealFacts.map((f) => ({ type: f.fact_type, value: f.value, at: f.entered_at })) }),
+        // D4 — carried out so the change line can name it. Not persisted on the
+        // deal; the announcement row holds it.
+        cash_needed: scored.cashNeeded,
       };
     } catch {
       return null; // not enough inputs to score — the card keeps saying so
@@ -363,12 +440,19 @@ export function DealBoard() {
       // P6 — is the move NEWS? The rules live in config; this only asks them.
       const from = deal.current_score;
       const to = body ? (body.score as number) : null;
-      const announce = features.verdictChanges && body !== null && from !== null && to !== null && isNews(from, to)
+      // D4 — and what you must find up front, either side of the fact. A quote
+      // that leaves the score alone can still change this by tens of thousands.
+      const fromCash = cashNeededFor(deal);
+      const toCash = body ? ((body.cash_needed as number | null) ?? null) : null;
+      const announce = features.verdictChanges && body !== null && from !== null && to !== null
+        && (isNews(from, to) || (features.cashNeededChange && cashIsNews(fromCash, toCash)))
         ? {
           from_score: from,
           to_score: to,
           previous_value: value === null ? null : previousValueFor(deal.strategy, deal.url_params, factType),
           to_verdict_line: body.verdict_line as string,
+          from_cash: features.cashNeededChange ? fromCash : null,
+          to_cash: features.cashNeededChange ? toCash : null,
         }
         : null;
       const res = await fetch(`/api/deals/${deal.id}/facts`, {
@@ -385,7 +469,8 @@ export function DealBoard() {
         setChanges((cur) => [{
           id: changeId, deal_id: deal.id, fact_type: factType, fact_value: value,
           previous_value: announce.previous_value, from_score: announce.from_score, to_score: announce.to_score,
-          to_verdict_line: announce.to_verdict_line, at: new Date().toISOString(), acknowledged_at: null,
+          to_verdict_line: announce.to_verdict_line, from_cash: announce.from_cash, to_cash: announce.to_cash,
+          at: new Date().toISOString(), acknowledged_at: null,
         }, ...cur]);
       }
       const label = factTypeFor(factType)?.label ?? factType;
@@ -451,15 +536,20 @@ export function DealBoard() {
    * really holds the analysis behind it — a score it was actually given. Nothing
    * is estimated into a calendar entry; the copy says whose figures they are.
    */
-  const icsFor = (deal: BoardDeal): string => {
-    let cash: number | null = null;
-    if (deal.current_score !== null) {
-      try {
-        cash = scoreFromParams(deal.strategy, paramsFor(deal), evidenceFor(deal), deal.room_size_failures ?? null).cashNeeded;
-      } catch {
-        cash = null; // not scoreable from its params — then we say nothing at all
-      }
+  /** What this deal needs up front on TODAY's facts, or null when it cannot be
+   *  scored from its own params. Used by the calendar entry and by the D4 cash
+   *  change line, so the two can never quote different figures. */
+  const cashNeededFor = (deal: BoardDeal): number | null => {
+    if (deal.current_score === null) return null;
+    try {
+      return scoreFromParams(deal.strategy, paramsFor(deal), evidenceFor(deal), deal.room_size_failures ?? null).cashNeeded;
+    } catch {
+      return null; // not scoreable from its params — then we say nothing at all
     }
+  };
+
+  const icsFor = (deal: BoardDeal): string => {
+    const cash = cashNeededFor(deal);
     const events = eventsForDeal(deal, {
       // The SAME link the card carries, fold window and all: opening the deal
       // from a calendar entry must not fold facts that were never in these
@@ -657,6 +747,28 @@ export function DealBoard() {
             onPark={() => void parkKilled(d, c.id)}
           />
         ))}
+
+        {/* D4 — the sold-price rule changed under a saved score. Say what it was
+            and what it is now; never move the number without being asked. */}
+        {(() => {
+          const mv = moveFor(d);
+          return mv === null ? null : (
+            <div class="dc-moved" role="status">
+              <p class="dc-moved-h">{SCORE_MOVED_COPY.heading}</p>
+              <p class="dc-moved-line">{SCORE_MOVED_COPY.line(mv.from.toFixed(1), mv.to.toFixed(1))}</p>
+              <p class="hint">{SCORE_MOVED_COPY.why}</p>
+              <button
+                type="button"
+                class="btn-secondary"
+                disabled={busy}
+                aria-label={SCORE_MOVED_COPY.acceptLabel(d.title)}
+                onClick={() => void acceptMove(d, mv)}
+              >
+                {busy ? SCORE_MOVED_COPY.busy : SCORE_MOVED_COPY.accept}
+              </button>
+            </div>
+          );
+        })()}
 
         {/* P11 — accepted is not safe. Once per deal, at the stage where deals
             actually die, and gone as soon as it has been read. */}

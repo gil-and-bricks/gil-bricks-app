@@ -12,6 +12,7 @@
  */
 import { fmtMoney, verdictForScore } from '@gil-bricks/core';
 import { CHANGE_COPY, CHANGE_RULES } from '../../config/pipeline';
+import { features } from '../../config/features';
 import { factTypeFor } from './facts';
 
 export interface DealChange {
@@ -26,6 +27,10 @@ export interface DealChange {
   to_score: number;
   /** The engine's OWN line after the change: the consequence and the fix. */
   to_verdict_line: string;
+  /** D4 — the cash needed up front, before and after this fact. Null on rows
+   *  written before the columns existed; the cash line is then simply absent. */
+  from_cash?: number | null;
+  to_cash?: number | null;
   at: string;
   acknowledged_at: string | null;
 }
@@ -40,6 +45,18 @@ export function isNews(fromScore: number, toScore: number): boolean {
   if (CHANGE_RULES.onBandChange && verdictForScore(fromScore) !== verdictForScore(toScore)) return true;
   const moved = fromScore < toScore ? toScore - fromScore : fromScore - toScore;
   return moved >= CHANGE_RULES.minPoints;
+}
+
+/**
+ * D4 — the money you must find moved, whatever the score did. This is news on
+ * its own: a £25,000 quote that leaves the score untouched still changes what
+ * you have to put on the table.
+ */
+export function cashIsNews(fromCash: number | null, toCash: number | null): boolean {
+  if (typeof fromCash !== 'number' || typeof toCash !== 'number') return false;
+  if (!Number.isFinite(fromCash) || !Number.isFinite(toCash)) return false;
+  const moved = fromCash < toCash ? toCash - fromCash : fromCash - toCash;
+  return moved >= CHANGE_RULES.minCashChange;
 }
 
 /** A deal a fact has just taken below where the score says walk away. */
@@ -58,6 +75,10 @@ export interface ChangeLine {
   killed: boolean;
   /** Better news, so the card can style it as such. */
   better: boolean;
+  /** D4 — "You'd now need £72,000 up front, not £47,000.", or null. */
+  cash: string | null;
+  /** True when the CASH is the whole story: the score did not move at all. */
+  cashOnly: boolean;
 }
 
 const score = (n: number): string => n.toFixed(1);
@@ -66,18 +87,28 @@ const score = (n: number): string => n.toFixed(1);
 export function changeLine(change: DealChange): ChangeLine {
   const type = factTypeFor(change.fact_type);
   const label = (type?.label ?? change.fact_type).toLowerCase();
-  const better = change.to_score > change.from_score;
-  const direction = better ? CHANGE_COPY.direction.up : CHANGE_COPY.direction.down;
+  const scoreBetter = change.to_score > change.from_score;
+  const direction = scoreBetter ? CHANGE_COPY.direction.up : CHANGE_COPY.direction.down;
   const value = change.fact_value === null ? '' : fmtMoney(change.fact_value);
   const moves = change.previous_value === null
     ? CHANGE_COPY.movesAdded(label, value, direction, score(change.to_score))
     : CHANGE_COPY.movesReplaced(label, value, fmtMoney(change.previous_value), direction, score(change.to_score));
+  const cash = features.cashNeededChange && cashIsNews(change.from_cash ?? null, change.to_cash ?? null)
+    ? CHANGE_COPY.cashMoved(fmtMoney(change.to_cash as number), fmtMoney(change.from_cash as number))
+    : null;
+  // Saying "this was 7.0 … moves it down to 7.0" would be nonsense: when the
+  // score is unchanged the cash IS the change (D4).
+  const cashOnly = cash !== null && change.from_score === change.to_score;
   return {
     was: CHANGE_COPY.was(score(change.from_score)),
     moves,
     verdict: change.to_verdict_line,
     killed: isKilled(change),
-    better,
+    // A FALL in what you must find up front is good news, and when the cash is
+    // the whole story it decides the styling (D4 review).
+    better: cashOnly ? (change.to_cash as number) < (change.from_cash as number) : scoreBetter,
+    cash,
+    cashOnly,
   };
 }
 

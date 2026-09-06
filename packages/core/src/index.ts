@@ -17,6 +17,7 @@ export * from './comparables';
 
 // Valuation engine.
 export * from './valuation';
+export * from './valuation/typeMismatch';
 
 // Land Registry sale-history + transaction lookup.
 export * from './landregistry';
@@ -41,6 +42,7 @@ export { coreConfig, youtubeFor } from './config';
 
 // Deal Score verdict engine (E2).
 export * from './score/scoreDeal';
+export * from './score/soldEvidence';
 export { maxOfferForVerdict, type MaxOfferOptions } from './score/maxOffer';
 
 // Evidence chips (P7) — what a score rests on, shared by all three surfaces.

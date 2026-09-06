@@ -26,9 +26,12 @@ export function DealChangeNote({ change, dealTitle, busy, onDismiss, onPark }: C
   const line = changeLine(change);
   return (
     <div class={`dc-change ${line.better ? 'change-better' : 'change-worse'}`} role="status">
-      <p class="dc-change-h">{CHANGE_COPY.heading}</p>
-      <p class="dc-change-line">{line.was} {line.moves}</p>
-      {line.verdict !== '' && <p class="dc-change-verdict">{line.verdict}</p>}
+      {/* D4 — when only the CASH moved, saying "this was 7.0 … moves it to 7.0"
+          would be nonsense. The money is the story, so it is the heading. */}
+      <p class="dc-change-h">{line.cashOnly ? CHANGE_COPY.cashHeading : CHANGE_COPY.heading}</p>
+      {!line.cashOnly && <p class="dc-change-line">{line.was} {line.moves}</p>}
+      {line.cash !== null && <p class="dc-change-cash">{line.cash}</p>}
+      {line.verdict !== '' && !line.cashOnly && <p class="dc-change-verdict">{line.verdict}</p>}
       {line.killed && <p class="dc-change-kill">{CHANGE_COPY.killOffer}</p>}
       <div class="dc-change-actions">
         {line.killed && (

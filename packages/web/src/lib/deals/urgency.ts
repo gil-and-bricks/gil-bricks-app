@@ -10,7 +10,7 @@
  * Every figure here already exists — the stage's own dwell times, P6's
  * acknowledgements, P7's evidence chips. Nothing new is computed about a deal.
  */
-import { CHIP_SPECS, evidenceChips, type ChipKey, type StrategyId } from '@gil-bricks/core';
+import { CHIP_SPECS, evidenceChips, type ChipKey, type StrategyId, fmtMoney } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { BOARD_COPY, TODAY_COPY, URGENCY, DEAL_DATES, dateAppliesAt } from '../../config/pipeline';
 import { daysInStage, dwellState, stageMeta, type BoardDeal } from './board';
@@ -112,7 +112,18 @@ export function rankUrgent({ deals, facts, changes, now }: UrgencyInput): Urgent
     const unread = changes.filter((c) => c.deal_id === d.id && c.acknowledged_at === null)
       .sort((a, b) => b.at.localeCompare(a.at))[0];
     if (unread) {
-      found.push({ deal: d, reason: 'unread-change', price, text: TODAY_COPY.unreadChange(d.title, unread.to_score.toFixed(1)) });
+      // The score may not have moved at all — a fact can change only the money
+      // you must find. Say which one actually changed (D4 review).
+      const cashOnly = unread.from_score === unread.to_score
+        && typeof unread.to_cash === 'number' && typeof unread.from_cash === 'number';
+      found.push({
+        deal: d,
+        reason: 'unread-change',
+        price,
+        text: cashOnly
+          ? TODAY_COPY.unreadCash(d.title, fmtMoney(unread.to_cash as number))
+          : TODAY_COPY.unreadChange(d.title, unread.to_score.toFixed(1)),
+      });
       continue;
     }
 

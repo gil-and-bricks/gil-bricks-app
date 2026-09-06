@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { verdictForScore } from '@gil-bricks/core';
-import { changeLine, isKilled, isNews, unseen, type DealChange } from './changes';
+import { changeLine, isKilled, isNews, unseen, type DealChange, cashIsNews } from './changes';
 import { CHANGE_RULES } from '../../config/pipeline';
 
 const change = (over: Partial<DealChange> = {}): DealChange => ({
@@ -101,5 +101,43 @@ describe('a change nobody has seen', () => {
     const other = change({ id: 'd', deal_id: 'd2' });
     expect(unseen([a, b, seen, other], 'd1').map((c) => c.id)).toEqual(['b', 'a']);
     expect(unseen([seen], 'd1')).toEqual([]);
+  });
+});
+
+/**
+ * D4 — a fact can move the money you must find without moving the score. That
+ * is news on its own, and the line has to make sense when the score is identical.
+ */
+describe('the cash needed moved (D4)', () => {
+  const base = {
+    id: 'c1', deal_id: 'd1', fact_type: 'builder-quote', fact_value: 25000, previous_value: null,
+    from_score: 7, to_score: 7, to_verdict_line: 'Only £69 a month left.', at: '2026-09-06T10:00:00Z',
+    acknowledged_at: null,
+  };
+
+  it('is news above the configured swing, and silence below it', () => {
+    expect(cashIsNews(47000, 72000)).toBe(true);
+    expect(cashIsNews(47000, 47500)).toBe(false);
+    expect(cashIsNews(72000, 47000), 'a fall is news too').toBe(true);
+    expect(cashIsNews(null, 72000), 'an older row carries no figures').toBe(false);
+    expect(cashIsNews(47000, null)).toBe(false);
+  });
+
+  it('names both figures, and when the score did not move the cash IS the story', () => {
+    const line = changeLine({ ...base, from_cash: 47000, to_cash: 72000 });
+    expect(line.cash).toContain('£72,000');
+    expect(line.cash).toContain('£47,000');
+    expect(line.cashOnly, 'the score is identical').toBe(true);
+  });
+
+  it('rides alongside a score move without taking it over', () => {
+    const line = changeLine({ ...base, to_score: 6.8, from_score: 6.9, from_cash: 44744, to_cash: 69744 });
+    expect(line.cash).toContain('£69,744');
+    expect(line.cashOnly).toBe(false);
+    expect(line.moves).toContain('6.8');
+  });
+
+  it('says nothing about cash when it barely moved', () => {
+    expect(changeLine({ ...base, from_cash: 47000, to_cash: 47100 }).cash).toBeNull();
   });
 });

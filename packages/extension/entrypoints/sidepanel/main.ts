@@ -1474,6 +1474,11 @@ function draw(ctx: Ctx): void {
       const url = buildAnalyserUrl(WEB_BASE, ctx.listing!, {
         strategy: ctx.strategy, floorAreaSqm: fa.sqm,
         fields: { ...unknowns, ...ctx.settings, deposit: String(ctx.criteria.depositPct ?? ''), rate: String(ctx.criteria.ratePct ?? '') },
+        // D4 — the person's own minimums and their own measurements travel with
+        // the deal. Without them the analyser judged by different standards and
+        // threw away the only real evidence about room sizes there is.
+        criteria: ctx.criteria,
+        measured: { roomSizeFailures: hmoRoomSizeFailures(ctx.floorplan.measuredRooms), roomsMeasured: ctx.floorplan.measuredRooms.length },
       });
       chrome.tabs.create({ url });
     },

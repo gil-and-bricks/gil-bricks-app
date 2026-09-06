@@ -3,6 +3,7 @@
  * nothing personal. Signals drive the live recompute.
  */
 import { signal } from '@preact/signals';
+import { criteriaQueryParams } from './criteria';
 
 export interface SubjectState {
   postcode: string;
@@ -85,6 +86,10 @@ export function toQuery(s: UrlState, extra: Record<string, string> = {}): string
   for (const [k, v] of Object.entries(extra)) {
     if (v !== '' && v !== strategyDefaults[k]) q.set(k, v);
   }
+  // D4 review — the person's own minimums ride on every URL this page writes,
+  // including the one a SAVE stores. Without them the analyser judged by their
+  // bar and the board silently re-judged by ours.
+  for (const [k, v] of Object.entries(criteriaQueryParams())) q.set(k, v);
   const str = q.toString();
   return str === '' ? '' : `?${str}`;
 }

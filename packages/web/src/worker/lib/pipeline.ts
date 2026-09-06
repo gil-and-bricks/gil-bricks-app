@@ -247,6 +247,9 @@ export interface ChangeRow {
   from_score: number;
   to_score: number;
   to_verdict_line: string;
+  /** D4 — the cash needed up front, before and after. Null on older rows. */
+  from_cash: number | null;
+  to_cash: number | null;
   at: string;
   acknowledged_at: string | null;
 }
@@ -257,6 +260,9 @@ export interface FactChange {
   toScore: number;
   previousValue: number | null;
   toVerdictLine: string;
+  /** D4 — what you must find up front, before and after this fact. */
+  fromCash: number | null;
+  toCash: number | null;
 }
 
 /** Every unacknowledged-or-recent change on a user's deals, newest first. */
@@ -264,7 +270,7 @@ export async function listChanges(db: D1Database, userId: string): Promise<Chang
   const rows = await db
     .prepare(
       `SELECT c.id, c.deal_id, c.fact_type, c.fact_value, c.previous_value, c.from_score,
-              c.to_score, c.to_verdict_line, c.at, c.acknowledged_at
+              c.to_score, c.to_verdict_line, c.from_cash, c.to_cash, c.at, c.acknowledged_at
          FROM deal_changes c JOIN deals d ON d.id = c.deal_id
         WHERE d.user_id = ? AND c.acknowledged_at IS NULL
         ORDER BY c.at DESC`,
@@ -516,8 +522,8 @@ export async function recordFact(
     db.prepare('UPDATE deals SET updated_at = ? WHERE id = ?').bind(now, dealId),
     ...(verdict ? verdictStatements(db, dealId, verdict, now) : []),
     ...(change
-      ? [db.prepare('INSERT INTO deal_changes (id, deal_id, fact_type, fact_value, previous_value, from_score, to_score, to_verdict_line, at, acknowledged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)')
-        .bind(change.id, dealId, factType, change.value, change.change.previousValue, change.change.fromScore, change.change.toScore, change.change.toVerdictLine, now)]
+      ? [db.prepare('INSERT INTO deal_changes (id, deal_id, fact_type, fact_value, previous_value, from_score, to_score, to_verdict_line, from_cash, to_cash, at, acknowledged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)')
+        .bind(change.id, dealId, factType, change.value, change.change.previousValue, change.change.fromScore, change.change.toScore, change.change.toVerdictLine, change.change.fromCash, change.change.toCash, now)]
       : []),
   ]);
   // The SERVER's timestamp goes back to the browser: the board stamps its

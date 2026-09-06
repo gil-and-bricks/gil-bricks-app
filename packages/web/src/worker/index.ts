@@ -1032,11 +1032,19 @@ function readFactChange(body: Record<string, unknown>): FactChange | undefined |
   const to = num(c.to_score);
   if (from === null || to === null || from < 0 || from > 10 || to < 0 || to > 10) return 'bad';
   const previous = num(c.previous_value);
+  // D4 — the cash needed either side of the fact. Optional (an older browser
+  // sends neither), bounded, and never negative.
+  const cashOf = (v: unknown): number | null => {
+    const n = num(v);
+    return n !== null && n >= 0 && n <= 100_000_000 ? Math.round(n) : null;
+  };
   return {
     fromScore: from,
     toScore: to,
     previousValue: previous !== null && previous >= 0 ? previous : null,
     toVerdictLine: String(c.to_verdict_line ?? '').slice(0, 200).trim(),
+    fromCash: cashOf(c.from_cash),
+    toCash: cashOf(c.to_cash),
   };
 }
 

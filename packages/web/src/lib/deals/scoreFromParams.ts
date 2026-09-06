@@ -26,11 +26,14 @@ import {
   analyseBrrrr,
   analyseFlip,
   analyseHmo,
+  criteriaFromParams,
+  customKeysFor,
   fmtMoney,
   fmtPct,
   maxOfferForVerdict,
   scoreDeal,
   strategies,
+  thresholdsFor,
   type StrategyConfig,
   type StrategyId,
   type Verdict,
@@ -108,8 +111,23 @@ function reader(config: StrategyConfig, params: URLSearchParams) {
 const defaultOf = (config: StrategyConfig, key: string): string =>
   String([...config.strategyInputs, ...config.assumptions].find((f) => f.key === key)?.default ?? '');
 
-const thresholdsOf = (config: StrategyConfig): Record<string, number> =>
-  (config as unknown as { thresholds: Record<string, number> }).thresholds;
+/**
+ * The bar a deal is judged by: its own carried minimums where it has them, the
+ * strategy's own otherwise. The criteria ride in the saved url_params, so a
+ * board re-score reproduces exactly what the analyser scored (D4 review).
+ */
+const thresholdsOf = (config: StrategyConfig, params?: URLSearchParams): Record<string, number> => {
+  const own = (config as unknown as { thresholds: Record<string, number> }).thresholds;
+  if (!params) return own;
+  const criteria = criteriaFromParams(params);
+  return Object.values(criteria).some((v) => typeof v === 'number')
+    ? thresholdsFor(config.id as StrategyId, criteria)
+    : own;
+};
+
+/** Which of them the person set themselves — drives "you set as your minimum". */
+const customKeysOf = (config: StrategyConfig, params: URLSearchParams): Set<string> =>
+  customKeysFor(criteriaFromParams(params), config.id as StrategyId);
 
 /**
  * Score a deal exactly as its analyser would, with no valuation.
@@ -123,7 +141,7 @@ const thresholdsOf = (config: StrategyConfig): Record<string, number> =>
  */
 export function inputsFromParams(
   strategy: string, urlParams: string, roomSizeFailures?: number | null,
-): { config: StrategyConfig; inputs: Record<string, unknown> & { price: number } } {
+): { config: StrategyConfig; inputs: Record<string, unknown> & { price: number }; customKeys: Set<string> } {
   const params = new URLSearchParams(urlParams);
   const config = configFor(strategy);
   const { num, str } = reader(config, params);
@@ -141,24 +159,24 @@ export function inputsFromParams(
   const buyingAs = str('buyingAs') === '' ? 'basic' : str('buyingAs');
 
   if (strategy === 'btl') {
-    return { config, inputs: {
+    return { config, customKeys: customKeysOf(config, params), inputs: {
       price, country, monthlyRent: num('rent'), depositPct: num('deposit'), ratePct: num('rate'),
       buyingAs, selfManaged: str('mgmt') === 'self', voidWeeks: num('voidWeeks'), agentPct: num('agentPct'),
       maintPct: num('maintPct'), insurancePerYear: num('insurance'), legals: num('legals'),
-      refurb: num('refurbCost'), stressRatePct: num('stressRate'), taxBasis, thresholds: thresholdsOf(config),
+      refurb: num('refurbCost'), stressRatePct: num('stressRate'), taxBasis, thresholds: thresholdsOf(config, params),
     } };
   }
 
   if (strategy === 'flip') {
     const isLtd = str('flipAs') === 'ltd';
-    return { config, inputs: {
+    return { config, customKeys: customKeysOf(config, params), inputs: {
       price, country, refurb: num('refurbCost'), gdv: num('gdv'),
       funding: str('funding') === 'cash' ? 'cash' : 'bridging', months: num('bridgeMonths'),
       agentSalePctExVat: num('agentSalePct'), saleLegals: num('saleLegals'),
       flipAs: isLtd ? 'ltd' : 'personal', incomeBand: str('incomeBand') === 'basic' ? 'basic' : 'higher',
       bridgeLoanPct: num('bridgeLoanPct'), bridgeRatePctMonth: num('bridgeRate'),
       arrangementPct: num('arrangementPct'), exitPct: num('exitPct'), legals: num('legals'),
-      contingencyPct: num('contingencyPct'), taxBasis, thresholds: thresholdsOf(config),
+      contingencyPct: num('contingencyPct'), taxBasis, thresholds: thresholdsOf(config, params),
     } };
   }
 
@@ -167,7 +185,7 @@ export function inputsFromParams(
     // 'custom', and 'custom' means read the number the person typed instead.
     const ltvRaw = str('ltv');
     const ltvPct = ltvRaw === 'custom' ? num('ltvCustom') : Number(ltvRaw) || Number(configDefault('ltv'));
-    return { config, inputs: {
+    return { config, customKeys: customKeysOf(config, params), inputs: {
       price, country, refurb: num('refurbCost'), arv: num('arv'),
       funding: str('funding') === 'cash' ? 'cash' : 'bridging', bridgeMonths: num('bridgeMonths'),
       monthlyRent: num('rent'), ltvPct, buyingAs,
@@ -175,7 +193,7 @@ export function inputsFromParams(
       bridgeRatePctMonth: num('bridgeRate'), arrangementPct: num('arrangementPct'), exitPct: num('exitPct'),
       legals: num('legals'), refiLegals: num('refiLegals'), voidWeeks: num('voidWeeks'),
       agentPct: num('agentPct'), maintPct: num('maintPct'), insurancePerYear: num('insurance'),
-      refiRatePct: num('rate'), stressRatePct: num('stressRate'), taxBasis, thresholds: thresholdsOf(config),
+      refiRatePct: num('rate'), stressRatePct: num('stressRate'), taxBasis, thresholds: thresholdsOf(config, params),
     } };
   }
 
@@ -189,7 +207,7 @@ export function inputsFromParams(
   if (roomsRaw !== '' && !(Number(roomsRaw) > 0)) throw new Error(`hmo cannot be scored with rooms "${roomsRaw}"`);
   const rooms = num('rooms') > 0 ? num('rooms') : 4;
   const selfManaged = str('mgmt') === 'self';
-  return { config, inputs: {
+  return { config, customKeys: customKeysOf(config, params), inputs: {
     price, country, rooms, roomRent: num('roomRent'), billsIncluded: str('bills') !== 'no',
     refurb: num('refurbCost'), buyingAs, selfManaged, depositPct: num('deposit'), ratePct: num('rate'),
     opCostPct: selfManaged ? num('opCostPctSelf') : num('opCostPctAgent'),
@@ -197,7 +215,7 @@ export function inputsFromParams(
     legals: num('legals'), stressRatePct: num('stressRate'), taxBasis,
     // What the SAVE knew: null only when the rooms were never measured.
     roomSizeFailures: roomSizeFailures ?? null,
-    thresholds: thresholdsOf(config),
+    thresholds: thresholdsOf(config, params),
   } };
 }
 
@@ -209,11 +227,13 @@ export function inputsFromParams(
 export function scoreFromParams(
   strategy: string, urlParams: string, evidence?: SoldEvidence | null, roomSizeFailures?: number | null,
 ): ParamScore {
-  const { inputs } = inputsFromParams(strategy, urlParams, roomSizeFailures);
+  const { inputs, customKeys } = inputsFromParams(strategy, urlParams, roomSizeFailures);
   // The SAME third argument the analyser passes: the sold-price band. Undefined
   // means no evidence, which the engine scores as unknown — the honest answer.
   const ev = evidence ?? undefined;
-  const d = scoreDeal(strategy as StrategyId, inputs as never, ev);
+  // …and the SAME fourth: which minimums are the person's own, so a re-scored
+  // card says "you set as your minimum" exactly where the analyser did.
+  const d = scoreDeal(strategy as StrategyId, inputs as never, ev, { customKeys });
 
   if (strategy === 'btl') {
     const a = analyseBtl(inputs as never);

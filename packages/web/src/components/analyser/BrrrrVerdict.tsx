@@ -2,6 +2,8 @@
 import { keyFigure } from './keyFigure';
 import { COPY } from '../../config/copy';
 import { BRRRR_COPY, VERDICT_COPY } from '../../config/verdicts';
+import { evidenceFromComps } from './soldEvidence';
+import { hasArrivedCriteria, judgedBy } from './criteria';
 import { verdictSnapshot } from './verdictSnapshot';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
@@ -59,6 +61,14 @@ export function BrrrrVerdict({ config, comps, valuation }: {
 
   let analysis: BrrrrAnalysis | null = null;
   let analysisError: string | null = null;
+  // The sold-price band the score rests on — the sector's own distribution,
+  // read by the SAME rule the extension panel uses (D4). The valuation below
+  // is a display figure and deliberately plays no part in it.
+  const soldEvidence = evidenceFromComps(num('arv'), comps);
+  // D4 — the bar this is judged by: the person's own minimums when they came
+  // over from the panel, the strategy's own otherwise. customKeys is what makes
+  // the engine say "you set as your minimum" instead of claiming it as ours.
+  const judged = judgedBy('brrrr', requireThresholds(config) as unknown as Record<string, number>);
   let deal: DealScore | null = null;
   if (ready && comps) {
     try {
@@ -86,11 +96,11 @@ export function BrrrrVerdict({ config, comps, valuation }: {
         refiRatePct: num('rate'),
         stressRatePct: num('stressRate'),
         taxBasis: (p.taxBasis as BuyerType) ?? 'additional',
-        thresholds: requireThresholds(config),
+        thresholds: judged.thresholds as never,
       };
       analysis = analyseBrrrr(inputs);
       if (features.dealScore) {
-        deal = scoreDeal('brrrr', inputs, valuation ? { estimate: valuation.estimate, high: valuation.range.high } : undefined);
+        deal = scoreDeal('brrrr', inputs, soldEvidence, { customKeys: judged.customKeys });
       }
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
@@ -108,7 +118,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
   // WITHOUT changing the headline string (e.g. a stress-rate tweak that flips the ICR gate)
   // still republishes — the saved score can never contradict what's on screen.
   const nextSnapshot = analysis
-    ? { soldEvidence: valuation ? { estimate: valuation.estimate, high: valuation.range.high } : null, score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: requireThresholds(config), assumptions: p }), lever: analysis.lever ?? null, boardFigure: analysis.outcomeVerdict }
+    ? { soldEvidence: soldEvidence ?? null, score: deal ? deal.score : null, headline: deal ? deal.headline : '', criteriaJson: JSON.stringify({ thresholds: judged.thresholds, assumptions: p }), lever: analysis.lever ?? null, boardFigure: analysis.outcomeVerdict }
     : null;
   useEffect(() => {
     keyFigure.value = headlineForSave;
@@ -131,7 +141,8 @@ export function BrrrrVerdict({ config, comps, valuation }: {
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}
       <div class="verdict-results">
-      {deal && <DealScoreChip deal={deal} strategy="brrrr" evidence={analyserEvidence(valuation !== null, null, 'brrrr')} />}
+      {deal && <DealScoreChip deal={deal} strategy="brrrr" evidence={analyserEvidence(soldEvidence !== undefined, null, 'brrrr')} />}
+      {hasArrivedCriteria(config.id) && <p class="hint judged-by">{VERDICT_COPY.judgedByYours}</p>}
       {analysis && (
         <>
           <div id="sec-verdict" class={`verdict-banner verdict-${analysis.verdict}`} role={stickyVerdictActive() ? undefined : 'status'}>

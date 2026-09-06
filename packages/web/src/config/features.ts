@@ -136,6 +136,39 @@ export interface FeatureFlags {
    * teaches the insight and shows no button (src/config/credit.ts). */
   creditPage: boolean;
 
+  /** The score-moved note (D4): when a saved score no longer matches what the
+   * deal's own inputs produce — because D4 changed which sold evidence every
+   * surface reads — the card says what it was, what it is now, and offers to
+   * take the new one. Nothing is ever rewritten without a tap. Off: the stored
+   * score stands silently and no sector files are fetched on the board at all.
+   * Threshold: SCORE_MOVED.minPoints. */
+  scoreMovedNote: boolean;
+
+  /** The criteria handoff (D4): "Send to my analyser" carries the minimums the
+   * person set in the extension, so the analyser judges by their bar and says
+   * whose it is — instead of quietly reverting to the strategy's defaults. Off:
+   * the params are ignored and every analyser judges by config, exactly as
+   * before; the extension still sends them and they simply do nothing. */
+  criteriaHandoff: boolean;
+
+  /** The measurement handoff (D4): room sizes measured on the floor plan in the
+   * extension survive "Send to my analyser" instead of dying at the click. Off:
+   * the analyser reads only rooms typed into its own accordion. */
+  measurementHandoff: boolean;
+
+  /** The cash-needed change line (D4): a fact that moves what you must find up
+   * front is announced even when the Deal Score does not move at all. Off: the
+   * change block behaves exactly as P6 left it (score moves only) and no cash
+   * figures are written to a change row. Threshold: CHANGE_RULES.minCashChange. */
+  cashNeededChange: boolean;
+
+  /** The valuation's type caveat (D4): when the subject's kind of home is not
+   * what this sector's sold evidence is about, say so BESIDE the estimate, and
+   * past a stated multiple lead with it and demote the figure. Off: the estimate
+   * and its existing "less certain" line are exactly as they were — the number
+   * itself never changes either way. Ratios: VALUATION_TYPE_CHECK. */
+  valuationTypeCaveat: boolean;
+
   /** PDF export of a result (D1). Off: no PDF button and no "coming soon"
    * caption anywhere — an unbuilt feature is hidden, never shown disabled. */
   pdfExport: boolean;
@@ -163,6 +196,11 @@ export const features: FeatureFlags = {
   toolsSection: true,
   toolCapture: true,
   creditPage: true,
+  scoreMovedNote: true,
+  criteriaHandoff: true,
+  measurementHandoff: true,
+  cashNeededChange: true,
+  valuationTypeCaveat: true,
   pdfExport: false,
 };
 

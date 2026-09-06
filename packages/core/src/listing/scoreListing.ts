@@ -14,6 +14,7 @@ import type { FlipStrategyInputs } from '../strategy-calc/flip';
 import type { BrrrrStrategyInputs } from '../strategy-calc/brrrr';
 import type { HmoInputs } from '../strategy-calc/hmo';
 import type { CountryCode, SectorFile } from '../data/types';
+import { soldEvidenceFor, SOLD_JUDGED_PARAM } from '../score/soldEvidence';
 import { priceVsSector, type PriceVsSold, type SectorLoad } from './enrich';
 import { thresholdsFor, customKeysFor, type Criteria } from './criteria';
 import type { NormalisedListing } from './types';
@@ -189,10 +190,12 @@ export function scoreListing(listing: NormalisedListing, opts: ScoreListingOptio
   // Evidence for the scoreDeal price/end-value component uses the value that
   // component judges (price for BTL/HMO, end value for Flip/BRRRR). Exclude it
   // when the sector is thin OR the value sits outside the local evidence.
-  const endValue = opts.strategy === 'flip' ? num('gdv') : opts.strategy === 'brrrr' ? num('arv') : price;
-  const enoughSales = !!opts.sector && opts.sector.stats.count >= minSales;
-  const withinEvidence = enoughSales && endValue <= opts.sector!.stats.p90Price * outsideFactor;
-  const evidence = withinEvidence ? { estimate: opts.sector!.stats.typicalPrice, high: opts.sector!.stats.p90Price } : undefined;
+  // The number the sold component judges, from the ONE map (soldEvidence.ts) —
+  // so the panel, the analyser and the board can never judge different figures.
+  const endKey = SOLD_JUDGED_PARAM[opts.strategy] ?? 'price';
+  const endValue = endKey === 'price' ? price : num(endKey);
+  // ONE rule, shared with the web analyser and the board (D4) — see soldEvidence.ts.
+  const { evidence } = soldEvidenceFor(endValue, opts.sector, { minSales, outsideFactor });
   // The same read, on the number the sold-evidence component actually judges.
   const endVsSold = endValue === price
     ? priceVsSold

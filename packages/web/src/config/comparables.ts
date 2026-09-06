@@ -123,3 +123,22 @@ export const COMPARABLES = {
     rightmoveLink: 'Search on Rightmove',
   },
 } as const;
+
+/**
+ * D4 — when the valuation's own evidence is about a different kind of home.
+ * `caution`: say it beside the number. `demote`: the caveat leads and the
+ * estimate is shown smaller, below it. Ratios are estimate ÷ what this TYPE
+ * typically sells for in this sector.
+ */
+export const VALUATION_TYPE_CHECK = {
+  cautionRatio: 1.4,
+  demoteRatio: 2,
+  /** Share of a sector's sales one kind must hold before we say "mostly". */
+  dominantShare: 0.7,
+} as const;
+
+/** How each KIND reads in "This sector is mostly ___." Buckets, not single
+ *  types: naming the largest house type would label a minority (D4 review). */
+export const PROPERTY_KINDS_PLURAL: Record<'houses' | 'flats', string> = {
+  houses: 'houses', flats: 'flats',
+};

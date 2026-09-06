@@ -319,6 +319,9 @@ export const TODAY_COPY = {
   deadline: (act: string, title: string, noun: string, when: string): string => `${act} ${title} — ${noun} is ${when}.`,
   /** Tier (b): the answer moved and you have not read it. */
   unreadChange: (title: string, score: string): string => `Read what changed on ${title} — the answer moved to ${score}.`,
+  /** D4 review — a fact can move the CASH without moving the score. Saying "the
+   *  answer moved to 7.0" when it was already 7.0 would be untrue. */
+  unreadCash: (title: string, cash: string): string => `Read what changed on ${title} — you’d now need ${cash} up front.`,
   /** Tier (c): sat longer than is normal for its stage. */
   stale: (act: string, title: string, days: string): string => `${act} ${title} — ${days} at this stage.`,
   /** Tier (d): the number under the decision is still a guess. */
@@ -357,9 +360,38 @@ export const TODAY_COPY = {
  *    assumptions nobody set to the decimal.
  * A change that clears neither rule updates the score quietly.
  */
+/**
+ * D4 — when a saved score no longer matches what the deal produces, the card
+ * says so rather than the number changing under somebody. Below this many
+ * points the difference is rounding, not news.
+ */
+export const SCORE_MOVED = {
+  minPoints: 0.1,
+} as const;
+
+/** The words for it. Exempt from the two-sentence rule by copy rule 7: these
+ *  are Deal Score lines and naming both numbers IS the plain-English win. */
+export const SCORE_MOVED_COPY = {
+  heading: 'This scores differently now',
+  line: (from: string, to: string): string =>
+    `You saved this at ${from}. On the sold-price check we use now it scores ${to}.`,
+  why: 'Every screen reads the sold prices the same way now, so this deal and the extension can no longer disagree.',
+  accept: 'Use the new score',
+  acceptLabel: (title: string): string => `Use the new score for ${title}`,
+  busy: 'Saving…',
+  failed: 'That didn’t save. Try again in a moment.',
+} as const;
+
 export const CHANGE_RULES = {
   onBandChange: true,
   minPoints: 1,
+  /**
+   * D4 — a fact can move the money you must find without moving the score at
+   * all. A £25,000 builder's quote took the cash needed from £47,000 to £72,000
+   * and left a 7.0 at 7.0, and the card said nothing. Above this many pounds of
+   * movement, that is news on its own.
+   */
+  minCashChange: 2500,
 } as const;
 
 /**
@@ -383,6 +415,10 @@ export const CHANGE_COPY = {
     `The ${fact} ${value} moves it ${direction} to ${score}.`,
   /** Which way it went. Good news reads as good news. */
   direction: { down: 'down', up: 'up' },
+  /** D4 — what you must find up front, when a fact moved it. Exempt from the
+   *  two-sentence rule by copy rule 7: it names the binding number. */
+  cashHeading: 'What you need up front changed',
+  cashMoved: (to: string, from: string): string => `You’d now need ${to} up front, not ${from}.`,
   /** Said when the deal has fallen below where the score says walk away. */
   /** Which park reason a killed deal is offered with. A KEY, so the label can be
    * reworded above without touching this. */

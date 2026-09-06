@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
 import { effect } from '@preact/signals';
-import { findComparables, youtubeFor, type ComparablesResult } from '@gil-bricks/core';
+import { findComparables, getAreaStats, youtubeFor, type ComparablesResult } from '@gil-bricks/core';
 import { ComparablesError } from '@gil-bricks/core';
 import { fetchSaleHistory, type AddressCandidate } from '@gil-bricks/core';
 import { valueProperty, type Valuation } from '@gil-bricks/core';
@@ -36,10 +36,14 @@ interface Results {
   valuation: Valuation | null;
   candidates: AddressCandidate[] | null;
   lrState: 'ok' | 'timeout' | null;
+  /** The subject sector's sold price PER TYPE — what the valuation caveat is
+   *  built from (D4). Null when the companion file could not be read; the
+   *  caveat is then simply absent, never guessed. */
+  byType: Partial<Record<'D' | 'S' | 'T' | 'F', number | null>> | null;
 }
 
 export function AnalyserApp({ strategyName, config = null, showVerdict = true }: { strategyName: string; config?: StrategyConfig | null; showVerdict?: boolean }) {
-  const [results, setResults] = useState<Results>({ comps: null, valuation: null, candidates: null, lrState: null });
+  const [results, setResults] = useState<Results>({ comps: null, valuation: null, candidates: null, lrState: null, byType: null });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [postcodeError, setPostcodeError] = useState<string | null>(null);
@@ -135,7 +139,18 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             if (!(err instanceof ComparablesError && (err.kind === 'DataUnavailable' || err.kind === 'BadInput'))) throw err;
           }
           if (mySeq !== seq) return;
-          setResults({ comps, valuation, candidates, lrState });
+          setResults({ comps, valuation, candidates, lrState, byType: null });
+          // The per-type sold prices for the subject's own sector, fetched AFTER
+          // the cards are on screen — the valuation must never wait on the
+          // caveat. A miss is not an error: without it there is simply no type
+          // caveat, never a guessed one (D4).
+          void getAreaStats(comps.subject.sectorId.split(' ')[0])
+            .then((f) => {
+              if (mySeq !== seq) return;
+              const byType = f[comps.subject.sectorId]?.typicalPriceByType ?? null;
+              if (byType) setResults((cur) => ({ ...cur, byType }));
+            })
+            .catch(() => undefined);
         } catch (err) {
           if (mySeq !== seq) return;
           if (err instanceof ComparablesError && err.kind === 'OutsideEnglandWales') {
@@ -147,7 +162,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           } else {
             setError(COPY.analyser.loadFailed);
           }
-          setResults({ comps: null, valuation: null, candidates: null, lrState: null });
+          setResults({ comps: null, valuation: null, candidates: null, lrState: null, byType: null });
         } finally {
           if (mySeq === seq) setBusy(false);
         }
@@ -245,7 +260,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                   two of them blaming the user for our outage (D3). */}
               {error === null && (
                 <>
-                  <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} />
+                  <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
                   <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
                 </>
               )}

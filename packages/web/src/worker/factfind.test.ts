@@ -19,7 +19,7 @@ import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
 import { signSession } from './lib/jwt';
 import { features } from '../config/features';
-import { BROKER, FACTFIND_RULES } from '../config/bridging';
+import { BROKER, FACTFIND_RULES, brokerReady, factFindReady } from '../config/bridging';
 import { siteConfig } from '../site.config';
 import { columnsCoverEveryField, hashToken, purgeFactFinds } from './lib/factfind';
 
@@ -360,5 +360,31 @@ describe('deleting the account', () => {
 describe('the shape of it', () => {
   it('every question the config asks has a column of its own', () => {
     expect(columnsCoverEveryField()).toBe(true);
+  });
+});
+
+/**
+ * D4 — the consent tick says the answers are shared with the broker. That is
+ * only true once there is a Kit automation to notify him, which is keyed on
+ * kitTagFactFind. So the fact-find must be shut on that tag ALONE, even when
+ * every other broker value is real.
+ */
+describe('shut until the fact-find tag exists (D4)', () => {
+  it('refuses a fact-find when only kitTagFactFind is missing, and stores nothing', async () => {
+    (BROKER as unknown as Record<string, string>).kitTagFactFind = '';
+    const res = await worker.fetch(new Request('https://s.test/api/bridging/factfind', {
+      method: 'POST',
+      headers: { ...(await authed()), 'content-type': 'application/json' },
+      body: JSON.stringify({ enquiry_id: ENQUIRY, ...ANSWERS }),
+    }), env());
+    expect(res.status).toBe(404);
+    expect(rows('SELECT * FROM bridging_factfinds').length).toBe(0);
+  });
+
+  it('and the qualified answer stops offering the step — a positive control', async () => {
+    expect(factFindReady()).toBe(true);
+    (BROKER as unknown as Record<string, string>).kitTagFactFind = '';
+    expect(factFindReady()).toBe(false);
+    expect(brokerReady(), 'every OTHER broker value is still real').toBe(true);
   });
 });

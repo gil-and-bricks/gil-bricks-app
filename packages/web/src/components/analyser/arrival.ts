@@ -10,8 +10,17 @@
  */
 const params = typeof window === 'undefined' ? new URLSearchParams() : new URLSearchParams(location.search);
 
-/** Everything here is stripped from the URL once read. */
-export const READ_ONCE = ['src', 'areaSrc', 'deal', 'factsAt', 'ev'] as const;
+/**
+ * Everything here is stripped from the URL once read.
+ *
+ * The room MEASUREMENTS go too (D4 review): they are somebody's own work on a
+ * floor plan, and a link copied out of the address bar must not carry them —
+ * or a stranger's page would claim measurements nobody took. The criteria do
+ * NOT: they are the bar this page is judged by, they are shown on screen as
+ * such, and they have to survive a strategy switch and land in the saved deal
+ * so the board judges it the same way.
+ */
+export const READ_ONCE = ['src', 'areaSrc', 'deal', 'factsAt', 'ev', 'roomFails', 'roomsMeasured'] as const;
 
 /** The deal this page was opened from, or null. */
 export const arrivedDealId: string | null = params.get('deal');

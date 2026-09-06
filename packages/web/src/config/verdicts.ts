@@ -20,6 +20,12 @@
 export const VERDICT_COPY = {
   /** The card heading. The strategy name comes from its StrategyConfig. */
   heading: (strategyName: string): string => `${strategyName} verdict`,
+  /**
+   * D4 — whose bar this was judged by. The panel scores against the minimums a
+   * person set for themselves; the analyser now does too, and says so, because
+   * a score means nothing without knowing the standard behind it.
+   */
+  judgedByYours: 'Judged by the minimums you set in the extension, not our defaults.',
   /** Unit suffixes, stuck on the end of an already-formatted figure. */
   perMonth: '/mo',
   perYear: '/yr',

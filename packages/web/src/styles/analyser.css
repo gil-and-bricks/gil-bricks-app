@@ -1078,6 +1078,10 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
   text-transform: uppercase; color: var(--text-dim);
 }
 .dc-change-line { margin: 0; font-size: var(--text-base); font-weight: 600; color: var(--text); line-height: 1.35; }
+/* D4 — the money you must find, when a fact moved it. Same weight as the score
+   line: a £25,000 swing in what you have to put on the table is the same size
+   of news as a score move. */
+.dc-change-cash { margin: var(--space-1) 0 0; font-size: var(--text-base); font-weight: 600; color: var(--text); line-height: 1.35; }
 .dc-change-verdict { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.35; }
 .dc-change-kill { margin: var(--space-1) 0 0; font-size: var(--text-sm); font-weight: 700; color: var(--verdict-walk); }
 .dc-change-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
@@ -1270,3 +1274,34 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 .factfind .field input, .factfind .field textarea { width: 100%; min-height: 48px; }
 .factfind .bridge-choice { min-height: 44px; }
 .factfind .bridge-actions { margin-top: var(--space-3); }
+
+/* ---- D4: the valuation's type caveat ------------------------------------ */
+/* Beside the number, not under it: the existing "less certain" line loses to a
+   big figure every time. Amber, because it is a warning about the figure and
+   never a verdict on the deal. */
+.val-type-caveat {
+  margin: var(--space-2) 0 var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--verdict-amber);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+/* Demoted: the caveat leads at reading size, the estimate follows quietly. */
+.val-type-lead { font-size: var(--text-base); }
+.val-demoted-label { margin: var(--space-3) 0 0; color: var(--text-dim); font-size: var(--text-xs); }
+.val-demoted-figure { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: var(--text-lg); }
+
+/* ---- D4: a saved score the rule moved ----------------------------------- */
+/* Neutral, not alarming: nothing is wrong with the deal, we changed how every
+   screen reads the sold prices and are saying so before the number moves. */
+.dc-moved {
+  margin: var(--space-3) 0 0;
+  padding: var(--space-3);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.dc-moved-h { margin: 0 0 var(--space-1); font-family: var(--font-display); font-weight: 700; font-size: var(--text-sm); }
+.dc-moved-line { margin: 0 0 var(--space-1); font-size: var(--text-base); font-weight: 600; line-height: 1.35; }
+.dc-moved .btn-secondary { margin-top: var(--space-2); }

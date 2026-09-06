@@ -2,6 +2,123 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-06 — Sprint D4: close the trust gaps (deployed)
+
+The five things D3 left for the operator, decided and built. A 65-agent
+adversarial review ran before the commit and found real damage in my own work;
+what it caught is recorded at the end, because the pattern matters.
+
+**1. One rule for sold evidence, everywhere**
+
+- **JUDGMENT CALL — I did NOT build the "fallback" as specified, and here is
+  why.** The brief said to give the web the same sector fallback behind the
+  ValuationEngine. A fallback still lets the surfaces differ: whenever the web
+  HAS a valuation and the panel — which can never have one, having no floor-area
+  lookup and no Land Registry history — does not, the two read different bands.
+  The brief's own headline is "THE SCORE MUST NOT DIFFER BETWEEN SURFACES" and
+  it asks for agreement to the decimal, so I implemented the goal: the Deal
+  Score reads the SECTOR on every surface, and the ValuationEngine is a display
+  figure that plays no part in any score. It also restores the invariant the
+  evidence chips are built on ("no Deal Score reads the floor area"), and it
+  decouples the score from the very estimate item 2 exists because it can be
+  confidently wrong.
+- The rule lives in ONE function, `soldEvidenceFor` in @gil-bricks/core, with the
+  two thresholds coming from the shared extractor config the panel already reads,
+  so neither surface can be tuned without the other. `ComparablesResult` now
+  carries the subject's own `subjectSector` — already loaded by the comps search,
+  so no extra fetch. A test runs the panel's entry point and the analyser's over
+  the same inputs and fails if they hand the engine anything different.
+- **Which number is judged is also one map.** A flip or BRRRR is judged on what
+  it will be WORTH, not what it cost. `SOLD_JUDGED_PARAM` is exported and used by
+  the panel, the analyser and the moved-note; I had got this wrong in the note
+  first time and it would have written a score judged on the purchase price.
+- **Existing deals are never rewritten quietly.** The board recomputes each live
+  scored deal from its own inputs (one sector file per distinct sector, fetched
+  AFTER first paint, deduped and cached) and where the answer differs the card
+  says what it was, what it is now, and offers to take the new one. The stored
+  number stands until somebody taps.
+
+**2. The valuation names the mismatch, at the number**
+
+- £344,520 on a £150,000 flat is the app being confidently wrong in the direction
+  that costs money, and the existing "less certain" line loses to a big figure.
+  The sector data already carries the typical sold price per type, so the card
+  now says, WHERE the number is: "This sector is mostly houses. A flat here
+  typically sells for around £151,613. Treat this figure with real caution."
+  Past a stated multiple the caveat leads and the estimate is demoted beneath it.
+- **The estimate is never suppressed and never replaced.** It stays on screen,
+  labelled, with its range intact. We say the number may be wrong; we do not
+  invent a different one.
+- **JUDGMENT CALL — "mostly" is a claim about a BUCKET, not a type.** The review
+  caught me labelling a sector "mostly terraced houses" when terraces were 30% of
+  it. Dominance is now houses-vs-flats, counted from the sector's own sales, so
+  the sentence is true of what was actually measured.
+
+**3. Cash needed is news even when the score is not**
+
+- A £25,000 builder's quote took the money needed from £47,000 to £72,000 and
+  left a 7.0 at 7.0, and the card said nothing. The change row now carries both
+  figures (migration 0021, additive) and the announcement fires on either. When
+  only the cash moved, the cash IS the heading — "This was 7.0 … moves it to 7.0"
+  would be nonsense. Threshold in config.
+
+**4 and 5. The handoff carries your bar and your measurements**
+
+- The panel scores against the minimums you set and says "you set as your
+  minimum"; the analyser then used the strategy's defaults. It now judges by
+  yours and says so. Room sizes measured on a floor plan — the only real evidence
+  about room sizes anyone has — survive the click: on a four-room HMO measuring
+  clear takes 7.2 to 9.4, and two rooms short takes it to 7.1 with the honest
+  "2 rooms below the minimum (measured)".
+- **JUDGMENT CALL — the criteria ride in the saved url_params; the measurements
+  do not, and are stripped from the URL once read.** Your minimums are the bar
+  the deal is judged by, are shown on screen as such, and must survive a strategy
+  switch and land in the saved deal so the board judges it the same way. Somebody
+  else's measurements are their work on a floor plan, and a link copied out of
+  the address bar must not let a stranger's page claim measurements nobody took.
+
+**6. The ICO fee is paid** — recorded in CLAUDE.md as settled, and struck from
+the status doc, so it stops resurfacing.
+
+**7. The broker delivery gap** — `factFindReady()` already required
+`kitTagFactFind` on top of every other broker value, and it gates the render,
+the qualified answer and the endpoint. A test now proves the fact-find is shut on
+that tag ALONE, with every other broker value real, because that tag is what the
+Kit automation hangs off and the automation is what makes the consent statement
+true. CLAUDE.md now says so beside the rule.
+
+**What the adversarial review caught in my own work**
+
+Twenty findings survived two independent refuters each. The serious ones:
+
+- **The criteria changed the analyser's score but were never SAVED**, so the
+  board silently re-scored by the strategy's defaults — 9.4 on the card against
+  7.2 on the page, on the very deal whose bar the person had set. Worse, the new
+  moved-note then fired on that difference, blamed the sold-price rule for it,
+  and "Use the new score" would have written the config bar over their own,
+  permanently. The criteria now ride in `url_params` and one core reader
+  (`criteriaFromParams`) is used by the analyser, the board, the re-trade radar
+  and the note, so all four judge on one bar. Verified end to end: analyser 7.2,
+  board 7.2, and the card carries their own wording.
+- **"Judged by the minimums you set" showed when nothing had been overridden** —
+  a BTL minimum on a flip page changes nothing. Gated on `customKeysFor`.
+- **A minimum ICR of 0 was accepted** and threw inside every rental engine,
+  killing the verdict with an unfixable "these numbers don't work together".
+  Bounded to 1–10.
+- **The "no evidence for this type" branch always claimed a mismatch**, so the
+  card could say "mostly houses" and "too few house sales" in one breath. And it
+  said "No flat has sold near here recently" when one or two had, and were listed
+  in the comps table on the same page. Both corrected.
+- **The Today line said "the answer moved to 7.0" on a cash-only change** when it
+  had been 7.0 all along; there is now a cash-worded line.
+- **`cashNeededChange: false` did not turn the line off**, contradicting its own
+  documented behaviour. Gated at both ends. A FALL in the cash needed was also
+  styled as bad news.
+- **The moved-note ran a full scoreDeal for every card inside render** — the
+  exact cost the re-trade radar was memoised to avoid. Memoised the same way.
+- **Typing one passing room discarded a complete floor-plan all-clear.** Typed
+  rows now win only when they actually answer: a failure, or a complete set.
+
 ## 2026-09-06 — Sprint D3: the pre-tester pass (deployed)
 
 The pass before real people. Biased toward opening things in a browser: every fix

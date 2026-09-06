@@ -100,7 +100,11 @@ never states or implies a decision about anyone's finance.
   broker does not review deals.
 - D1 is written before Kit is called, so an enquiry survives a Kit outage; the
   app itself still never sends email.
-- BEFORE THIS PAGE IS PUBLIC: the ICO data-protection fee must be paid.
+- ICO data-protection fee: PAID (2026-09-06). Settled — do not raise it again.
+- The fact-find cannot render until BROKER.kitTagFactFind is a real tag as well
+  as the rest of BROKER (factFindReady()). Until the Kit automation on that tag
+  exists, nothing reaches him, so nothing may be collected: the gate is what
+  keeps the consent statement true.
 
 ## Stack
 - Astro (static-first), built to dist/, deployed as Cloudflare Workers static assets.

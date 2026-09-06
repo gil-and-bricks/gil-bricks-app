@@ -60,6 +60,26 @@ export const COPY = {
     needArea: 'Add the internal area to see £ per square foot. It’s on the EPC.',
     thinEvidence: 'Not enough evidence yet. Add the internal area, or a house number.',
     contextOnly: 'Beds, baths, garden and parking are context only.',
+    /**
+     * D4 — the sector's evidence is about a different kind of home. Said BESIDE
+     * the number, not under it: the existing "less certain" line loses to a big
+     * figure every time. Exempt from the two-sentence rule by copy rule 7 — it
+     * names the binding number, which is the whole plain-English win.
+     */
+    typeCaveat: {
+      /** The sector prices this type, and the estimate is well above it. */
+      aboveType: (typeName: string, typical: string): string =>
+        `A ${typeName} here typically sells for around ${typical}. Treat this figure with real caution.`,
+      /** Too few of this type have sold near here to price one — which is not
+       *  the same as none having sold, and the comps table on the same page may
+       *  well list one or two (D4 review). */
+      noTypeEvidence: (typeName: string): string =>
+        `Too few ${typeName} sales near here to say what one goes for. Treat this figure with real caution.`,
+      /** Leads with the sector's own shape, when one kind dominates its sales. */
+      mostly: (pluralTypeName: string): string => `This sector is mostly ${pluralTypeName}.`,
+      /** Shown where the estimate WAS, once it is demoted. */
+      demotedLabel: 'Estimated value, on very thin evidence for this type',
+    },
   },
   /** The comparables module and its map. */
   comps: {

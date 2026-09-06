@@ -9,7 +9,7 @@
  * an honest empty state with a suggestion instead of quietly casting wider.
  */
 import { getManifest, getSector, getSectorsIndex } from '../data/client';
-import type { Sale } from '../data/types';
+import type { Sale, SectorFile } from '../data/types';
 import { iqm, percentile } from '../maths/stats';
 import { ComparablesError } from './errors';
 import { distanceMiles } from './geo';
@@ -67,6 +67,13 @@ export interface ComparablesResult {
   radiusMiles: RadiusMiles;
   /** Present only when there are zero matching comps. */
   suggestion?: string;
+  /**
+   * The subject's OWN postcode sector, as loaded for this search. It is what
+   * decides sold evidence for the Deal Score on every surface (D4) — carried
+   * here so the analyser reads the same distribution the extension panel does,
+   * without a second fetch.
+   */
+  subjectSector: SectorFile | null;
 }
 
 const TYPE_SETS: Record<PropertyTypeFilter, Set<string> | null> = {
@@ -188,6 +195,8 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
     sectorsSearched: candidates.map((c) => c.sectorId).sort(),
     asOf: manifest.ppdMonth,
     radiusMiles: input.radiusMiles,
+    // Already in hand: the subject's sector is one of the files just loaded.
+    subjectSector: sectorFiles.find((f) => f.sector === subject.sectorId) ?? null,
   };
   if (comps.length === 0) {
     const widenables: string[] = [];

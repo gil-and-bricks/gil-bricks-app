@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { buildAnalyserHandoff, found, missing, strategyById, type NormalisedListing } from '@gil-bricks/core';
+import { buildAnalyserHandoff, customKeysFor, found, missing, strategyById, thresholdsFor, type NormalisedListing } from '@gil-bricks/core';
 import { parseQuery, initStrategyParams, strategyParams, type StrategyFieldSpec } from './state';
 
 /**
@@ -95,5 +95,48 @@ describe('analyser handoff round-trips through the web parser', () => {
     expect(strat.deposit).toBe('30');
     expect(strat.buyingAs).toBe('higher');
     expect(strat.mgmt).toBe('self');
+  });
+});
+
+/**
+ * D4 — the person's own minimums and their own measurements must survive the
+ * click. Both used to die at it: the analyser silently reverted to the
+ * strategy's defaults and threw away the only real evidence about room sizes.
+ */
+describe('criteria and measurements survive the handoff (D4)', () => {
+  const paramsOf = (h: Parameters<typeof buildAnalyserHandoff>[1]) =>
+    new URLSearchParams(buildAnalyserHandoff(listing, h).params);
+
+  it('writes every minimum the person actually set, and none they did not', () => {
+    const p = paramsOf({ strategy: 'btl', criteria: { minCashflow: 400, minIcr: 1.5 } });
+    expect(p.get('minCashflow')).toBe('400');
+    expect(p.get('minIcr')).toBe('1.5');
+    expect(p.get('minRoi'), 'never set, so never claimed').toBeNull();
+    expect(p.get('minProfit')).toBeNull();
+  });
+
+  it('the analyser reads them back as the bar it judges by', () => {
+    const p = paramsOf({ strategy: 'btl', criteria: { minCashflow: 400 } });
+    const t = thresholdsFor('btl', { minCashflow: Number(p.get('minCashflow')) });
+    expect(t.minCashflowGreen).toBe(400);
+    expect(customKeysFor({ minCashflow: 400 }, 'btl').has('cashflow')).toBe(true);
+  });
+
+  it('carries a measured ZERO — every room passed is a real answer, not an absence', () => {
+    const p = paramsOf({ strategy: 'hmo', measured: { roomSizeFailures: 0, roomsMeasured: 4 } });
+    expect(p.get('roomFails')).toBe('0');
+    expect(p.get('roomsMeasured')).toBe('4');
+  });
+
+  it('carries failures, and stays silent when nothing was measured', () => {
+    expect(paramsOf({ strategy: 'hmo', measured: { roomSizeFailures: 2, roomsMeasured: 4 } }).get('roomFails')).toBe('2');
+    expect(paramsOf({ strategy: 'hmo', measured: { roomSizeFailures: null, roomsMeasured: 0 } }).get('roomFails')).toBeNull();
+    expect(paramsOf({ strategy: 'hmo' }).get('roomFails')).toBeNull();
+  });
+
+  it('a handoff with neither is byte-identical to one built before D4', () => {
+    const before = new URLSearchParams(buildAnalyserHandoff(listing, { strategy: 'btl' }).params).toString();
+    const after = paramsOf({ strategy: 'btl', criteria: {}, measured: { roomSizeFailures: null, roomsMeasured: null } }).toString();
+    expect(after).toBe(before);
   });
 });
