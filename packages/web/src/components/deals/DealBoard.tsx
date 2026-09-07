@@ -672,7 +672,11 @@ export function DealBoard() {
         {/* D6 — the ONE thing to do here was an underlined link in a hint
             paragraph, which read as a footnote. Same words, same href, given the
             weight of the only action on the screen. */}
-        <p class="state-cta"><a class="btn-primary" href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a></p>
+        {/* D7 — both ways a deal can arrive, because a stranger knows neither. */}
+        <p class="state-cta">
+          <a class="btn-primary" href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a>
+          <a class="btn-secondary" href="/extension">{COPY.account.dealsEmptyExtension}</a>
+        </p>
       </div>
     );
   }

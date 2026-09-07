@@ -151,8 +151,9 @@
 .btn-secondary { background: transparent; color: var(--accent); font-weight: 500; }
 .btn-secondary:disabled { opacity: 0.4; cursor: default; }
 
-/* The one action on an empty state stands on its own line, with room above it. */
-.state-cta { margin: var(--space-4) 0 0; }
+/* The actions on an empty state stand on their own line, with room above them,
+   and wrap side by side rather than stacking on a phone (D6/D7). */
+.state-cta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-4) 0 0; }
 
 /* skeletons */
 .skeleton { border-radius: 8px; background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.12), rgba(255,255,255,0.05)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
@@ -1421,7 +1422,8 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 
    The band is measured, not guessed: the sentence is one line down to 520px,
    two lines to 340px, three below that. */
-html:not([data-arrived]) .arrived-note { display: none; }
+html:not([data-arrived]) .arrived-note,
+.arrived-note.is-gone { display: none; }
 html[data-arrived] { --arrived-band: 101px; }
 @media (min-width: 340px) { html[data-arrived] { --arrived-band: 78px; } }
 @media (min-width: 520px) { html[data-arrived] { --arrived-band: 55px; } }

@@ -160,7 +160,8 @@ export function AccountApp() {
       {features.dealPipeline ? (
         <div class="glass card">
           <h2>{ACCOUNT.pipeline.heading}</h2>
-          <p class="hint">{ACCOUNT.pipeline.lead}{' '}<a href="/deals">{ACCOUNT.pipeline.link}</a>{' '}{ACCOUNT.pipeline.tail}</p>
+          {/* The tail now opens with its own full stop, so no space before it. */}
+          <p class="hint">{ACCOUNT.pipeline.lead}{' '}<a href="/deals">{ACCOUNT.pipeline.link}</a>{ACCOUNT.pipeline.tail}</p>
           <a class="btn-primary" href="/deals">{ACCOUNT.pipeline.cta}</a>
         </div>
       ) : (

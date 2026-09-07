@@ -125,8 +125,14 @@ export const COPY = {
     cookiesOff: 'Signing in needs cookies switched on. Your analysis stays in this link — copy it.',
     checkFailed: 'The human check didn’t load. Signing in still works; a new account needs it — reload to retry.',
     dealsSignIn: 'Your deals live here once you sign in. It’s free and takes one tap.',
-    dealsEmpty: 'Deals arrive when you analyse a listing. There’s no “add a property” button by design.',
+    /**
+     * D7 — this used to end "there's no 'add a property' button by design",
+     * which explains an absence to somebody who never knew a button was
+     * possible. It says what to DO instead, and offers both ways of doing it.
+     */
+    dealsEmpty: 'Analyse a listing and it lands here. Do it on this site, or as you browse with the free Chrome panel.',
     dealsEmptyCta: 'Open an analyser',
+    dealsEmptyExtension: 'Get the Chrome panel',
     auctionWarning: 'Auction — read the legal pack before you bid.',
   },
   /** The Chrome side panel. The badge itself is Google's artwork, unmodified;

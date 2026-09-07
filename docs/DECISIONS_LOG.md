@@ -2,6 +2,47 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint D7: empty states point at the action (deployed)
+
+**A bug came out of the walk, and it was mine.** Walking the first-run states as
+a stranger showed that "Start with the postcode, price and property type." was
+not on the analysers at all, and "Start with a postcode to see nearby sold
+prices." was not on comparables. Both are in the config, both are in the
+server-rendered HTML — and both were being deleted from the page at hydration.
+
+D5 made the extension arrival note render on the SERVER pass only
+(`serverPass || showArrived`) to hold its space before first paint. On a direct
+visit the client tree then had one fewer leading child than the server sent,
+Preact re-matched every sibling by position, and the LAST child — the first-run
+hint — fell off the end. Nobody noticed because the orphaned note is invisible
+without `data-arrived`, so the page looked fine and was simply missing the one
+line that tells a newcomer what to do first.
+
+Fixed by making the note unconditional in the markup on both passes and moving
+the show/hide entirely into CSS: only its CLASS changes now, and a class swap
+moves no siblings. The D5 property still holds — the note occupies its band from
+the first paint — and CLS on the loaded analyser actually improved (0.035 →
+0.011). **Lesson worth keeping: a conditional that differs between the server
+pass and the client pass does not just skip an element, it can silently shift
+every sibling after it.**
+
+**The copy.** Three states reported an absence instead of offering a next step:
+
+- The empty pipeline ended "There's no 'add a property' button by design",
+  which explains a missing button to somebody who never knew one was possible.
+  It now says what to do and offers BOTH routes as real buttons, because a
+  stranger knows neither: analyse a listing here, or do it as you browse with
+  the Chrome panel.
+- The graveyard opened with "Nothing here yet." It now says what lands there
+  and when, so the section explains itself before it has anything in it.
+- The account page said deals live in the pipeline "now" — a pointer at a change
+  a new account never witnessed. The word is gone.
+
+**JUDGMENT CALL — what I left alone.** Area data, comparables, all three tools,
+the 404, the empty sold-record page and both signed-out states already lead with
+what the thing is and what to do next. Rewriting them to prove I had been
+everywhere would have been churn.
+
 ## 2026-09-07 — Sprint D6: the design pass (deployed)
 
 **The skill file was not there.** The brief said to read

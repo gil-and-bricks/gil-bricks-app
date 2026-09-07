@@ -42,7 +42,8 @@ export const ACCOUNT = {
     /** One sentence in three pieces, because the middle piece is the link. */
     lead: 'Your deals live in your',
     link: 'pipeline',
-    tail: 'now — it shows which one needs you next.',
+    /** D7 — "now" pointed at a change a new account never saw. */
+    tail: '. It shows which one needs you next.',
     cta: 'Open my pipeline',
   },
 

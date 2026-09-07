@@ -13,7 +13,7 @@ import { valueProperty, type Valuation } from '@gil-bricks/core';
 import { initFromUrl, isCompsReady, isReady, state, type UrlState } from './state';
 import { READ_ONCE } from './arrival';
 import { initArrivedFacts } from './analyserEvidence';
-import { initProvenance, isFromExtension, editedKeys } from './provenance';
+import { initProvenance, editedKeys } from './provenance';
 import { SubjectForm } from './SubjectForm';
 import { BtlVerdict } from './BtlVerdict';
 import { StrategySwitcher } from './StrategySwitcher';
@@ -180,25 +180,30 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
   const complete = showVerdict ? isReady(state.value) : isCompsReady(state.value);
   const ready = complete && postcodeError === null;
   // Quiet, one-line confirmation when opened from the extension deep link.
-  // Dismisses on the first edit (editedKeys grows) or the ✕ — never nags.
-  const showArrived = isFromExtension() && !arrivedDismissed && editedKeys.value.size === 0;
   /**
-   * D5 — the note is ALWAYS in the server-rendered HTML, so it occupies its own
-   * natural height at every width from the very first paint. An inline script
-   * has already set `data-arrived` on <html> when the deal came from the
-   * extension; CSS hides the note when it has not, and hydration then drops it
-   * from a box that was taking no space. Reserving a fixed pixel height instead
-   * would be wrong at three different widths (39px, 62px, 85px).
+   * D5 — the note is ALWAYS in the markup, server and client alike, so it holds
+   * its own natural height at every width from the very first paint. An inline
+   * script has already stamped `data-arrived` on <html> when the deal came from
+   * the extension, and CSS shows it only then. Reserving a fixed pixel height
+   * instead would be wrong at three different widths (39px, 62px, 85px).
+   *
+   * D7 — it must be in the markup on BOTH passes, not "server OR shown". Making
+   * it server-only meant a direct visit hydrated a client tree with one fewer
+   * leading node than the server sent, Preact re-matched every sibling by
+   * position, and the LAST child — the "Start with the postcode…" first-run
+   * hint — was dropped from the page entirely. Nobody saw the mismatch because
+   * the orphaned note is invisible without `data-arrived`. So the element is
+   * unconditional and only its CLASS changes: dismissing it is a tap, and a
+   * class swap moves no siblings.
    */
-  const serverPass = typeof window === 'undefined';
+  // Dismisses on the first edit (editedKeys grows) or the ✕ — never nags.
+  const arrivedGone = arrivedDismissed || editedKeys.value.size > 0;
   return (
     <div class="analyser">
-      {(serverPass || showArrived) && (
-        <p class="arrived-note" role="status">
-          <span>{complete ? COPY.analyser.fromExtension : COPY.analyser.fromExtensionPartial}</span>
-          <button type="button" class="arrived-x" aria-label={ANALYSER_SHELL.dismissArrived} onClick={() => setArrivedDismissed(true)}>✕</button>
-        </p>
-      )}
+      <p class={`arrived-note${arrivedGone ? ' is-gone' : ''}`} role="status">
+        <span>{complete ? COPY.analyser.fromExtension : COPY.analyser.fromExtensionPartial}</span>
+        <button type="button" class="arrived-x" aria-label={ANALYSER_SHELL.dismissArrived} onClick={() => setArrivedDismissed(true)}>✕</button>
+      </p>
       <section class="glass card" id="sec-property">
         <h2>{ANALYSER_SHELL.propertyHeading}</h2>
         <SubjectForm postcodeError={postcodeError} />

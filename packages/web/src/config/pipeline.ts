@@ -685,7 +685,9 @@ export const GRAVEYARD_COPY = {
   /** The toggle on the board. It never sits open. */
   open: 'Deals you killed',
   lead: 'This is the money you didn’t lose.',
-  empty: 'Nothing here yet. Most deals should die — that is the filter working.',
+  /** D7 — was "Nothing here yet…", which reports an absence. It says what lands
+   *  here and when, so a stranger knows what the section is for. */
+  empty: 'Deals you park land here, with the numbers that killed them. Most should die — that is the filter working.',
   /** The headstone: what it scored when it died, and when that was. */
   killed: (date: string): string => `Killed ${date}`,
   reached: (stage: string): string => `Reached ${stage}`,
