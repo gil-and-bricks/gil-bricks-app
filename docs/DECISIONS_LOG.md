@@ -21,6 +21,13 @@ open yet'", which is why Finance vanished from the header. Both were reported
 accurately at the time. The gap is that neither the duplicate account control
 nor the account page's second deals card was ever anybody's job.
 
+**The flags-off job caught my own test, on its first run against it.** Two of
+the pinning assertions read through `primaryLinks()`/`desktopMoreLinks()`, which
+now drop a destination whose feature is off — so with every flag off they failed,
+on a branch whose local suite was green. The block forces the two flags it
+depends on, exactly the way A1's helper was built for. That job has now caught a
+real hole in three consecutive sprints.
+
 **The lesson, and the fix for it: nothing said what the nav is supposed to BE.**
 Every nav test asked whether a link resolves, never whether the shape is right,
 so a shape nobody had written down could not regress — it could only quietly

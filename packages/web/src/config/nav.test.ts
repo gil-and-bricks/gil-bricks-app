@@ -5,6 +5,7 @@ import { strategies } from '@gil-bricks/core';
 import { NAV, desktopMoreLinks, moreLinks, primaryLinks } from './nav';
 import { ACCOUNT, AUTH_HEADER } from './account';
 import { features } from './features';
+import { withFlags } from '../testing/flags';
 
 /**
  * The nav promises destinations; these hold it to them. Every label and every
@@ -90,6 +91,13 @@ describe('navigation (N4)', () => {
  * commit, so the change is a decision and not an accident.
  */
 describe('the nav structure, pinned (A2)', () => {
+  // This block pins the SHIPPED shape, and two of its assertions read through
+  // primaryLinks()/desktopMoreLinks(), which drop a destination whose feature is
+  // off. So force those flags on rather than trusting the repo default — the
+  // flags-off CI job runs this same file with everything false, and caught this
+  // exact hole the first time it ran.
+  withFlags({ bridgingFinance: true, creditPage: true });
+
   it('the header primary row is Area Data, Tools, Bridging finance — in that order', () => {
     expect(NAV.primary.map((l) => `${l.label} → ${l.href}`)).toEqual([
       'Area Data → /area-data', 'Tools → /tools', 'Bridging finance → /bridging-finance',
