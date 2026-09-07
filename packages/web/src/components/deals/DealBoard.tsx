@@ -669,7 +669,10 @@ export function DealBoard() {
       <div key="board-empty" class="glass card board-empty">
         <h2 class="state-h">{BOARD_COPY.screen.emptyHeading}</h2>
         <p class="hint">{COPY.account.dealsEmpty}</p>
-        <p class="hint"><a href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a></p>
+        {/* D6 — the ONE thing to do here was an underlined link in a hint
+            paragraph, which read as a footnote. Same words, same href, given the
+            weight of the only action on the screen. */}
+        <p class="state-cta"><a class="btn-primary" href="/buy-to-let/analyser">{COPY.account.dealsEmptyCta}</a></p>
       </div>
     );
   }

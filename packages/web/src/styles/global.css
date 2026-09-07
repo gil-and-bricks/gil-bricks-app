@@ -44,3 +44,12 @@ h1, h2, h3, h4, h5, h6 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---- D6: figures line up ------------------------------------------------ */
+/* Any number a reader compares down a column — a score, a price, a table cell —
+   uses tabular figures so the digits sit in the same place on every row. Applied
+   by class, never globally: prose reads better with proportional figures. */
+.tnum, .board-score, .ds-score, .big-figure, table td, table th, .sv-chip {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}

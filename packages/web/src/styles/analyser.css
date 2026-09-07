@@ -28,7 +28,7 @@
 /* wrap: a long provenance badge must drop to its own line at 320px rather than push the page sideways (D3) */
 .field label { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1); font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-1); }
 .field input, .field select, .filter-strip input, .filter-strip select {
-  width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px;
+  width: 100%; padding: var(--pad-field); border-radius: var(--radius-btn);
   border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
   color: var(--text); font: inherit; font-size: var(--text-sm);
 }
@@ -54,8 +54,8 @@
    never look like a fact, so evidence and assumption use different colours.
    Never lime under white text. */
 .prov-badge {
-  display: inline-block; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.01em;
-  padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor;
+  display: inline-block; font-size: var(--text-2xs); font-weight: 600; letter-spacing: 0.01em;
+  padding: 0 var(--space-2); border-radius: 999px; border: 1px solid currentColor;
   vertical-align: middle; margin-left: var(--space-1); white-space: nowrap;
 }
 .prov-fact { color: var(--verdict-good); }      /* from the listing / EPC — evidence */
@@ -63,7 +63,7 @@
 .prov-typed { color: var(--text-dim); }
 .prov-settings { color: var(--text-dim); }
 .mini-btn {
-  padding: 0.45rem 0.7rem; border-radius: 10px; border: 1px solid var(--accent);
+  padding: var(--pad-field); border-radius: var(--radius-btn); border: 1px solid var(--accent);
   background: transparent; color: var(--accent); font-size: var(--text-xs); cursor: pointer; white-space: nowrap;
 }
 .mini-btn:disabled { opacity: 0.4; cursor: default; }
@@ -71,10 +71,19 @@
 
 /* tooltip */
 .tip-wrap { position: relative; display: inline-flex; align-items: center; }
+/* D6 — JUDGMENT CALL. There are six to ten of these beside the labels on a form,
+   and in lime they were the loudest thing on it. They are an affordance, not an
+   action and not an active state, so at rest they are quiet — and they light up
+   lime the moment you reach for them, which is when it matters. The shape, the
+   size and the 44px hit area are unchanged. */
 .tip-btn {
-  width: 1.05rem; height: 1.05rem; border-radius: 50%; border: 1px solid var(--accent);
-  color: var(--accent); background: transparent; font-size: 0.65rem; font-weight: 700;
+  width: 1.05rem; height: 1.05rem; border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  color: var(--text-dim); background: transparent; font-size: var(--text-2xs); font-weight: 700;
   line-height: 1; cursor: help; display: inline-flex; align-items: center; justify-content: center;
+}
+.tip-btn:hover, .tip-btn:focus-visible, .tip-wrap:focus-within .tip-btn {
+  border-color: var(--accent); color: var(--accent);
 }
 .tip-bubble {
   position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
@@ -127,9 +136,23 @@
 
 /* actions */
 .action-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-5) 0; }
-.btn-primary { display: inline-block; background: var(--accent); color: var(--accent-ink); border: 1px solid var(--accent); border-radius: var(--radius-btn); padding: var(--space-3) var(--space-5); font: inherit; font-weight: 500; cursor: pointer; text-align: center; }
-.btn-secondary { display: inline-block; background: transparent; color: var(--accent); border: 1px solid var(--accent); border-radius: var(--radius-btn); padding: var(--space-3) var(--space-5); font: inherit; cursor: pointer; text-align: center; }
+/* The two buttons share one box so a primary and a secondary sitting side by
+   side are the same height and inset — they were both hand-padded before (D6).
+   Lime fill with near-black text is reserved for the PRIMARY action: one per
+   surface, and never as a background under white text. */
+.btn-primary, .btn-secondary {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 2.75rem; padding: var(--pad-btn);
+  border-radius: var(--radius-btn); border: 1px solid var(--accent);
+  font: inherit; font-weight: 600; cursor: pointer; text-align: center;
+  text-decoration: none;
+}
+.btn-primary { background: var(--accent); color: var(--accent-ink); }
+.btn-secondary { background: transparent; color: var(--accent); font-weight: 500; }
 .btn-secondary:disabled { opacity: 0.4; cursor: default; }
+
+/* The one action on an empty state stands on its own line, with room above it. */
+.state-cta { margin: var(--space-4) 0 0; }
 
 /* skeletons */
 .skeleton { border-radius: 8px; background: linear-gradient(90deg, rgba(255,255,255,0.05), rgba(255,255,255,0.12), rgba(255,255,255,0.05)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
@@ -223,7 +246,7 @@
 .quiz { max-width: 36rem; margin: var(--space-6) auto; }
 .quiz .row { display: flex; gap: var(--space-4); margin: var(--space-3) 0 var(--space-4); flex-wrap: wrap; }
 .quiz .row label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-sm); color: var(--text-dim); }
-.quiz .row input { padding: 0.55rem 0.7rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: var(--text); font: inherit; }
+.quiz .row input { padding: var(--pad-field); border-radius: var(--radius-btn); border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: var(--text); font: inherit; }
 .quiz-progress { display: flex; gap: var(--space-2); margin: 0 0 var(--space-4); }
 .dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: rgba(255,255,255,0.2); display: inline-block; }
 .dot-on { background: var(--accent); }
@@ -243,7 +266,7 @@
 .area { max-width: 46rem; margin: 0 auto; min-height: 100dvh; }
 .area-search label, .home-search label { display: block; font-size: var(--text-sm); color: var(--text-dim); margin-bottom: var(--space-2); }
 .area-search-row, .home-search-row { display: flex; gap: var(--space-3); flex-wrap: wrap; }
-.area-search-row input, .home-search-row input { flex: 1 1 10rem; min-width: 0; padding: 0.65rem 0.8rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: var(--text); font: inherit; }
+.area-search-row input, .home-search-row input { flex: 1 1 10rem; min-width: 0; padding: var(--pad-field); border-radius: var(--radius-btn); border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06); color: var(--text); font: inherit; }
 .area-error { border-color: rgba(255,255,255,0.35); }
 .area-thin { border-color: var(--accent); }
 .badge { display: inline-block; border: 1px solid var(--accent); border-radius: 999px; padding: 0.1rem 0.6rem; font-size: var(--text-xs); margin-right: var(--space-2); }
@@ -325,7 +348,7 @@
 .wall-check { display: flex; gap: var(--space-2); align-items: flex-start; margin: var(--space-3) 0; font-size: var(--text-sm); cursor: pointer; }
 .wall-check input { accent-color: var(--accent); margin-top: 0.2rem; }
 .wall-turnstile { margin: var(--space-3) 0; min-height: 0; }
-.gsi-button { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 0.65rem 1rem; border-radius: 10px; border: 1px solid #dadce0; background: #fff; color: #1f1f1f; font: 500 0.95rem/1 Roboto, Arial, sans-serif; cursor: pointer; }
+.gsi-button { display: flex; align-items: center; justify-content: center; gap: var(--space-3); width: 100%; padding: var(--pad-field); border-radius: var(--radius-btn); border: 1px solid #dadce0; background: #fff; color: #1f1f1f; font: 500 0.95rem/1 Roboto, Arial, sans-serif; cursor: pointer; }
 .gsi-button:disabled { opacity: 0.5; cursor: default; }
 .account-wrap { max-width: 34rem; margin: 0 auto; }
 .legal-wrap { max-width: 42rem; margin: var(--space-5) auto; }
@@ -405,7 +428,7 @@
 .board-col-n {
   display: inline-block; min-width: 1.4rem; text-align: center;
   background: rgba(255,255,255,0.1); color: var(--text);
-  border-radius: 999px; padding: 0.05rem 0.45rem;
+  border-radius: 999px; padding: 0 var(--space-2);
   font-size: var(--text-xs); font-weight: 600; letter-spacing: 0;
 }
 .board-col-cards { display: flex; flex-direction: column; gap: var(--space-3); }
@@ -420,8 +443,8 @@
 /* The card: glass + thin lime border, readable in a second. A link that re-opens
    the analyser with the deal's state restored (read-only this sprint). */
 .deal-card {
-  display: flex; flex-direction: column; gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--pad-card);
   background: var(--glass-bg);
   -webkit-backdrop-filter: blur(var(--glass-blur));
   backdrop-filter: blur(var(--glass-blur));
@@ -440,16 +463,56 @@
 }
 @media (pointer: coarse) { .deal-card { --glass-blur: 6px; } }
 
-.dc-title { font-weight: 700; font-size: var(--text-base); line-height: 1.25; }
-.dc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); }
-.board-score { display: inline-flex; align-items: baseline; gap: 0.25rem; font-size: var(--text-base); }
-.board-score strong { font-weight: 800; color: var(--text); }
-.board-score .bs-dot { font-size: 0.7em; line-height: 1; }
+/* THE CARD'S HIERARCHY (D6). A card carries an address, a score, a verdict, a
+   next step, evidence, a stage control and sometimes an announcement. The eye
+   has to land on the SCORE, then the verdict, then the action — and before this
+   pass it landed on whichever thing happened to be lime.
+
+   Three zones, grouped by space rather than by rules: WHO it is (address), WHAT
+   the answer is (score → verdict → evidence), and WHAT TO DO (step, controls).
+   The card gap sets the distance BETWEEN zones; the tighter margins below pull
+   each zone together. */
+.deal-card > * { margin-top: 0; }
+/* The address is the card's identity: readable, but subordinate to the answer
+   below it. Its colour and hover live in ONE place further down this file
+   (search .dc-title), so this rule sets shape only. */
+.dc-title {
+  font-family: var(--font-display);
+  font-weight: 700; font-size: var(--text-sm); line-height: 1.3;
+  letter-spacing: 0.01em;
+}
+/* the answer sits immediately under the address it belongs to */
+.dc-meta {
+  display: flex; flex-wrap: wrap; align-items: center;
+  gap: var(--space-2) var(--space-3);
+  margin-top: calc(var(--space-1) - var(--space-3));
+}
+/* THE SCORE. The answer, at the size of an answer. White for guaranteed
+   contrast on glass; the verdict colour rides on the dot beside it, which
+   scales with the number (0.7em) so the pairing holds at every size. */
+.board-score { display: inline-flex; align-items: center; gap: var(--space-2); }
+.board-score strong {
+  font-family: var(--font-display);
+  font-weight: 800; font-size: var(--text-2xl); line-height: 1;
+  color: var(--text); letter-spacing: -0.01em;
+}
+/* Centred against the figure at a fixed size, so it reads as a traffic light
+   rather than a list bullet — which is exactly how it read when it scaled with
+   the number and sat on its baseline (D6). */
+.board-score .bs-dot { font-size: var(--text-sm); line-height: 1; }
 .board-score.ds-good .bs-dot { color: var(--verdict-good); }
 .board-score.ds-marginal .bs-dot { color: var(--verdict-amber); }
 .board-score.ds-walk .bs-dot { color: var(--verdict-walk); }
 .board-score.ds-none .bs-dot { color: var(--text-dim); }
-.dc-strat { padding: 0.15rem 0.6rem; font-size: var(--text-xs); }
+/* THE STRATEGY is metadata, not the answer. It was a solid lime pill, which made
+   it the loudest thing on the card; lime is now spent on the score's own colour
+   language and on actions. */
+.dc-strat {
+  padding: var(--pad-pill); font-size: var(--text-2xs); font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: transparent; color: var(--text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
 .dc-figure { color: var(--text-dim); font-size: var(--text-sm); }
 
 .board-empty .state-h { margin-bottom: var(--space-2); }
@@ -479,7 +542,15 @@
 .board-note { margin: 0 0 var(--space-3); color: var(--text-dim); font-size: var(--text-sm); }
 
 /* Next-step line — what it's waiting on + how long. Quiet by default; warms with age. */
-.dc-step { margin: 0; color: var(--text-dim); font-size: var(--text-sm); }
+/* THE ACTION ZONE (D6). The next step is the one thing on the card a person is
+   meant to DO, and it was the faintest line on it — dimmer than the evidence
+   note above it. A hairline separates doing from reading, and the step reads in
+   full text colour. The ageing colours are unchanged. */
+.dc-step {
+  margin: var(--space-1) 0 0; padding-top: var(--space-3);
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--text); font-size: var(--text-sm); font-weight: 500;
+}
 .dc-step.step-amber { color: var(--verdict-amber); }
 .dc-step.step-cold { color: var(--text-dim); font-style: italic; }
 
@@ -503,14 +574,20 @@
 .dc-move select {
   font: inherit; font-size: var(--text-sm); color: var(--text);
   background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
-  border-radius: 10px; padding: 0.4rem 0.6rem; min-height: 40px; cursor: pointer;
+  border-radius: var(--radius-btn); padding: var(--pad-field); min-height: 40px; cursor: pointer;
 }
 .dc-move select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.btn-link { background: none; border: none; color: var(--text-dim); font: inherit; font-size: var(--text-sm); cursor: pointer; padding: 0.4rem 0.2rem; text-decoration: underline; min-height: 40px; }
+.btn-link { background: none; border: none; color: var(--text-dim); font: inherit; font-size: var(--text-sm); cursor: pointer; padding: var(--space-2) var(--space-1); text-decoration: underline; min-height: 40px; }
 .btn-link:hover, .btn-link:focus-visible { color: var(--text); }
 /* Verdict line — the reason, in the user's voice. Neutral text (the dot carries the
    colour); the unscored prompt is muted. */
-.dc-verdict { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.3; }
+/* Second in the order: the reason, in the reader's own voice. It sits close to
+   the score it explains, and the line-height opens up so a three-line verdict is
+   comfortable rather than cramped (D6). */
+.dc-verdict {
+  margin: calc(var(--space-1) - var(--space-3)) 0 0;
+  font-size: var(--text-base); color: var(--text); line-height: 1.45;
+}
 .dc-verdict.v-unscored { color: var(--text-dim); font-style: italic; }
 /* Per-card action note (skip / rollback) — on the card it refers to, not the page top. */
 .dc-note { margin: 0; font-size: var(--text-xs); color: var(--verdict-amber); }
@@ -520,7 +597,7 @@
 .chip {
   font: inherit; font-size: var(--text-xs); color: var(--text);
   background: rgba(255,255,255,0.06); border: 1px solid var(--glass-border);
-  border-radius: 999px; padding: 0.35rem 0.7rem; cursor: pointer; min-height: 36px;
+  border-radius: 999px; padding: var(--pad-chip); cursor: pointer; min-height: 36px;
 }
 .chip:hover, .chip:focus-visible { border-color: var(--accent); outline: none; }
 .chip-cancel { color: var(--text-dim); }
@@ -660,13 +737,17 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 /* when the switcher would swallow the row (200% text, tiny screens) it stops
    pinning and scrolls with the chips instead of burying them */
 .pinned-row.seg-wide .strategy-seg { position: static; }
+/* D6 — lime marks the strategy you are IN; the other three are places you could
+   go. All four in lime made the pinned row a solid band of accent and told you
+   nothing about which one was live. */
 .seg {
   display: inline-flex; align-items: center; min-height: 2rem;
   padding: var(--space-1) var(--space-3);
-  color: var(--accent); font-size: var(--text-xs); font-weight: 700;
+  color: var(--text-dim); font-size: var(--text-xs); font-weight: 700;
   text-decoration: none; white-space: nowrap;
 }
-.seg + .seg { border-left: 1px solid var(--glass-border); }
+.seg:hover { color: var(--text); }
+.seg + .seg { border-left: 1px solid rgba(255, 255, 255, 0.14); }
 .seg-current { background: var(--accent); color: var(--accent-ink); }
 
 /* The section chips (N2), scrolling in the same row. */
@@ -679,10 +760,12 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 }
 /* with the switcher present it already provides the left inset */
 .strategy-seg + .section-strip .strip-row { padding-left: 0; }
+/* Same rule for the section chips: the one you are reading is lime, the rest are
+   quiet places to jump to (D6). */
 .strip-chip {
   display: inline-flex; align-items: center; min-height: 2rem;
   padding: var(--space-1) var(--space-3); border-radius: 999px;
-  border: 1px solid var(--glass-border); color: var(--text-dim);
+  border: 1px solid rgba(255, 255, 255, 0.16); color: var(--text-dim);
   font-size: var(--text-xs); font-weight: 600; text-decoration: none; white-space: nowrap;
 }
 /* A section chip is a place on THIS page; a strategy pill changes the page.
@@ -865,12 +948,12 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .bridge-choice.is-picked { border-color: var(--accent); background: rgba(220, 255, 0, 0.08); }
 .bridge-choice input { accent-color: var(--accent); }
 .bridge-form textarea {
-  width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px; resize: vertical;
+  width: 100%; padding: var(--pad-field); border-radius: var(--radius-btn); resize: vertical;
   border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
   color: var(--text); font: inherit; font-size: var(--text-sm);
 }
 .bridge-form input[type='tel'] {
-  width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px;
+  width: 100%; padding: var(--pad-field); border-radius: var(--radius-btn);
   border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
   color: var(--text); font: inherit; font-size: var(--text-sm);
 }
@@ -912,10 +995,18 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .tool-month-pair select { width: 100%; }
 .tool-answer { border-color: var(--accent); }
 .tool-answer-line { font-size: var(--text-base); margin: 0 0 var(--space-3); }
-.tool-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: var(--space-3); margin: 0 0 var(--space-3); }
-.tool-figures div { border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; padding: var(--space-2) var(--space-3); }
+.tool-figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: var(--space-3); margin: 0 0 var(--space-4); }
+/* D6 — a third tile left alone on its row sat at half width with a long value
+   ("SDLT first-time-buyer rates") wrapping to three lines beside empty space.
+   The odd one out spans the row instead: a deliberate 2 + 1, not a ragged edge. */
+.tool-figures > div:last-child:nth-child(3) { grid-column: 1 / -1; }
+.tool-figures div { border: 1px solid rgba(255,255,255,0.12); border-radius: var(--radius-btn); padding: var(--space-3); }
 .tool-figures dt { color: var(--text-dim); font-size: var(--text-xs); }
-.tool-figures dd { margin: 2px 0 0; font-family: var(--font-display); font-weight: 700; font-size: var(--text-base); }
+.tool-figures dd {
+  margin: var(--space-1) 0 0; font-family: var(--font-display); font-weight: 700;
+  font-size: var(--text-lg); line-height: 1.2;
+  font-variant-numeric: tabular-nums; font-feature-settings: 'tnum' 1;
+}
 .tool-limits { margin: 0 0 var(--space-3); padding-left: var(--space-5); color: var(--text-dim); font-size: var(--text-xs); }
 .tool-limits li { margin-bottom: var(--space-1); }
 .tool-onward { margin: var(--space-4) 0 0; font-size: var(--text-sm); }
@@ -958,7 +1049,7 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .capture-typed { display: grid; gap: var(--space-2); }
 .capture-typed label { font-size: var(--text-sm); color: var(--text-dim); }
 .capture-typed input {
-  width: 100%; padding: 0.55rem 0.7rem; border-radius: 10px;
+  width: 100%; padding: var(--pad-field); border-radius: var(--radius-btn);
   border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.06);
   color: var(--text); font: inherit; font-size: var(--text-sm);
 }
@@ -1068,8 +1159,8 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
    better — never red: this is news, not an alarm. */
 .dc-change {
   display: flex; flex-direction: column; gap: var(--space-1);
-  margin: var(--space-1) 0; padding: var(--space-3);
-  border: 1px solid var(--glass-border); border-left: 4px solid var(--verdict-amber);
+  margin: var(--space-1) 0; padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--glass-border); border-left: 3px solid var(--verdict-amber);
   border-radius: 12px; background: rgba(255, 200, 97, 0.10);
 }
 .dc-change.change-better { border-left-color: var(--accent); background: rgba(220, 255, 0, 0.08); }
@@ -1077,11 +1168,14 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
   margin: 0; font-size: var(--text-xs); font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-dim);
 }
-.dc-change-line { margin: 0; font-size: var(--text-base); font-weight: 600; color: var(--text); line-height: 1.35; }
+/* One step BELOW the verdict, which is itself one step below the score. Before
+   this pass the announcement was the loudest thing on the card, which inverted
+   the whole order (D6). */
+.dc-change-line { margin: 0; font-size: var(--text-sm); font-weight: 600; color: var(--text); line-height: 1.45; }
 /* D4 — the money you must find, when a fact moved it. Same weight as the score
    line: a £25,000 swing in what you have to put on the table is the same size
    of news as a score move. */
-.dc-change-cash { margin: var(--space-1) 0 0; font-size: var(--text-base); font-weight: 600; color: var(--text); line-height: 1.35; }
+.dc-change-cash { margin: var(--space-1) 0 0; font-size: var(--text-sm); font-weight: 600; color: var(--text); line-height: 1.45; }
 .dc-change-verdict { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.35; }
 .dc-change-kill { margin: var(--space-1) 0 0; font-size: var(--text-sm); font-weight: 700; color: var(--verdict-walk); }
 .dc-change-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-2); }
@@ -1107,14 +1201,22 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 .ev-block { display: flex; flex-direction: column; gap: var(--space-1); margin: var(--space-1) 0 0; }
 .ev-chips { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-1); margin: 0; padding: 0; }
 .ev-chip {
-  font-size: var(--text-xs); line-height: 1.4; padding: 0.15rem 0.55rem;
+  font-size: var(--text-2xs); line-height: 1.5; padding: var(--pad-pill);
   border-radius: 999px; border: 1px solid var(--glass-border); color: var(--text-dim);
+  letter-spacing: 0.01em;
 }
-/* Evidenced: the lime fill the brand reserves for a good thing, with near-black
-   text — never white on lime. */
-.ev-chip.ev-evidenced { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.ev-chip.ev-assumed { border-color: var(--glass-border); color: var(--text); }
-.ev-chip.ev-unknown { border-style: dashed; color: var(--text-dim); }
+/* D6 — these were three solid lime pills on every card, which is how lime stopped
+   being an accent. Evidence is a STATE, not an action and not the answer, so it
+   is told in weight and in fill density instead: solid means known, outline means
+   assumed, dashed means nobody knows. Lime is spent on the score and on actions.
+   (The visible label already says "evidenced / assumed / not known" — the styling
+   never carries the meaning alone.) */
+.ev-chip.ev-evidenced {
+  background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.28);
+  color: var(--text); font-weight: 600;
+}
+.ev-chip.ev-assumed { border-color: rgba(255, 255, 255, 0.22); color: var(--text); }
+.ev-chip.ev-unknown { border-style: dashed; border-color: rgba(255, 255, 255, 0.18); color: var(--text-dim); }
 .ev-line { margin: 0; font-size: var(--text-xs); color: var(--text-dim); line-height: 1.35; }
 @media (prefers-contrast: more) {
   .ev-chip.ev-assumed { border-color: var(--text); }
@@ -1303,7 +1405,7 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
   background: rgba(255, 255, 255, 0.04);
 }
 .dc-moved-h { margin: 0 0 var(--space-1); font-family: var(--font-display); font-weight: 700; font-size: var(--text-sm); }
-.dc-moved-line { margin: 0 0 var(--space-1); font-size: var(--text-base); font-weight: 600; line-height: 1.35; }
+.dc-moved-line { margin: 0 0 var(--space-1); font-size: var(--text-sm); font-weight: 600; line-height: 1.45; }
 .dc-moved .btn-secondary { margin-top: var(--space-2); }
 
 /* ---- D5: space reserved BEFORE the first paint -------------------------- */

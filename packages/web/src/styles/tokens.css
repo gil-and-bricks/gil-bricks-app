@@ -5,6 +5,20 @@
  * The lime accent is used for text, borders, icons, and button fills with
  * near-black text — it is NOT used as a background beneath white text
  * (contrast fails).
+ *
+ * WHERE LIME EARNS ITS PLACE (D6). It was on the card border, the strategy pill,
+ * three evidence chips, every inactive strategy tab, every section chip and
+ * every glass edge at once — at which point it is not an accent, it is the
+ * background. It now means exactly three things, and nothing else:
+ *
+ *   1. THE PRIMARY ACTION on a surface — one per surface, the thing to press.
+ *   2. AN ACTIVE STATE — the strategy you are in, the section you are reading,
+ *      the tab you are on, the control you have focused.
+ *   3. THE BRAND ITSELF — the wordmark, and the glass card's 1px edge, both
+ *      locked by CLAUDE.md.
+ *
+ * It does NOT mean "this is a good number". A score's colour is the verdict
+ * traffic light (--verdict-*), because that carries meaning lime cannot.
  */
 :root {
   color-scheme: dark;
@@ -49,6 +63,10 @@
   --space-8: 4rem;      /* 64px */
 
   /* Type scale (1.25 ratio) */
+  /* The bottom step. Badges and pills had drifted to 0.55–0.68rem one-offs; this
+     is the smallest size the product uses, and everything that was smaller now
+     sits on it (D6). */
+  --text-2xs: 0.7rem;
   --text-xs: 0.8rem;
   --text-sm: 0.9rem;
   --text-base: 1rem;
@@ -56,6 +74,15 @@
   --text-xl: 1.563rem;
   --text-2xl: 1.953rem;
   --text-3xl: 2.441rem;
+
+  /* Control padding — derived FROM the spacing scale, so a chip, a field and a
+     pill are all inset by the same amounts instead of thirty hand-picked pairs
+     (0.35/0.55/0.65rem were all in use for the same job) — D6. */
+  --pad-field: var(--space-2) var(--space-3);   /*  8 / 12 — inputs, selects   */
+  --pad-chip: var(--space-1) var(--space-3);    /*  4 / 12 — chips, tags       */
+  --pad-pill: var(--space-1) var(--space-2);    /*  4 /  8 — small badges      */
+  --pad-btn: var(--space-3) var(--space-4);     /* 12 / 16 — buttons           */
+  --pad-card: var(--space-4) var(--space-5);    /* 16 / 24 — card interiors    */
 
   /* Type families */
   --font-display: 'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;

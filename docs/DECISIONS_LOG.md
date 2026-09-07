@@ -2,6 +2,69 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint D6: the design pass (deployed)
+
+**The skill file was not there.** The brief said to read
+`/mnt/skills/public/frontend-design/SKILL.md` first. There is no `/mnt/skills`
+on this machine and no copy anywhere on disk, so I could not. I worked to
+CLAUDE.md's locked brand rules and my own judgement instead, and I am saying so
+rather than implying I read something I did not.
+
+**The rule I worked to.** Everything below came from one question: what does the
+eye land on, and is that the thing that matters? The answer on almost every
+surface was "whatever happened to be lime".
+
+**The deal card.** It carried an address, a score, a verdict, evidence, a next
+step, a stage control and sometimes an announcement, all at roughly one weight,
+with four separate lime elements competing. Now: the address identifies at
+14px, the SCORE is 31px display type — the size of an answer — with the verdict
+traffic light centred beside it as a status dot rather than sitting on the
+baseline looking like a list bullet; the verdict reads at 16px under it; the
+evidence sits quiet; and a hairline separates the reading from the DOING, with
+the next step in full text colour instead of the faintest line on the card. The
+announcement dropped a step so it can no longer outshout the score it is about.
+The strategy pill stopped being a solid lime block — it is metadata, not the
+answer. Nothing was removed and not one word changed.
+
+- **JUDGMENT CALL — the score stayed white.** The obvious move was to colour it
+  with its verdict. White guarantees contrast on glass at every tier, and the
+  dot carries the tier without asking a 31px figure to be legible in three
+  different colours. 19.2:1 either way.
+
+**Where lime earns its place** — written into tokens.css so it stops drifting:
+the primary action, an active state, and the brand itself (wordmark, glass
+edge). Nothing else. Three lime evidence chips per card became fill-density
+instead; the four strategy tabs stopped all being lime so the one you are IN
+reads as chosen; section chips the same; the six-to-ten `i` tooltips on a form
+went quiet at rest and light up lime when you reach for them.
+
+- **JUDGMENT CALL — the tools keep a lime answer figure.** A Deal Score has a
+  verdict, so the traffic light colours it. A tool's answer has no verdict and
+  nothing to carry, and CLAUDE.md lists "highlights" among lime's jobs. So: where
+  a number carries a verdict the verdict colours it; where it does not, lime
+  highlights it. One rule, both cases.
+
+**The scales.** The type scale gained its missing bottom step (`--text-2xs`,
+0.7rem) and the six one-off sizes between 0.55rem and 0.68rem now sit on it.
+Spacing gained five control tokens derived FROM the scale — `--pad-field`,
+`--pad-chip`, `--pad-pill`, `--pad-btn`, `--pad-card` — because the same job was
+being done with 0.35rem, 0.45rem, 0.55rem and 0.65rem in different places, which
+is exactly what makes a product feel assembled. Figures that sit in columns are
+tabular now, applied by class rather than globally: prose reads better with
+proportional figures.
+
+**Odds and ends the walk turned up.** The primary and secondary buttons were
+hand-padded separately and did not match; they share one box now. A tool's third
+result tile sat at half width with a long value wrapping to three lines beside
+empty space; the odd one out spans its row, so it reads as a deliberate 2 + 1.
+The empty pipeline's only action was an underlined link inside a hint paragraph
+— same words, same href, now the primary button it always was.
+
+**What I did NOT do.** No copy changed: the rendered text of 32 page and
+interaction states was captured before and after against identical database
+state and diffed — every file identical. Nothing was hidden or removed to tidy
+a page up. No new dependency, font, icon set or animation.
+
 ## 2026-09-07 — Sprint D5: the last two (deployed)
 
 **1. The three-surface proof, run again and shown**
