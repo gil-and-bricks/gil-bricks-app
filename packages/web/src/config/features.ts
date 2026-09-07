@@ -171,9 +171,11 @@ export interface FeatureFlags {
 
   /** The desktop header's More menu (A1). The bottom bar only exists under
    * 640px, so above it the More-sheet pages had no link in the header at all —
-   * /comparables only from pages nothing links to. Reads the SAME config list as the
-   * phone sheet. Off: the header is exactly as it was, and those pages go back
-   * to being desktop-unreachable. */
+   * /comparables only from pages nothing links to. Reads the SAME config list as
+   * the phone sheet, minus what the desktop already shows. Off: the header is
+   * Analyse, Area Data, Tools, Bridging finance, then Deals, then the socials
+   * and the account control — and /comparables and /credit go back to being
+   * reachable on a desktop only by URL. */
   desktopMore: boolean;
 
   /** PDF export of a result (D1). Off: no PDF button and no "coming soon"

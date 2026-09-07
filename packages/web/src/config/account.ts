@@ -14,7 +14,13 @@
 /** The header auth slot: the logged-out button, then the signed-in link. */
 export const AUTH_HEADER = {
   logIn: 'Log in',
-  myDeals: 'My deals',
+  /**
+   * The ONE account control, beside the socials on the right (A2). It said "My
+   * deals" and pointed at /account, next to a "Deals" link pointing at the
+   * pipeline and an "Account" link pointing at the same page — three controls,
+   * two destinations, one of them named after the other's job.
+   */
+  account: 'Account',
 } as const;
 
 /** The /account page. */
@@ -34,17 +40,6 @@ export const ACCOUNT = {
     marketingOff: 'Marketing emails off.',
     saveFailed: 'That did not save — please try again.',
     logOut: 'Log out',
-  },
-
-  /** My deals with the pipeline switched ON: the board owns them now. */
-  pipeline: {
-    heading: 'My deals',
-    /** One sentence in three pieces, because the middle piece is the link. */
-    lead: 'Your deals live in your',
-    link: 'pipeline',
-    /** D7 — "now" pointed at a change a new account never saw. */
-    tail: '. It shows which one needs you next.',
-    cta: 'Open my pipeline',
   },
 
   /** My deals with the pipeline switched OFF: the flat list of saved deals. */

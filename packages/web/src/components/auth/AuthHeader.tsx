@@ -1,4 +1,5 @@
-/** Header auth state: "Log in" → login wall; signed in → avatar + My deals. */
+/** Header auth state: "Log in" → login wall; signed in → avatar + Account.
+ *  This is the ONLY route to /account, and it sits beside the socials (A2). */
 import { useEffect } from 'preact/hooks';
 import { AUTH_HEADER } from '../../config/account';
 import { loadMe, me, openLoginWall } from '../../lib/auth/session';
@@ -20,7 +21,7 @@ export function AuthHeader() {
   return (
     <a class="auth-me" href="/account">
       {v.avatar !== '' && <img class="auth-avatar" src={v.avatar} alt="" width="28" height="28" referrerpolicy="no-referrer" onError={(e) => ((e.target as HTMLImageElement).hidden = true)} />}
-      <span>{AUTH_HEADER.myDeals}</span>
+      <span>{AUTH_HEADER.account}</span>
     </a>
   );
 }

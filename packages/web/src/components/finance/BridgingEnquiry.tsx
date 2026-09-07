@@ -149,6 +149,11 @@ export function BridgingEnquiry() {
       <section class="glass card" aria-labelledby="bridge-shut">
         <h2 id="bridge-shut">{BRIDGING_NOT_OPEN.heading}</h2>
         <p class="hint">{BRIDGING_NOT_OPEN.body}</p>
+        {/* A2 — the disclaimer used to live inside the form, which nobody could
+            reach while the broker is a placeholder. Now that the header links
+            here again, this is the state most visitors see, and the page must
+            say what it is not. */}
+        <p class="hint bridge-disclaimer">{BRIDGING.disclaimer(siteConfig.siteName)}</p>
       </section>
     );
   }

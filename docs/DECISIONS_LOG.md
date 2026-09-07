@@ -2,6 +2,83 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint A2: the lost nav decisions, and why they were lost (deployed)
+
+**Why it regressed: it did not.** The three changes were never made, and no
+sprint ever claimed them. I read the whole transcript and the whole commit log.
+D2's brief was terms, privacy, the homepage, the seed and an honesty sweep; its
+report says nothing about the header, and its only nav commit added the FOOTER
+block. `git log -S"myDeals"` returns ONE commit — D1, where the string was
+introduced — and no commit has ever removed it; the same is true of the account
+page's deals card. Nothing overwrote anything.
+
+What the operator was remembering are two real, separate things that had drifted
+together in the retelling: **N4** reported "Area Data, Tools, Finance, with Deals
+and Account to the right", which is what the header still does — Deals and
+Account sit at the end of the nav row, not beside the socials; and **D1**
+reported hiding Bridging finance because it "dead-ends on 'enquiries are not
+open yet'", which is why Finance vanished from the header. Both were reported
+accurately at the time. The gap is that neither the duplicate account control
+nor the account page's second deals card was ever anybody's job.
+
+**The lesson, and the fix for it: nothing said what the nav is supposed to BE.**
+Every nav test asked whether a link resolves, never whether the shape is right,
+so a shape nobody had written down could not regress — it could only quietly
+never happen. `nav.test.ts` now pins the structure: the primary row in order,
+one link to the pipeline, nothing pointing at /account, what the More sheet
+holds, what the desktop More drops, and the five the bottom bar carries. Changing
+the nav now means changing that file in the same commit, on purpose.
+
+**The four fixes.**
+
+- **One route to the pipeline, one to the account.** The header had three
+  controls for two destinations: "Deals" → /deals, "Account" → /account, and an
+  avatar labelled "My deals" → /account as well. `NAV.mine` is now just Deals;
+  the avatar control is the only route to the account and says "Account".
+- **The account lives beside the socials.** It always did structurally — the
+  signed-in control sits in `.header-right` after the Instagram and YouTube
+  icons — but a second "Account" in the nav row made that invisible. With the
+  duplicate gone, the right-hand cluster is what the operator asked for.
+- **No deals card on the account page.** With the pipeline on, the page carried
+  a card whose only job was to point at the board, which made /account look like
+  a second home for deals. Gone, and its now-dead copy with it. With the
+  pipeline OFF the flat list stays — that is the only place saved deals live in
+  that state.
+- **Account stays in the PHONE's More sheet, and I nearly removed it twice.**
+  Cutting it from `NAV.mine` made it reappear in the desktop More, so I took it
+  out of `NAV.more.links` altogether — which would have quietly reversed N4,
+  which put Account in that sheet on purpose. In a sprint about not quietly
+  reversing nav decisions, that is the exact sin. Worse: my first attempt to put
+  it back silently did nothing (a find-and-replace that matched no text), and I
+  wrote this bullet claiming it was restored while the code still removed it —
+  the adversarial review caught the contradiction between the log and the code.
+  Every config edit in this sprint now asserts its match before writing.
+  It is in the phone sheet and dropped from the DESKTOP More, where the avatar
+  control beside the socials is already on screen. **Open for the operator:** on
+  a phone that leaves two routes to /account (the avatar and the sheet). N4
+  asked for the sheet one; say the word and it goes.
+
+- **The restored route exposed a real gap on the bridging page.** The "we are
+  not a broker and this is not advice" disclaimer lived inside the enquiry FORM,
+  which nobody can reach while the broker is a placeholder — so the state every
+  visitor actually sees carried no disclaimer at all. That was survivable while
+  nothing linked to the page. It is not survivable now the header does, on a
+  page CLAUDE.md says to treat like a legal document. The disclaimer renders in
+  the not-open state too.
+
+- **A flag that is off takes its destination out of the nav.** Deleting the
+  broker filter left `/bridging-finance` in the header unconditionally —
+  including with `features.bridgingFinance` off, where the page renders its
+  explanation and then simply stops, with no form and no reason why. The nav now
+  drops a destination whose feature is off, and a test holds it in both states.
+
+- **Finance is back in the header.** This REVERSES D1's decision, on the
+  operator's ruling. D1's reasoning was sound (do not send people to a page that
+  says enquiries are not open yet) but the operator wants the route, and the
+  page is honest about its own state. `brokerReady()` still gates the enquiry
+  FORM — that gate is untouched, and the pinning test asserts both halves: the
+  route is present AND the broker is still a placeholder.
+
 ## 2026-09-07 — Sprint A1: act on the audit (deployed)
 
 Twelve rulings, all twelve done. The judgment calls worth recording:

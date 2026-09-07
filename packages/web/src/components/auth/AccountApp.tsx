@@ -157,14 +157,12 @@ export function AccountApp() {
         </form>
       </div>
 
-      {features.dealPipeline ? (
-        <div class="glass card">
-          <h2>{ACCOUNT.pipeline.heading}</h2>
-          {/* The tail now opens with its own full stop, so no space before it. */}
-          <p class="hint">{ACCOUNT.pipeline.lead}{' '}<a href="/deals">{ACCOUNT.pipeline.link}</a>{ACCOUNT.pipeline.tail}</p>
-          <a class="btn-primary" href="/deals">{ACCOUNT.pipeline.cta}</a>
-        </div>
-      ) : (
+      {/* A2 — with the pipeline on, this page carries NO deals card. The board is
+          one tap away in the header, and a card here whose only job was to point
+          at it made /account look like a second home for deals. With the
+          pipeline OFF the flat list below IS the only place saved deals live,
+          so it stays. */}
+      {features.dealPipeline ? null : (
       <div class="glass card">
         <h2>{ACCOUNT.deals.heading}</h2>
         {dealNote !== '' && <p class="hint" role="alert">{dealNote}</p>}

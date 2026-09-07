@@ -8,7 +8,6 @@
  * in @gil-bricks/core (one source), and on the analyser pages they stay visible
  * as the segmented switcher, so grouping them in the header buries nothing.
  */
-import { brokerReady } from './bridging';
 import { features } from './features';
 
 export interface NavLink {
@@ -81,10 +80,17 @@ export const NAV = {
     { label: 'Tools', href: '/tools' },
     { label: 'Bridging finance', href: '/bridging-finance' },
   ] as NavLink[],
-  /** The right-hand cluster: your own things. */
+  /**
+   * The right-hand cluster in the header: your own things.
+   *
+   * ONE route to the pipeline, and no Account link here (A2). The account lives
+   * on the far right beside the socials, as the signed-in control that already
+   * carries your avatar — putting it in this row as well gave the header two
+   * links to /account, one of them called "My deals" beside a "Deals" that went
+   * somewhere else entirely.
+   */
   mine: [
     { label: 'Deals', href: '/deals' },
-    { label: 'Account', href: '/account' },
   ] as NavLink[],
   /** The five the bottom bar can hold. The first is the Analyse destination
    * above (ONE value, not two), and the last one opens the More sheet. */
@@ -102,6 +108,10 @@ export const NAV = {
       { label: 'Bridging finance', href: '/bridging-finance' },
       { label: 'Sold comparables', href: '/comparables' },
       { label: 'Credit', href: '/credit' },
+      // N4 put Account in this sheet and the operator has never asked for it to
+      // leave, so it stays — this sprint is about NOT quietly reversing nav
+      // decisions. It is dropped from the DESKTOP More instead, where the
+      // signed-in control beside the socials is already on screen (A2).
       { label: 'Account', href: '/account' },
       { label: 'Where should I start?', href: '/start' },
       { label: 'Privacy', href: '/privacy' },
@@ -111,15 +121,20 @@ export const NAV = {
 } as const;
 
 /**
- * The nav as it should actually be rendered (D1). Bridging finance is a top-level
- * destination only while the broker's details are set: until then the page says
- * "enquiries are not open yet", and sending people to that from the main nav is
- * a dead end. The page itself stays reachable by URL.
+ * The nav as it should actually be rendered. D1 hid Bridging finance behind
+ * `brokerReady()`; the operator reversed that on 2026-09-07, so the route is in
+ * the header again and only the enquiry FORM is still gated (see
+ * docs/DECISIONS_LOG.md, Sprint A2).
  */
-const bridgingReady = (l: NavLink): boolean => l.href !== '/bridging-finance' || brokerReady();
-/** The credit page only exists while its flag is on (T3). */
-const flagged = (l: NavLink): boolean => l.href !== '/credit' || features.creditPage;
-const shown = (l: NavLink): boolean => bridgingReady(l) && flagged(l);
+/**
+ * A destination is shown only while the feature behind it is on. Both pages
+ * render something honest but incomplete with their flag off — /credit
+ * redirects, and /bridging-finance stops after "This is not for you if" with no
+ * form and no explanation — so the nav must not send anyone there (A2).
+ */
+const shown = (l: NavLink): boolean =>
+  (l.href !== '/credit' || features.creditPage)
+  && (l.href !== '/bridging-finance' || features.bridgingFinance);
 export const primaryLinks = (): NavLink[] => NAV.primary.filter(shown);
 export const moreLinks = (): NavLink[] => NAV.more.links.filter(shown);
 
@@ -131,14 +146,17 @@ export const moreLinks = (): NavLink[] => NAV.more.links.filter(shown);
  * (docs/AUDIT.md §3.3).
  *
  * It reads the SAME list as the phone sheet so the two can never drift, minus
- * what the desktop chrome already shows: Account sits in the header's own
- * right-hand cluster, Privacy and Terms sit in the footer. Deciding what to
- * drop is config, not something a component gets to invent.
+ * what the desktop chrome already shows: the primary row, Deals in the
+ * right-hand cluster, the account (the signed-in control beside the socials
+ * owns it since A2), and Privacy and Terms in the footer. Deciding what to drop
+ * is config, not something a component gets to invent.
  */
 const DESKTOP_MORE_OMITS: readonly string[] = [
   // the header's own links — the primary row and the right-hand cluster
   ...NAV.primary.map((l) => l.href),
   ...NAV.mine.map((l) => l.href),
+  // the signed-in control's, on the far right beside the socials (A2)
+  '/account',
   // the footer's
   '/privacy',
   '/terms',
