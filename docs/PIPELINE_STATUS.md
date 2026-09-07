@@ -1,4 +1,4 @@
-# The deal pipeline — what exists (P11, 2026-09-06)
+# The deal pipeline — what exists (P11, updated through D4, 2026-09-07)
 
 The pipeline is finished. This says what is built, what it is for, and what is
 deliberately NOT built, so nobody rebuilds finished work or half-builds the work
@@ -18,7 +18,7 @@ kill are kept as the memory. Nothing about it teaches, packages, sells or sends.
 
 ## Built
 
-- **The data (P1, migrations 0005–0018).** `deals`, `deal_stage_history`,
+- **The data (P1, migrations 0005–0018, plus 0021 from D4).** `deals`, `deal_stage_history`,
   `deal_facts`, `deal_verdicts`, `deal_changes`, `deal_deaths`, plus the columns
   the later sprints added (sold evidence, room-size failures, four dates,
   staleness, the chain-risk acknowledgement). Every migration is additive; none
@@ -101,6 +101,29 @@ kill are kept as the memory. Nothing about it teaches, packages, sells or sends.
   only the boundary of a 48-hour window on a once-a-day check.
 - A deal killed before P9 has no frozen snapshot; the graveyard says so rather
   than inventing one.
+
+## Changed since this doc was written (D3, D4)
+
+The pipeline was declared finished at P11 and three later sprints still changed
+it. Recorded here so this file stops being three sprints out of date:
+
+- **A bought or parked deal takes no new facts (D3).** The pipeline ends at
+  purchase, and a bought deal's score is the record of what you bought on. The
+  card hides the control; `POST /api/deals/:id/facts` answers 409. The facts
+  already recorded stay visible — only the add and remove controls go.
+- **The cash you must find is news on its own (D4, migration 0021).**
+  `deal_changes` gained `from_cash` and `to_cash`. A fact that moves what you
+  need up front is announced even when the Deal Score does not move at all;
+  when only the cash moved, the cash is the heading. Flag: `cashNeededChange`.
+  Threshold: `CHANGE_RULES.minCashChange`.
+- **A saved score the evidence rule moved says so (D4).** D4 made every surface
+  read sold evidence the same way — the sector's own price distribution — which
+  moves the score of deals already saved. The card says what it was, what it is
+  now, and offers to take the new one; nothing is rewritten without a tap.
+  Flag: `scoreMovedNote`. Threshold: `SCORE_MOVED.minPoints`.
+- **A deal carries the minimums it was judged by (D4).** The criteria ride in the
+  saved `url_params`, so the board's re-score, the re-trade radar and the
+  moved-note all judge a deal by the same bar the analyser used.
 
 ## Where to pick up
 
