@@ -8,7 +8,7 @@ import type * as preact from 'preact';
 import { AREA_COPY } from '../../config/area';
 import { COPY } from '../../config/copy';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { computeStats, findComparables, type ComparablesResult } from '@gil-bricks/core';
+import { findComparables, surroundings, type ComparablesResult } from '@gil-bricks/core';
 import { geocodePostcode, type GeocodedPostcode } from '@gil-bricks/core';
 import { ComparablesError } from '@gil-bricks/core';
 import { DataError, getAreaStats, getManifest, getSector, getUkhpi } from '@gil-bricks/core';
@@ -219,18 +219,16 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
   const chg1 = hpiChangePct(index, ukhpi.ukhpiMonth, 1);
   const chg5 = hpiChangePct(index, ukhpi.ukhpiMonth, 5);
 
-  // "Surroundings" must mean OTHER sectors: comparing the sector against a
-  // pool containing its own sales dampens the stated difference (verified:
-  // 74 of 158 CF37 1HR mile comps were CF37 1's own).
-  const sectorOf = (postcode: string) => /^(\S+ \d)/.exec(postcode)?.[1] ?? '';
-  const around = mile !== null && mile !== 'failed' ? mile.comps.filter((c) => c.included && sectorOf(c.postcode) !== subject.sectorId) : [];
-  const aroundStats = around.length > 0 ? computeStats(around) : null;
-  const aroundSectors = new Set(around.map((c) => sectorOf(c.postcode))).size;
-  const mileTypical = aroundStats?.typicalPrice ?? null;
-  const vsMile =
-    stats && mileTypical !== null && mileTypical > 0 && around.length >= 3
-      ? Math.round(((stats.typicalPrice - mileTypical) / mileTypical) * 100)
-      : null;
+  // A1 — the whole comparison (which comps count, how much evidence is enough,
+  // and the percentage itself) is the engine's, in @gil-bricks/core. This file
+  // only reads the answer.
+  const near = surroundings({
+    sectorTypicalPrice: stats?.typicalPrice ?? null,
+    comps: mile !== null && mile !== 'failed' ? mile.comps : [],
+    sectorId: subject.sectorId,
+  });
+  const mileTypical = near.typicalPrice;
+  const vsMile = near.differencePct;
 
   const perSqft = stats?.typicalPpsqm != null ? Math.round(stats.typicalPpsqm / sqmToSqft(1)) : null;
   const drop = stats ? Math.floor(stats.count / 4) : 0;
@@ -310,7 +308,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
             ) : vsMile !== null ? (
               <>
                 {vsMile === 0 ? AREA_COPY.surroundings.inLine : AREA_COPY.surroundings.difference(Math.abs(vsMile), vsMile > 0)}{' '}
-                {AREA_COPY.surroundings.body(fmtMoney(mileTypical!), around.length, aroundSectors)}
+                {AREA_COPY.surroundings.body(fmtMoney(mileTypical!), near.compCount, near.sectorCount)}
               </>
             ) : (
               <span class="area-vs-wait">{AREA_COPY.surroundings.notEnough}</span>

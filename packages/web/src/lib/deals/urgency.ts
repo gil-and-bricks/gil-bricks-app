@@ -16,7 +16,7 @@ import { BOARD_COPY, TODAY_COPY, URGENCY, DEAL_DATES, dateAppliesAt } from '../.
 import { daysInStage, dwellState, stageMeta, type BoardDeal } from './board';
 import { evidenceInputsFor } from './evidenceFor';
 import type { DealFact } from './facts';
-import type { DealChange } from './changes';
+import { saysSomething, type DealChange } from './changes';
 
 export type UrgencyReason = (typeof URGENCY.order)[number];
 
@@ -109,12 +109,19 @@ export function rankUrgent({ deals, facts, changes, now }: UrgencyInput): Urgent
     }
 
     // (b) the answer moved and nobody has read it
-    const unread = changes.filter((c) => c.deal_id === d.id && c.acknowledged_at === null)
+    // saysSomething keeps out a row that only exists because the cash moved,
+    // when the cash line is switched off — otherwise the line would claim the
+    // answer moved when it did not (A1).
+    const unread = changes.filter((c) => c.deal_id === d.id && c.acknowledged_at === null && saysSomething(c))
       .sort((a, b) => b.at.localeCompare(a.at))[0];
     if (unread) {
       // The score may not have moved at all — a fact can change only the money
       // you must find. Say which one actually changed (D4 review).
-      const cashOnly = unread.from_score === unread.to_score
+      // Gated like every other reader of these columns (changes.ts, DealBoard):
+      // with cashNeededChange off the cash figures are never written, so the
+      // today line must not speak for them either (A1).
+      const cashOnly = features.cashNeededChange
+        && unread.from_score === unread.to_score
         && typeof unread.to_cash === 'number' && typeof unread.from_cash === 'number';
       found.push({
         deal: d,

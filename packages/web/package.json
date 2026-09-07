@@ -20,7 +20,9 @@
     "db:migrate:local": "wrangler d1 migrations apply gil-bricks-db --local",
     "db:migrate:remote": "wrangler d1 migrations apply gil-bricks-db --remote",
     "verify:map": "node scripts/verify-map-render.mjs",
-    "verify:copy": "node scripts/check-copy-length.mjs"
+    "verify:copy": "node scripts/check-copy-length.mjs",
+    "test:flags-off": "node scripts/with-flags-off.mjs npx vitest run",
+    "preview:surfaces": "node scripts/preview-surfaces.mjs"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.4",

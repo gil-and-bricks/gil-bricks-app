@@ -19,6 +19,7 @@ import { COPY } from './copy';
 import { BRIDGING, FACTFIND, FACTFIND_VIEW } from './bridging';
 import { CALENDAR, CHAIN_RISK, GRAVEYARD_COPY, PARK_REASONS, RETRADE } from './pipeline';
 import { NAV } from './nav';
+import { STRATEGY_LANDING } from './strategyLanding';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
 
@@ -78,6 +79,15 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
   it('the nav obeys the same rules', () => {
     const strings = flatten(NAV, 'NAV');
     const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words`);
+    expect(long).toEqual([]);
+  });
+
+  it('the strategy landing pages obey the same rules', () => {
+    // A1 ruled these SEO landing pages, which makes their words the first thing
+    // a stranger reads. Nothing was measuring them.
+    const long = flatten(STRATEGY_LANDING, 'STRATEGY_LANDING')
       .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
       .map((s) => `${s.key}: ${wordCount(s.text)} words`);
     expect(long).toEqual([]);

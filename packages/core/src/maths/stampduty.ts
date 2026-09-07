@@ -19,10 +19,20 @@ export interface BandLine {
   slice: number;
   rate: number;
   tax: number;
+  /** Tax owed once this band and every band below it is counted (A1). The
+   *  ladder the show-the-maths accordion walks — it used to be added up in the
+   *  tool component, which is not where a number may be worked out. */
+  running: number;
 }
 
 export interface StampDutyResult {
   tax: number;
+  /**
+   * The tax as a percentage of the price — the average rate actually paid
+   * across every band (A1). It is NOT a band rate: no band charges it. Zero
+   * when the price is zero.
+   */
+  effectiveRate: number;
   /** Per-band lines for the show-the-maths accordion. */
   bands: BandLine[];
   /** Which regime applied, e.g. "SDLT additional-property rates". */
@@ -41,7 +51,8 @@ export function bandTax(price: number, bands: Band[]): BandLine[] {
     if (price <= from) break;
     const to = b.upTo === null ? price : Math.min(b.upTo, price);
     const slice = to - from;
-    lines.push({ from, to: b.upTo, slice, rate: b.rate, tax: slice * b.rate });
+    const tax = slice * b.rate;
+    lines.push({ from, to: b.upTo, slice, rate: b.rate, tax, running: (lines[lines.length - 1]?.running ?? 0) + tax });
     from = b.upTo ?? price;
   }
   // A table must cover the whole price — a config edit that leaves a gap
@@ -132,5 +143,6 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
     result: fmtMoney(tax),
     note,
   };
-  return { value: { tax, bands: lines, regime, effectiveFrom: table.effectiveFrom, source: table.source }, breakdown };
+  const effectiveRate = inputs.price > 0 ? (tax / inputs.price) * 100 : 0;
+  return { value: { tax, effectiveRate, bands: lines, regime, effectiveFrom: table.effectiveFrom, source: table.source }, breakdown };
 }

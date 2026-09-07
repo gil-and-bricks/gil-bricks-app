@@ -21,6 +21,7 @@
  * the operator fills in the tag ids the push fails honestly and the row waits
  * in D1 for the cron — the enquiry is never lost.
  */
+import { strategies } from '@gil-bricks/core';
 
 import { BROKER } from '../../config/bridging';
 import { captureFor, KIT_FIELDS } from '../../config/capture';
@@ -177,8 +178,16 @@ export async function pushToKit(
   }
 }
 
-/** Saved-deal strategies the API accepts ('comparables' = saved from the comps page). */
-export const DEAL_STRATEGIES = ['btl', 'flip', 'brrrr', 'hmo', 'comparables'] as const;
+/**
+ * Saved-deal strategies the API accepts — READ FROM THE STRATEGY CONFIGS, so
+ * adding a strategy stays a config edit and the button can never appear on a
+ * page the API then refuses. 'comparables' was in this list until A1: a
+ * deal saved from the comps page has no strategy behind it, so it could never
+ * be scored and the board had to carry it for ever as unscoreable. The save is
+ * gone from that page and refused here too, so a stale open tab cannot make a
+ * new one. Rows already in the database are untouched and still render.
+ */
+export const DEAL_STRATEGIES: readonly string[] = strategies.map((s) => s.id);
 
 export function isDealStrategy(s: string): boolean {
   return (DEAL_STRATEGIES as readonly string[]).includes(s);

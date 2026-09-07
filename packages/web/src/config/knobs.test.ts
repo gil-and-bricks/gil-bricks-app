@@ -20,6 +20,7 @@ import { isNews } from '../lib/deals/changes';
 import { headstones, patternIn, type DealDeath } from '../lib/deals/graveyard';
 import { todayLine } from '../lib/deals/urgency';
 import { retradeFor } from '../lib/deals/retrade';
+import { features } from './features';
 
 /** Turn a knob, look, put it back. */
 function turn<T extends object, K extends keyof T>(obj: T, key: K, value: T[K], look: () => void): void {
@@ -112,17 +113,21 @@ describe('every knob moves what it says it moves', () => {
   });
 
   it('7. CHAIN_RISK.stage — where the "accepted is not safe" card appears', () => {
-    const accepted = deal({ stage: 'offer-accepted' });
-    const nearly = deal({ stage: 'nearly-there' });
-    expect(chainRiskDue(accepted)).toBe(true);
-    expect(chainRiskDue(nearly)).toBe(false);
-    turn(CHAIN_RISK as unknown as { stage: string }, 'stage', 'nearly-there', () => {
-      expect(chainRiskDue(nearly), 'move the knob and the card moves with it').toBe(true);
-      expect(chainRiskDue(accepted)).toBe(false);
+    // The card is flagged, so force the flag rather than trusting the default —
+    // otherwise this knob stops being tested the moment the flag goes off (A1).
+    turn(features, 'chainRisk', true, () => {
+      const accepted = deal({ stage: 'offer-accepted' });
+      const nearly = deal({ stage: 'nearly-there' });
+      expect(chainRiskDue(accepted)).toBe(true);
+      expect(chainRiskDue(nearly)).toBe(false);
+      turn(CHAIN_RISK as unknown as { stage: string }, 'stage', 'nearly-there', () => {
+        expect(chainRiskDue(nearly), 'move the knob and the card moves with it').toBe(true);
+        expect(chainRiskDue(accepted)).toBe(false);
+      });
+      // and it is only ever for a LIVE deal that has not read it
+      expect(chainRiskDue({ ...accepted, status: 'dead' })).toBe(false);
+      expect(chainRiskDue({ ...accepted, chain_ack_at: '2026-09-06T00:00:00Z' })).toBe(false);
     });
-    // and it is only ever for a LIVE deal that has not read it
-    expect(chainRiskDue({ ...accepted, status: 'dead' })).toBe(false);
-    expect(chainRiskDue({ ...accepted, chain_ack_at: '2026-09-06T00:00:00Z' })).toBe(false);
   });
 
   it('7b. AUCTION_WARNING_STAGE — where the legal-pack warning shows', () => {

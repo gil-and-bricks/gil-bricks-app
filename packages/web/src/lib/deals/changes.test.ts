@@ -9,6 +9,10 @@ import { describe, expect, it } from 'vitest';
 import { verdictForScore } from '@gil-bricks/core';
 import { changeLine, isKilled, isNews, unseen, type DealChange, cashIsNews } from './changes';
 import { CHANGE_RULES } from '../../config/pipeline';
+import { withFlags } from '../../testing/flags';
+
+// The cash-needed line is flagged; force it on so this file keeps testing it (A1).
+withFlags({ cashNeededChange: true });
 
 const change = (over: Partial<DealChange> = {}): DealChange => ({
   id: 'c1', deal_id: 'd1', fact_type: 'builder-quote', fact_value: 48_000, previous_value: 30_000,

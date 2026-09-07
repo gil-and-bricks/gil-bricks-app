@@ -130,3 +130,37 @@ describe('flipTax', () => {
     expect(flipTax({ profit: 10000, taxedAs: 'basic' }).value).toBeCloseTo(2000, 2);
   });
 });
+
+describe('the average rate paid, and the band ladder (A1)', () => {
+  it('states the tax as a percentage of the price — the rate no band charges', () => {
+    const r = stampDuty({ price: 300_000, country: 'E92000001', buyerType: 'additional', date: '2026-01-01' }).value;
+    // £300,000 additional: 5% of 125,000 + 7% of 125,000 + 10% of 50,000 = £20,000.
+    expect(r.tax).toBe(20_000);
+    expect(r.effectiveRate).toBeCloseTo(6.666666666666667, 10);
+  });
+
+  it('is worked out on the tax actually payable — the FLOORED figure the page shows', () => {
+    // The tax is rounded down to the pound (HMRC SDLTM00050). The rate must
+    // divide that same number, or the page shows a percentage of a figure it
+    // never displays. This is the choice the tool used to make for itself.
+    const r = stampDuty({ price: 187_432, country: 'W92000004', buyerType: 'additional', date: '2026-01-01' }).value;
+    expect(Number.isInteger(r.tax)).toBe(true);
+    expect(r.effectiveRate).toBeCloseTo((r.tax / 187_432) * 100, 12);
+  });
+
+  it('is zero at a zero price rather than NaN', () => {
+    const r = stampDuty({ price: 0, country: 'E92000001', buyerType: 'standard', date: '2026-01-01' }).value;
+    expect(r.effectiveRate).toBe(0);
+  });
+
+  it('carries a running total that ends at the tax itself', () => {
+    const r = stampDuty({ price: 420_000, country: 'W92000004', buyerType: 'additional', date: '2026-01-01' }).value;
+    let sum = 0;
+    for (const b of r.bands) {
+      sum += b.tax;
+      expect(b.running).toBeCloseTo(sum, 10);
+    }
+    // The tax is rounded down to the pound; the ladder is the unrounded truth.
+    expect(Math.floor(r.bands[r.bands.length - 1].running)).toBe(r.tax);
+  });
+});

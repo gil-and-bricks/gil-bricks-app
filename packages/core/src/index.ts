@@ -54,5 +54,9 @@ export type { Verdict } from './score/copy';
 export * from './listing';
 
 // Tools (T1): pure leaf maths a standalone tool page may import.
+// The area page's own comparison — how a sector sits against the mile around
+// it. Composed from the comps engine, so it lives beside the tools (A1).
+export * from './area/surroundings';
+
 export * from './tools/equity';
 export * from './tools/rentalYield';

@@ -122,3 +122,26 @@ const flagged = (l: NavLink): boolean => l.href !== '/credit' || features.credit
 const shown = (l: NavLink): boolean => bridgingReady(l) && flagged(l);
 export const primaryLinks = (): NavLink[] => NAV.primary.filter(shown);
 export const moreLinks = (): NavLink[] => NAV.more.links.filter(shown);
+
+/**
+ * The desktop header's More (A1). The bottom bar only exists under 640px, so
+ * above that the More-sheet pages have no route in from the header at all —
+ * /comparables, the second-biggest thing this product does, was reachable on a
+ * desktop only from the strategy landing pages, which nothing links to
+ * (docs/AUDIT.md §3.3).
+ *
+ * It reads the SAME list as the phone sheet so the two can never drift, minus
+ * what the desktop chrome already shows: Account sits in the header's own
+ * right-hand cluster, Privacy and Terms sit in the footer. Deciding what to
+ * drop is config, not something a component gets to invent.
+ */
+const DESKTOP_MORE_OMITS: readonly string[] = [
+  // the header's own links — the primary row and the right-hand cluster
+  ...NAV.primary.map((l) => l.href),
+  ...NAV.mine.map((l) => l.href),
+  // the footer's
+  '/privacy',
+  '/terms',
+];
+export const desktopMoreLinks = (): NavLink[] =>
+  moreLinks().filter((l) => !DESKTOP_MORE_OMITS.includes(l.href));

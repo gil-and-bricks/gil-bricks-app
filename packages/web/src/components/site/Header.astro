@@ -3,7 +3,7 @@ import { siteConfig } from '../../site.config';
 import { strategies } from '@gil-bricks/core';
 import { AuthHeader } from '../auth/AuthHeader';
 import { features } from '../../config/features';
-import { NAV, primaryLinks } from '../../config/nav';
+import { NAV, primaryLinks, desktopMoreLinks } from '../../config/nav';
 ---
 
 <header class="site-header">
@@ -23,6 +23,18 @@ import { NAV, primaryLinks } from '../../config/nav';
         </ul>
       </details>
       {primaryLinks().map((l) => <a href={l.href}>{l.label}</a>)}
+      {/* A1 — the desktop route to the More-sheet pages. The bottom bar only
+          exists under 640px, so above that /comparables and /credit had no link
+          anywhere. Same list as the phone sheet (desktopMoreLinks), same native
+          <details>, so the two can never drift apart. */}
+      {features.desktopMore && desktopMoreLinks().length > 0 && (
+        <details class="nav-group nav-more">
+          <summary aria-label={NAV.more.hint}>{NAV.more.label}</summary>
+          <ul>
+            {desktopMoreLinks().map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+          </ul>
+        </details>
+      )}
       <span class="nav-mine">
         {NAV.mine.map((l) => <a href={l.href}>{l.label}</a>)}
       </span>
@@ -117,6 +129,9 @@ import { NAV, primaryLinks } from '../../config/nav';
   }
   .nav-group > ul a { display: block; padding: var(--space-2) var(--space-3); border-radius: 8px; }
   .nav-group > ul a:hover { background: rgba(220, 255, 0, 0.08); }
+  /* The More sits further right than Analyse, so its panel hangs from the right
+     edge — anchored left it would push past the viewport on a narrow laptop. */
+  .nav-more > ul { left: auto; right: 0; }
   .nav-mine { display: inline-flex; gap: var(--space-4); margin-left: var(--space-4); padding-left: var(--space-4); border-left: 1px solid var(--glass-border); }
   nav a {
     color: var(--text-dim);
@@ -173,19 +188,28 @@ import { NAV, primaryLinks } from '../../config/nav';
 
 <script is:inline>
   {
-    // The Analyse menu is a native <details>: it needs one listener to close
-    // when you click away or press Escape, exactly like the bottom More sheet.
-    const group = document.querySelector('.nav-group');
-    if (group) {
-      document.addEventListener('pointerdown', (e) => {
-        if (group.open && !group.contains(e.target)) group.open = false;
-      });
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && group.open) {
-          group.open = false;
-          group.querySelector('summary').focus();
-        }
+    // Every header disclosure — the Analyse menu and the More menu (A1) — is a
+    // native <details>. Two things the browser does not give free: opening one
+    // must close the other (or the keyboard leaves both open, overlapping), and
+    // Escape must close the OPEN one and put focus back on its own summary.
+    const groups = Array.from(document.querySelectorAll('.nav-group'));
+    for (const group of groups) {
+      group.addEventListener('toggle', () => {
+        if (!group.open) return;
+        for (const other of groups) if (other !== group) other.open = false;
       });
     }
+    document.addEventListener('pointerdown', (e) => {
+      for (const group of groups) {
+        if (group.open && !group.contains(e.target)) group.open = false;
+      }
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      const open = groups.find((g) => g.open);
+      if (!open) return;
+      open.open = false;
+      open.querySelector('summary').focus();
+    });
   }
 </script>

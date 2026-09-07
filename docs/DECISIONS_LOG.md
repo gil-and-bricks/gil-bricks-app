@@ -2,6 +2,84 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint A1: act on the audit (deployed)
+
+Twelve rulings, all twelve done. The judgment calls worth recording:
+
+**CI is three jobs, not one.** `gates` (test, typecheck, both builds),
+`flags-off` (the web suite with every flag off, then a check that features.ts
+came back byte-identical) and `copy-gate` (the real-browser 30-word check). They
+are separate so a red one names itself. The copy gate builds the site and serves
+it locally rather than pointing at the deployed URL — testing production would
+be testing yesterday's code. `smoke:comps`, `smoke:valuation`, `verify:map`,
+`pipeline:*` and `db:migrate:remote` are deliberately NOT in CI: they need live
+data, a browser, or a Cloudflare token.
+
+**The 16 flags-off failures were test assumptions, not product bugs — but two
+real product bugs came out of the same work.** Each failing file exercised a
+flagged behaviour while relying on the flag's default. Fixed with one shared
+helper, `src/testing/flags.ts`, that snapshots and restores —
+the old files "restored" by assigning `true`, which is a set, not a restore, and
+quietly rewrote the default for whatever ran next. The two real bugs: the
+homepage promised and displayed a Deal Score with `dealScore` off (ruling 2), and
+`urgency.ts` spoke about the cash needed without checking `cashNeededChange` —
+found by reading the gates, not by any of the 16 failures. Both fixed.
+
+**Time-on-market: the rule moved, not the code.** The exclusion was written to
+stop us ingesting licensed portal datasets. Reading the first-listed date off
+the page the user personally opened and saying it back to them is not that, so
+CLAUDE.md and exclusions.md now say precisely where the line is. Same wording
+for auction detection. The extension is unchanged.
+
+**The desktop More reads `desktopMoreLinks()`, a derived list.** Same
+`NAV.more` source as the phone sheet, minus what the desktop already shows
+(Account in the header, Privacy and Terms in the footer). Deciding what to drop
+is config, never something the component invents. Also fixed a latent bug while
+in there: the header's Escape/click-away script used `querySelector`, so a
+second menu would have got no keyboard behaviour at all, silently.
+
+**The strategy pages are SEO landing pages. That is now written down** — in
+`src/config/strategyLanding.ts` and at the top of the page. They tell a stranger
+what the strategy is, what the engine will check (read from the StrategyConfig's
+own score components, so the page cannot promise a check the engine dropped),
+and what they need in hand (from `REQUIRED_UNKNOWNS`). The dead `#valuation`
+anchor is gone: the card now says what the analyser needs before it can value
+anything.
+
+**`robots.txt` and `sitemap.xml` are endpoints, not files.** A static
+`public/robots.txt` would have to hardcode the host, and the host has one home
+(site.config.ts). The sitemap is generated from the same config the product
+uses, and `sitemap.test.ts` fails if it ever lists a page that does not exist or
+one that is noindex.
+
+**Check F is a ratchet, and a smell detector, not a proof.** The two
+calculations the operator named moved into core. The AST walk then found eleven
+more already there — a £/sqft conversion repeated in six places, a bridging
+total summed in JSX, an equity share derived from LTV, a sort comparator, a
+colour ramp — so they are grandfathered exactly like the copy debt: a listed file
+may only go down, a new file is held to zero. It classifies by what the code
+CALLS its values, so renaming a local hides a calculation from it; CLAUDE.md and
+docs/FEATURE_FLAGS.md say that plainly rather than claiming rule 3 is now
+enforced.
+
+**The comps save is gone from both ends.** The button is not offered on
+/comparables, and 'comparables' is out of `DEAL_STRATEGIES`, so a stale open tab
+gets a 400 rather than making another unscoreable deal. Rows already in D1 are
+untouched — additive-only means additive-only — and every guard that renders
+them stays.
+
+**The five-surface preview is a local server, not a page.** A page under
+src/pages ships in dist and would be servable in production. So: a Worker route
+at `/dev/preview` behind `isPreviewEnv` (DEV_LOGIN, which only ever exists in
+.dev.vars, plus a localhost-or-private-network host so it opens on the
+operator's phone), and `npm run preview:surfaces`, which swaps obviously-fake
+values into the config that gates the five, REBUILDS the static site (without
+that step wrangler serves the last real build and the surfaces stay hidden), and
+restores the config on every exit path — including a hard kill, via a sidecar it
+writes before touching anything — and rebuilds dist on every path it can see. A
+SIGKILL leaves dist holding the fake build until the next build; the script says
+so, and the next run puts the config back before doing anything else.
+
 ## 2026-09-07 — Audit: the whole product read against its own rulebook (deployed)
 
 The findings are in **docs/AUDIT.md** — that is the record, not this. Logged here

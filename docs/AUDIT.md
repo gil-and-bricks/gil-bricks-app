@@ -1,5 +1,18 @@
 # Whole-product audit — 2026-09-07
 
+> **Acted on in sprint A1, same day.** The operator ruled on all of it. What was
+> fixed: CI (§2.3) and a flags-off job (§2.4); the homepage's flags-off promise
+> (§2.1); both stray calculations, plus a test that stops new ones (§2.2); the
+> desktop route to /comparables and /credit (§3.3); the dead `#valuation` link
+> and the strategy pages themselves, now ruled SEO landing pages (§3.1, §3.2);
+> robots.txt and sitemap.xml (§5.1); the time-on-market and auction exclusions
+> reworded to permit reading the page the user opened (§1.1); Parquet struck
+> (§1.4); the one-commit rule reworded (§1.3); the comps save removed (§4.4);
+> and a local preview of the five surfaces nobody had seen (§4.2). Still open:
+> the Kit automations (§4.1), which only the operator can build, and two
+> cosmetics nobody ruled on — `EMAIL_DRAFTS` living in a config file (§4.3) and
+> the quiz's "Buy to Let" capitalisation (§5.3).
+
 Twenty sprints, 109 commits, three packages. Nobody had stepped back and read the
 whole thing against its own rulebook. This is that read.
 
@@ -288,10 +301,9 @@ its figure is an empty string and the card's verdict line is blank. That is the
 same behaviour a terminal deal or a flags-off card already has, and a blank line
 is not a promise — but it is not nothing, either.
 
-**Still yours to decide:** whether `/comparables` should put deals in the
-pipeline at all. It is legal under the rulebook (the save goes through the same
-analyser payload), but a comps-only deal can never move, never re-score and never
-be worth a stage. Saying so is a product decision, not a bug fix.
+**Decided in A1:** `/comparables` no longer offers the save at all, and the API
+refuses `strategy: 'comparables'`. Rows already in D1 are untouched and still
+render — the guards that carry them stay.
 
 ---
 
@@ -403,5 +415,7 @@ the live board still carried the bug.
   v0.2.0 was ever uploaded to the Chrome Web Store is something only your
   developer dashboard knows. If it was not, the live extension predates every fix
   from D3 onward.
-- **Are the four `[strategy]` index pages meant as SEO landing pages?** (3.1)
-- **Should `/comparables` be able to save into the pipeline at all?** (4.4)
+- ~~Are the four `[strategy]` index pages meant as SEO landing pages?~~ **Yes,
+  ruled in A1** — written into `src/config/strategyLanding.ts` and the page.
+- ~~Should `/comparables` be able to save into the pipeline at all?~~ **No,
+  ruled in A1** — the save is gone from the page and refused by the API.

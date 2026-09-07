@@ -12,6 +12,11 @@ import type { DealFact } from './facts';
 import type { DealChange } from './changes';
 import { URGENCY } from '../../config/pipeline';
 import { features } from '../../config/features';
+import { withFlags } from '../../testing/flags';
+
+// The tiers this file exercises are flagged. Force them ON rather than trusting
+// the repo default, so the suite still tests them with every flag off (A1).
+withFlags({ dealDates: true, evidenceChips: true, cashNeededChange: true });
 
 const NOW = Date.parse('2026-09-20T12:00:00Z');
 const daysAgo = (n: number): string => new Date(NOW - n * 86_400_000).toISOString();
@@ -189,5 +194,32 @@ describe('the ranking, in strict order', () => {
     ];
     const all = rankUrgent({ deals: board, facts: [...quoted('stale'), ...quoted('dated'), ...quoted('unread')], changes: [change('unread')], now: NOW });
     expect(all.map((u) => u.reason)).toEqual(['deadline', 'unread-change', 'stale']);
+  });
+});
+
+describe('the cash-only change (A1) — the one product change the flags-off ruling produced', () => {
+  const cashRow = (id: string) => change(id, { from_score: 7.0, to_score: 7.0, from_cash: 47_000, to_cash: 72_000 });
+
+  it('with the flag on, the line names the CASH, not a score that did not move', () => {
+    const board = [deal({ id: 'cash', stage: 'getting-real-numbers', stage_since: daysAgo(1), current_score: 7 })];
+    const top = run(board, quoted('cash'), [cashRow('cash')]);
+    expect(top?.reason).toBe('unread-change');
+    expect(top?.text).toContain('£72,000');
+    expect(top?.text).not.toContain('7.0');
+  });
+
+  it('with the flag OFF the row is silent — it never claims the answer moved', () => {
+    const board = [deal({ id: 'cash', stage: 'getting-real-numbers', stage_since: daysAgo(1), current_score: 7 })];
+    features.cashNeededChange = false;
+    const top = run(board, quoted('cash'), [cashRow('cash')]);
+    // Not "the answer moved to 7.0" — it did not move. The tier is simply not
+    // this deal's reason any more.
+    expect(top?.reason).not.toBe('unread-change');
+  });
+
+  it('a row whose SCORE moved is still announced with the flag off', () => {
+    const board = [deal({ id: 'moved', stage: 'getting-real-numbers', stage_since: daysAgo(1) })];
+    features.cashNeededChange = false;
+    expect(run(board, quoted('moved'), [change('moved')])?.reason).toBe('unread-change');
   });
 });

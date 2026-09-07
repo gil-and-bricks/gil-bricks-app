@@ -6,6 +6,7 @@ import { seedDemoDeals } from './lib/pipeline';
 import { applyFacts, type DealFact } from '../lib/deals/facts';
 import { scoreFromParams } from '../lib/deals/scoreFromParams';
 import { features } from '../config/features';
+import { withFlags } from '../testing/flags';
 
 /**
  * The seed gains realistic facts (P5) — and a seeded card must say exactly what
@@ -51,7 +52,9 @@ const fresh = (): D1Database => {
   return makeD1(sqlite);
 };
 
-afterEach(() => { features.dealFacts = true; });
+// The seed only carries facts when the flag is on. Force it, and restore what
+// was actually there rather than assigning `true` (A1).
+withFlags({ dealFacts: true });
 
 beforeEach(async () => {
   sqlite = new DatabaseSync(':memory:');

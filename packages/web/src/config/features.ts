@@ -169,6 +169,13 @@ export interface FeatureFlags {
    * itself never changes either way. Ratios: VALUATION_TYPE_CHECK. */
   valuationTypeCaveat: boolean;
 
+  /** The desktop header's More menu (A1). The bottom bar only exists under
+   * 640px, so above it the More-sheet pages had no link in the header at all —
+   * /comparables only from pages nothing links to. Reads the SAME config list as the
+   * phone sheet. Off: the header is exactly as it was, and those pages go back
+   * to being desktop-unreachable. */
+  desktopMore: boolean;
+
   /** PDF export of a result (D1). Off: no PDF button and no "coming soon"
    * caption anywhere — an unbuilt feature is hidden, never shown disabled. */
   pdfExport: boolean;
@@ -201,6 +208,7 @@ export const features: FeatureFlags = {
   measurementHandoff: true,
   cashNeededChange: true,
   valuationTypeCaveat: true,
+  desktopMore: true,
   pdfExport: false,
 };
 

@@ -13,8 +13,16 @@ for little value), or **compliance** (legal, privacy, or regulatory risk).
 - **Commercial HMO valuation** — free-data honesty: yield-based commercial valuation needs data and expertise free sources cannot support.
 - **Portfolio tracker** — simplicity: scope creep beyond deal analysis; a different product.
 - **Phone number capture** — compliance: GDPR data minimisation; we never need it.
-- **Time-on-market data** — free-data honesty: portal-only data, not freely licensed.
-- **Auction data** — free-data honesty: no free licensed feed of auction results.
+- **Time-on-market as a DATASET** — free-data honesty: portal-only data, not
+  freely licensed. We never ingest, scrape, store or republish it. **Reading the
+  first-listed date off the single page the user has personally opened, in their
+  own browser, and saying it back to them, is allowed** — nothing is fetched,
+  kept or republished, so the licensing reason does not apply. That is what the
+  extension's seller signals do (ruled 2026-09-07; see docs/AUDIT.md §1.1).
+- **Auction data as a DATASET** — free-data honesty: no free licensed feed of
+  auction results, so we ingest none. **Detecting from the opened listing that a
+  property is going to auction, and warning about the legal pack, is allowed** —
+  same reason: it reads the page in front of the user and stores no feed.
 - **EPC-C / MEES warnings** — compliance: proposed rules unsettled; stale compliance warnings are worse than none.
 - **Per-council HMO licensing links** — simplicity: 300+ council URLs rot constantly; broken links destroy trust.
 - **Bedrooms column in comps** — free-data honesty: Land Registry sold prices carry no reliable bedroom counts.

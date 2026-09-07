@@ -1,0 +1,151 @@
+name: ci
+
+# Every rule in this product is enforced by a test, and until now the tests were
+# enforced by nobody (docs/AUDIT.md §2.3). This runs them on every push and
+# every pull request, and it fails loudly: a red tick here means the reversibility
+# ratchet, the copy rules, the no-manual-entry guard or the maths definitions
+# have been broken, and the branch is not safe to deploy.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # A newer push to the same branch cancels the older run — nothing here writes
+  # anything, so an abandoned run has no value. head_ref for a pull request means
+  # the branch's own push and its PR share one group instead of running twice.
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gates:
+    name: tests, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # One step per package, each running even after an earlier one failed: a
+      # break in core used to hide whether web and the extension were broken too,
+      # because the root script is an && chain.
+      - name: Tests — core (the maths, the Deal Score)
+        run: npm test -w packages/core
+
+      - name: Tests — web (the ratchets, the copy rules, the pipeline guards)
+        if: ${{ !cancelled() }}
+        run: npm test -w packages/web
+
+      - name: Tests — extension (banned phrases, no CDN)
+        if: ${{ !cancelled() }}
+        run: npm test -w packages/extension
+
+      - name: Typecheck — all three packages
+        if: ${{ !cancelled() }}
+        run: npm run typecheck
+
+      - name: Build the site
+        if: ${{ !cancelled() }}
+        run: npm run build
+
+      - name: Build the extension
+        if: ${{ !cancelled() }}
+        run: npm run build:extension
+
+  flags-off:
+    name: the product with every flag off
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The charter promises that all flags off still leaves a coherent product.
+      # This runs the whole web suite in that state, so the promise cannot rot
+      # again. The script refuses to run unless every flag really went off.
+      - name: Web suite with every feature flag off
+        run: npm run test:flags-off
+
+      # The homepage repair is a BUILD-TIME conditional in Astro frontmatter, so
+      # the suite alone would not catch a flags-off build breaking.
+      - name: Build the site with every feature flag off
+        if: ${{ !cancelled() }}
+        run: node scripts/with-flags-off.mjs npx astro build
+        working-directory: packages/web
+
+      # if: always() — this is the step that catches a FAILED restore, and the
+      # runs where the restore fails are exactly the runs where an earlier step
+      # went red.
+      - name: features.ts must be back exactly as it was
+        if: always()
+        run: git diff --exit-code packages/web/src/config/features.ts
+
+  copy-gate:
+    name: no visible block over 30 words
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # The runner image ships Chrome, but ubuntu-latest is a moving target, so
+      # say so out loud rather than failing later with a confusing launch error.
+      - name: Chrome must be present
+        run: |
+          test -x /usr/bin/google-chrome || {
+            echo "::error::No Chrome at /usr/bin/google-chrome on this runner image."
+            echo "::error::Set CHROME_PATH to the browser this image ships, or install one."
+            exit 1
+          }
+          /usr/bin/google-chrome --version
+
+      - name: Build the site
+        run: npm run build
+
+      # copy.test.ts checks the SOURCE; this checks what a person actually sees,
+      # in a real browser, on the build from this commit — never the deployed
+      # site, which would be testing yesterday's code.
+      - name: Serve the build
+        run: |
+          nohup npm run preview -w packages/web > /tmp/preview.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:4321/ >/dev/null && break; sleep 1; done
+          curl -sf http://localhost:4321/ >/dev/null || { cat /tmp/preview.log; exit 1; }
+
+      # Six of the pages fetch sold-price data from the public R2 bucket in the
+      # browser, so this job depends on that bucket being reachable. It fails
+      # loudly rather than quietly measuring less: a page that 404s, throws, or
+      # renders nothing to measure now fails the gate.
+      - name: Copy length gate
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run verify:copy -w packages/web -- http://localhost:4321

@@ -11,8 +11,17 @@
  */
 import { chromium } from 'playwright-core';
 const B = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+// In CI the target must be the build from THIS commit, never the deployed site —
+// that would be measuring yesterday's code and calling it a gate.
+if (process.env.CI === 'true' && process.argv[2] === undefined && process.env.BASE === undefined) {
+  console.error('check-copy-length: refusing to measure the deployed site in CI. Pass the local base URL.');
+  process.exit(2);
+}
 const MAX_WORDS = 30;
-const browser = await chromium.launch({ executablePath: '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' });
+// CHROME_PATH lets CI point at the runner's own Chrome (A1); the default is
+// where Chrome lives on the operator's Mac.
+const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
 const mk = async () => (await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage());
 // every VISIBLE paragraph on every surface, measured in the browser
 const PAGES = [
@@ -30,16 +39,28 @@ const PAGES = [
   ['/tools/stamp-duty', 'stamp'],
   ['/tools/rental-yield', 'yield'],
   ['/extension', 'extension'],
+  ['/buy-to-let', 'btl-landing'],
+  ['/flip', 'flip-landing'],
+  ['/brrrr', 'brrrr-landing'],
+  ['/hmo', 'hmo-landing'],
   ['/start', 'start'],
   ['/account', 'account'],
   ['/', 'home'],
 ];
 let worst = [];
+const broken = [];
 for (const [path, name] of PAGES) {
   const page = await mk();
   const errs = []; page.on('pageerror', (e) => errs.push(String(e).slice(0, 120)));
-  await page.goto(B + path, { waitUntil: 'networkidle', timeout: 60000 });
+  // A page that 404s or throws measures as "no long blocks" and would pass the
+  // gate silently, so the response and the page errors are gates of their own.
+  const res = await page.goto(B + path, { waitUntil: 'networkidle', timeout: 60000 });
+  const status = res === null ? 0 : res.status();
+  if (status !== 200) broken.push(`${name} ${path} returned HTTP ${status}`);
   await page.waitForTimeout(5000);
+  const measured = await page.evaluate(() => document.querySelectorAll('p, li, .hint').length);
+  if (measured === 0) broken.push(`${name} ${path} rendered nothing to measure`);
+  if (errs.length > 0) broken.push(`${name} ${path} threw: ${errs.join(' | ')}`);
   const long = await page.evaluate(() => {
     const count = (t) => (t.trim().match(/[A-Za-z0-9£%.,'’·—-]+/g) || []).length;
     const out = [];
@@ -58,6 +79,11 @@ for (const [path, name] of PAGES) {
   await page.context().close();
 }
 await browser.close();
+if (broken.length > 0) {
+  console.log(`\nCOPY LENGTH: CANNOT VOUCH — ${broken.length} page(s) did not render properly:`);
+  for (const b of broken) console.log(`  ${b}`);
+  process.exit(1);
+}
 if (worst.length > 0) {
   console.log(`\nCOPY LENGTH: FAILED — ${worst.length} visible block(s) over ${MAX_WORDS} words`);
   process.exit(1);

@@ -112,9 +112,24 @@ export function changeLine(change: DealChange): ChangeLine {
   };
 }
 
+/**
+ * Has this row anything to say? (A1)
+ *
+ * A row where the score did not move only exists because the CASH moved, and
+ * the cash line is flagged. With `cashNeededChange` off there is nothing left
+ * to report: announcing it anyway would print "this was 7.0 … moves it down to
+ * 7.0" on the card, and "the answer moved to 7.0" in the today line, when the
+ * answer did not move at all. Rows written before that flag existed always
+ * moved the score, so this is exactly what P6 did.
+ */
+export function saysSomething(change: DealChange): boolean {
+  if (change.from_score !== change.to_score) return true;
+  return features.cashNeededChange && cashIsNews(change.from_cash ?? null, change.to_cash ?? null);
+}
+
 /** The changes on one deal that nobody has seen yet, newest first. */
 export function unseen(changes: readonly DealChange[], dealId: string): DealChange[] {
   return changes
-    .filter((c) => c.deal_id === dealId && c.acknowledged_at === null)
+    .filter((c) => c.deal_id === dealId && c.acknowledged_at === null && saysSomething(c))
     .sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id));
 }

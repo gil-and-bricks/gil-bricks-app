@@ -15,6 +15,26 @@ export const HOME = {
   /** Two sentences, no more: what it is and who it is for. */
   sub: 'Put in a listing and its numbers. It scores the deal out of ten and tells you in plain English what is holding it back.',
 
+  /**
+   * A1 — what this page says when features.dealScore is OFF. Nothing is scored
+   * in that state, so the page may not promise a score or show one. Same page,
+   * same shape: only the two claims that name the score change. The verdict,
+   * the levers and the sold-price check all survive the flag, so their words do
+   * too.
+   */
+  noScore: {
+    sub: 'Put in a listing and its numbers. It checks them against real sold prices and gives you a verdict.',
+    doesTitle: 'Works out the deal, not the listing',
+  },
+
+  /** And the same for the pipeline: with features.dealPipeline off there are no
+   *  stages to move through, so the page may not say there are. Saved deals
+   *  still live on the account page, which is what this promises instead. */
+  noPipeline: {
+    doesTitle: 'Keeps the ones worth keeping',
+    doesBody: 'Save a deal to your account and come back to it whenever you like.',
+  },
+
   /** The postcode box, kept from the old homepage. */
   search: {
     label: 'Start with a postcode',
@@ -32,6 +52,9 @@ export const HOME = {
     subject: 'A £120,000 terrace in Swansea, let at £750 a month.',
     /** Said under the score card, so nobody thinks it is a mock-up. */
     note: 'Worked out by the same engine the analyser uses, when this page was built.',
+    /** The denominator on the score chip — the same words the analyser's own
+     *  chip uses, kept here rather than typed into the page. */
+    outOf: '/10',
     /** The figures shown beside the score. */
     labels: { score: 'Deal Score', roi: 'Return on cash', yield: 'Gross yield' },
     cta: 'Try it on a real property',
@@ -42,6 +65,8 @@ export const HOME = {
     heading: 'What it does',
     items: [
       {
+        /** Keyed so the page can swap this one title with the score off (A1). */
+        id: 'scores',
         title: 'Scores the deal, not the listing',
         body: 'Buy-to-let, flips, BRRRR and small HMOs, each with its own maths and its own verdict.',
       },
@@ -54,6 +79,8 @@ export const HOME = {
         body: 'One binding number, in plain English, and what would have to change to fix it.',
       },
       {
+        /** Keyed so the page can swap it with the pipeline off (A1). */
+        id: 'pipeline',
         title: 'Follows the deal until you buy',
         body: 'Save it and it moves through your pipeline, from worth a look to bought it.',
       },

@@ -40,8 +40,13 @@ const exampleInputs = {
   thresholds: (btl as unknown as { thresholds: Record<string, number> }).thresholds,
 } as unknown as BtlInputs;
 const analysis = analyseBtl(exampleInputs);
-const deal = scoreDeal('btl', exampleInputs);
-const tier = deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ? 'ds-marginal' : 'ds-walk';
+// A1 — the page may only show a Deal Score while the product produces one. Every
+// analyser island already guards scoreDeal this way; the homepage was the last
+// surface promising a score the flag can switch off. The worked example itself
+// survives: analyseBtl does not depend on the flag, so the ROI and the yield
+// still come from the engine.
+const deal = features.dealScore ? scoreDeal('btl', exampleInputs) : null;
+const tier = deal === null ? '' : deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ? 'ds-marginal' : 'ds-walk';
 ---
 
 <AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={HOME.lead}>
@@ -49,7 +54,7 @@ const tier = deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ?
     <h1>{siteConfig.siteName}</h1>
     <p class="hero-maker">by {siteConfig.makerName}</p>
     <p class="tagline">{HOME.lead}</p>
-    <p class="home-sub">{HOME.sub}</p>
+    <p class="home-sub">{features.dealScore ? HOME.sub : HOME.noScore.sub}</p>
     <form class="home-search glass card" action="/area-data" method="get">
       <label for="home-pc">{HOME.search.label}</label>
       <div class="home-search-row">
@@ -63,11 +68,13 @@ const tier = deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ?
   <section class="glass card home-example" aria-labelledby="home-example-h">
     <h2 id="home-example-h">{HOME.example.heading}</h2>
     <p class="hint">{HOME.example.subject}</p>
-    <div class={`deal-score ${tier}`}>
-      <span class="ds-score"><strong>{deal.score.toFixed(1)}</strong><span class="ds-outof">/10</span></span>
-      <span class="ds-verdict">{deal.verdict}</span>
-      <span class="ds-headline">{deal.headline}</span>
-    </div>
+    {deal && (
+      <div class={`deal-score ${tier}`}>
+        <span class="ds-score"><strong>{deal.score.toFixed(1)}</strong><span class="ds-outof">{HOME.example.outOf}</span></span>
+        <span class="ds-verdict">{deal.verdict}</span>
+        <span class="ds-headline">{deal.headline}</span>
+      </div>
+    )}
     <dl class="tool-figures home-figures">
       <div><dt>{HOME.example.labels.roi}</dt><dd>{fmtPct(analysis.roi.value)}</dd></div>
       <div><dt>{HOME.example.labels.yield}</dt><dd>{fmtPct(analysis.grossYield.value)}</dd></div>
@@ -81,8 +88,12 @@ const tier = deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ?
     <ul class="tool-list">
       {HOME.does.items.map((item) => (
         <li class="glass card tool-card">
-          <h3>{item.title}</h3>
-          <p class="hint">{item.body}</p>
+          <h3>{
+            !features.dealScore && item.id === 'scores' ? HOME.noScore.doesTitle
+              : !features.dealPipeline && item.id === 'pipeline' ? HOME.noPipeline.doesTitle
+                : item.title
+          }</h3>
+          <p class="hint">{!features.dealPipeline && item.id === 'pipeline' ? HOME.noPipeline.doesBody : item.body}</p>
         </li>
       ))}
     </ul>

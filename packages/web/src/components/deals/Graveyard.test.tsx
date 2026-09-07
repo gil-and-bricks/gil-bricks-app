@@ -13,6 +13,10 @@ import { factTypeFor } from '../../lib/deals/facts';
 import type { BoardDeal } from '../../lib/deals/board';
 import type { DealFact } from '../../lib/deals/facts';
 import { Graveyard } from './Graveyard';
+import { withFlags } from '../../testing/flags';
+
+// The evidence line inside a death card is flagged (A1).
+withFlags({ evidenceChips: true });
 
 const PARAMS = 'postcode=CF37+1HR&paon=44&price=120000&type=T&rent=950&refurbCost=20000';
 const deal = (over: Partial<BoardDeal> = {}): BoardDeal => ({

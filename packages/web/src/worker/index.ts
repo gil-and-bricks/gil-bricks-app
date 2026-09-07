@@ -35,7 +35,7 @@ import { isDealStrategy, MAX_ATTEMPTS, pushToKit, shouldAttempt, type OutboxRow 
 import { ackChainRisk, ackChange, boardRows, boardWindow, dealCounts, listDeathsFor, listFactsFor, terminalPage, canAddLiveDeal, openDeath, reviveDeal, toDealFact, setDealDate, stampStaleness, countLiveDeals, deleteDeal, deleteFact, foldFactsIntoParams, getOwnedDeal, listChanges, scoreHistory, listFacts, markDead, moveStage, parseAnalyserDeal, parseSoldEvidence, recordFact, recordVerdict, setDealScore, upsertPipelineDeal, type FactChange, type FactVerdict } from './lib/pipeline';
 import { BOARD_PAGE, DAILY_CRON, DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, MAX_LIVE_DEALS, PARK_REASON_KEYS, URGENCY, statusForStage } from '../config/pipeline';
 import { datesOn, rankUrgent } from '../lib/deals/urgency';
-import { handleDevLogin, handleDevSeed, handleDevSeedClear } from './dev';
+import { handleDevLogin, handleDevSeed, handleDevSeedClear, handleDevPreview } from './dev';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -1353,6 +1353,7 @@ export default {
     if (pathname === '/auth/dev-login' && method === 'GET') return handleDevLogin(request, env);
     if (pathname === '/dev/seed' && method === 'GET') return handleDevSeed(request, env);
     if (pathname === '/dev/seed/clear' && method === 'GET') return handleDevSeedClear(request, env);
+    if (pathname === '/dev/preview' && method === 'GET') return handleDevPreview(request, env);
     if (pathname === '/api/me' && method === 'GET') return handleMe(request, env);
     if (pathname === '/api/consent' && method === 'POST') return handleConsent(request, env);
     if (pathname === '/api/account/delete' && method === 'POST') return handleDeleteAccount(request, env);

@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { features } from '../../config/features';
+import { withFlags } from '../../testing/flags';
 import {
   cardFigure, parkedDeals, scoreClass, stageColumns,
   daysInStage, dwellState, nextStepLine, stageMeta, cardVerdict, missingRequiredInput, boardCounts, counterLine, type BoardDeal,
 } from './board';
+
+// The card verdict only speaks when the Deal Score is on (A1).
+withFlags({ dealScore: true });
 
 const NOW = Date.parse('2026-09-03T12:00:00Z');
 const daysAgo = (n: number): string => new Date(NOW - n * 86_400_000).toISOString();
@@ -151,7 +155,7 @@ describe('cardVerdict — a verdict or an honest reason, never a bare dash', () 
     const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000&rent=1100' }));
     expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Tap to score this', action: 'score' });
   });
-  it('a deal saved from /comparables never promises a score that page cannot produce', () => {
+  it('an existing comps deal never promises a score that no page can produce', () => {
     const v = cardVerdict(mk({ strategy: 'comparables', current_score: null, verdict_line: null, headline_figure: '', key_figure: 'typical £120,000', url_params: 'postcode=CF37+1HR&price=120000' }));
     expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'typical £120,000', action: 'none' });
   });
@@ -160,13 +164,11 @@ describe('cardVerdict — a verdict or an honest reason, never a bare dash', () 
     expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Add a rent to score this', action: 'add' });
   });
   it('with the Deal Score switched off, cards never beg for a score that cannot happen', () => {
+    // withFlags' beforeEach puts dealScore back on for the next test, and its
+    // afterAll restores the file's real snapshot — no hand-rolled restore.
     features.dealScore = false;
-    try {
-      const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000&rent=1100', headline_figure: '£312/mo' }));
-      expect(v).toEqual({ scored: false, cls: 'ds-none', line: '£312/mo', action: 'none' });
-    } finally {
-      features.dealScore = true;
-    }
+    const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000&rent=1100', headline_figure: '£312/mo' }));
+    expect(v).toEqual({ scored: false, cls: 'ds-none', line: '£312/mo', action: 'none' });
   });
   it('a terminal unscored deal shows its figure quietly, no prompt', () => {
     const v = cardVerdict(mk({ current_score: null, verdict_line: null, status: 'done', stage: 'bought-it', headline_figure: 'ROI 6.5%' }));

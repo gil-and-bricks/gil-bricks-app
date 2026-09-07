@@ -1,35 +1,72 @@
 ---
+/**
+ * A strategy landing page — an SEO PAGE, ruled so on 2026-09-07 (docs/AUDIT.md
+ * §3.1). Nothing in the product links here on purpose: the nav and the homepage
+ * go straight to the analyser. The only reader is a stranger off a search
+ * result, so the page has one job — say what this strategy is, what the answer
+ * will contain, what they need in hand, then send them to the analyser.
+ *
+ * Every strategy-specific word comes from the StrategyConfig in
+ * @gil-bricks/core; the shared words come from src/config/strategyLanding.ts.
+ */
 import AppShell from '../../layouts/AppShell.astro';
-import { strategies } from '@gil-bricks/core';
+import { REQUIRED_UNKNOWNS, strategies } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
+import { STRATEGY_LANDING as L } from '../../config/strategyLanding';
 
 export function getStaticPaths() {
   return strategies.map((s) => ({ params: { strategy: s.route.slice(1) }, props: { config: s } }));
 }
 const { config } = Astro.props;
 const others = strategies.filter((s) => s.id !== config.id);
+// The engine's own list of what it must be told, in its own plain English.
+const needs = REQUIRED_UNKNOWNS[config.id].map((u) => u.label);
 ---
 
-<AppShell title={`${config.name} — ${siteConfig.siteName}`} description={config.heroLine}>
+<AppShell title={`${config.name} ${L.titleSuffix} — ${siteConfig.siteName}`} description={config.heroLine}>
   <section class="hero">
-    <h1 class="page-title">{config.name}</h1>
+    <h1 class="page-title">{config.name} {L.h1Suffix}</h1>
     <p class="page-sub">{config.heroLine}</p>
+    <p><a class="btn-primary" href={`${config.route}/analyser`}>{L.cta}</a></p>
   </section>
+
+  {/* What the answer contains — straight from the strategy's own score
+      components, so this page can never promise a check the engine dropped. */}
+  <section class="glass card landing-checks" aria-labelledby="landing-checks-h">
+    <h2 id="landing-checks-h">{L.checks.heading}</h2>
+    <ul>
+      {config.score.map((c) => <li>{c.name}</li>)}
+    </ul>
+    <p class="hint">{L.checks.note}</p>
+  </section>
+
+  <section class="glass card landing-need" aria-labelledby="landing-need-h">
+    <h2 id="landing-need-h">{L.need.heading}</h2>
+    <p>{L.need.always} {needs.length > 0 ? `${L.need.plus} ${needs.join(` ${L.need.and} `)}.` : ''}</p>
+    {L.need.also[config.id] && <p>{L.need.also[config.id]}</p>}
+  </section>
+
   <div class="tool-cards">
     <a class="glass card" href={`${config.route}/analyser`}>
-      <h3>Deal analyser</h3>
+      <h3>{L.cards.analyser}</h3>
       <p>{config.tagline}</p>
     </a>
     <a class="glass card" href="/comparables">
-      <h3>Sold comparables</h3>
-      <p>The standard sales near a postcode, with honest £/sqft evidence.</p>
-    </a>
-    <a class="glass card" href={`${config.route}/analyser#valuation`}>
-      <h3>What's it worth?</h3>
-      <p>A plain-range valuation from the sold evidence, and how sure of it we are.</p>
+      <h3>{L.cards.comps}</h3>
+      <p>{L.cards.compsBody}</p>
     </a>
   </div>
+  <p class="hint landing-valuation">{L.valuationNote}</p>
+
+  <p class="home-trust">{L.trust}</p>
   <p class="cross-links">
-    Also: {others.map((s, i) => <>{i > 0 && ' · '}<a href={s.route}>{s.name}</a></>)}
+    {L.also} {others.map((s, i) => <>{i > 0 && L.separator}<a href={s.route}>{s.name}</a></>)}
   </p>
 </AppShell>
+
+<style>
+  .landing-valuation { display: block; margin-top: var(--space-3); }
+  .landing-checks ul { margin: 0; padding-left: var(--space-5); display: grid; gap: var(--space-2); }
+  .landing-checks .hint { margin-top: var(--space-3); }
+  .landing-need p { margin: 0; }
+</style>

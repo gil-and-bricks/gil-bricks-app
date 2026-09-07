@@ -6,7 +6,7 @@ import { verdictSnapshot } from './verdictSnapshot';
 import { evidenceSnapshot, isAuctionArrival, isFromExtension } from './provenance';
 import { arrivedDealId, arrivedFactsAt } from './arrival';
 import { state, strategyParams, toQuery } from './state';
-import { fmtMoney, postcodeToSector } from '@gil-bricks/core';
+import { fmtMoney, postcodeToSector, strategies } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { ACTION_BAR } from '../../config/analyserForm';
 
@@ -16,6 +16,11 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 
 export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuation | null; comps: ComparablesResult | null; strategyId: string }) {
+  // A1 — only a real strategy can be saved. /comparables runs this same shell
+  // with the verdict switched off, so a deal saved there could never be scored:
+  // the board had to show it as unscoreable for ever. Offering the save was the
+  // mistake, so it is not offered. Share and copy-link are untouched.
+  const canSave = strategies.some((st) => st.id === strategyId);
   const [copied, setCopied] = useState(false);
   const [saveNote, setSaveNote] = useState('');
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
@@ -178,13 +183,13 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
     <div class="action-bar">
       <button type="button" class="btn-primary" onClick={share}>{ACTION_BAR.buttons.share}</button>
       <button type="button" class="btn-secondary" onClick={copyLink}>{copied ? ACTION_BAR.buttons.copied : ACTION_BAR.buttons.copyLink}</button>
-      {saveState === 'saved' ? (
+      {canSave && (saveState === 'saved' ? (
         <a class="btn-secondary save-done" href="/deals">{savedToPipeline ? ACTION_BAR.saved.inPipeline : ACTION_BAR.saved.inMyDeals}</a>
       ) : (
         <button type="button" class="btn-secondary" disabled={saveState === 'saving'} onClick={saveDeal}>
           {saveState === 'saving' ? ACTION_BAR.buttons.saving : ACTION_BAR.buttons.save}
         </button>
-      )}
+      ))}
       {features.pdfExport && (
         <button type="button" class="btn-secondary" disabled aria-describedby="pdf-soon">{ACTION_BAR.buttons.pdf}</button>
       )}

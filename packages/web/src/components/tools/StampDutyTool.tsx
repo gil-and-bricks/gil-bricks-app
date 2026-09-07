@@ -60,22 +60,18 @@ export function StampDutyTool() {
   };
 
   const taxName = answer === null ? '' : STAMP.taxNames[answer.country];
-  const effectiveRate = answer === null ? 0 : (answer.result.tax / answer.price) * 100;
+  // A1 — the average rate paid and the running band total are the ENGINE's, not
+  // this file's. They used to be worked out here, which broke the rule that a
+  // component may format a figure and never compute one.
+  const effectiveRate = answer === null ? 0 : answer.result.effectiveRate;
   /** Each band, with the running total the maths panel shows. */
-  const rows: { label: string; slice: number; rate: number; tax: number; running: number }[] = [];
-  if (answer !== null) {
-    let running = 0;
-    for (const b of answer.result.bands) {
-      running += b.tax;
-      rows.push({
-        label: STAMP.bandLabel(fmtMoney(b.from), b.to === null ? null : fmtMoney(b.to)),
-        slice: b.slice,
-        rate: b.rate * 100,
-        tax: b.tax,
-        running,
-      });
-    }
-  }
+  const rows = answer === null ? [] : answer.result.bands.map((b) => ({
+    label: STAMP.bandLabel(fmtMoney(b.from), b.to === null ? null : fmtMoney(b.to)),
+    slice: b.slice,
+    rate: b.rate * 100,
+    tax: b.tax,
+    running: b.running,
+  }));
 
   return (
     <>

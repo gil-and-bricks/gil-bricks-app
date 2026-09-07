@@ -40,22 +40,28 @@ without unpicking the rest.
    identity in site.config.ts. New components start at ZERO inline strings.
 3. Presentation changes never alter a number. All maths stays in
    @gil-bricks/core; a UI component may format a figure, never compute one.
-4. Every sprint is ONE revertible commit: `git revert <sha>` must restore
-   the previous product with nothing dangling.
+4. Every sprint is ONE revertible PRODUCT commit, plus a docs commit:
+   `git revert <product-sha>` must restore the previous product with nothing
+   dangling. The docs commit (decisions log, status docs) is separate on
+   purpose — reverting a feature must not erase the record of why it existed.
 5. Migrations are additive-only (new tables/columns/indexes) and never
    destroy data. Turning a flag off hides a feature; it never deletes rows.
 Rules 1-2 are enforced by packages/web/src/config/reversibility.test.ts (flags-in-one-place
 + a positive control on the flag shapes, brand-hex-only-in-tokens,
 no-retyped-config-copy, no-thresholds-in-components, and an inline-copy
-RATCHET: existing files may only go down, new files are held to zero) and
-features.test.ts (every flag documented). The ratchet counts JSX/Astro text,
+RATCHET) and features.test.ts (every flag documented). Rule 3 is PARTLY tested:
+check F is an AST walk that fails when a component or lib file gains arithmetic
+on a value it NAMES as a domain value (price, tax, rent, ROI, £/sqft…). It is a
+smell detector, not a proof — rename the locals and it sees nothing — so rule 3
+is still review discipline first. Both ratchets work the same way: a listed file
+may only go down, a new file is held to zero. The ratchet counts JSX/Astro text,
 user-facing attributes, unknown props on our own components and sentence-like
 literals — not every single string; docs/FEATURE_FLAGS.md states the scope.
 The baseline is grandfathered debt (67 strings / 21 files, down from 617 / 35
-on 2026-09-04) —
-pay it down, never raise it. Rules 3-5 (no maths in the UI, one revertible
-commit per sprint, additive-only migrations) are review discipline, not tests:
-say so rather than pretending a test covers them. Page prose under src/pages and src/content is content, not config,
+on 2026-09-04; 11 grandfathered calculations across 8 files for check F) —
+pay it down, never raise it. Rules 4-5 (one revertible commit per sprint,
+additive-only migrations) are review discipline, not tests: say so rather than
+pretending a test covers them. Page prose under src/pages and src/content is content, not config,
 and is out of the ratchet's scope on purpose.
 
 ## Copy rules (HARD RULE — enforced by packages/web/src/config/copy.test.ts)
@@ -114,7 +120,8 @@ never states or implies a decision about anyone's finance.
 - D1 (accounts, saved_deals, kit_outbox) created with --jurisdiction eu.
   There is NO UK-only D1 residency — never claim one. EU jurisdiction + UK
   adequacy is the honest statement.
-- R2: per-postcode-sector JSON (primary query path) + Parquet + EW .pmtiles.
+- R2: per-postcode-sector JSON (primary query path) + EW .pmtiles. Parquet was
+  abandoned 2026-09-07 — never built, nothing needs it.
 - MapLibre GL + Protomaps namedFlavor("dark"), self-hosted glyphs/sprites.
 - Data pipeline: GitHub Actions (PUBLIC repo) monthly -> wrangler r2 object put -> manifest.json.
 
@@ -166,7 +173,17 @@ never states or implies a decision about anyone's finance.
 
 ## Do NOT (permanent exclusions)
 LHA / Section 21 / Renters' Rights content / SpareRoom / student-employment demand /
-commercial HMO valuation / portfolio tracker / phone capture / time-on-market /
-auction data / EPC-C/MEES warnings / per-council HMO links / bedrooms column in comps /
-bathrooms-parking-garden as comp filters / live prices / scraping / Brevo /
-email from app / cookie banner / named lenders.
+commercial HMO valuation / portfolio tracker / phone capture / portal datasets
+(time-on-market, auction results) / EPC-C/MEES warnings / per-council HMO links /
+bedrooms column in comps / bathrooms-parking-garden as comp filters / live prices /
+scraping / Brevo / email from app / cookie banner / named lenders.
+
+**Portal data, ruled 2026-09-07.** The rule is about DATASETS: never ingest,
+scrape, store or republish portal data — time-on-market and auction results
+included. Reading what is on the single page the user has personally opened, in
+their own browser, and saying it back to them, is ALLOWED: nothing is fetched
+from a portal and no portal dataset is built. That is what the extension's
+seller signals and its auction warning do. One fact does persist — a deal the
+user saves carries `is_auction`, so the board can warn about the legal pack —
+and that is the user's own record of their own deal, not a dataset of ours.
+See docs/exclusions.md.

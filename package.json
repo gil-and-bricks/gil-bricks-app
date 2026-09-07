@@ -13,7 +13,9 @@
     "build:extension": "npm run build -w packages/extension",
     "dev": "npm run dev -w packages/web",
     "test": "npm test -w packages/core && npm test -w packages/web && npm test -w packages/extension",
-    "typecheck": "npm run typecheck -w packages/web && npm run typecheck -w packages/core && npm run typecheck -w packages/extension"
+    "typecheck": "npm run typecheck -w packages/web && npm run typecheck -w packages/core && npm run typecheck -w packages/extension",
+    "test:flags-off": "npm run test:flags-off -w packages/web",
+    "preview:surfaces": "npm run preview:surfaces -w packages/web"
   },
   "allowScripts": {
     "esbuild": true,

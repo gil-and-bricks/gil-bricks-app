@@ -262,6 +262,110 @@ function countFor(p: string): string[] {
   return p.endsWith('.astro') ? inlineCopyAstro(read(p)) : inlineCopy(read(p), rel(p));
 }
 
+
+/* ---- check F: arithmetic on domain values, in files that only present ---- */
+
+/**
+ * Words that make a number a DOMAIN number rather than a pixel, an index or a
+ * loop counter. Arithmetic on one of these is a calculation, and calculations
+ * live in @gil-bricks/core (charter rule 3).
+ *
+ * It classifies by what the code CALLS its values, so it is a strong smell
+ * detector, not a proof: rename `typicalPrice` to `here` and this will not see
+ * it. docs/FEATURE_FLAGS.md says so plainly — the rule is still review
+ * discipline, and this catches the ordinary way it gets broken.
+ */
+const DOMAIN_NOUN = /\b(price|tax|rent|roi|yield|icr|cashflow|profit|equity|ltv|refurb|gdv|arv|deposit|ppsqm|ppsqft|sqm|sqft|typical|bridging|arrangement|stamp|duty|mortgage|interest)\b/i;
+/** Turning a fraction into a percentage for a formatter is display, not maths. */
+const DISPLAY_SHAPES = [/^[\w.$?[\]()!]+\s*\*\s*100$/];
+/** A formatter returns a STRING: joining one to something else is not maths. */
+const FORMATTER = /^(fmt|format)[A-Z]/;
+
+/**
+ * Every outermost arithmetic expression that touches a domain value, including
+ * `total += price` — the compound assignment is how the band ladder this sprint
+ * moved into core was written, and a walk that only knew about `a + b` would
+ * have missed the very thing it exists to catch.
+ *
+ * Parsed, not grepped: the same `* 100` is legitimate in one place and a
+ * calculation in the next, so the operand decides, and only an AST knows the
+ * operands. A matched expression is not descended into, so one calculation
+ * counts once.
+ */
+function domainArithmetic(src: string, where = 'probe'): string[] {
+  let ast: ReturnType<typeof parse>;
+  try {
+    ast = parse(src, { sourceType: 'module', plugins: ['typescript', 'jsx'] });
+  } catch (err) {
+    // Fail LOUD, like the copy counter does. Returning [] would mean an
+    // unparseable file scored zero and passed a baseline of zero.
+    throw new Error(`reversibility guardrail could not parse ${where}: ${(err as Error).message}`);
+  }
+  const hits: string[] = [];
+  const text = (n: { start: number | null; end: number | null }): string =>
+    src.slice(n.start ?? 0, n.end ?? 0).replace(/\s+/g, ' ');
+  const isStr = (n: { type?: string; callee?: { name?: string; property?: { name?: string } } } | null | undefined): boolean => {
+    if (n?.type === 'StringLiteral' || n?.type === 'TemplateLiteral') return true;
+    // fmtMoney(x) + ' each' is string building, not arithmetic.
+    const called = n?.callee?.name ?? n?.callee?.property?.name ?? '';
+    return n?.type === 'CallExpression' && FORMATTER.test(called);
+  };
+  const record = (t: string): void => {
+    const words = t.replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase();
+    if (DOMAIN_NOUN.test(words) && !DISPLAY_SHAPES.some((re) => re.test(t))) hits.push(t.slice(0, 90));
+  };
+  const walk = (n: Record<string, unknown> | null | undefined): void => {
+    if (n === null || typeof n !== 'object') return;
+    const node = n as {
+      type?: string; operator?: string;
+      left?: { type?: string }; right?: { type?: string };
+      start?: number | null; end?: number | null;
+    };
+    const arithmetic = ['+', '-', '*', '/', '%'];
+    const compound = ['+=', '-=', '*=', '/=', '%='];
+    const isBinary = node.type === 'BinaryExpression' && arithmetic.includes(node.operator ?? '');
+    const isCompound = node.type === 'AssignmentExpression' && compound.includes(node.operator ?? '');
+    if ((isBinary || isCompound) && !isStr(node.left) && !isStr(node.right)) {
+      const before = hits.length;
+      record(text(node as { start: number | null; end: number | null }));
+      if (hits.length > before) return; // the whole calculation is one hit
+    }
+    for (const key of Object.keys(n)) {
+      const v = (n as Record<string, unknown>)[key];
+      if (Array.isArray(v)) v.forEach((x) => walk(x as Record<string, unknown>));
+      else if (v !== null && typeof v === 'object' && typeof (v as { type?: unknown }).type === 'string') walk(v as Record<string, unknown>);
+    }
+  };
+  walk(ast.program as unknown as Record<string, unknown>);
+  return hits;
+}
+
+/** The frontmatter of an .astro file, which is ordinary TypeScript. */
+function astroFrontmatter(src: string): string {
+  const m = /^---\n([\s\S]*?)\n---/.exec(src);
+  return m === null ? '' : m[1];
+}
+
+/**
+ * ARITHMETIC RATCHET (A1). Charter rule 3: a component may format a figure and
+ * never compute one. These are the calculations that were already here when the
+ * rule got a test — SVG geometry, sort comparators, a £/sqft conversion done in
+ * four places, an IQM narration that re-derives what core already returns.
+ *
+ * Only ever LOWER a number. A file not listed here is held to ZERO: new work
+ * has no excuse, because the engine is one import away.
+ */
+const ARITHMETIC_BASELINE: Record<string, number> = {
+  'components/analyser/BrrrrVerdict.tsx': 1,
+  'components/analyser/CompsModule.tsx': 4,
+  'components/analyser/mapImpl.ts': 1,
+  'components/area/AreaApp.tsx': 1,
+  'components/tools/EquityTool.tsx': 1,
+  'lib/deals/retrade.ts': 1,
+  'lib/deals/urgency.ts': 1,
+  'lib/map/geo.ts': 1,
+};
+
 /* ------------------------------------------------------------------------- */
 
 describe('REVERSIBILITY CHARTER guardrail (N1)', () => {
@@ -367,6 +471,60 @@ describe('REVERSIBILITY CHARTER guardrail (N1)', () => {
       if (!seen.has(r)) problems.push(`${r} is in INLINE_COPY_BASELINE but no longer exists — delete its entry`);
     }
     expect(problems).toEqual([]);
+  });
+
+
+  it('F. ARITHMETIC RATCHET: presentation code never gains a new calculation', () => {
+    const problems: string[] = [];
+    const seen = new Set<string>();
+    for (const p of RATCHET_FILES) {
+      const r = rel(p);
+      seen.add(r);
+      // .astro frontmatter is ordinary TypeScript, and a page can do maths in it.
+      const src = r.endsWith('.astro') ? astroFrontmatter(read(p)) : read(p);
+      const hits = src.trim() === '' ? [] : domainArithmetic(src, r);
+      const base = ARITHMETIC_BASELINE[r] ?? 0;
+      if (hits.length > base) {
+        problems.push(`${r}: ${hits.length} calculations on domain values (baseline ${base}). Move it into @gil-bricks/core — e.g. ${hits.slice(-2).map((h) => JSON.stringify(h)).join(', ')}`);
+      } else if (hits.length < base) {
+        problems.push(`${r}: ${hits.length} calculations, baseline says ${base} — one moved into core (good): lower ARITHMETIC_BASELINE to ${hits.length}`);
+      }
+    }
+    for (const r of Object.keys(ARITHMETIC_BASELINE)) {
+      if (!seen.has(r)) problems.push(`${r} is in ARITHMETIC_BASELINE but no longer exists — delete its entry`);
+    }
+    expect(problems).toEqual([]);
+  });
+
+  it('the arithmetic detector is NOT vacuous: it catches real calculations and ignores display', () => {
+    const CAUGHT = [
+      // the area percentage this sprint moved into core
+      'const pct = Math.round(((stats.typicalPrice - mileTypical) / mileTypical) * 100);',
+      // the effective rate this sprint moved into core
+      'const rate = (result.tax / answer.price) * 100;',
+      // the band ladder, written the way it actually was — a compound assignment
+      'for (const b of bands) { running += b.tax; }',
+      // a total invented in the UI from parts the engine returned
+      'const all = analysis.bridging.interest + analysis.bridging.arrangement;',
+    ];
+    const IGNORED = [
+      // a DOMAIN fraction turned into a percentage for a formatter: this is the
+      // one DISPLAY_SHAPES exists for, so the probe has to carry a domain noun.
+      'const shown = fmtPct(analysis.icr.threshold * 100);',
+      // a formatter returns a string; joining one to something is not maths
+      "const caption = fmtMoney(price) + ' each';",
+      // pixel geometry and array indexing name nothing about money
+      'const y = H - PAD - (i / n) * (H - PAD * 2);',
+      'const next = index + 1;',
+    ];
+    for (const probe of CAUGHT) {
+      expect(domainArithmetic(probe).length, `should be caught: ${probe}`).toBeGreaterThan(0);
+    }
+    for (const probe of IGNORED) {
+      expect(domainArithmetic(probe), `should be ignored: ${probe}`).toEqual([]);
+    }
+    // and it refuses to score a file it cannot read, rather than passing it
+    expect(() => domainArithmetic('const x = price * 1.05;\nfunction ( { oops', 'broken.ts')).toThrow(/could not parse/);
   });
 
   it('the copy counter is NOT vacuous: it counts real copy and ignores class names, hrefs and dev errors', () => {

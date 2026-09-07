@@ -35,6 +35,7 @@ that is the whole rollback. No flag lives anywhere else (not in
 | `measurementHandoff` | on | D4. Room sizes measured on the floor plan in the extension survive the handoff, instead of dying at the click — it is the only real evidence anyone has about room sizes. Params: `roomFails`, `roomsMeasured`. Anything typed into the analyser's own accordion always wins. | Off: the analyser reads only rooms typed into its own accordion, as before. |
 | `cashNeededChange` | on | D4. A fact that moves what you must find UP FRONT is announced even when the Deal Score does not move at all — a £25,000 builder's quote took the cash needed from £47,000 to £72,000 and left a 7.0 at 7.0, and the card said nothing. Threshold: `CHANGE_RULES.minCashChange` in `src/config/pipeline.ts`. | Off: the change block behaves exactly as P6 left it (score moves only), and no cash figures are written to a change row. The `from_cash`/`to_cash` columns stay, holding NULL. |
 | `valuationTypeCaveat` | on | D4. When the sector's sold evidence is about a different kind of home than the subject, the "What it's worth" card says so BESIDE the estimate; past a stated multiple the caveat leads and the estimate is demoted below it. Ratios: `VALUATION_TYPE_CHECK` in `src/config/comparables.ts`. | Off: the estimate and its existing "less certain" line are exactly as they were. The estimate itself is never changed or hidden either way. |
+| `desktopMore` | on | A1. A More menu in the DESKTOP header, reading the same `NAV.more` list as the phone's bottom sheet minus what the desktop already shows (Account in the header, Privacy and Terms in the footer). Without it neither `/comparables` nor `/credit` has a link in the desktop header: the tab bar that holds them is `display:none` above 640px, and what is left is a link from a strategy landing page (which nothing links to) and one from `/bridging-finance` (which the broker gate hides). Config: `desktopMoreLinks()` in `src/config/nav.ts`. | Off: the header is exactly as it was — Analyse, the primary links, then Deals and Account. The phone sheet is untouched; those pages become reachable on a desktop only by URL. |
 | `pdfExport` | **off** | The PDF export of a result (D1). While off there is no PDF button and no "coming soon" caption on any analyser — an unbuilt feature is hidden, not shown greyed out. Turn it on in the sprint that builds it. | On: the disabled PDF button and its caption return to the action bar. |
 
 ## Known trade-off
@@ -80,6 +81,34 @@ number). The baseline is the honest debt figure: **67 strings across 21 files**
 (it started at 617 across 35 files on 2026-09-04 and has only come down).
 Brand-colour `rgba()` tints of the lime (pre-N1, in `analyser.css`) are not
 covered by check B — tokenising them is a later job.
+
+**Check F, the ARITHMETIC ratchet (A1).** Charter rule 3 — a component may
+format a figure and never compute one — now has a partial test. It parses every
+TS/TSX file under `components/` and `lib/`, plus the frontmatter of the `.astro`
+files in scope, and flags arithmetic (including `total += price`) whose
+expression NAMES a domain value: price, tax, rent, ROI, yield, ICR, cashflow,
+profit, equity, LTV, refurb, GDV, ARV, deposit, £/sqm, £/sqft, stamp duty,
+mortgage, interest.
+
+**What it cannot do.** It classifies by what the code calls its values, so
+renaming `typicalPrice` to `here` hides the same calculation from it. It is a
+smell detector for the ordinary way rule 3 gets broken, not a proof that no
+maths exists in the UI — the rule is still review discipline first.
+
+**What it does not flag:** a domain fraction turned into a percentage for a
+formatter (`icr.threshold * 100`), a formatter's string joined to something
+(`fmtMoney(price) + ' each'`), and anything naming none of those words — array
+indexing, loop counters, and geometry expressed in `H`, `PAD`, `i` and `n`.
+Geometry that DOES name a domain value is flagged, and two chart components are
+in the baseline for exactly that reason.
+
+`ARITHMETIC_BASELINE` grandfathers the **11 calculations across 8 files** that
+were already there: the £/sqm→£/sqft conversion done in six places (four in the
+comps table, one on the area page, one in the map layer), a bridging total summed
+in JSX, an equity share derived from LTV, a re-trade comparison against a config
+minimum, a sort comparator on price, and the map's price colour ramp. Same rule
+as the copy ratchet: a listed file may only go DOWN, and a file that is not
+listed is held to ZERO.
 
 Out of scope on purpose: page PROSE under `src/pages/**` and `src/content/**`
 (landing, about, legal, styleguide) is content, not configuration; the Worker's
