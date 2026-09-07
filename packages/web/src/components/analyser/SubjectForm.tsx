@@ -29,20 +29,35 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
   const [areaSource, setAreaSource] = useState<'user' | 'epc' | null>(null);
   const [epcBusy, setEpcBusy] = useState(false);
   const [epcMsg, setEpcMsg] = useState<string | null>(null);
+  // Our fault vs the address's: an outage is announced, an outcome is a hint.
+  const [epcOurFault, setEpcOurFault] = useState(false);
 
   const findArea = async () => {
     setEpcBusy(true);
     setEpcMsg(null);
-    const found = await lookupEpcArea(s.postcode, s.paon);
-    setEpcBusy(false);
-    if (found === null) {
-      setEpcMsg(SUBJECT_FORM.epc.noMatch);
-    } else if (state.value.area === '') {
-      update({ area: String(found) });
-      setAreaSource('epc');
-      areaEpc.value = true; // provenance: this area is from EPC data
-    } else {
-      setEpcMsg(SUBJECT_FORM.epc.keptYours(found));
+    // try/finally, because the button DISABLES itself while busy: if anything
+    // threw on the way through, the flag stayed true and the button sat greyed
+    // out saying "…" for ever, with no way back. A dead control is the very
+    // thing this lookup was rewritten to stop.
+    try {
+      const found = await lookupEpcArea(s.postcode, s.paon);
+      if (!found.ok) {
+        setEpcMsg(SUBJECT_FORM.epc.problem[found.reason]);
+        setEpcOurFault(found.reason === 'unavailable');
+      } else if (state.value.area === '') {
+        setEpcOurFault(false);
+        update({ area: String(found.sqm) });
+        setAreaSource('epc');
+        areaEpc.value = true; // provenance: this area is from EPC data
+      } else {
+        setEpcOurFault(false);
+        setEpcMsg(SUBJECT_FORM.epc.keptYours(found.sqm));
+      }
+    } catch {
+      setEpcMsg(SUBJECT_FORM.epc.problem.unavailable);
+      setEpcOurFault(true);
+    } finally {
+      setEpcBusy(false);
     }
   };
 
@@ -96,7 +111,9 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
         {/* A greyed button with no reason reads as broken (D1). */}
         {s.paon.trim() === '' && <p id="epc-needs" class="field-hint">{SUBJECT_FORM.epc.needsNumber}</p>}
         {areaSource === 'epc' && <p class="field-hint">{SUBJECT_FORM.epc.fromEpc}</p>}
-        {epcMsg && <p class="field-hint" role="status">{epcMsg}</p>}
+        {epcMsg && (epcOurFault
+          ? <p class="field-error" role="alert">{epcMsg}</p>
+          : <p class="field-hint" role="status">{epcMsg}</p>)}
       </div>
       <div class="field">
         <label for="f-beds">{SUBJECT_FORM.labels.beds} <Tooltip text={TIPS.beds} /> <ProvBadge field="beds" /></label>

@@ -1033,7 +1033,7 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .credit-lines li { margin-bottom: var(--space-2); }
 .credit-cta { margin: 0 0 var(--space-2); }
 .credit-not-live { border-top: 1px solid var(--glass-border); padding-top: var(--space-3); }
-.credit-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; }
+.video-frame { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; }
 
 /* ---------- The post-answer capture offer (T3, features.toolCapture) -------
    Inside the answer card, BELOW the answer, visually quieter than it: an offer

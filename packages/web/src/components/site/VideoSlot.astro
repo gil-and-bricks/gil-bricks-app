@@ -1,0 +1,68 @@
+---
+/**
+ * A video slot: click to load, never autoplay, honest while it is empty (S1).
+ *
+ * The credit page had one and the bridging page needed the same thing, so this
+ * is the ONE of them rather than a second copy that could drift. Nothing
+ * reaches YouTube until the person presses play — no iframe, no cookie, no
+ * request — which is what keeps the no-cookie-banner promise true.
+ *
+ * Every word is passed in from the page's own config, so this component holds
+ * no copy of its own and either page can be reworded without touching it.
+ */
+interface Props {
+  /** True only when there is a real video to load. */
+  ready: boolean;
+  url: string;
+  heading: string;
+  /** Said while there is no video: plainly a placeholder, never a tease. */
+  placeholder: string;
+  /** The click-to-load button. */
+  load: string;
+  /** Said under the button: why it is not already embedded. */
+  note: string;
+}
+const { ready, url, heading, placeholder, load, note } = Astro.props;
+---
+
+<section class="glass card">
+  <h2>{heading}</h2>
+  {ready ? (
+    <div class="video-slot" data-video={url} data-title={heading}>
+      <button type="button" class="btn-secondary" data-play>{load}</button>
+      <p class="hint">{note}</p>
+    </div>
+  ) : (
+    <p class="hint">{placeholder}</p>
+  )}
+</section>
+
+<script is:inline>
+  {
+    // Click to load: nothing reaches YouTube until the person presses play.
+    // Every slot on the page, and each one wired once — a page may hold more
+    // than one, and this script ships with each of them.
+    for (const box of document.querySelectorAll('.video-slot:not([data-wired])')) {
+      box.setAttribute('data-wired', '');
+      const btn = box.querySelector('[data-play]');
+      if (!btn) continue;
+      btn.addEventListener('click', () => {
+        const url = box.getAttribute('data-video') || '';
+        const id = (url.match(/[?&]v=([\w-]{6,})/)
+          || url.match(/youtu\.be\/([\w-]{6,})/)
+          || url.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/)
+          || [])[1];
+        // Any other shape: open it rather than sit there doing nothing.
+        if (!id) { window.open(url, '_blank', 'noopener'); return; }
+        const frame = document.createElement('iframe');
+        frame.src = `https://www.youtube-nocookie.com/embed/${id}`;
+        frame.title = box.getAttribute('data-title') || '';
+        frame.loading = 'lazy';
+        frame.allow = 'accelerometer; clipboard-write; encrypted-media; picture-in-picture';
+        frame.setAttribute('allowfullscreen', '');
+        frame.className = 'video-frame';
+        btn.replaceWith(frame);
+      });
+    }
+  }
+</script>

@@ -49,6 +49,10 @@ export interface FeatureFlags {
    * Off: the flat header list (Area Data + four strategies) and the old
    * five-strategy bottom bar. The /tools and /bridging-finance pages exist either way. */
   navV2: boolean;
+  /** The bridging page's video slot (S1): a click-to-load video between the
+   * explanation and the enquiry form. Off: the section is not rendered and the
+   * explanation runs straight into the form, with no third-party markup. */
+  bridgingVideo: boolean;
   /** The bridging finance enquiry page (F1) at /bridging-finance: the
    * explanation, the sign-in gate and the two-step form. Off: the route still
    * exists and explains what is coming, but no form renders and the API
@@ -193,6 +197,7 @@ export const features: FeatureFlags = {
   desktopSplit: true,
   navV2: true,
   bridgingFinance: true,
+  bridgingVideo: true,
   brokerFactFind: true,
   dealFacts: true,
   verdictChanges: true,

@@ -81,6 +81,30 @@ export const BRIDGING_NOT_OPEN = {
 } as const;
 
 /**
+ * THE VIDEO SLOT (S1) — the operator and the broker explaining how they work
+ * together. Click to load, never autoplay: nothing reaches YouTube until the
+ * person presses play, so the page stays cookie-banner-free and nothing here
+ * delays the form below it.
+ *
+ * Empty `url` = the honest placeholder. Turn the whole slot off with
+ * `features.bridgingVideo`.
+ */
+export const BRIDGING_VIDEO = {
+  /** OPERATOR: paste the YouTube URL once the video is recorded. */
+  url: '',
+  heading: 'How we work together',
+  /** Said while there is no video — plainly a placeholder, not a tease. */
+  placeholder: 'A short video with the broker is coming here.',
+  load: 'Play the video',
+  note: 'It loads from YouTube only when you press play.',
+} as const;
+
+/** True only when there is a real video to load. */
+export function bridgingVideoReady(): boolean {
+  return BRIDGING_VIDEO.url.trim().startsWith('http');
+}
+
+/**
  * The credit page, linked from here because credit is the first hurdle before
  * any finance conversation (T3). One line, no hype, and the credit page carries
  * its own disclosure.

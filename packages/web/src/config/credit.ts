@@ -18,9 +18,21 @@ export const CREDIT = {
   /** The partner, named plainly wherever it is mentioned. */
   partner: 'CheckMyFile',
 
-  /** The marker the ASA asks for: unmissable, above the fold, next to the offer. */
+  /**
+   * The marker the ASA asks for: unmissable, above the fold, next to the offer.
+   *
+   * `adLabel` STAYS "AD" and stays first. The ASA's position is that an ad has
+   * to be obviously identifiable BEFORE someone engages with it, and it has
+   * repeatedly held that softer words on their own — "sponsored", "affiliate",
+   * "in association with" — are not enough. Dropping the badge to sound warmer
+   * would trade a legal requirement for a tone preference.
+   *
+   * The SENTENCE beside it is what changed (S1): "Advertisement — paid
+   * partnership" was three labels stacked up, written in nobody's voice. It now
+   * leads with the honest thing and says it the way the operator would.
+   */
   adLabel: 'AD',
-  adLabelFull: 'Advertisement — paid partnership',
+  adLabelFull: 'The only paid partnership on this site. I get a small amount if you sign up, at no extra cost to you.',
 
   title: 'Your credit score is probably not what you think',
   intro: 'Different lenders check different credit agencies. Most people only ever see one of them.',
@@ -52,7 +64,7 @@ export const CREDIT = {
 
   /** DISCLOSURE — above the link, in the operator's own words, never small print. */
   disclosure: {
-    heading: 'Before you click, three things',
+    heading: 'Before you click, three things straight',
     lines: [
       'This is the only paid partnership on this site.',
       'If you sign up through my link I get a small amount, at no extra cost to you.',

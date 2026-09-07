@@ -2,6 +2,45 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint S1: EPC honesty, the ad marker, the credit voice, a video slot (deployed)
+
+- **The EPC lookup was not broken; its failures were.** The happy path worked
+  live the whole time (a real address returns its floor area). The bug was
+  `catch { return null }` around the whole lookup: six different outcomes — no
+  postcode typed, an unknown postcode, a Scottish one, our data unreachable, no
+  sold record at the address, and flats disagreeing on size — all became the
+  same `null`, and the screen said "No EPC match found for this address" to
+  every one of them. It blamed the address for our outage, and told someone who
+  had not typed a postcode to check their house number. Proved in a real browser
+  against the live site before touching anything: all four failure paths tested
+  produced that one sentence. The lookup now returns a REASON and the form says
+  the true thing; an outage renders as an error, an outcome as a hint.
+- **The test that would have caught it** asserts six reasons produce six
+  DIFFERENT sentences, that an outage never says "address", and that the two the
+  person can act on say what to do. Control: collapsing the messages back to one
+  line turns three tests red.
+- **Judgment call: the "AD" badge stays.** The operator asked for the disclosure
+  in his own voice and said to keep the stronger version if wording weakened the
+  ASA position. The ASA requires an ad to be obviously identifiable BEFORE
+  engagement and has held that "sponsored"/"affiliate"/"in association with"
+  alone are not enough, so dropping the badge would trade a legal requirement
+  for tone. The badge and its position are unchanged; the cold line beside it
+  ("Advertisement — paid partnership" — three labels in nobody's voice) now
+  leads with the honest thing instead.
+- **The bridging page did not have an ad marker.** Checked the rendered live
+  page, the built page in the OPEN state with fake broker details, the config,
+  the component, the CSS and the dev preview: no AD badge, no "advertisement",
+  no "affiliate", no "sponsored". The only "paid partnership" strings on that
+  page are inside the hidden `<template id="legal-terms">` that ships on EVERY
+  page, where the terms correctly say the credit page is the one with the
+  affiliate link and the bridging page is an introduction. Nothing was removed
+  because nothing was there. A containment test now pins it: only credit.astro
+  may render the marker, and the bridging config may not say those words.
+- **The video slot is ONE component, not two.** `VideoSlot.astro` is shared by
+  the credit and bridging pages so they cannot drift. Click-to-load: no iframe
+  and no YouTube request until the button is pressed, which is what keeps the
+  no-cookie-banner promise true. Behind `features.bridgingVideo`.
+
 ## 2026-09-07 — Sprint A3: an owned server, one account route (deployed)
 
 - **The copy gate now owns its server, so it cannot leak one.** The old shape

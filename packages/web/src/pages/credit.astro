@@ -9,6 +9,7 @@
  * the page teaches the insight and shows no button at all.
  */
 import AppShell from '../layouts/AppShell.astro';
+import VideoSlot from '../components/site/VideoSlot.astro';
 import { CREDIT, creditLinkReady, creditVideoReady } from '../config/credit';
 import { features } from '../config/features';
 import { siteConfig } from '../site.config';
@@ -60,46 +61,11 @@ const videoLive = creditVideoReady();
     )}
   </section>
 
-  <section class="glass card">
-    <h2>{CREDIT.video.heading}</h2>
-    {videoLive ? (
-      <div class="credit-video" data-video={CREDIT.video.url} data-title={CREDIT.video.heading}>
-        <button type="button" class="btn-secondary" data-play>{CREDIT.video.load}</button>
-        <p class="hint">{CREDIT.video.note}</p>
-      </div>
-    ) : (
-      <p class="hint">{CREDIT.video.placeholder}</p>
-    )}
-  </section>
+  <VideoSlot ready={videoLive} url={CREDIT.video.url} heading={CREDIT.video.heading}
+    placeholder={CREDIT.video.placeholder} load={CREDIT.video.load} note={CREDIT.video.note} />
 
   <ul class="tool-limits">
     {CREDIT.limits.map((line) => <li>{line}</li>)}
   </ul>
 </AppShell>
 
-<script is:inline>
-  {
-    // Click to load: nothing reaches YouTube until the person presses play.
-    const box = document.querySelector('.credit-video');
-    const btn = box?.querySelector('[data-play]');
-    if (box && btn) {
-      btn.addEventListener('click', () => {
-        const url = box.getAttribute('data-video') || '';
-        const id = (url.match(/[?&]v=([\w-]{6,})/)
-          || url.match(/youtu\.be\/([\w-]{6,})/)
-          || url.match(/\/(?:shorts|embed|live)\/([\w-]{6,})/)
-          || [])[1];
-        // Any other shape: open it rather than sit there doing nothing.
-        if (!id) { window.open(url, '_blank', 'noopener'); return; }
-        const frame = document.createElement('iframe');
-        frame.src = `https://www.youtube-nocookie.com/embed/${id}`;
-        frame.title = box.getAttribute('data-title') || '';
-        frame.loading = 'lazy';
-        frame.allow = 'accelerometer; clipboard-write; encrypted-media; picture-in-picture';
-        frame.setAttribute('allowfullscreen', '');
-        frame.className = 'credit-frame';
-        btn.replaceWith(frame);
-      });
-    }
-  }
-</script>

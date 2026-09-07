@@ -7,7 +7,8 @@
  */
 import AppShell from '../layouts/AppShell.astro';
 import { BridgingEnquiry } from '../components/finance/BridgingEnquiry';
-import { BRIDGING, BRIDGING_CREDIT } from '../config/bridging';
+import VideoSlot from '../components/site/VideoSlot.astro';
+import { BRIDGING, BRIDGING_CREDIT, BRIDGING_VIDEO, bridgingVideoReady } from '../config/bridging';
 import { features } from '../config/features';
 import { siteConfig } from '../site.config';
 ---
@@ -49,6 +50,13 @@ import { siteConfig } from '../site.config';
       {BRIDGING.risk.items.map((line) => <li>{line}</li>)}
     </ul>
   </section>
+
+  {/* Below the explanation, above the form (S1). Click-to-load, so it never
+      delays the form underneath it. */}
+  {features.bridgingVideo && (
+    <VideoSlot ready={bridgingVideoReady()} url={BRIDGING_VIDEO.url} heading={BRIDGING_VIDEO.heading}
+      placeholder={BRIDGING_VIDEO.placeholder} load={BRIDGING_VIDEO.load} note={BRIDGING_VIDEO.note} />
+  )}
 
   <BridgingEnquiry client:load />
 </AppShell>

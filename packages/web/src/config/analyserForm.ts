@@ -34,8 +34,20 @@ export const SUBJECT_FORM = {
     /** The button. `lookupBusy` shows in its place while the lookup runs. */
     lookupButton: 'EPC lookup',
     lookupBusy: '…',
-    /** No address matched. */
-    noMatch: 'No EPC match found for this address.',
+    /**
+     * ONE message per thing that can actually happen (S1). They used to be one
+     * line — "No EPC match found for this address" — said to every failure,
+     * including our own data being down. Never blame the address for our fault,
+     * and always say what to do next.
+     */
+    problem: {
+      'needs-postcode': 'Add the postcode first, then try again.',
+      'unknown-postcode': 'We do not hold that postcode. Check it and try again.',
+      'outside-ew': 'This covers England and Wales only.',
+      unavailable: 'Our sold-price data is not answering. Try again in a minute.',
+      'no-match': 'No sold record with a floor area at that address. Type the size yourself.',
+      ambiguous: 'Addresses at that number differ in size. Type the size yourself.',
+    } as const,
     /** Said while the button is off, so the grey is explained (D1). */
     needsNumber: 'Add the house number first.',
     /** Shown under the field when the area came from the EPC match. */
