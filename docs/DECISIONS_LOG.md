@@ -6,6 +6,14 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
 
 Twelve rulings, all twelve done. The judgment calls worth recording:
 
+**CI paid for itself on its first run.** The extension suite went red on a
+clean checkout: `vitest` loads `.wxt/tsconfig.json`, which `wxt prepare`
+generates and `.gitignore` hides, so the tests only ever passed on a machine
+that had built the extension before. Nobody would have found that until a new
+person cloned the repo. Fixed at the source — `packages/extension`'s own test
+script now runs `wxt prepare` first — rather than papering over it with an extra
+CI step.
+
 **CI is three jobs, not one.** `gates` (test, typecheck, both builds),
 `flags-off` (the web suite with every flag off, then a check that features.ts
 came back byte-identical) and `copy-gate` (the real-browser 30-word check). They

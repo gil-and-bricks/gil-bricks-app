@@ -10,7 +10,7 @@
     "zip": "wxt zip",
     "wxt:prepare": "wxt prepare",
     "typecheck": "wxt prepare && tsc --noEmit",
-    "test": "vitest run",
+    "test": "wxt prepare && vitest run",
     "icons": "node tools/make-icons.mjs"
   },
   "dependencies": {
