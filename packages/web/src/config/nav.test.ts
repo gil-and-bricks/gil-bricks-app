@@ -104,12 +104,15 @@ describe('the nav structure, pinned (A2)', () => {
     ]);
   });
 
-  it('Bridging finance is reachable from the header, whatever the broker gate says', () => {
-    // D1 filtered it out until the broker was real; the operator reversed that
-    // on 2026-09-07. This must hold in BOTH broker states — the day the operator
-    // fills in the broker's details is not a day for a nav test to go red — so
-    // it asserts the route, never the gate. The enquiry FORM is still gated;
-    // that is brokerReady()'s job and lib/bridging.test.ts's to check.
+  it('Bridging finance is reachable from the header — the operator\'s ruling, twice made', () => {
+    // D1 filtered it out until the broker was real. The operator reversed that
+    // on 2026-09-07 and confirmed it again once the disclaimer was moved into
+    // the state visitors actually see. It is a decision, not a default: it must
+    // hold in BOTH broker states, because the day the operator fills in the
+    // broker's details is not a day for a nav test to go red. So this asserts
+    // the route and never the gate — the enquiry FORM is still shut, which is
+    // brokerReady()'s job and lib/bridging.test.ts's to check.
+    expect(NAV.primary.map((l) => l.href)).toContain('/bridging-finance');
     expect(primaryLinks().map((l) => l.href)).toContain('/bridging-finance');
     expect(moreLinks().map((l) => l.href)).toContain('/bridging-finance');
   });
@@ -126,13 +129,23 @@ describe('the nav structure, pinned (A2)', () => {
     expect(all.filter((l) => l.href === '/deals')).toHaveLength(1);
   });
 
-  it('nothing in the DESKTOP header points at /account — the avatar control owns it', () => {
-    // The signed-in control (AuthHeader) is the one route to /account on a
-    // desktop, and it sits beside the socials. The second link in the nav row
-    // was the duplicate — one of them called "My deals", beside a "Deals" that
-    // went somewhere else entirely.
-    const desktopHeader = [...NAV.primary, ...NAV.mine, ...desktopMoreLinks()];
-    expect(desktopHeader.filter((l) => l.href === '/account')).toEqual([]);
+  it('NOTHING in the nav points at /account, at any width — the avatar control owns it', () => {
+    // ONE route to the account, ruled 2026-09-07. The signed-in control in the
+    // top-right corner is on screen at every width, so any nav entry for
+    // /account is a second way to the same page: the nav row was one (beside a
+    // "Deals" that went somewhere else), the phone's More sheet was the other.
+    // EVERY list, including the bottom bar and the Analyse tab — the test is
+    // named "at any width", so it has to look everywhere a width can reach.
+    const everywhere = [
+      ...NAV.primary,
+      ...NAV.mine,
+      ...NAV.more.links,
+      ...NAV.bottom,
+      NAV.analyse,
+      ...moreLinks(),
+      ...desktopMoreLinks(),
+    ];
+    expect(everywhere.filter((l) => l.href === '/account')).toEqual([]);
     expect(AUTH_HEADER.account).toBe('Account');
   });
 
@@ -152,11 +165,9 @@ describe('the nav structure, pinned (A2)', () => {
   });
 
   it('the More sheet holds the pages that fit nowhere else, and repeats nothing above it', () => {
-    // Account is N4's decision and stays in the PHONE sheet; the desktop drops
-    // it, because there the avatar control beside the socials is on screen.
     expect(NAV.more.links.map((l) => `${l.label} → ${l.href}`)).toEqual([
       'Bridging finance → /bridging-finance', 'Sold comparables → /comparables', 'Credit → /credit',
-      'Account → /account', 'Where should I start? → /start', 'Privacy → /privacy', 'Terms → /terms',
+      'Where should I start? → /start', 'Privacy → /privacy', 'Terms → /terms',
     ]);
   });
 
@@ -212,6 +223,18 @@ describe('the header renders the pinned structure (A2)', () => {
     expect(authHeader).toContain('href="/account"');
     expect(authHeader).toContain('AUTH_HEADER.account');
     expect(authHeader).not.toContain('myDeals');
+  });
+
+  it('the page the header now sends people to carries the disclaimer', () => {
+    // The header route is only defensible because the state EVERY visitor sees
+    // — "enquiries are not open yet", the broker being a placeholder — says what
+    // this is not. The disclaimer used to render only inside the form, which
+    // nobody could reach. If it moves back, the ruling behind the header link
+    // stops holding, and this is where that shows up.
+    const bridging = read('../components/finance/BridgingEnquiry.tsx');
+    const notOpen = bridging.slice(bridging.indexOf('if (!brokerReady())'));
+    const card = notOpen.slice(0, notOpen.indexOf('</section>'));
+    expect(card).toContain('BRIDGING.disclaimer');
   });
 
   it('the account page carries no deals card while the pipeline is on', () => {

@@ -135,17 +135,17 @@ jobs:
       # copy.test.ts checks the SOURCE; this checks what a person actually sees,
       # in a real browser, on the build from this commit — never the deployed
       # site, which would be testing yesterday's code.
-      - name: Serve the build
-        run: |
-          nohup npm run preview -w packages/web > /tmp/preview.log 2>&1 &
-          for i in $(seq 1 60); do curl -sf http://localhost:4321/ >/dev/null && break; sleep 1; done
-          curl -sf http://localhost:4321/ >/dev/null || { cat /tmp/preview.log; exit 1; }
-
+      #
+      # ONE step, and the script owns its own server: the listener lives inside
+      # that node process, so when the step ends the socket is gone. The old
+      # shape (background the server, poll, kill it later by name) once left a
+      # preview running for seven hours because the kill pattern never matched.
+      #
       # Six of the pages fetch sold-price data from the public R2 bucket in the
       # browser, so this job depends on that bucket being reachable. It fails
       # loudly rather than quietly measuring less: a page that 404s, throws, or
-      # renders nothing to measure now fails the gate.
+      # renders nothing to measure fails the gate.
       - name: Copy length gate
         env:
           CHROME_PATH: /usr/bin/google-chrome
-        run: npm run verify:copy -w packages/web -- http://localhost:4321
+        run: npm run copy-gate -w packages/web

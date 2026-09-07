@@ -22,7 +22,8 @@
     "verify:map": "node scripts/verify-map-render.mjs",
     "verify:copy": "node scripts/check-copy-length.mjs",
     "test:flags-off": "node scripts/with-flags-off.mjs npx vitest run",
-    "preview:surfaces": "node scripts/preview-surfaces.mjs"
+    "preview:surfaces": "node scripts/preview-surfaces.mjs",
+    "copy-gate": "node scripts/copy-gate.mjs"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.4",

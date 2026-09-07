@@ -108,11 +108,10 @@ export const NAV = {
       { label: 'Bridging finance', href: '/bridging-finance' },
       { label: 'Sold comparables', href: '/comparables' },
       { label: 'Credit', href: '/credit' },
-      // N4 put Account in this sheet and the operator has never asked for it to
-      // leave, so it stays — this sprint is about NOT quietly reversing nav
-      // decisions. It is dropped from the DESKTOP More instead, where the
-      // signed-in control beside the socials is already on screen (A2).
-      { label: 'Account', href: '/account' },
+      // No Account here. N4 put it in this sheet; the operator removed it on
+      // 2026-09-07, because the signed-in control in the top-right corner is on
+      // screen at every width — so the sheet was simply a second way to the same
+      // page. ONE route to the account, on a phone as much as on a desktop.
       { label: 'Where should I start?', href: '/start' },
       { label: 'Privacy', href: '/privacy' },
       { label: 'Terms', href: '/terms' },
@@ -147,16 +146,17 @@ export const moreLinks = (): NavLink[] => NAV.more.links.filter(shown);
  *
  * It reads the SAME list as the phone sheet so the two can never drift, minus
  * what the desktop chrome already shows: the primary row, Deals in the
- * right-hand cluster, the account (the signed-in control beside the socials
- * owns it since A2), and Privacy and Terms in the footer. Deciding what to drop
- * is config, not something a component gets to invent.
+ * right-hand cluster, and Privacy and Terms in the footer. Deciding what to
+ * drop is config, not something a component gets to invent.
+ *
+ * The account is NOT dropped here, and must not be: it is not in the phone
+ * sheet either, so there is nothing to filter. The signed-in control owns that
+ * route at every width.
  */
 const DESKTOP_MORE_OMITS: readonly string[] = [
   // the header's own links — the primary row and the right-hand cluster
   ...NAV.primary.map((l) => l.href),
   ...NAV.mine.map((l) => l.href),
-  // the signed-in control's, on the far right beside the socials (A2)
-  '/account',
   // the footer's
   '/privacy',
   '/terms',

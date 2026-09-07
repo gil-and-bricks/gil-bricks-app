@@ -2,6 +2,42 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Sprint A3: an owned server, one account route (deployed)
+
+- **The copy gate now owns its server, so it cannot leak one.** The old shape
+  backgrounded `astro preview` and polled the port, with nothing responsible for
+  stopping it: CI never had a kill step, it just let the runner be torn down.
+  Run the same shape by hand and nothing tears anything down — a local gate run
+  left a preview listening for seven hours, because the `pkill -f "astro
+  preview"` aimed at it never matched the real command line (`astro.mjs
+  preview`) and its exit code was never checked. `scripts/copy-gate.mjs`
+  replaces it: the server is a `node:http` listener INSIDE the script's own
+  process, so the socket dies with the script whatever kills it, and the browser
+  child is killed through its own handle rather than by a name to get wrong. The
+  copy-gate job's serve-and-measure work is one step now instead of two.
+  Verified both exit paths: a clean run leaves nothing, and a SIGTERM mid-run
+  leaves no socket, no checker and no browser.
+- **Judgment call: a 60-line static server rather than a dependency.** It serves
+  dist the way the Cloudflare static host does — a directory becomes its
+  index.html, a query string is ignored, a miss becomes the real 404 at the real
+  status. `npx http-server` would have been shorter and would have put a
+  download in the request path of a gate; £0 and no new dependencies both say no.
+- **One route to the account, on a phone too.** A2 left Account in the phone's
+  More sheet because N4 put it there and the operator had not asked for it to
+  go. They have now: the signed-in control is on screen at every width, so the
+  sheet was a second way to the same page. Gone, and the now-dead `/account`
+  entry in `DESKTOP_MORE_OMITS` with it. The pinning test asserts NOTHING in the
+  nav points at /account — primary, mine, the sheet, the bottom bar, the Analyse
+  tab, and both filtered lists. Proved by control: put Account back in any one
+  of those lists and that test goes red.
+- **Bridging finance in the header is pinned as a ruling, not a default.** Made
+  once on 2026-09-07 and confirmed after the disclaimer moved into the state
+  every visitor sees. The test asserts the route in both broker states — the day
+  the broker's details are filled in must not be a day a nav test goes red — and
+  a second test pins the reason: the not-open card must carry the disclaimer. If
+  that ever moves back inside the form, the justification for the header link is
+  gone, and that is where it shows up.
+
 ## 2026-09-07 — Sprint A2: the lost nav decisions, and why they were lost (deployed)
 
 **Why it regressed: it did not.** The three changes were never made, and no
