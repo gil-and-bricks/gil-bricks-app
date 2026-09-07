@@ -30,9 +30,14 @@ describe('score bands map to verdicts', () => {
   });
 });
 
-describe('CONSISTENCY: score never contradicts the existing verdict', () => {
+describe('CONSISTENCY: score never contradicts the existing verdict', { timeout: 60_000 }, () => {
   // Sweep price and rent/end-value widely; for every input the deal-score must
   // respect: Green -> score >= 6, Red -> score < 8. This is the core guarantee.
+  // The grid is thousands of engine runs per strategy — genuinely slow work, and
+  // it sat right on vitest's 5s default, so `npm test` went red at random when the
+  // other 27 files ran beside it. A gate that fails on CPU load is not a gate
+  // (the same lesson as the clock-dependent test D5 fixed). Given room instead of
+  // being made smaller: the sweep is the point of the test.
   it.each(cases)('$id: Green never <6, Red never >=8, across a wide grid', ({ id, base, analyse }) => {
     let greens = 0, reds = 0, ambers = 0;
     const priceKey = 'price';

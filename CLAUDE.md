@@ -51,7 +51,8 @@ RATCHET: existing files may only go down, new files are held to zero) and
 features.test.ts (every flag documented). The ratchet counts JSX/Astro text,
 user-facing attributes, unknown props on our own components and sentence-like
 literals — not every single string; docs/FEATURE_FLAGS.md states the scope.
-The baseline is grandfathered debt (617 strings / 35 files on 2026-09-04) —
+The baseline is grandfathered debt (67 strings / 21 files, down from 617 / 35
+on 2026-09-04) —
 pay it down, never raise it. Rules 3-5 (no maths in the UI, one revertible
 commit per sprint, additive-only migrations) are review discipline, not tests:
 say so rather than pretending a test covers them. Page prose under src/pages and src/content is content, not config,

@@ -151,6 +151,10 @@ describe('cardVerdict — a verdict or an honest reason, never a bare dash', () 
     const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000&rent=1100' }));
     expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Tap to score this', action: 'score' });
   });
+  it('a deal saved from /comparables never promises a score that page cannot produce', () => {
+    const v = cardVerdict(mk({ strategy: 'comparables', current_score: null, verdict_line: null, headline_figure: '', key_figure: 'typical £120,000', url_params: 'postcode=CF37+1HR&price=120000' }));
+    expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'typical £120,000', action: 'none' });
+  });
   it('an unscored deal MISSING an input names it', () => {
     const v = cardVerdict(mk({ current_score: null, verdict_line: null, url_params: 'postcode=CF37+1HR&price=150000' }));
     expect(v).toEqual({ scored: false, cls: 'ds-none', line: 'Add a rent to score this', action: 'add' });

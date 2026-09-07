@@ -5,7 +5,7 @@
  * SINGLE core source (`verdictForScore`) so the board, the analyser chip and the
  * extension speak one visual language. Tested in board.test.ts.
  */
-import { verdictForScore } from '@gil-bricks/core';
+import { strategies, verdictForScore } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { AUCTION_WARNING_STAGE, BOARD_COPY, CHAIN_RISK, DEAL_DATE_KEYS, PROGRESS_STAGES, DEAD_STAGE, INITIAL_STAGE, type Stage } from '../../config/pipeline';
 
@@ -180,6 +180,13 @@ export function cardVerdict(d: BoardDeal): CardVerdict {
   if (!features.dealScore) return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
   if (d.current_score === null || !Number.isFinite(d.current_score)) {
     if (d.status !== 'live') return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
+    // A deal saved from /comparables carries strategy 'comparables', which has no
+    // analyser behind it: that page runs the comps engine with the verdict switched
+    // off, so it would never produce a score however many times the card is tapped.
+    // Show the figure quietly instead of promising what no surface can deliver (audit).
+    if (!strategies.some((st) => st.id === d.strategy)) {
+      return { scored: false, cls: 'ds-none', line: cardFigure(d), action: 'none' };
+    }
     const missing = missingRequiredInput(d.strategy, d.url_params);
     return missing
       ? { scored: false, cls: 'ds-none', line: BOARD_COPY.addToScore(missing), action: 'add' }

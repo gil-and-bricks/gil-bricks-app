@@ -21,23 +21,19 @@ Things only YOU can decide are flagged with **[YOU DECIDE]**.
    - Small promo tile: `packages/extension/store/promo-tile-440x280.png`
    - The words to paste: `docs/STORE_LISTING.md`
 
-## Step 0a — Deploy the web app first (REQUIRED)
+## Step 0a — Check the live privacy policy (done, 2026-09-07)
 
 A Chrome reviewer opens your privacy-policy URL and checks it matches what the
-extension does. In this sprint the privacy policy **and** landing page were
-corrected in the code (to accurately describe the "Send to my analyser" handoff
-and the sold-price lookup), but the web app was **NOT deployed**. So the LIVE
-pages are still the older versions. **Before you submit, deploy the web app** so
-the live privacy policy matches the code:
+extension does. That page is **live and correct**: open
+https://gil-bricks-app.gil-782.workers.dev/extension/privacy in a private window
+and you get it with no login, describing the "Send to my analyser" handoff and
+the sold-price lookup.
+
+If you change the privacy page again, deploy before you submit:
 
 ```
 cd packages/web && npx wrangler deploy
 ```
-
-Then open https://gil-bricks-app.gil-782.workers.dev/extension/privacy in a
-private window and confirm it loads with no login and mentions the "Send to my
-analyser" handoff. **[YOU DECIDE]** when to deploy (submitting against a stale
-policy is a rejection risk).
 
 ## Step 0b — Retake the screenshots (recommended before you submit)
 
@@ -106,9 +102,8 @@ Open the **Privacy practices** tab and fill it from the same file:
 4. **Certifications** → tick all **three** boxes (all are true — see the table).
 5. **Privacy policy URL** → paste
    `https://gil-bricks-app.gil-782.workers.dev/extension/privacy`
-   (open it in a private window first to confirm it loads with no login AND shows
-   the corrected wording — you must have done Step 0a "Deploy the web app" for the
-   live page to match the code).
+   (open it in a private window first to confirm it loads with no login — it is
+   live and correct today, see Step 0a).
 
 Click **Save draft**.
 
@@ -132,14 +127,15 @@ Open the **Distribution** tab:
 
 ## Notes and decisions
 
-- **Version.** The package is version `0.0.1`. That's fine for a first upload. If
-  you'd rather launch as `1.0.0`, change `"version"` in
-  `packages/extension/package.json`, rebuild, and re-zip (see README) before
+- **Version.** `packages/extension/package.json` says `0.2.0`, and the zip to
+  upload is `proplaunch-deal-analyser-v0.2.0.zip`. (The older
+  `v0.1.0.zip` beside it is the previous package — do not upload that one.) If
+  you'd rather launch as `1.0.0`, change `"version"`, rebuild, and re-zip before
   Step 1. **[YOU DECIDE]**
 - **Every future update** = bump the version, rebuild, zip, and upload a new
   package on the item's **Package** tab.
 - **Do not** edit the zip's contents by hand — always rebuild from source.
-- The web app is **not** part of the uploaded package, but its privacy policy and
-  landing page WERE corrected this sprint and must be **deployed before you submit**
-  (Step 0a) — otherwise the live privacy policy won't match the extension and a
-  reviewer can flag it.
+- The web app is **not** part of the uploaded package, but the reviewer opens its
+  privacy policy. That page is live and correct today (Step 0a). If you ever
+  change it, deploy before you submit — otherwise the live policy won't match the
+  extension and a reviewer can flag it.

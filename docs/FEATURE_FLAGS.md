@@ -76,9 +76,10 @@ one- and two-word literals in plain TS, or `throw`/`new Error`/`console`
 messages — so it is a ratchet on *copy*, not a proof that no string exists.
 A file not in the baseline is held to ZERO, so every NEW component's copy must
 live in config; an existing file may only go down (move copy out → lower its
-number). The baseline is the honest debt figure: **617 strings across 35
-files** on 2026-09-04. Brand-colour `rgba()` tints of the lime (pre-N1, in
-`analyser.css`) are not covered by check B — tokenising them is a later job.
+number). The baseline is the honest debt figure: **67 strings across 21 files**
+(it started at 617 across 35 files on 2026-09-04 and has only come down).
+Brand-colour `rgba()` tints of the lime (pre-N1, in `analyser.css`) are not
+covered by check B — tokenising them is a later job.
 
 Out of scope on purpose: page PROSE under `src/pages/**` and `src/content/**`
 (landing, about, legal, styleguide) is content, not configuration; the Worker's

@@ -2,6 +2,39 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-07 — Audit: the whole product read against its own rulebook (deployed)
+
+The findings are in **docs/AUDIT.md** — that is the record, not this. Logged here
+are only the judgment calls about what to touch.
+
+**The line I drew.** The brief was "fix only what is plainly broken or
+dishonest". I treated a doc that states a false fact as dishonest — a stale
+README is not a tidiness problem, it is the file that tells the next person how
+this repo is shaped, and four of them were wrong (README, ROADMAP, the
+copy-ratchet baseline in CLAUDE.md + FEATURE_FLAGS.md, and the store-submission
+guide telling the operator to fix a deploy that happened days ago). I fixed those
+and left every design or product question — the desktop nav gap, the two figures
+computed in the UI, the homepage's flags-off promise — for the operator, even
+where the fix looked obvious to me.
+
+**One product change.** A deal saved from `/comparables` carries
+`strategy: 'comparables'`, which has no analyser route, so the board card offered
+"Tap to score this" against a page that runs the comps engine with the verdict
+switched OFF. The promise could never be kept, however many times it was tapped.
+`cardVerdict` now checks the strategy against the real strategy list and shows
+the figure quietly instead. **Whether `/comparables` should be able to save into
+the pipeline at all is a product decision and stays open.**
+
+**A gate that was not a gate.** The Deal Score consistency grid sat on vitest's
+5-second default and went red at random under parallel load. Because core runs
+first, that meant the web and extension suites never ran — a random timeout could
+hide a real failure anywhere. Given a 60s timeout with the reason written above
+it.
+
+**What I could not check.** Which extension version is actually live in the
+Chrome Web Store: the repo holds both a v0.1.0 and a v0.2.0 zip and only the
+developer dashboard knows which was uploaded.
+
 ## 2026-09-07 — Sprint D7: empty states point at the action (deployed)
 
 **A bug came out of the walk, and it was mine.** Walking the first-run states as

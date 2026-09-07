@@ -1,4 +1,10 @@
-# ROADMAP — Gil & Bricks Deal Analyser
+# ROADMAP — PropLaunch by Gil & Bricks
+
+> **Status corrected 2026-09-07 (whole-product audit).** This file had not been
+> touched for 82 commits and still marked shipped, live features "Not started".
+> The phase table below is now true. The sprint log stops at S7.1 on purpose —
+> everything after it lives in `docs/DECISIONS_LOG.md`, which is current and is
+> the record to read. See also `docs/AUDIT.md`.
 
 How the app gets built, one phase at a time. A phase is finished only when its
 gate demonstrably passes (see CLAUDE.md → Workflow).
@@ -7,18 +13,23 @@ gate demonstrably passes (see CLAUDE.md → Workflow).
 |---|---|---|---|---|
 | 0 | Human setup | Operator accounts and access in place: Cloudflare, GitHub, Kit, wrangler + gh authenticated. | Operator can log in to every service; `wrangler whoami` and `gh auth status` both pass. | **Done** |
 | 1 | Scaffold + design system | Astro static app live on Workers static assets, plus the locked brand: colour tokens, dark gradient, glass cards, self-hosted fonts. | Live URL returns 200; design tokens render exactly per CLAUDE.md style rules; `npm run build` clean. | **Done** — S1.1 scaffold + S1.3 design system; live at https://gil-bricks-app.gil-782.workers.dev |
-| 2 | Data pipeline | Public-repo GitHub Actions job builds monthly per-postcode-sector JSON + Parquet + E&W .pmtiles into R2, stamped by manifest.json. | Fresh manifest.json in R2 with correct dataAsOf; spot-checked sector files carry schemaVersion; monthly run completes on free tier. | In progress — S2.1 schema; S2.2 full E&W build; S2.3 EPC £/sqm live (93.7% matched); Parquet + pmtiles remain |
+| 2 | Data pipeline | Public-repo GitHub Actions job builds monthly per-postcode-sector JSON + Parquet + E&W .pmtiles into R2, stamped by manifest.json. | Fresh manifest.json in R2 with correct dataAsOf; spot-checked sector files carry schemaVersion; monthly run completes on free tier. | **Done, except Parquet** — S2.1 schema; S2.2 full E&W build; S2.3 EPC £/sqm live (93.7% matched); E&W pmtiles shipped in S7.1. **No Parquet was ever built** and nothing in the product asks for it (audit §1.4) |
 | 3 | Shared engines | The ONE ComparablesEngine, ONE ValuationEngine, config-driven DealAnalyser shell, maths lib + effective-dated rates.json. | Unit tests pass for every locked definition, incl. SDLT/LTT band cases (England +5% surcharge; Welsh standalone table). | **Done** — maths lib, rates engine, ComparablesEngine + ValuationEngine all live on real data; gate tests pass |
 | 4 | Strategy analysers | Every strategy is a StrategyConfig object running on the one shell — no per-strategy forks. | A brand-new test strategy can be added by config edit alone — zero engine changes. | **Done** — shell + all four verdicts live. Gate passes for a config-only strategy reusing a registered verdict island; a genuinely new verdict = one component + one registry line, zero engine/shell changes (see STRATEGY_CONFIG_GUIDE.md) |
-| 5 | Area data | Sector-level area stats served from R2 JSON; England & Wales gating via ONSPD CTRY. | Scotland/NI postcodes rejected gracefully; E&W sector lookups return correct, as-of-stamped data. | Not started |
-| 6 | Auth + accounts + Kit | Worker endpoints for auth; D1 (EU jurisdiction) accounts, saved_deals, kit_outbox; Worker push to Kit. | Sign-up → save deal → outbox row → Kit push round-trip works on free tier; app sends no email. | Not started |
-| 7 | Map | MapLibre GL + Protomaps namedFlavor("dark"), self-hosted glyphs/sprites, E&W .pmtiles from R2. | Map renders with zero third-party CDN requests. | Not started |
-| 8 | Tooltips + maths + states | 'i' tooltips (<=20 words) + show-the-maths accordions on every jargon term; loading/empty/error states everywhere. | No jargon without a tooltip; accordion maths reconciles exactly with maths-lib output; tooltip a11y pattern per CLAUDE.md. | Not started |
-| 9 | Legal + SEO + analytics | Privacy policy, strictly-necessary-only cookie posture (no banner), meta/sitemap/OG, privacy-friendly analytics. | Verified: no non-essential cookies set; sitemap valid; analytics recording on free tier. | Not started |
-| 10 | QA + seams | WCAG 2.1 AA audit, cross-device QA, clean seams: name/logo/colours/tagline all read from site.config.ts. | AA audit passes; renaming the entire site is a site.config.ts-only change. | Not started |
-| 11 | Launch | Final name + domain, DNS cutover, go-live checks. | Production domain live over HTTPS; £0/month bill confirmed. | Not started |
+| 5 | Area data | Sector-level area stats served from R2 JSON; England & Wales gating via ONSPD CTRY. | Scotland/NI postcodes rejected gracefully; E&W sector lookups return correct, as-of-stamped data. | **Done** — S5.1/S5.2; `/area-data` live with sold stats, HPI trend, IMD/WIMD, crime and flood |
+| 6 | Auth + accounts + Kit | Worker endpoints for auth; D1 (EU jurisdiction) accounts, saved_deals, kit_outbox; Worker push to Kit. | Sign-up → save deal → outbox row → Kit push round-trip works on free tier; app sends no email. | **Done in the app** — S6.1/S6.2: Google sign-in, D1, saved deals, outbox with retries. **The Kit-side automations do not exist yet** — see `docs/AUDIT.md` §4.1 |
+| 7 | Map | MapLibre GL + Protomaps namedFlavor("dark"), self-hosted glyphs/sprites, E&W .pmtiles from R2. | Map renders with zero third-party CDN requests. | **Done** — S7.1 + S7.2; self-hosted basemap, glyphs and sprites, Article 4 layer |
+| 8 | Tooltips + maths + states | 'i' tooltips (<=20 words) + show-the-maths accordions on every jargon term; loading/empty/error states everywhere. | No jargon without a tooltip; accordion maths reconciles exactly with maths-lib output; tooltip a11y pattern per CLAUDE.md. | **Done** — S8.1 + N5 copy pass + D7 empty states |
+| 9 | Legal + SEO + analytics | Privacy policy, strictly-necessary-only cookie posture (no banner), meta/sitemap/OG, privacy-friendly analytics. | Verified: no non-essential cookies set; sitemap valid; analytics recording on free tier. | **Partly** — real privacy policy and terms live, no cookie banner, per-page noindex. **No sitemap.xml, no robots.txt of our own (the live one is Cloudflare's default), no analytics** (audit §5.1) |
+| 10 | QA + seams | WCAG 2.1 AA audit, cross-device QA, clean seams: name/logo/colours/tagline all read from site.config.ts. | AA audit passes; renaming the entire site is a site.config.ts-only change. | **Done** — D3 pre-tester pass, D6 design pass; the name reads from one source. Evidence, stated separately: zero horizontal overflow at 320px and 390px across all 23 page types (D3), axe clean on the pages walked, and Lighthouse accessibility 100 on every page measured (D3/D5/D6 — page by page, not a single sweep) |
+| 11 | Launch | Final name + domain, DNS cutover, go-live checks. | Production domain live over HTTPS; £0/month bill confirmed. | Not started — still on workers.dev; the name is settled (PropLaunch), the domain is not |
 
 ## Sprint log
+
+> Stops at S7.1. From S7.2 onward the record is `docs/DECISIONS_LOG.md`
+> (78 entries: the extension, the deal pipeline, the tools, bridging, the
+> broker fact-find, the copy pass, the design pass). Do not back-fill this list
+> — keep one record, and it is that one.
 - **S1.1** — 2026-08-30 — Scaffold & first deploy: **complete**. Live at https://gil-bricks-app.gil-782.workers.dev
 - **S1.2** — 2026-08-30 — Rulebook & roadmap files (CLAUDE.md, ROADMAP.md, docs/definitions.md, docs/exclusions.md): **complete**.
 - **S1.3** — 2026-08-30 — Design system: brand tokens, self-hosted @fontsource fonts, GlassCard/Button/SectionHeading primitives, Base layout, site.config.ts, /styleguide; holding page rebuilt: **complete**.
