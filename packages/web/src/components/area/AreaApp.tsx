@@ -16,7 +16,6 @@ import type { AreaStats, Manifest, SectorFile, UkhpiFile } from '@gil-bricks/cor
 import { decileWords, hpiChangePct, hpiSeries, modalTown, monthLabel } from '../../lib/area/area';
 import { fetchCrimeSummary, type CrimeSummary } from '../../lib/area/crime';
 import { fetchFloodAlerts, OFFICIAL_LINKS, type FloodAlert } from '../../lib/area/flood';
-import { sqmToSqft } from '@gil-bricks/core';
 import { fmtMoney } from '@gil-bricks/core';
 import { strategies } from '@gil-bricks/core';
 import { Accordion } from '../analyser/Accordion';
@@ -230,7 +229,7 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
   const mileTypical = near.typicalPrice;
   const vsMile = near.differencePct;
 
-  const perSqft = stats?.typicalPpsqm != null ? Math.round(stats.typicalPpsqm / sqmToSqft(1)) : null;
+  const perSqm = stats?.typicalPpsqm != null ? Math.round(stats.typicalPpsqm) : null;
   const drop = stats ? Math.floor(stats.count / 4) : 0;
 
   return (
@@ -275,9 +274,9 @@ function Dashboard({ subject, sector, entry, ukhpi, manifest, mile, crime, flood
                 {' '}{AREA_COPY.soldPrices.spread(fmtMoney(stats.p10Price), fmtMoney(stats.p90Price))}
               </>
             )}
-            {perSqft !== null && (
+            {perSqm !== null && (
               <>
-                {' '}{AREA_COPY.soldPrices.perSqftLead} <strong>{AREA_COPY.soldPrices.perSqft(perSqft)}</strong> <Tooltip text={tip('comps.persqft')} />
+                {' '}{AREA_COPY.soldPrices.perSqmLead} <strong>{AREA_COPY.soldPrices.perSqm(perSqm)}</strong> <Tooltip text={tip('comps.persqm')} />
               </>
             )}
           </p>

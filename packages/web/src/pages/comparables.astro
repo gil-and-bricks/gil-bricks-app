@@ -6,7 +6,7 @@ import { siteConfig } from '../site.config';
 const dataBase = () => siteConfig.dataBaseUrl.replace(/\/+$/, '');
 ---
 
-<AppShell title={`Sold comparables — ${siteConfig.siteName}`} description="The standard sales near a postcode, with honest £/sqft evidence.">
+<AppShell title={`Sold comparables — ${siteConfig.siteName}`} description="The standard sales near a postcode, with honest £/m² evidence.">
   {/* This page runs the SAME comps engine the analysers do and needs the same
       two files on every search — start them at HTML parse, as they do (D5). */}
   <link rel="preload" as="fetch" href={`${dataBase()}/manifest.json`} crossorigin slot="head" />

@@ -33,9 +33,9 @@ export const HIDDEN_FROM_SEARCH: readonly string[] = [
 /**
  * Indexable pages that are not generated from another config list.
  *
- * `/transaction` is deliberately absent: it is a query-param page (?id=…) and
- * renders an empty shell without one, so listing it would advertise a blank.
- * `/404` is absent for the obvious reason.
+ * `/404` is absent for the obvious reason. (`/transaction` used to be excluded
+ * here for the same kind of reason; the page itself was removed in C1 and its
+ * actions moved onto the comparable rows.)
  */
 const FLAT_ROUTES: readonly string[] = [
   '/',

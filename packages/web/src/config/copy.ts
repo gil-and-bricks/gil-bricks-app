@@ -56,8 +56,8 @@ export const COPY = {
     rangeJoin: 'and',
     lrTimeoutTitle: 'Sale history unavailable',
     lrTimeout: 'We couldn’t reach HM Land Registry. The estimate below still uses nearby sold prices.',
-    needAreaTitle: 'Add the floor area for £/sqft',
-    needArea: 'Add the internal area to see £ per square foot. It’s on the EPC.',
+    needAreaTitle: 'Add the floor area for £/m²',
+    needArea: 'Add the internal area to see £ per square metre. It’s on the EPC.',
     thinEvidence: 'Not enough evidence yet. Add the internal area, or a house number.',
     contextOnly: 'Beds, baths, garden and parking are context only.',
     /**

@@ -23,7 +23,7 @@ import { circleRing, clusterForVariant, escapeHtml as esc, isRenderedTileEvent, 
 import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
 import { MAP_COPY } from '../../config/misc';
 import { fmtMoney } from '@gil-bricks/core';
-import { sqmToSqft } from '@gil-bricks/core';
+import { compLinks } from '@gil-bricks/core';
 
 let protocol: Protocol | null = null;
 
@@ -141,7 +141,8 @@ function compsGeoJson(data: MapData): FeatureCollection {
           town: c.town,
           type: c.type,
           tenure: c.tenure,
-          persqft: c.ppsqm !== null ? Math.round(c.ppsqm / sqmToSqft(1)) : null,
+          persqm: c.ppsqm !== null ? Math.round(c.ppsqm) : null,
+          google: compLinks(c.id, { saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode }).google,
           state: pin.state,
           radius: pin.radius,
         },
@@ -429,9 +430,16 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
           `<p class="map-popup-price">${esc(p.label)}</p>` +
             `<p class="map-popup-line">${esc(p.address)}${p.town ? `, ${esc(p.town)}` : ''}</p>` +
             `<p class="map-popup-line">${esc(p.date)} · ${esc(MAP_COPY.typeWords[String(p.type)] ?? p.type)} · ${p.tenure === 'F' ? MAP_COPY.freehold : MAP_COPY.leasehold}${
-              p.persqft !== null ? ` · £${esc(p.persqft)}/sqft` : ''
+              // `!= null`, NOT `!== null`. MapLibre DROPS null-valued properties
+              // when it serialises a geojson source, so a sale with no floor
+              // area comes back with the key ABSENT — undefined, which passed a
+              // `!== null` guard and then threw on .toLocaleString(), killing
+              // the popup entirely for about one pin in ten (C1 review).
+              p.persqm != null ? ` · ${esc(MAP_COPY.perSqm(Number(p.persqm)))}` : ''
             }</p>` +
-            `<p class="map-popup-link"><a href="/transaction?id=${encodeURIComponent(String(p.id))}">${MAP_COPY.details}</a></p>`,
+            // C1 — the per-sale page is gone; the popup offers the same search
+            // the row does, which is the useful one.
+            `<p class="map-popup-link"><a href="${esc(p.google)}" target="_blank" rel="noopener" aria-label="${esc(MAP_COPY.searchFull(String(p.address ?? '')))}">${MAP_COPY.search}</a></p>`,
         )
         .addTo(map);
     });

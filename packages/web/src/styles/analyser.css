@@ -367,8 +367,21 @@
 
 /* map (S7.1) */
 .view-toggle { display: flex; align-items: center; gap: var(--space-2); margin: var(--space-3) 0; flex-wrap: wrap; }
-.view-toggle .pill { cursor: pointer; font: inherit; }
-.view-toggle .pill:not(.pill-current) { background: transparent; }
+/* C1 — BOTH OPTIONS MUST READ AS PRESSABLE. The unselected one carried a
+   rgba(255,255,255,0.25) border, which is 2.21:1 against the card — under the
+   3:1 WCAG 1.4.11 asks of a control's boundary — so the map read as disabled
+   rather than available. The border is now 5.89:1 and the button has a surface
+   of its own; the selected one is still the only lime thing here. */
+.view-toggle .pill {
+  cursor: pointer; font: inherit;
+  min-height: 2.75rem; padding-inline: var(--space-4);
+}
+.view-toggle .pill:not(.pill-current) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: var(--text);
+}
+.view-toggle .pill:not(.pill-current):active { background: rgba(255, 255, 255, 0.14); }
 .comp-map { height: 60vh; min-height: 320px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0; }
 .mini-map { height: 220px; border-radius: 12px; overflow: hidden; border: 1px solid rgba(220,255,0,0.4); margin: var(--space-3) 0 var(--space-4); }
 @media (max-width: 640px) {
@@ -728,7 +741,14 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
   position: sticky; left: 0; z-index: 1;
   display: flex; align-items: center; flex: 0 0 auto;
   margin: var(--space-2) 0 var(--space-2) var(--space-5);
-  border: 1px solid var(--accent); border-radius: 999px;
+  /* C1 — ONE CONSIDERED CHANGE. This was a lime-outlined box AROUND a lime-filled
+     segment, so lime was doing two jobs at once: the container competed with the
+     marker inside it and the whole control read as a warning panel rather than a
+     switch. The outline is now the same quiet line the section chips use, so the
+     ONLY lime in the pinned row is the strategy you are actually in — which is
+     the rule this row was already written to (D6). Nothing else changed: same
+     size, same order, same behaviour. */
+  border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px;
   background: var(--bg-1);
 }
 /* the segments themselves clip the pill's corners, so a focus ring is never
@@ -1456,3 +1476,38 @@ html[data-arrived] .analyser:not(:has(.arrived-note)) { padding-top: 0; }
 :root { --sv-reserve: 53px; }
 html[data-verdict] .sv-anchor { height: var(--sv-reserve); }
 html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
+
+
+/* ---------- A comparable's links (C1) ---------------------------------------
+   The per-sale page is gone and its actions live on the row. Four small links:
+   Land Registry, Google, and the two portals' postcode sold prices. */
+.comp-actions { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.comp-actions a {
+  display: inline-flex; align-items: center; min-height: 2rem;
+  padding: 0.15rem var(--space-2);
+  border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 8px;
+  color: var(--text); font-size: var(--text-2xs); font-weight: 600;
+  text-decoration: none; white-space: nowrap;
+}
+.comp-actions a:hover, .comp-actions a:focus-visible { border-color: var(--accent); color: var(--accent); }
+/* ON DESKTOP the actions live UNDER THE ADDRESS, not in a column of their own.
+   A Links column sat at the far right of a table that already overflowed its
+   wrapper, so the actions were 100% off-screen at every width — the headline of
+   the change, invisible — and the narrow column stacked them four-deep, taking
+   a row from 31px to 161px. Under the address they are in the leftmost region,
+   always on screen, and they cost ONE line instead of four. */
+.comps-table .comp-address-cell { white-space: nowrap; }
+.comps-table .comp-actions { margin-top: 0.25rem; flex-wrap: nowrap; }
+.comps-table .comp-actions a { font-size: var(--text-2xs); padding: 0 0.35rem; min-height: 1.5rem; }
+
+@media (max-width: 640px) {
+  /* ON A PHONE the comparable is a card, so the links become a row of full
+     targets at its FOOT — the last thing in the card, where a thumb already is,
+     and never between the price and the address a person is scanning for. */
+  .comp-actions {
+    margin-top: var(--space-3); padding-top: var(--space-2);
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    gap: var(--space-2);
+  }
+  .comp-actions a { min-height: 2.75rem; padding-inline: var(--space-3); flex: 1 1 auto; justify-content: center; }
+}

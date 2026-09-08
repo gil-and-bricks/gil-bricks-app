@@ -51,7 +51,7 @@ export const STRATEGY_LANDING = {
   cards: {
     analyser: 'Deal analyser',
     comps: 'Sold comparables',
-    compsBody: 'The standard sales near a postcode, with honest £/sqft evidence.',
+    compsBody: 'The standard sales near a postcode, with honest £/m² evidence.',
   },
 
   /** Said under the two cards, so the valuation is still promised without a

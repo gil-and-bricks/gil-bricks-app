@@ -246,11 +246,47 @@ describe('sort helpers', () => {
   });
 });
 
-describe('portal links (compliance: entry pages only)', () => {
-  it('Land Registry per-transaction; portals landing pages only', () => {
-    const links = compLinks('{FA0EFA0E-0001-4B33-9CAF-FA0EFA0E0001}');
+describe('where a comparable links out to (C1)', () => {
+  const addr = { saon: '', paon: '9', street: 'Llewellyn Circle', postcode: 'SA1 6SN' };
+
+  it('Land Registry keeps the per-transaction record it already had', () => {
+    const links = compLinks('{FA0EFA0E-0001-4B33-9CAF-FA0EFA0E0001}', addr);
     expect(links.landRegistry).toBe('https://landregistry.data.gov.uk/data/ppi/transaction/FA0EFA0E-0001-4B33-9CAF-FA0EFA0E0001/current');
-    expect(links.zooplaHousePrices).toBe('https://www.zoopla.co.uk/house-prices/');
-    expect(links.rightmoveHousePrices).toBe('https://www.rightmove.co.uk/house-prices.html');
+  });
+
+  it('Google is pre-filled with the FULL address, postcode included', () => {
+    const links = compLinks('{X}', addr);
+    expect(decodeURIComponent(links.google.split('q=')[1])).toBe('9 Llewellyn Circle SA1 6SN');
+  });
+
+  it('the portals go to the POSTCODE’s sold prices, which is what they promise', () => {
+    // Both shapes verified in a real browser: Rightmove answers "House Prices
+    // in SA1 6SN", Zoopla "Sold house prices in SA1 6SN".
+    const links = compLinks('{X}', addr);
+    expect(links.rightmoveSoldPrices).toBe('https://www.rightmove.co.uk/house-prices/sa1-6sn.html');
+    expect(links.zooplaSoldPrices).toBe('https://www.zoopla.co.uk/house-prices/sa1-6sn/');
+  });
+
+  it('NEVER constructs an internal property URL — there is no honest way to', () => {
+    const links = compLinks('{X}', addr);
+    for (const url of Object.values(links).filter((u): u is string => u !== null)) {
+      expect(url).not.toMatch(/rightmove\.co\.uk\/properties/);
+      expect(url).not.toMatch(/zoopla\.co\.uk\/for-sale\/details/);
+      expect(url).not.toMatch(/\/property\/\d/);
+    }
+  });
+
+  it('a flat carries its sub-building into the search', () => {
+    const links = compLinks('{X}', { saon: 'Flat 2', paon: '8', street: 'Tyfica Road', postcode: 'CF37 1DL' });
+    expect(decodeURIComponent(links.google.split('q=')[1])).toBe('Flat 2 8 Tyfica Road CF37 1DL');
+  });
+
+  it('with no postcode there is NO portal link — a broken one is worse', () => {
+    const links = compLinks('{X}', { paon: '9', street: 'Llewellyn Circle', postcode: '' });
+    expect(links.rightmoveSoldPrices).toBeNull();
+    expect(links.zooplaSoldPrices).toBeNull();
+    // the two that still work are still offered
+    expect(links.landRegistry).toContain('landregistry.data.gov.uk');
+    expect(links.google).toContain('google.com/search');
   });
 });

@@ -1,6 +1,6 @@
 import { fmtMoney } from '@gil-bricks/core';
 import { COPY } from '../../config/copy';
-import { sqmToSqft } from '@gil-bricks/core';
+import { compLinks, fullAddress } from '@gil-bricks/core';
 import type { Comp, ComparablesResult, SortKey } from '@gil-bricks/core';
 import { computeStats, sortComps } from '@gil-bricks/core';
 import { useMemo, useRef, useState } from 'preact/hooks';
@@ -27,6 +27,33 @@ const TENURE_LABEL: Record<string, string> = COMPARABLES.tenures;
  * evidence BEHIND the answer, so it waits under a one-line summary until you
  * ask for it. On /comparables it IS the page — never folded there.
  */
+/**
+ * The links one comparable goes out to (C1), used by the phone card and the
+ * desktop row so the two can never offer different things.
+ *
+ * Every link opens in a new tab: you are checking evidence, and losing the deal
+ * you were working on to do it would be its own small disaster. The visible
+ * word is short because the row is dense; the accessible name says the whole
+ * promise, which is what a screen reader announces.
+ */
+function CompActions({ c }: { c: Comp }) {
+  const address = fullAddress({ saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode });
+  const links = compLinks(c.id, { saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode });
+  const A = COMPARABLES.actions;
+  return (
+    <span class="comp-actions">
+      <a href={links.landRegistry} target="_blank" rel="noopener" aria-label={A.landRegistryFull(address)}>{A.landRegistry}</a>
+      <a href={links.google} target="_blank" rel="noopener" aria-label={A.googleFull(address)}>{A.google}</a>
+      {links.rightmoveSoldPrices !== null && (
+        <a href={links.rightmoveSoldPrices} target="_blank" rel="noopener" aria-label={A.rightmoveFull(c.postcode)}>{A.rightmove}</a>
+      )}
+      {links.zooplaSoldPrices !== null && (
+        <a href={links.zooplaSoldPrices} target="_blank" rel="noopener" aria-label={A.zooplaFull(c.postcode)}>{A.zoopla}</a>
+      )}
+    </span>
+  );
+}
+
 export function CompsModule({ result, article4 = false, folded = false }: { result: ComparablesResult | null; article4?: boolean; folded?: boolean }) {
   const s = state.value;
   const [sortKey, setSortKey] = useState<SortKey>('distance');
@@ -63,7 +90,9 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
 
   // Fold only where this module is EVIDENCE (the analyser), only once there is
   // something to fold, and never over a map someone deep-linked to.
-  const perSqft = stats.typicalPpsqm === null ? null : COMPARABLES.stats.foldPerSqft(Math.round(stats.typicalPpsqm / sqmToSqft(1)));
+  // C1 — the data is £/m² natively; the UI used to convert AWAY from it into
+  // square feet, which fought every other number in the product.
+  const perSqm = stats.typicalPpsqm === null ? null : COMPARABLES.stats.foldPerSqm(Math.round(stats.typicalPpsqm));
   // The filters, written ONCE: folded behind one button at EVERY width while
   // compsMobile is on (seven controls dominate a phone and clutter a desktop),
   // or laid out as they always were when the flag is off.
@@ -116,12 +145,14 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   const cards = wantsCards(useViewportWidth(), features.compsMobile);
   const filtersSet = activeFilterCount(s);
 
-  // The ?view=map deep link SEEDS the fold open once. After that the <details>
-  // owns its own state: re-asserting `open` on every render would slam it shut
-  // under anyone who switched the view back to the list.
-  const seedOpen = useRef(s.view === 'map');
+  // C1 — OPEN BY DEFAULT, at every width. This is the second most important
+  // thing in the product and a one-line summary meant people simply missed it.
+  // The disclosure stays so it can be CLOSED; it just no longer starts shut.
+  // Seeded once, never re-asserted: re-asserting `open` on every render would
+  // slam it shut under anyone who had closed it.
+  const seedOpen = useRef(true);
   const fold = folded && features.sectionOverview && result !== null && result.comps.length > 0
-    ? { line: SECTION_STRIP.compsSummary(stats.count, perSqft), open: seedOpen.current }
+    ? { line: SECTION_STRIP.compsSummary(stats.count, perSqm), open: seedOpen.current }
     : null;
 
   // The module's body, written ONCE: shown bare, or behind the fold's one line.
@@ -157,7 +188,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               <strong>{stats.count}</strong>{' '}{COMPARABLES.stats.ofSalesIncluded(result.comps.length)}{' '}
               <strong>{stats.typicalPrice !== null ? fmtMoney(stats.typicalPrice) : COMPARABLES.card.unknown}</strong>
               {stats.typicalPpsqm !== null && (
-                <>{' '}{COMPARABLES.stats.typicalPerSqft} <strong>{COMPARABLES.card.perSqftValue(Math.round(stats.typicalPpsqm / sqmToSqft(1)))}</strong> <Tooltip text={tip('comps.persqft')} /></>
+                <>{' '}{COMPARABLES.stats.typicalPerSqm} <strong>{COMPARABLES.card.perSqmValue(Math.round(stats.typicalPpsqm))}</strong> <Tooltip text={tip('comps.persqm')} /></>
               )}
               {stats.rangeP10P90 && (
                 <>
@@ -214,19 +245,19 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                       </label>
                       <div class="comp-body">
                         <p class="comp-price"><strong>{fmtMoney(c.price)}</strong> <span class="comp-when">{c.date}</span></p>
-                        <p class="comp-address"><a href={`/transaction?id=${encodeURIComponent(c.id.replace(/[{}]/g, ''))}`}>{address}</a></p>
+                        <p class="comp-address">{address}</p>
                         <p class="comp-meta">
                           <span>{c.postcode}</span>
                           <span>{TYPE_LABEL[c.type] ?? c.type}</span>
                           <span>{TENURE_LABEL[c.tenure] ?? c.tenure}</span>
-                          <span>{AGE_LABEL(c)}</span>
                         </p>
                         <p class="comp-meta">
-                          <span>{c.floorAreaSqm !== null ? COMPARABLES.card.sqftValue(Math.round(sqmToSqft(c.floorAreaSqm))) : COMPARABLES.card.unknown}</span>
-                          <span>{c.ppsqm !== null ? COMPARABLES.card.perSqftValue(Math.round(c.ppsqm / sqmToSqft(1))) : COMPARABLES.card.unknown}</span>
+                          <span>{c.floorAreaSqm !== null ? COMPARABLES.card.sqmValue(c.floorAreaSqm) : COMPARABLES.card.unknown}</span>
+                          <span>{c.ppsqm !== null ? COMPARABLES.card.perSqmValue(Math.round(c.ppsqm)) : COMPARABLES.card.unknown}</span>
                           <span>{COMPARABLES.card.distanceValue(c.distanceMiles.toFixed(2))}</span>
                         </p>
                         {!c.included && <p class="comp-out">{COMPARABLES.card.excluded}</p>}
+                        <CompActions c={c} />
                       </div>
                     </li>
                   );
@@ -244,10 +275,9 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                     <th>{COMPARABLES.table.postcode}</th>
                     <th>{COMPARABLES.table.propertyType}</th>
                     <th>{COMPARABLES.table.tenure}</th>
-                    <th>{COMPARABLES.table.age}</th>
                     <th aria-sort={sortKey === 'price' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('price')}>{COMPARABLES.table.price}{sortArrow('price')}</button></th>
-                    <th>{COMPARABLES.table.sqft}</th>
-                    <th aria-sort={sortKey === 'ppsqm' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('ppsqm')}>{COMPARABLES.table.perSqft}{sortArrow('ppsqm')}</button></th>
+                    <th>{COMPARABLES.table.sqm}</th>
+                    <th aria-sort={sortKey === 'ppsqm' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('ppsqm')}>{COMPARABLES.table.perSqm}{sortArrow('ppsqm')}</button></th>
                     <th aria-sort={sortKey === 'distance' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('distance')}>{COMPARABLES.table.miles}{sortArrow('distance')}</button></th>
                   </tr>
                 </thead>
@@ -264,14 +294,16 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                           aria-label={COMPARABLES.card.include([c.saon, c.paon, c.street].filter(Boolean).join(' '))} />
                       </td>
                       <td>{c.date}</td>
-                      <td><a href={`/transaction?id=${encodeURIComponent(c.id.replace(/[{}]/g, ''))}`}>{[c.saon, c.paon, c.street].filter(Boolean).join(' ')}</a></td>
+                      <td class="comp-address-cell">
+                        {[c.saon, c.paon, c.street].filter(Boolean).join(' ')}
+                        <CompActions c={c} />
+                      </td>
                       <td>{c.postcode}</td>
                       <td>{TYPE_LABEL[c.type] ?? c.type}</td>
                       <td>{TENURE_LABEL[c.tenure] ?? c.tenure}</td>
-                      <td>{AGE_LABEL(c)}</td>
                       <td>{fmtMoney(c.price)}</td>
-                      <td>{c.floorAreaSqm !== null ? Math.round(sqmToSqft(c.floorAreaSqm)) : COMPARABLES.card.unknown}</td>
-                      <td>{c.ppsqm !== null ? `£${Math.round(c.ppsqm / sqmToSqft(1))}` : COMPARABLES.card.unknown}</td>
+                      <td>{c.floorAreaSqm !== null ? c.floorAreaSqm : COMPARABLES.card.unknown}</td>
+                      <td>{c.ppsqm !== null ? COMPARABLES.card.perSqmValue(Math.round(c.ppsqm)) : COMPARABLES.card.unknown}</td>
                       <td>{c.distanceMiles.toFixed(2)}</td>
                     </tr>
                   ))}

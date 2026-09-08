@@ -357,9 +357,9 @@ function astroFrontmatter(src: string): string {
  */
 const ARITHMETIC_BASELINE: Record<string, number> = {
   'components/analyser/BrrrrVerdict.tsx': 1,
-  'components/analyser/CompsModule.tsx': 4,
-  'components/analyser/mapImpl.ts': 1,
-  'components/area/AreaApp.tsx': 1,
+  'components/analyser/CompsModule.tsx': 0,
+  'components/analyser/mapImpl.ts': 0,
+  'components/area/AreaApp.tsx': 0,
   'components/tools/EquityTool.tsx': 1,
   'lib/deals/retrade.ts': 1,
   'lib/deals/urgency.ts': 1,

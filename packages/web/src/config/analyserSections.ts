@@ -21,8 +21,11 @@ export const ANALYSER_SECTIONS: readonly AnalyserSection[] = [
   { id: 'sec-verdict', label: 'Verdict' },
   { id: 'sec-figures', label: 'Figures' },
   { id: 'sec-costs', label: 'Costs' },
-  { id: 'valuation', label: 'Valuation' },
+  // C1 — COMPARABLES BEFORE VALUATION. You work through the evidence and
+  // satisfy yourself it is right BEFORE you are shown a valuation built on it.
+  // The strip is a map of the page, so this order and the page's must agree.
   { id: 'sec-comps', label: 'Comparables' },
+  { id: 'valuation', label: 'Valuation' },
 ];
 
 export const SECTION_STRIP = {
@@ -35,11 +38,15 @@ export const SECTION_STRIP = {
   /** The quiet way back up after you have jumped down (N2 item 4). The visible
    * words ARE the link's accessible name (WCAG 2.5.3) — the arrow is decoration. */
   backToInputs: 'Back to inputs',
-  /** One-line summary the comparables module folds behind. */
-  compsSummary: (count: number, typicalPerSqft: string | null): string =>
-    typicalPerSqft === null
-      ? `${count} comparable ${count === 1 ? 'sale' : 'sales'} · open to explore`
-      : `${count} comparable ${count === 1 ? 'sale' : 'sales'} · typical ${typicalPerSqft} · open to explore`,
+  /**
+   * The line on the comparables disclosure. It is OPEN by default now (C1), so
+   * this is the control that closes it — it must not read as an invitation to
+   * open something that is already open.
+   */
+  compsSummary: (count: number, typicalPerSqm: string | null): string =>
+    typicalPerSqm === null
+      ? `${count} comparable ${count === 1 ? 'sale' : 'sales'}`
+      : `${count} comparable ${count === 1 ? 'sale' : 'sales'} · typical ${typicalPerSqm}`,
   /** The CSS custom property carrying the strip's pinned height, so anything
    * else that must clear the pinned stack (tooltips) reads it from here. */
   heightVar: '--strip-h',

@@ -151,7 +151,10 @@ never states or implies a decision about anyone's finance.
   main+surcharge. England surcharge = +5% every band (from 31 Oct 2024).
 - rates.json is effective-dated and holds flip tax rates too. Editable, no code change.
 - Valuation applies NO per-attribute % adjustments. Maths = last-sold x UKHPI
-  indexation blended with area £/sqft x floor area; 5/10/20% margins as a plain range.
+  indexation blended with area £/sqm x floor area; 5/10/20% margins as a plain range.
+- Price per unit area is £/m² EVERYWHERE on screen (C1). The product asks for
+  internal area in m² and the EPC register returns m², so comparables showing
+  sqft was our own inconsistency. Never reintroduce sqft in the UI.
 
 ## Style / a11y (LOCKED brand)
 - Lime #dcff00 = highlights/borders/icons/CTA fills with near-black text.

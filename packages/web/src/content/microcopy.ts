@@ -42,8 +42,8 @@ export const microcopy: Record<string, string> = {
     'The typical sold price: we drop the cheapest and dearest quarter, then average the rest (the interquartile mean).',
   'comps.range80':
     '8 in 10 nearby sales fell in this range — the cheapest tenth and dearest tenth are left out.',
-  'comps.persqft':
-    'Price per square foot, from the sales that have an EPC floor area — not every sale has one.',
+  'comps.persqm':
+    'Price per square metre, from the sales that have an EPC floor area — not every sale has one.',
 
   // --- Account ---
   'account.marketing': 'Property tips and updates by email. Untick any time.',

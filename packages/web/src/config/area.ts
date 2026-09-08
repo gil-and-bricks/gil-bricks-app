@@ -76,8 +76,8 @@ export const AREA_COPY = {
     count: (sales: number): string => `typical sold price from ${sales} ${salesWord(sales)}`,
     /** The middle 80% of sales; both figures arrive already formatted. */
     spread: (low: string, high: string): string => `· 80% sold between ${low} and ${high}`,
-    perSqftLead: '· typical',
-    perSqft: (perSqft: number): string => `£${perSqft}/sqft`,
+    perSqmLead: '· typical',
+    perSqm: (perSqm: number): string => `£${perSqm.toLocaleString('en-GB')}/m²`,
   },
 
   /** The four-column table of typical prices inside the sold-price card. */

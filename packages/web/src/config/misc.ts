@@ -106,8 +106,15 @@ export const MAP_COPY = {
   /** Tenure, spelled out from the same source. */
   freehold: 'Freehold',
   leasehold: 'Leasehold',
-  /** The popup's link through to the full sold record. */
-  details: 'Details →',
+  /**
+   * The popup's link out (C1). It used to open our own per-sale page and said
+   * "Details"; that page is gone and this opens a Google search for the
+   * address, so it says so — the same promise the row's own button makes.
+   */
+  search: 'Google',
+  searchFull: (address: string): string => `Search Google for ${address}`,
+  /** Price per square metre, as the popup prints it. */
+  perSqm: (perSqm: number): string => `£${perSqm.toLocaleString('en-GB')}/m²`,
 } as const;
 
 /* ------------------------------------------------------------------------- */

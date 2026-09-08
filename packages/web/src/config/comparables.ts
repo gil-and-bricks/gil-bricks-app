@@ -2,9 +2,9 @@
  * Comparables — every word around the sold sales: the filter sheet and the
  * fields inside it, the summary line above the list, the desktop table, the
  * card layout a phone gets instead (N3, switched by features.compsMobile), and
- * the single-sale page at /transaction. Nothing here computes a figure: the
- * words print what the comparables engine already produced, converting sqm to
- * sqft with core's own sqmToSqft.
+ * the links each row goes out to. Nothing here computes a figure: the words
+ * print what the comparables engine already produced, in the METRIC units it
+ * produced them in (C1 — the product asks for area in m² everywhere else).
  */
 export const COMPARABLES = {
   /** The heading over the whole section, on the analyser and on /comparables. */
@@ -58,11 +58,11 @@ export const COMPARABLES = {
       `only ${count} matching ${count === 1 ? 'sale' : 'sales'} nearby — treat the typical figures below with caution.`,
     /** Reads as "12 of 30 sales included · typical £250,000". */
     ofSalesIncluded: (total: number): string => `of ${total} sales included · typical`,
-    typicalPerSqft: '· typical',
+    typicalPerSqm: '· typical',
     range: (low: string, high: string): string => `· 80% between ${low} and ${high}`,
     asOf: (month: string): string => `· as of ${month}`,
-    /** The £/sqft carried by the one-line summary the section folds behind. */
-    foldPerSqft: (perSqft: number): string => `£${perSqft}/sq ft`,
+    /** The £/m² carried by the line on the comparables disclosure. */
+    foldPerSqm: (perSqm: number): string => `£${perSqm.toLocaleString('en-GB')}/m²`,
   },
   /** The list ⇄ map switch, and the note over a map with sales ticked off. */
   view: {
@@ -71,8 +71,12 @@ export const COMPARABLES = {
     map: 'Map',
     dimmed: (count: number): string => `${count} dimmed — excluded from the stats`,
   },
-  /** The desktop table. Date, Price, £/sqft and Miles sort the list, and the
-   * one doing the sorting shows an arrow — the space before it is deliberate. */
+  /** The desktop table. Date, Price, £/m² and Miles sort the list, and the
+   * one doing the sorting shows an arrow — the space before it is deliberate.
+   *
+   * NO AGE COLUMN (C1). Every row said "Existing", so it told nobody anything
+   * and it cost the width the row actions now use. New builds are still marked
+   * where it matters: the age FILTER is untouched. */
   table: {
     include: 'Include',
     date: 'Date',
@@ -80,11 +84,12 @@ export const COMPARABLES = {
     postcode: 'Postcode',
     propertyType: 'Type',
     tenure: 'Tenure',
-    age: 'Age',
     price: 'Price',
-    sqft: 'Sqft',
-    perSqft: '£/sqft',
+    sqm: 'm²',
+    perSqm: '£/m²',
     miles: 'Miles',
+    /** The row's actions, and the column that holds them. */
+    actions: 'Links',
     sortedAsc: ' ↑',
     sortedDesc: ' ↓',
   },
@@ -100,27 +105,40 @@ export const COMPARABLES = {
     listLabel: 'Sold comparables',
     /** Distance is printed by the card: "0.21 miles away". */
     distanceValue: (miles: string): string => `${miles} miles away`,
-    /** Floor area and price per square foot, as the card prints them. */
-    sqftValue: (sqft: number): string => `${sqft} sqft`,
-    perSqftValue: (perSqft: number): string => `£${perSqft}/sqft`,
+    /** Floor area and price per square metre, as the card prints them. The
+     *  product asks for area in m² and the EPC returns m²; comparables used to
+     *  switch to square feet here, which was our own inconsistency (C1). */
+    sqmValue: (sqm: number): string => `${sqm} m²`,
+    /** Thousands separated: in square feet this was three digits, in square
+     *  metres it is four, and "£1770/m²" is harder to read at a glance. */
+    perSqmValue: (perSqm: number): string => `£${perSqm.toLocaleString('en-GB')}/m²`,
     /** Shown wherever a figure is missing — a sale with no floor area, a sale
      * with no tenure recorded, no typical price yet. */
     unknown: '—',
     include: (address: string): string => `Include ${address}`,
     excluded: 'Left out of the stats',
   },
-  /** The single-sale page at /transaction: the line under the price, then the
-   * three links out to where the sale can be checked. */
-  transaction: {
-    sold: 'Sold',
-    newBuild: 'new build',
-    existing: 'existing',
-    nonStandardSale: '· non-standard sale',
-    landRegistryLink: 'View at Land Registry',
-    zooplaLink: 'Look this street up on Zoopla',
-    /** The way out of an error state — a dead end is not an answer (D2). */
-    backToComps: 'Search sold comparables',
-    rightmoveLink: 'Search on Rightmove',
+  /**
+   * WHAT A COMPARABLE ROW LINKS OUT TO (C1). The per-sale page that used to
+   * hold these was three buttons and a repeat of the row, and two of the three
+   * went to the portals' generic front pages. The actions moved here, and each
+   * label now promises exactly what its link delivers and nothing more.
+   */
+  actions: {
+    /** The transaction's own open-data record. Unchanged: it already worked. */
+    landRegistry: 'Land Registry',
+    landRegistryFull: (address: string): string => `Land Registry record for ${address}`,
+    /** The most useful of the three: the full address, searched. */
+    google: 'Google',
+    googleFull: (address: string): string => `Search Google for ${address}`,
+    /** POSTCODE sold prices. There is no public way to reach the exact listing
+     *  without scraping, so the label promises the postcode and not the house. */
+    rightmove: 'Rightmove',
+    rightmoveFull: (postcode: string): string => `Sold prices for ${postcode} on Rightmove`,
+    zoopla: 'Zoopla',
+    zooplaFull: (postcode: string): string => `Sold prices for ${postcode} on Zoopla`,
+    /** Said once above the row's links, so the promise is made in words too. */
+    portalNote: 'Rightmove and Zoopla open the sold prices for the postcode.',
   },
 } as const;
 

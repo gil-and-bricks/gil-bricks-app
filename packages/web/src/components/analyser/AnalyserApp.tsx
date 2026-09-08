@@ -274,8 +274,11 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                   two of them blaming the user for our outage (D3). */}
               {error === null && (
                 <>
-                  <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
+                  {/* C1 — THE EVIDENCE COMES FIRST. You work through the
+                      comparables and satisfy yourself they are right before you
+                      are shown a valuation built on them. */}
                   <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
+                  <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
                 </>
               )}
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />

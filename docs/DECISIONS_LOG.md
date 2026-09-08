@@ -2,6 +2,67 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-08 — Sprint C1: the comparables overhaul (deployed)
+
+All of this came from the operator using the analyser properly for the first
+time, so each item is a decision about the product, not a preference.
+
+- **The evidence goes before the valuation built on it.** Comparables now render
+  above the valuation card and sit above it in the chip strip, which is a map of
+  the page and must agree with it. Valuation is last.
+- **Comparables are open by default, at every width.** It was a one-line summary
+  and people simply missed the second most important thing in the product. The
+  disclosure stays so it can be CLOSED; the line on it stopped saying "tap to
+  explore", which would be a lie about something already open. The page is
+  longer, and that is the correct trade.
+- **£/sqft became £/m² everywhere.** The data was ALWAYS £/m²: the UI converted
+  away from it, so comparables fought the analyser's own m² input and the EPC's
+  m² answer. Every display switched — comparables table and cards, the fold
+  line, the map popup, the area page, the tooltip, the landing copy. A test
+  fails if the word reappears in any user-facing file.
+  JUDGMENT CALL, and it changes a LOCKED definition: docs/definitions.md now
+  defines £/m², and CLAUDE.md's valuation line says £/sqm. The stored figure
+  never changed; only the unit on screen. CORRECTION, caught by the review: an
+  earlier draft of this entry said `sqmToSqft` stays "because the extension meets
+  sqft on portal pages". Wrong three ways — the parser converts with `sqftToSqm`,
+  the extension contains no sqft at all, and `sqmToSqft` is used by the
+  floor-plan overlay. `ppsqft` is now dead but for its own test; it is left in
+  the maths lib rather than removed, and named here so it is not mistaken for
+  something the UI uses.
+  A separator was added at the same time: four digits ("£1,770/m²") where the
+  imperial figure had three.
+- **The age column is gone.** Every row said "Existing". The age FILTER stays —
+  new builds still matter when you are choosing what to compare against.
+- **The per-sale page at /transaction is deleted and its actions moved to the
+  row.** What it held: the address, town and postcode, a MiniMap of the
+  postcode, the price, a line of sold date / type / tenure / new-build, three
+  buttons, and the OGL attribution. Everything there except two things is
+  already on the comparable row. The two: a postcode MiniMap (the comparables
+  module has a real map view, so this was a lesser copy) and the Land Registry
+  "category B" flag, which marks a non-standard sale — a repossession or a
+  transfer not at market value. That flag is worth having and is NOT in our
+  sector data; it only exists on the per-transaction fetch. It is recorded here
+  as a known loss and a candidate for a future sprint, not quietly dropped.
+- **An exact listing link is not possible honestly, so we do not pretend.**
+  Rightmove publishes no public API; Zoopla's closed to new registrations in
+  2021 and never resolved an address to a listing anyway. The only route is
+  crawling their search pages, which docs/exclusions.md forbids. So the portal
+  buttons promise the POSTCODE's sold prices and say exactly that, and Google —
+  pre-filled with the full address — does the job of finding the listing better
+  than a guessed URL could. Both portal URL shapes were verified in a real
+  browser. With no postcode the portal links are not rendered at all: a link to
+  `/house-prices/.html` is worse than no link.
+- **The list/map toggle: the unselected option measured 2.21:1 against the card,
+  under the 3:1 WCAG 1.4.11 asks of a control's boundary** — which is why the
+  map read as disabled rather than available. It now has a 5.89:1 border and a
+  surface of its own; the selected one is still the only lime thing there.
+- **The strategy switcher, ONE considered change.** It was a lime-outlined box
+  around a lime-filled segment, so lime did two jobs and the container competed
+  with the marker inside it. The outline is now the same quiet line the section
+  chips use, leaving the strategy you are in as the only lime in the pinned row
+  — which is the rule that row was already written to (D6). Size, order and
+  behaviour are untouched.
+
 ## 2026-09-08 — Sprint E1: the EPC lookup now looks up the EPC register (deployed)
 
 - **The operator's diagnosis was right, in full.** The button said "EPC lookup"
