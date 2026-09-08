@@ -170,3 +170,45 @@ describe('the map popup survives a sale with no floor area', () => {
     expect(MAP_COPY.perSqm(1770)).toBe('£1,770/m²');
   });
 });
+
+describe('non-standard sales are excluded, and the exclusion is not silent (C3)', () => {
+  /**
+   * The pipeline has kept `category = 'A'` only since it was written, so a
+   * category B sale never reached the app — the worry that they were shown as
+   * ordinary evidence did not hold. What DID need fixing is that the filter was
+   * invisible: a sector can lose a third of its sales with no hint why.
+   *
+   * The line states the POLICY and carries NO number. A per-sector count was
+   * built and removed: the comparables are clipped by radius, period and
+   * filters, so a whole-sector figure describes a different population from the
+   * rows beside it. A truthful count needs the excluded sales' coordinates,
+   * which is what we decline to ship.
+   */
+  const build = readFileSync(fileURLToPath(new URL('../../pipeline/build.mjs', import.meta.url)), 'utf8');
+
+  it('the pipeline keeps category A only', () => {
+    expect(build).toContain("WHERE p.category = 'A'");
+  });
+
+  it('and ships NO category B row, and no count it could not scope', () => {
+    expect(build, 'no B rows').not.toMatch(/category\s*=\s*'B'/);
+    expect(build).not.toContain('nonStandardExcluded');
+  });
+
+  it('the line says sales are left out, and NEVER calls one a repossession', () => {
+    const N = COMPARABLES.nonStandard;
+    expect(N.line).toBe('Sales Land Registry marks non-standard are left out.');
+    expect(N.line.toLowerCase()).not.toMatch(/repossession/);
+    // The tooltip may LIST what the category can contain, because that is what
+    // Land Registry says it contains; what must never exist is a row-level claim.
+    expect(N.why.toLowerCase()).toContain('does not say which');
+  });
+
+  it('the line carries no count, so it cannot contradict the list beside it', () => {
+    expect(Object.keys(COMPARABLES.nonStandard)).toEqual(['line', 'why']);
+    expect(COMPARABLES.nonStandard.line).not.toMatch(/\d/);
+    const mod = read('components/analyser/CompsModule.tsx');
+    expect(mod).toContain('COMPARABLES.nonStandard.line');
+    expect(mod).not.toContain('nonStandardExcluded');
+  });
+});

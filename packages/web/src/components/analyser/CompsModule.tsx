@@ -201,6 +201,8 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
             {stats.typicalPrice !== null && stats.count >= 1 && (
               <MathsAccordion breakdown={typicalPrice(comps.filter((c) => c.included).map((c) => c.price)).breakdown} />
             )}
+            <p class="hint">{COMPARABLES.nonStandard.line} <Tooltip text={COMPARABLES.nonStandard.why} /></p>
+
             <div class="view-toggle" role="group" aria-label={COMPARABLES.view.groupLabel}>
               <button
                 type="button"

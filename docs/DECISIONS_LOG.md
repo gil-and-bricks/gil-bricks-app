@@ -2,6 +2,54 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-08 — Sprint C3: non-standard sales, excluded and said out loud (deployed)
+
+- **The premise did not hold, and that is the headline.** The brief asked to
+  bring back the category B flag because those sales "drag the valuation" and are
+  shown as ordinary evidence. They are not shown at all: `build.mjs` keeps
+  `WHERE p.category = 'A'`, so category B never reaches the sector JSON, the
+  comparables, the typical price or the valuation. The per-sale page carried the
+  flag only because it fetched the raw Land Registry record directly.
+- **Category B is NOT "repossessions", and that changed the decision.** HM Land
+  Registry defines it as "transfers under a power of sale/repossessions,
+  buy-to-lets (where they can be identified by a Mortgage), transfers to
+  non-private individuals and sales where the property type is 'Other'" — and
+  states that category B "does not separately identify the transaction types
+  stated". A category B row may be a repossession or an ordinary buy-to-let
+  purchase with a mortgage, and nothing in the data says which.
+- **DECISION: they stay excluded, and are NOT shipped into the sector files.**
+  (1) The goal — a non-arm's-length price never counted as ordinary evidence —
+  is already met, and met more completely by exclusion than by marking.
+  (2) Marking would force a label we cannot justify: "not a normal sale" is false
+  for an ordinary BTL purchase, and "may be a repossession" is equally true of
+  all of them, which is not information. (3) Shipping the rows and relying on a
+  UI flag to neutralise them means any surface that forgets the flag — the map
+  popup, the extension, the Deal Score — turns a repossession price into
+  evidence. There is no "include them" control because there is nothing honest
+  to include them AS.
+- **What DID need fixing: the filter was silent.** A sector can lose a third of
+  its sales and the page just showed fewer comparables. The comparables module
+  now says so, with an 'i' tooltip carrying HMLR's own list.
+- **A per-sector COUNT was built and then removed — the review earned its keep.**
+  The pipeline briefly wrote `nonStandardExcluded` per sector and the module
+  printed "N nearby sales are left out". That number was measured over the whole
+  sector, the whole 12 months and every property type, while the comparables
+  beside it are clipped by radius, period and the user's filters. At a
+  0.25-mile radius it read "45 nearby" against 22 comparables when the true
+  local figure was 15, and it moved the wrong way as the search narrowed. Worse,
+  "nearby" was unsupportable: 90.3% of published sectors are wider than the
+  default 0.5-mile radius. A truthful count needs the excluded sales'
+  coordinates, which is precisely what this sprint declines to ship — so the
+  count came out, the pipeline field with it, and the line states the POLICY,
+  which is true at every radius. No field was added to the locked sector
+  contract in the end, so DATA_SCHEMA.md is unchanged.
+- **The proportion, measured with the filter the pipeline actually applies**
+  (the ONSPD join and the England & Wales country gate included, which an
+  earlier draft of this entry quoted but had not run): of 712,061 eligible sales
+  in the 12-month window, **107,043 are category B — 15.03%**. That is 17.7% on
+  top of the 605,018 sales we do ship. It is very uneven: SA1 6, the sector used
+  for testing all sprint, keeps 101 and drops 45.
+
 ## 2026-09-08 — Sprint C1: the comparables overhaul (deployed)
 
 All of this came from the operator using the analyser properly for the first

@@ -64,6 +64,26 @@ export const COMPARABLES = {
     /** The £/m² carried by the line on the comparables disclosure. */
     foldPerSqm: (perSqm: number): string => `£${perSqm.toLocaleString('en-GB')}/m²`,
   },
+  /**
+   * WHAT THE EVIDENCE LEAVES OUT (C3). HM Land Registry marks some sales
+   * "category B" and the pipeline never ships them, so they are not in the
+   * comparables, the typical price or the valuation. This says so, rather than
+   * letting the filter be silent.
+   *
+   * NO NUMBER, DELIBERATELY. A per-sector count was built and then removed: the
+   * comparables list is clipped by radius, period and the filters, so a
+   * whole-sector figure describes a different population from the rows beside
+   * it — at a 0.25-mile radius it read "45 nearby" against 22 comparables when
+   * the true local figure was 15. A truthful count needs the excluded sales'
+   * coordinates, which is exactly what we decline to ship. So the sentence
+   * states the POLICY, which is true at every radius.
+   */
+  nonStandard: {
+    line: 'Sales Land Registry marks non-standard are left out.',
+    /** The 'i' tooltip: why, in the fewest honest words. */
+    why: 'Repossessions, company purchases and some buy-to-lets. Land Registry does not say which.',
+  },
+
   /** The list ⇄ map switch, and the note over a map with sales ticked off. */
   view: {
     groupLabel: 'Comparables view',
