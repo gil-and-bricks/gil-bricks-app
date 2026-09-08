@@ -49,6 +49,10 @@ export interface FeatureFlags {
    * Off: the flat header list (Area Data + four strategies) and the old
    * five-strategy bottom bar. The /tools and /bridging-finance pages exist either way. */
   navV2: boolean;
+  /** The EPC register lookup (E1): the analyser's floor-area button asks the
+   * real register through /api/epc. Off: it falls back to the sold-data match
+   * it used before, and the button says what that is. */
+  epcRegisterLookup: boolean;
   /** The bridging page's video slot (S1): a click-to-load video between the
    * explanation and the enquiry form. Off: the section is not rendered and the
    * explanation runs straight into the form, with no third-party markup. */
@@ -198,6 +202,7 @@ export const features: FeatureFlags = {
   navV2: true,
   bridgingFinance: true,
   bridgingVideo: true,
+  epcRegisterLookup: true,
   brokerFactFind: true,
   dealFacts: true,
   verdictChanges: true,

@@ -45,9 +45,17 @@ export const SUBJECT_FORM = {
       'unknown-postcode': 'We do not hold that postcode. Check it and try again.',
       'outside-ew': 'This covers England and Wales only.',
       unavailable: 'Our sold-price data is not answering. Try again in a minute.',
-      'no-match': 'No sold record with a floor area at that address. Type the size yourself.',
-      ambiguous: 'Addresses at that number differ in size. Type the size yourself.',
+      'rate-limited': 'The EPC register is busy right now. Try again in a minute.',
+      'no-match': 'The EPC register has no certificate for that address.',
+      ambiguous: 'The register has more than one answer for that address. Type the size yourself.',
     } as const,
+    /** WHICH source a figure came from. Two different claims, never blended. */
+    source: {
+      register: 'From the EPC register for this address — edit to override.',
+      'sold-data': 'From a past sale in our data, not the EPC register — edit to override.',
+    } as const,
+    /** Said when the newest certificate was used and older ones exist. */
+    superseded: 'Newest certificate used.',
     /** Said while the button is off, so the grey is explained (D1). */
     needsNumber: 'Add the house number first.',
     /** Shown under the field when the area came from the EPC match. */

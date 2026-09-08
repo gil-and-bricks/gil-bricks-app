@@ -4,6 +4,7 @@ import { MoneyInput } from './MoneyInput';
 import { state, update } from './state';
 import { Tooltip } from './Tooltip';
 import { lookupEpcArea } from './epcArea';
+import type { AreaSource } from '@gil-bricks/core';
 import { tip } from '../../content/microcopy';
 import { ProvBadge } from './ProvBadge';
 import { markEdited, areaEpc } from './provenance';
@@ -26,7 +27,10 @@ const TIPS: Record<string, string> = {
 
 export function SubjectForm({ postcodeError }: { postcodeError: string | null }) {
   const s = state.value;
-  const [areaSource, setAreaSource] = useState<'user' | 'epc' | null>(null);
+  // WHICH source filled the area, or null when the person typed it. The value
+  // is the key into the copy, so no source name is ever spelled out in here.
+  const [lookedUp, setLookedUp] = useState<AreaSource | null>(null);
+  const [supersededNote, setSupersededNote] = useState(false);
   const [epcBusy, setEpcBusy] = useState(false);
   const [epcMsg, setEpcMsg] = useState<string | null>(null);
   // Our fault vs the address's: an outage is announced, an outcome is a hint.
@@ -40,15 +44,17 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
     // out saying "…" for ever, with no way back. A dead control is the very
     // thing this lookup was rewritten to stop.
     try {
-      const found = await lookupEpcArea(s.postcode, s.paon);
+      const found = await lookupEpcArea(s.postcode, s.paon, s.saon);
       if (!found.ok) {
         setEpcMsg(SUBJECT_FORM.epc.problem[found.reason]);
         setEpcOurFault(found.reason === 'unavailable');
       } else if (state.value.area === '') {
         setEpcOurFault(false);
         update({ area: String(found.sqm) });
-        setAreaSource('epc');
-        areaEpc.value = true; // provenance: this area is from EPC data
+        setLookedUp(found.source);
+        // Only a register answer ever carries this, so it needs no source test.
+        setSupersededNote(found.supersededOthers === true);
+        areaEpc.value = true; // provenance: this area is looked up, not typed
       } else {
         setEpcOurFault(false);
         setEpcMsg(SUBJECT_FORM.epc.keptYours(found.sqm));
@@ -100,7 +106,7 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
         <label for="f-area">{SUBJECT_FORM.labels.area} <Tooltip text={TIPS.area} /> <ProvBadge field="area" /></label>
         <div class="row">
           <input id="f-area" inputMode="numeric" value={s.area}
-            onInput={(e) => { update({ area: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); setAreaSource('user'); areaEpc.value = false; markEdited('area'); }} />
+            onInput={(e) => { update({ area: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); setLookedUp(null); setSupersededNote(false); areaEpc.value = false; markEdited('area'); }} />
           <button type="button" class="mini-btn" onClick={findArea}
             disabled={epcBusy || s.paon.trim() === ''}
             title={s.paon.trim() === '' ? SUBJECT_FORM.epc.needsNumber : undefined}
@@ -110,7 +116,12 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
         </div>
         {/* A greyed button with no reason reads as broken (D1). */}
         {s.paon.trim() === '' && <p id="epc-needs" class="field-hint">{SUBJECT_FORM.epc.needsNumber}</p>}
-        {areaSource === 'epc' && <p class="field-hint">{SUBJECT_FORM.epc.fromEpc}</p>}
+        {lookedUp !== null && (
+          <p class="field-hint">
+            {SUBJECT_FORM.epc.source[lookedUp]}
+            {supersededNote ? ` ${SUBJECT_FORM.epc.superseded}` : ''}
+          </p>
+        )}
         {epcMsg && (epcOurFault
           ? <p class="field-error" role="alert">{epcMsg}</p>
           : <p class="field-hint" role="status">{epcMsg}</p>)}

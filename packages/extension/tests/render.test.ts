@@ -233,7 +233,7 @@ describe('E8.2 — floor area, seller-signals copy, heading', () => {
     const suggestions = smartDefaults('flip', withArea, sector(), 90, { evidenceOutsideFactor: 2, minSectorSales: 5 });
     renderTriage(view({ strategy: 'flip', listing: withArea, unknowns: {}, suggestions, floorAreaSqm: 90, floorAreaSource: 'epc-sector' }));
     const note = [...document.querySelectorAll('.suggest-note')].map((n) => n.textContent ?? '').find((t) => /\/m²/.test(t)) ?? '';
-    expect(note).toMatch(/area from our EPC data/i);
+    expect(note).toMatch(/area from a past sale in our data/i);
   });
 
   it('with NO floor area, the end-value suggestion makes no £/sqm claim (item 5)', () => {

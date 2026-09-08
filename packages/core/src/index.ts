@@ -40,6 +40,10 @@ export * from './strategies';
 // Shared config (R2 data base URL, socials, per-strategy YouTube links).
 export { coreConfig, youtubeFor } from './config';
 
+// EPC register lookup: the shared answer shape and the address matching (E1).
+export * from './epc/types';
+export * from './epc/match';
+
 // Deal Score verdict engine (E2).
 export * from './score/scoreDeal';
 export * from './score/soldEvidence';

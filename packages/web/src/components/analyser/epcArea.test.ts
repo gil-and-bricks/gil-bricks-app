@@ -24,7 +24,7 @@ const sale = (over: Partial<Sale>): Sale => ({
 });
 
 const ALL_REASONS: EpcFailure[] = [
-  'needs-postcode', 'unknown-postcode', 'outside-ew', 'unavailable', 'no-match', 'ambiguous',
+  'needs-postcode', 'unknown-postcode', 'outside-ew', 'unavailable', 'rate-limited', 'no-match', 'ambiguous',
 ];
 
 describe('every EPC failure says its own true thing', () => {
@@ -56,18 +56,18 @@ describe('every EPC failure says its own true thing', () => {
 
   it('the two the person can act on say what to do', () => {
     expect(SUBJECT_FORM.epc.problem['needs-postcode'].toLowerCase()).toContain('postcode');
-    expect(SUBJECT_FORM.epc.problem['no-match'].toLowerCase()).toContain('type the size');
+    expect(SUBJECT_FORM.epc.problem['no-match'].toLowerCase()).toContain('register');
   });
 });
 
 describe('picking the area out of the sold records', () => {
   it('finds the floor area for a matching address', () => {
     const got = areaFromSales([sale({})], 'SA1 6SN', '21');
-    expect(got).toEqual({ ok: true, sqm: 74 });
+    expect(got).toEqual({ ok: true, sqm: 74, source: 'sold-data' });
   });
 
   it('matches the address however it is typed', () => {
-    expect(areaFromSales([sale({})], 'SA1 6SN', ' 21 ')).toEqual({ ok: true, sqm: 74 });
+    expect(areaFromSales([sale({})], 'SA1 6SN', ' 21 ')).toEqual({ ok: true, sqm: 74, source: 'sold-data' });
   });
 
   it('a different postcode in the same sector is not a match', () => {
@@ -86,7 +86,7 @@ describe('picking the area out of the sold records', () => {
 
   it('flats that agree on size are not ambiguous', () => {
     const flats = [sale({ saon: 'FLAT 1' }), sale({ saon: 'FLAT 2' })];
-    expect(areaFromSales(flats, 'SA1 6SN', '21')).toEqual({ ok: true, sqm: 74 });
+    expect(areaFromSales(flats, 'SA1 6SN', '21')).toEqual({ ok: true, sqm: 74, source: 'sold-data' });
   });
 });
 
@@ -100,7 +100,7 @@ describe('the lookup can never leave the button stuck', () => {
   it('a malformed sale row is skipped, not thrown on', () => {
     const rows = [null, undefined, {}, sale({})] as unknown as Sale[];
     expect(() => areaFromSales(rows, 'SA1 6SN', '21')).not.toThrow();
-    expect(areaFromSales(rows, 'SA1 6SN', '21')).toEqual({ ok: true, sqm: 74 });
+    expect(areaFromSales(rows, 'SA1 6SN', '21')).toEqual({ ok: true, sqm: 74, source: 'sold-data' });
   });
 
   it('a sales list that is missing entirely is a no-match, not a crash', () => {
@@ -110,7 +110,7 @@ describe('the lookup can never leave the button stuck', () => {
 
   it('the matching runs INSIDE the try, so nothing it throws escapes', () => {
     const src = readFileSync(fileURLToPath(new URL('./epcArea.ts', import.meta.url)), 'utf8');
-    const body = src.slice(src.indexOf('export async function lookupEpcArea'));
+    const body = src.slice(src.indexOf('export async function lookupFromSoldData'));
     const tryAt = body.indexOf('try {');
     const matchAt = body.indexOf('return areaFromSales(');
     const catchAt = body.indexOf('} catch (err)');

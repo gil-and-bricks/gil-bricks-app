@@ -19,6 +19,9 @@ import {
 } from './lib/factfind';
 import { coreConfig } from '@gil-bricks/core';
 import {
+  cacheKey, lookupFromRegister, normalisePostcode, outsideEnglandWales, readCache, sweepEpcCache, writeCache,
+} from './lib/epc';
+import {
   AUTH_STATE_COOKIE,
   authStateCookie,
   clearAuthStateCookie,
@@ -44,6 +47,11 @@ export interface Env {
   GOOGLE_CLIENT_SECRET: string;
   TURNSTILE_SECRET: string;
   KIT_API_KEY: string;
+  /** The EPC register bearer token (E1). A wrangler secret: it is read only
+   *  here, on the server, and never reaches any client bundle. OPTIONAL on the
+   *  type, because an environment without it is a real state — the endpoint
+   *  answers 'unavailable' rather than pretending the register said something. */
+  EPC_BEARER_TOKEN?: string;
   /** DEV-ONLY gate. Set ONLY in .dev.vars (never deployed); undefined in production,
    * which disables /auth/dev-login and /dev/seed entirely. See worker/dev.ts. */
   DEV_LOGIN?: string;
@@ -1154,6 +1162,40 @@ async function handleAckChange(request: Request, env: Env, dealId: string, chang
  * Signed out is a 401 with no body: the extension shows nothing at all rather
  * than a stale count.
  */
+/**
+ * GET /api/epc?postcode=…&paon=…&saon=… — the floor area from the EPC register.
+ *
+ * The register needs a bearer token, so the browser cannot ask it directly and
+ * the extension must not carry one. Both call this instead: ONE place holding
+ * ONE secret, answering both surfaces identically.
+ *
+ * Public on purpose — it needs no sign-in, because it reveals nothing that the
+ * register's own public website does not already show for the same address.
+ */
+async function handleEpcLookup(request: Request, env: Env): Promise<Response> {
+  if (!features.epcRegisterLookup) return json({ ok: false, reason: 'unavailable' }, 404);
+  const url = new URL(request.url);
+  const postcode = normalisePostcode(url.searchParams.get('postcode') ?? '');
+  const paon = (url.searchParams.get('paon') ?? '').trim().slice(0, 120);
+  const saon = (url.searchParams.get('saon') ?? '').trim().slice(0, 120);
+  if (postcode === null) return json({ ok: false, reason: 'needs-postcode' });
+  if (paon === '') return json({ ok: false, reason: 'no-match' });
+  if (outsideEnglandWales(postcode)) return json({ ok: false, reason: 'outside-ew' });
+  if (!env.EPC_BEARER_TOKEN) return json({ ok: false, reason: 'unavailable' });
+
+  const subject = { paon, saon };
+  const key = cacheKey(postcode, subject);
+  const now = Date.now();
+  const cached = await readCache(env.DB, key, now).catch(() => null);
+  // A cached answer is the same answer, so say so — the figure is not fresher
+  // for having cost a round trip.
+  if (cached) return json(cached, 200, { 'cache-control': 'private, max-age=300' });
+
+  const result = await lookupFromRegister(postcode, subject, env.EPC_BEARER_TOKEN);
+  await writeCache(env.DB, key, postcode, result, now).catch(() => undefined);
+  return json(result, 200, { 'cache-control': 'private, max-age=300' });
+}
+
 async function handleAttention(request: Request, env: Env): Promise<Response> {
   if (!features.dealPipeline) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
@@ -1366,6 +1408,7 @@ export default {
     }
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
+    if (pathname === '/api/epc' && method === 'GET') return handleEpcLookup(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
     if (pathname === '/api/deals/dead' && method === 'GET') return handleTerminalPage(request, env, url, 'dead');
     if (pathname === '/api/deals/done' && method === 'GET') return handleTerminalPage(request, env, url, 'done');
@@ -1411,6 +1454,13 @@ export default {
         if (features.dealPipeline) await stampStaleness(env.DB);
       } catch (err) {
         console.error(`daily staleness stamp failed: ${String(err)}`);
+      }
+      // Sweep expired EPC cache rows (E1). Separately guarded: the cache is a
+      // convenience, and losing a sweep must never cost the staleness stamp.
+      try {
+        await sweepEpcCache(env.DB, Date.now());
+      } catch (err) {
+        console.error(`epc cache sweep failed: ${String(err)}`);
       }
       return;
     }

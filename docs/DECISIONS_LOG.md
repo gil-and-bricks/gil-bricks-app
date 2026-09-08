@@ -2,6 +2,79 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-08 — Sprint E1: the EPC lookup now looks up the EPC register (deployed)
+
+- **The operator's diagnosis was right, in full.** The button said "EPC lookup"
+  and never touched the register. It searched our own monthly sold-price data
+  for a transaction at that address carrying an EPC-joined floor area, so it
+  answered only for a property that had SOLD inside our data window AND matched
+  a certificate at build time. Measured on one postcode (SA1 6SN): our sold data
+  holds ONE of the fourteen certified addresses there, and its window is twelve
+  months. Number 9 last sold in January 2002; the register has its certificate.
+- **The register CAN be queried at runtime, so no rename was needed.** The
+  service that our monthly pipeline already authenticates against also exposes a
+  live API: `/api/domestic/search?postcode=` for candidates, then
+  `/api/certificate?certificate_number=` for the record carrying
+  `total_floor_area`. Two calls per lookup. The search alone does NOT carry a
+  floor area, which is why one call was never going to be enough.
+- **Judgment call: the token moves to a Worker secret, and the earlier ruling
+  stands.** Runtime EPC calls were ruled out before, for the extension, because
+  a bearer token inside a published Chrome package is a published token. That
+  reasoning is untouched — the extension still holds no token. It calls
+  `GET /api/epc` on our own Worker, which holds `EPC_BEARER_TOKEN` server-side.
+  A test (`worker/lib/epcSecret.test.ts`) fails if the token, or even the
+  register's hostname, appears in any client directory.
+- **Judgment call: re-measured home vs different property.** The brief asked for
+  BOTH "take the most recent, say so" and "where several disagree, say so rather
+  than picking one". Those pull opposite ways on the commonest case, so they are
+  split by address: certificates at the SAME address are one home re-measured —
+  take the current one and show "Newest certificate used". Certificates at
+  DIFFERENT addresses that share a house number are different properties, and
+  that refuses with both sizes. Found live: 9 Llewellyn Circle has three
+  certificates saying 79, 79 and 70; the 2026 one is the answer.
+- **Fall back, never replace.** The register is asked first because it is the
+  real answer. The sold-data match is used only when the failure is OURS
+  (unreachable, rate-limited, flag off) — never to second-guess a register that
+  said "no certificate here". Every success carries `source`, and the field says
+  "From the EPC register" or "From a past sale in our data".
+- **Timeout tuned by measurement, not guess.** The first ceiling was 6s; the
+  register's postcode search took 4.5s and 6.0s on the same address minutes
+  apart, turning real answers into "unavailable". It is 12s now, and only the
+  first ask for an address pays it — a cached one answers in ~20ms.
+- **Rate limits and cost.** The register publishes 6,000 requests per 5 minutes
+  per IP. A lookup costs at most two, a cached one costs none, and results are
+  cached in D1 (`epc_cache`, migration 0022): 180 days for a hit, 14 days for a
+  miss, and OUR failures are never cached — an outage must not become a
+  fortnight of wrong answers. Well inside the Cloudflare free tier.
+- **The adversarial sweep caught five real defects before this shipped**, three
+  of them wrong-number or regression class. (1) A flat lodged as "8 Tyfica Road,
+  Flat 2" satisfied a plain prefix match on "8", so a flat's area came back as
+  the whole building's — fixed by refusing any candidate that names a part of a
+  building when the building was asked for. (2) One home re-certified was
+  refused as "different properties" whenever a lodgement carried the post town
+  in a spare line ("215 NORTH ROAD" vs "215 NORTH ROAD CARDIFF"); identity now
+  uses the UPRN the register hands back on every row. (3) TD was on the
+  outside-England-and-Wales list, but TD15 is Berwick-upon-Tweed, which is
+  England — that rejected English addresses AND suppressed the sold-data
+  fallback, a straight regression. (4) The register's 404 means "no certificate
+  for that query", and was being reported as "we do not hold that postcode".
+  (5) A building known to be divided returned one certificate's figure: 38 Hide
+  Hill, TD15 1AB has six flats and gave 37 m² for the building. It refuses now.
+- **The endpoint is unauthenticated, and that is bounded rather than ignored.**
+  It reveals nothing the register's own public site does not, so it needs no
+  sign-in — but it spends a credentialed quota and writes to D1, so: no more
+  than 250 cache rows per postcode (past that lookups still work, they simply
+  stop being cached), malformed postcodes are never cached, and the daily cron
+  now sweeps rows past their life. The migration's comment promised a sweeper
+  that did not exist; it exists now. RESIDUAL RISK, stated plainly: there is no
+  per-IP rate limit, so a determined script can still spend register calls
+  against the shared 6,000-per-5-minutes limit. That degrades this feature to
+  "the register is busy" and does not touch anything else.
+- **The extension needed no new permission.** `host_permissions` already
+  included our own app for the daily attention check, so the manifest is
+  byte-identical to the shipped one and the store listing needs no permission
+  change. Staged as `store/proplaunch-deal-analyser-v0.3.0.zip`.
+
 ## 2026-09-07 — Sprint S1: EPC honesty, the ad marker, the credit voice, a video slot (deployed)
 
 - **The EPC lookup was not broken; its failures were.** The happy path worked

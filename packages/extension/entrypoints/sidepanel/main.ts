@@ -70,6 +70,8 @@ interface FloorPlanState {
 }
 
 /** The web app, from the ONE shared source (golden rule 4). */
+import { lookupEpcArea } from '../../src/epcLookup';
+
 const WEB_BASE = coreConfig.appBaseUrl;
 const STRATEGIES: { id: StrategyId; label: string }[] = [
   { id: 'btl', label: 'BTL' }, { id: 'flip', label: 'Flip' }, { id: 'brrrr', label: 'BRRRR' }, { id: 'hmo', label: 'HMO' },
@@ -324,7 +326,7 @@ export interface PanelView {
   settings: Record<string, string>;
   criteria: Criteria;
   floorAreaSqm: number | null;
-  floorAreaSource: 'listing' | 'epc-sector' | 'manual' | 'floorplan' | 'none';
+  floorAreaSource: 'listing' | 'epc-register' | 'epc-sector' | 'manual' | 'floorplan' | 'none';
   floorAreaRange: { minSqm: number; maxSqm: number } | null;
   /** The user's raw manual floor-area entry (kept in the mounted input). */
   manualAreaInput: string;
@@ -792,7 +794,7 @@ function floorPlanCard(view: PanelView, h: PanelHandlers): HTMLElement | null {
 }
 
 function areaSourceLabel(source: PanelView['floorAreaSource']): string {
-  return source === 'listing' ? 'from the listing' : source === 'epc-sector' ? 'from our EPC data' : source === 'floorplan' ? 'from the floor plan' : source === 'manual' ? 'you typed it' : 'unknown';
+  return source === 'listing' ? 'from the listing' : source === 'epc-register' ? 'from the EPC register' : source === 'epc-sector' ? 'from a past sale in our data' : source === 'floorplan' ? 'from the floor plan' : source === 'manual' ? 'you typed it' : 'unknown';
 }
 
 /**
@@ -1251,6 +1253,9 @@ interface Ctx {
   ewReject: string | null;
   ewRejectReason: 'outside-england-wales' | 'not-a-postcode' | null;
   manualArea: string;
+  /** The EPC register's answer for this listing, from our Worker (E1). Null
+   *  until it has replied; it is fetched alongside the sector, never blocking. */
+  registerArea: { sqm: number } | null;
   /** Unknown fields the user has explicitly emptied — don't re-inject a suggestion. */
   cleared: Set<string>;
   /** A remembered rent was dropped as not fitting this property (E7.1). */
@@ -1299,6 +1304,9 @@ function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['fl
   const l = ctx.listing!;
   const range = l.floorAreaSqmRange.status === 'found' ? l.floorAreaSqmRange.value : null;
   if (l.floorAreaSqm.status === 'found' && l.floorAreaSqm.value) return { sqm: l.floorAreaSqm.value, source: 'listing', range };
+  // The REGISTER first: it is the real certificate, and it answers for houses
+  // that have not sold in twenty years — which our sold-data join never could.
+  if (ctx.registerArea) return { sqm: ctx.registerArea.sqm, source: 'epc-register', range: null };
   const epc = floorAreaFromSector(ctx.sector, l.address.value, l.postcode.value);
   if (epc) return { sqm: epc, source: 'epc-sector', range: null };
   // A floor-plan total the user ACCEPTED becomes the floor area (E9).
@@ -1521,7 +1529,7 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     url, listing: null, failure: null, screen: 'triage',
     strategy: (await store.getStrategy()) as StrategyId,
     rent: '', listingUnknowns: {}, settings: await store.getSettings(), criteria: await store.getCriteria(),
-    sector: null, sectorId: null, ewReject: null, ewRejectReason: null, manualArea: '', cleared: new Set(), rentCleared: false, signalsOpen: false,
+    sector: null, sectorId: null, ewReject: null, ewRejectReason: null, manualArea: '', registerArea: null, cleared: new Set(), rentCleared: false, signalsOpen: false,
     openerHidden: await store.getOpenerHidden(),
     reminders: await store.getReminders(),
     // Only ever today's number: a count from yesterday may already be wrong.
@@ -1599,6 +1607,19 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     }
     draw(ctx);
   }
+  // The EPC register, through OUR Worker (E1). After the first paint on
+  // purpose: a floor area is worth waiting for, the rest of the panel is not.
+  if (!ctx.ewReject && ctx.listing?.postcode.value && ctx.listing.address.value?.paon) {
+    const got = await lookupEpcArea(
+      ctx.listing.postcode.value,
+      ctx.listing.address.value.paon,
+      ctx.listing.address.value.saon ?? '',
+    );
+    if (got.ok && got.source === 'register') {
+      ctx.registerArea = { sqm: got.sqm };
+      draw(ctx);
+    }
+  }
 }
 
 async function tick(): Promise<void> {
@@ -1671,7 +1692,7 @@ export function __mountForTest(
   const ctx: Ctx = {
     url: 'test', listing, failure: null, screen: 'triage', strategy: opts.strategy ?? 'btl',
     rent: opts.rent ?? '', listingUnknowns: opts.listingUnknowns ?? {}, settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
-    sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, ewRejectReason: null, manualArea: '',
+    sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null, ewReject: null, ewRejectReason: null, manualArea: '', registerArea: null,
     cleared: new Set(), rentCleared: false, signalsOpen: false, openerHidden: false, reminders: true, attention: 0,
     sectorLoad: opts.sectorLoad ?? 'ok', lastChange: null,
     floorplan: { available: false, open: false, acceptedSqm: null, measuredRooms: [], ...opts.floorplan },
