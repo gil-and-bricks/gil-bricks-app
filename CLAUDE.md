@@ -57,7 +57,7 @@ is still review discipline first. Both ratchets work the same way: a listed file
 may only go down, a new file is held to zero. The ratchet counts JSX/Astro text,
 user-facing attributes, unknown props on our own components and sentence-like
 literals — not every single string; docs/FEATURE_FLAGS.md states the scope.
-The baseline is grandfathered debt (67 strings / 21 files, down from 617 / 35
+The baseline is grandfathered debt (64 strings / 21 files, down from 617 / 35
 on 2026-09-04; 11 grandfathered calculations across 8 files for check F) —
 pay it down, never raise it. Rules 4-5 (one revertible commit per sprint,
 additive-only migrations) are review discipline, not tests: say so rather than

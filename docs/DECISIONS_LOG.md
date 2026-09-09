@@ -2,6 +2,125 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — Sprint C3: aligned row links, pressable buttons, a map that survives zoom (deployed)
+
+- **The row actions wandered because C1 put them INSIDE the address cell and
+  the table sets `white-space: nowrap`.** The intent was a second line under the
+  address (`margin-top: 0.25rem` says so), but nowrap meant the inline-flex span
+  could never break, so the buttons sat BESIDE each address and their left edge
+  tracked how long that address was. Measured at 1280px: 213px to 358px, a 146px
+  wander down twelve rows. They are now a table COLUMN, immediately after the
+  address — a column cannot wander. Not the far right, which is what C1 tried
+  first and which put them off the edge of a card that already overflows by
+  169px. The address column had been 564px wide because it was carrying the
+  links too; held apart, each sizes to its own content.
+- **JUDGMENT CALL: a column, not an indent.** The operator offered both. An
+  indent under the address would also have aligned them, but it costs a second
+  line on every row (37px → ~55px, roughly 450px of extra scroll over 25 rows)
+  and it leaves the address column carrying two different things. "The way every
+  other column does" is what he asked for, and it is also what keeps the row one
+  line tall.
+- **The buttons did not look pressable because a 0.4-white hairline is not a
+  boundary.** They were white text in a faint outline that only turned lime on
+  hover — and a phone has no hover, so on the surface where it matters most they
+  never looked pressable at all. They now carry a fill and a 0.55-white boundary
+  at rest: the same values C1 chose for the list/map toggle, for the same reason.
+- **THE MAP DISAPPEARING IS A LIBRARY BUG, NOT SLOWNESS, AND IT IS NOW PROVEN.**
+  pmtiles' SharedPromiseCache stores the PROMISE for the archive header and for
+  every directory, and never removes one that REJECTS. So one failed range
+  request — a moment of lost signal, a rate-limited response — leaves a rejected
+  promise in the cache, and every tile asked for afterwards awaits that same
+  rejection. Reproduced against the live site by blocking a SINGLE request for
+  four seconds: the basemap went to zero rendered features and never returned at
+  any zoom, with 49 "Failed to fetch" errors behind it. The existing pre-warm
+  could not save it, because retrying `getHeader()` re-awaits the same poisoned
+  promise. `HealingPmtilesCache` (src/lib/map/healingCache.ts) drops the entry
+  when it rejects. Aborts are left alone — the library already evicts those, and
+  a zoom aborts a great many.
+- **JUDGMENT CALL: clear the whole cache on a real directory failure rather than
+  delete one key.** The directory key is composed privately by the library, and
+  re-deriving a format we do not own would fail silently if it ever changed. It
+  is blunt — it drops the header, the root directory and every leaf cached so
+  far (the library holds up to 100), so the next few tiles re-fetch the header
+  and the directories they need, a handful of small range requests. That is the
+  price of not depending on a private key format.
+- **A map that died AFTER it had painted said nothing.** `onBlank` was only
+  called while `healthy` was false, so a mid-session death left an empty box and
+  a console message. An error now schedules one check four seconds later and
+  asks the only honest question — is any of the basemap still rendered? — before
+  reporting.
+- **The 12-second watchdog was firing on maps that were merely slow.** Measured
+  on a phone at 4G: 12.1s to first paint on a cold page load with the map open.
+  The watchdog's "fix" is a remount, which starts the whole wait again. It is
+  20s now, and the wait is no longer silent.
+- **What is actually slow, measured, not guessed.** Pressing "Map" on a phone at
+  4G: 3.9s to streets. The 270KB map module took 1.4s, and only then did the
+  stylesheet, sprite, archive header and glyphs begin — everything was
+  serialised behind the code that asks for it. Two changes: the stylesheet and
+  the first glyph range now start on the same tick the button is pressed
+  (lib/map/warm.ts), and the "Noto Sans Italic" stack is folded onto Regular.
+  Five faint layers used italic — address labels and three water labels — and
+  its first glyph range is 80KB that the map waited for last.
+- **The real headline was not the map at all: sectors-index.json was 881KB of
+  uncompressed JSON.** Both the analyser and /comparables preload it, and it
+  measured 6.2 seconds of a phone's 4G — it is why a cold load with the map open
+  took 12s. R2 does not compress on the fly and r2.dev sets no cache header. The
+  pipeline now gzips every object and sets a Cache-Control; the same treatment
+  was applied by hand to the live sectors-index.json, verified byte-identical
+  after decoding (md5 16be9538…, 881,307 bytes both sides) and 881KB → 135KB on
+  the wire. Every other object picks it up at the next data refresh.
+- **JUDGMENT CALL: no Worker proxy for the tiles.** r2.dev is uncached and rate
+  limited (one range request measured 16.4s), and proxying the archive through
+  the Worker would fix both. It was rejected: it puts every tile request against
+  the free plan's 100k/day Worker limit, and the measurement says tiles are not
+  the bottleneck — 69KB and about 1.3s of a 3.9s open. The real fix is a custom
+  domain on the bucket, which needs the site's own domain, which is still TBD.
+- **Static assets were served `max-age=0, must-revalidate`.** That is the
+  Cloudflare default for Workers assets, so every hashed chunk, glyph and sprite
+  cost a round trip on every visit. `public/_headers` now caches the paths whose
+  content cannot change under a cached client: `/_astro/*` (content-hashed) and
+  `/map/sprites/v4/*` (path-versioned) for a year, glyphs for a month.
+  `/map/vendor/*` is deliberately absent — maplibre's worker lives there at a
+  stable path and must always match the library bundled beside it.
+- **The zoom controls were invisible because the glyphs are MapLibre's own data
+  URIs with `fill="#333"` baked in, sitting on our dark control group.** A
+  colour cannot be pushed into somebody else's data URI, so the glyph shape is
+  drawn here and `var(--accent)` paints it through a mask — no brand hex retyped
+  outside tokens.css. The "Reset" label had the matching fault from the other
+  direction: still `--accent-ink` (near-black) from when the group behind it was
+  white. MapLibre's `#ddd` divider between the stacked buttons went too.
+- **`forced-color-adjust: none` on the map icons is deliberate.** In a forced
+  palette the map underneath is still a full-colour picture, so a control forced
+  to the system colours can vanish against it.
+- **THE ADVERSARIAL SWEEP CAUGHT TWO THINGS I HAD SHIPPED WRONG.** 54 agents
+  across ten lenses, every finding refuted twice; eight survived, of which two
+  mattered.
+  1. **The zoom-control fix did not work at all.** `background-image: none` sat
+     in a shared rule whose specificity is (0,3,1) — exactly the same weight as
+     MapLibre's own `.maplibregl-ctrl button.maplibregl-ctrl-zoom-in
+     .maplibregl-ctrl-icon` — and MapLibre's stylesheet is appended at map
+     mount, AFTER ours, so it won the tie. The lime painted, their #333 glyph
+     painted on top of it, and the mask clipped both to the same shape: the
+     control measured 1.53:1, no better than before, with every source-text
+     assertion green. Naming the button takes ours to (0,4,1). The test now
+     COMPUTES both specificities from the vendored stylesheet rather than
+     grepping for the declaration, and fails on the exact mistake I made.
+     Verified after: `background-image` computes to `none`, 676 pure lime pixels
+     make the glyph, 17.08:1 against the control.
+  2. **Warming the glyph made the whole product heavier.** `warm.ts` imported
+     the stack name from `style.ts`, and `CompMap` imports `warm.ts` eagerly —
+     which dragged the basemap style and @protomaps/basemaps out of the lazily
+     imported 1MB map chunk and onto every analyser page. The names live in a
+     leaf module (`lib/map/fonts.ts`) that imports nothing. Verified: the
+     eager CompMap chunk is 19.8KB and contains no basemap code; @protomaps
+     appears only in mapImpl.
+  Three more survivors were the same defect seen from three lenses: a new test
+  sliced the stylesheet BACKWARDS (its end marker is 750 lines earlier than its
+  start), so it asserted against an empty string and could never fail.
+- **Copy-ratchet debt went DOWN by two.** The blank-map reasons are diagnostic
+  codes that reach `console.error`, not prose, so they are hyphenated tokens now
+  and the mapImpl baseline drops 7 → 5 (64 strings across 21 files).
+
 ## 2026-09-09 — Sprint C2: aligned header, official social marks, unified left rail (deployed)
 
 - **The wordmark and the credit did not line up because the ARTWORK was
