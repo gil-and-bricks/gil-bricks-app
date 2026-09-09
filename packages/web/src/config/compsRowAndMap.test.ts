@@ -169,7 +169,10 @@ describe('4. the map controls are visible', () => {
     // source order: the lime painted, maplibre's #333 glyph painted over it, the
     // mask clipped both to the same shape, and the control measured 1.53:1 —
     // exactly as invisible as before, with every source-text assertion green.
-    const vendor = readFileSync(fileURLToPath(new URL('../../public/map/vendor/maplibre-gl.css', import.meta.url)), 'utf8');
+    // From node_modules, NOT public/map/vendor: that copy is made by
+    // scripts/copy-map-worker.mjs at build time and is gitignored, so reading it
+    // passes on a machine that has built and fails in CI, which is what it did.
+    const vendor = readFileSync(fileURLToPath(new URL('../../../../node_modules/maplibre-gl/dist/maplibre-gl.css', import.meta.url)), 'utf8');
     const theirs = vendor
       .split('}')
       .find((r) => r.includes('maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon') && r.includes('%23333'));
