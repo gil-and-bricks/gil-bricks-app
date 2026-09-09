@@ -110,14 +110,79 @@ for (const dev of [
     ok(/(Freehold|Leasehold)/.test(txt), 'popup shows tenure');
     ok(/(Detached|Semi|Terraced|Flat|Other)/.test(txt), 'popup shows type');
     ok(/\d{4}/.test(txt), 'popup shows date');
-    ok(/\/sqft/.test(txt) || true, `popup £/sqft when present (${/£\d+\/sqft/.test(txt)})`);
+    // C1 moved the product to metres, and replaced the per-sale page with a
+    // Google search for the address. This script still asserted the OLD product
+    // and had been failing since — the link check even navigated to
+    // `${BASE}` + an absolute google.com URL. Repaired in C3.
+    ok(!/\/sqft/.test(txt), `popup prints metres, never feet (${/£[\d,]+\/m²/.test(txt) ? 'saw £/m²' : 'no area on this sale'})`);
     const href = await page.locator('.maplibregl-popup a').getAttribute('href').catch(() => null);
-    ok(!!href && href.startsWith('/transaction?id='), `Details link goes to the transaction page (${href})`);
-    if (href) {
-      const resp = await page.goto(`${BASE}${href}`, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      ok(resp && resp.status() < 400, `Details link opens (HTTP ${resp?.status()})`);
-    }
+    ok(
+      !!href && href.startsWith('https://www.google.com/search?q='),
+      `the popup link searches Google for the address (${String(href).slice(0, 60)})`,
+    );
+    // Deliberately NOT followed: it leaves our origin, and what we own is the URL.
   }
+}
+
+// D2 (C3). THE ZOOM CONTROLS ARE VISIBLE. MapLibre ships its glyphs as a data
+// URI with fill="#333" baked in, on our dark control group. The first C3 attempt
+// to recolour them lost a specificity tie and shipped a 1.53:1 control with
+// every source-text test green, so this checks the PIXELS.
+{
+  const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 1000 }, deviceScaleFactor: 4 });
+  const page = await ctx2.newPage();
+  await page.goto(`${BASE}/comparables?postcode=${PC}&view=map`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForSelector('.maplibregl-ctrl-zoom-in', { timeout: 45000 });
+  const bg = await page.evaluate(() => getComputedStyle(document.querySelector('.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon')).backgroundImage);
+  ok(bg === 'none', `maplibre's own #333 glyph is overridden (background-image: ${bg.slice(0, 30)})`);
+
+  const box = await page.locator('.maplibregl-ctrl-zoom-in').boundingBox();
+  const shot = await page.screenshot({ clip: box, type: 'png' });
+  const reader = await ctx2.newPage();
+  await reader.setContent('<canvas id="c"></canvas>');
+  const hist = await reader.evaluate(async (b64) => {
+    const img = new Image();
+    await new Promise((r) => { img.onload = r; img.src = 'data:image/png;base64,' + b64; });
+    const c = document.getElementById('c'); c.width = img.width; c.height = img.height;
+    const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const d = g.getImageData(0, 0, img.width, img.height).data;
+    const counts = new Map();
+    for (let i = 0; i < d.length; i += 4) counts.set(`${d[i]},${d[i + 1]},${d[i + 2]}`, (counts.get(`${d[i]},${d[i + 1]},${d[i + 2]}`) ?? 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  }, shot.toString('base64'));
+  const lum = ([r, g, b]) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b); };
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const ground = hist[0][0].split(',').map(Number);
+  const glyph = hist.map(([k]) => k.split(',').map(Number)).sort((a, b) => lum(b) - lum(a))[0];
+  const r = ratio(glyph, ground);
+  ok(r >= 3, `the zoom glyph clears the 3:1 non-text minimum (${r.toFixed(2)}:1, glyph rgb(${glyph}) on rgb(${ground}))`);
+  await ctx2.close();
+}
+
+// D3 (C3). ONE FAILED RANGE REQUEST MUST NOT KILL THE MAP. pmtiles caches a
+// rejected promise for ever, so before the healing cache a single blocked
+// request left the basemap at zero features at every zoom, permanently.
+{
+  const ctx3 = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
+  const page = await ctx3.newPage();
+  let blip = false;
+  let blocked = 0;
+  await page.route('**/*.pmtiles', async (r) => { if (blip) { blocked += 1; await r.abort('connectionfailed'); return; } await r.continue(); });
+  await page.goto(`${BASE}/comparables?postcode=${PC}&view=map`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForSelector('.comp-map canvas', { timeout: 45000 });
+  await page.locator('.comp-map').scrollIntoViewIfNeeded();
+  for (let i = 0; i < 120 && (await basemapFeatures(page)) <= 50; i += 1) await page.waitForTimeout(250);
+  blip = true;
+  await page.evaluate(() => document.querySelector('.comp-map')._map.setZoom(11));
+  await page.waitForTimeout(4000);
+  blip = false;
+  await page.waitForTimeout(10000);
+  await page.evaluate(() => document.querySelector('.comp-map')._map.setZoom(13));
+  await page.waitForTimeout(8000);
+  const back = await basemapFeatures(page);
+  ok(blocked > 0, `the blip actually blocked ${blocked} range request(s)`);
+  ok(back > 50, `the basemap comes back after a blocked range request (${back} features)`);
+  await ctx3.close();
 }
 
 // E1. a single WebGL context loss AUTO-RECOVERS (remount heals it)
@@ -130,7 +195,7 @@ for (const dev of [
     const c = document.querySelector('.comp-map canvas');
     (c.getContext('webgl2') || c.getContext('webgl')).getExtension('WEBGL_lose_context')?.loseContext();
   });
-  await page.waitForTimeout(16000); // watchdog(12s) → auto-retry → remount renders
+  await page.waitForTimeout(26000); // watchdog(20s, C3) → auto-retry → remount renders
   const recovered = await basemapFeatures(page);
   const fellBack = await page.locator('.map-fallback').count();
   ok(recovered > 100 && fellBack === 0, `single context loss auto-recovers (basemap ${recovered}, fallback shown ${fellBack})`);
@@ -142,8 +207,8 @@ for (const dev of [
   await page.route('**/ew.pmtiles', (r) => r.abort()); // basemap can never load
   await page.goto(`${BASE}/comparables?postcode=${PC}&view=map`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForSelector('.comp-map', { timeout: 45000 });
-  // watchdog 12s → auto-retry → watchdog 12s → fallback (~26s)
-  const appeared = await page.waitForSelector('.map-fallback', { timeout: 40000 }).then(() => true, () => false);
+  // watchdog 20s (C3) → auto-retry → watchdog 20s → fallback (~42s)
+  const appeared = await page.waitForSelector('.map-fallback', { timeout: 60000 }).then(() => true, () => false);
   ok(appeared, 'a persistently blank basemap surfaces the honest fallback (never a silent blank)');
 }
 
