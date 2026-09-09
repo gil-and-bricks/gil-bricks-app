@@ -1,0 +1,162 @@
+name: health
+
+# The app cannot tell anybody anything — it sends no email, by rule. So it
+# publishes what it knows at /api/health and this asks, hourly, and does the
+# telling. Same pattern as the other failure notifiers: one assigned issue,
+# updated rather than duplicated, and CLOSED again when the app recovers.
+on:
+  schedule:
+    - cron: "27 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: health
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the app how it is
+        id: ask
+        env:
+          HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
+        run: |
+          set -o pipefail
+          URL="https://gil-bricks-app.gil-782.workers.dev/api/health"
+          # --fail is deliberately NOT used: a bad verdict comes back as 200 and
+          # we want to READ it. Only a transport failure should look like one.
+          code=$(curl -sS -o body.json -w '%{http_code}' --max-time 25 \
+            -H "Authorization: Bearer ${HEALTH_TOKEN}" "$URL") || code=000
+          echo "http=$code"
+          {
+            echo "code=$code"
+            echo "body<<JSONEOF"
+            cat body.json 2>/dev/null || echo '{}'
+            echo ""
+            echo "JSONEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Say something, or stop saying it
+        uses: actions/github-script@v7
+        env:
+          CODE: ${{ steps.ask.outputs.code }}
+          BODY: ${{ steps.ask.outputs.body }}
+        with:
+          script: |
+            const TITLE = 'The app is reporting a problem';
+            const code = process.env.CODE;
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+
+            let report = null;
+            try { report = JSON.parse(process.env.BODY); } catch { /* handled below */ }
+
+            let failing = [];
+            let headline = '';
+            if (code !== '200' || report === null) {
+              headline = `The health endpoint could not be read (HTTP ${code}). The app may be down, or the check itself is broken.`;
+              failing = [{ id: 'endpoint', detail: `HTTP ${code}` }];
+            } else if (report.status !== 'ok') {
+              const checks = Array.isArray(report.checks) ? report.checks : [];
+              failing = checks.filter((c) => c.ok === false);
+              if (failing.length === 0) {
+                // status fail with no detail means the token did not match, so
+                // we got the anonymous answer. That is itself worth saying.
+                failing = [{ id: 'unknown', detail: 'the endpoint reported a fault but returned no detail — check HEALTH_TOKEN matches the Worker secret' }];
+              }
+              headline = 'Something in the app needs attention.';
+            }
+
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
+            });
+            const existing = open.data.find((i) => i.title === TITLE);
+
+            // ---- healthy: close anything we opened, and say nothing otherwise
+            if (failing.length === 0) {
+              if (existing) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number,
+                  body: `Recovered — every check is passing again.\n\nRun: ${run}`,
+                });
+                await github.rest.issues.update({
+                  owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, state: 'closed',
+                });
+                core.notice(`recovered; closed #${existing.number}`);
+              } else {
+                core.notice('all checks passing');
+              }
+              return;
+            }
+
+            // One line per fault, and a hidden fingerprint of WHICH faults, so a
+            // repeat poll can tell "same problem" from "a new one".
+            const fingerprint = `<!-- ${failing.map((c) => c.id).sort().join(',')} -->`;
+            const lines = failing.map((c) => `- **${c.id}** — ${c.detail}`).join('\n');
+            const body = [
+              headline,
+              '',
+              lines,
+              '',
+              `Run: ${run}`,
+              '',
+              'This is polled hourly. It closes itself when the app reports healthy again, so there is nothing to tidy up if it turns out to be transient.',
+            ].join('\n');
+
+            if (!existing) {
+              const made = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE,
+                body: `${body}\n\n${fingerprint}`,
+                assignees: [context.repo.owner],
+              });
+              core.warning(`opened issue #${made.data.number}`);
+              return;
+            }
+
+            // Already open: only speak when the SET of faults changes. An hourly
+            // comment on a known problem is how an alert gets muted.
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, per_page: 100,
+            });
+            const last = [existing.body ?? '', ...comments.data.map((c) => c.body ?? '')].pop() ?? '';
+            if (!last.includes(fingerprint)) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number,
+                body: `${body}\n\n${fingerprint}`,
+              });
+            }
+            core.warning(`still unhealthy: ${failing.map((c) => c.id).join(', ')}`);
+
+      # If the POLLER breaks — not the app — that is its own silence to avoid.
+      # Distinct title, so it can never be confused with the app's own report.
+      - name: Raise an issue if this failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const TITLE = 'The health poller itself failed';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'The hourly health check could not run, so the app is currently UNWATCHED — a real fault would go unreported.',
+              '',
+              `Run: ${run}`,
+            ].join('\n');
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
+            });
+            const existing = open.data.find((i) => i.title === TITLE);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body,
+                assignees: [context.repo.owner],
+              });
+            }

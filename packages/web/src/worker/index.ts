@@ -18,6 +18,7 @@ import {
   purgeFactFinds, revealPage, type FactFindRow,
 } from './lib/factfind';
 import { coreConfig } from '@gil-bricks/core';
+import { runHealthChecks, tokenMatches } from './lib/health';
 import {
   cacheKey, lookupFromRegister, normalisePostcode, outsideEnglandWales, readCache, sweepEpcCache, writeCache,
 } from './lib/epc';
@@ -55,6 +56,11 @@ export interface Env {
   /** DEV-ONLY gate. Set ONLY in .dev.vars (never deployed); undefined in production,
    * which disables /auth/dev-login and /dev/seed entirely. See worker/dev.ts. */
   DEV_LOGIN?: string;
+  /** Read-only bearer for /api/health's DETAIL. Without it the endpoint still
+   *  answers, with one word and nothing else. OPTIONAL on the type on purpose:
+   *  an environment with no token must degrade to the anonymous answer, never
+   *  to an open one. */
+  HEALTH_TOKEN?: string;
 }
 
 const GOOGLE_AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
@@ -1340,6 +1346,47 @@ async function handleReviveDeal(request: Request, env: Env, dealId: string): Pro
 /** Days a delivered lead's figures are kept before the row is pruned (T3). */
 const LEAD_RETENTION_DAYS = 90;
 
+/**
+ * GET /api/health — the app saying whether anything is quietly broken.
+ *
+ * ANONYMOUS callers get ONE WORD. Not the checks, not the counts, not the ages:
+ * queue depth and cron timing are operational detail, and a stranger has no
+ * business with them. With the bearer token the full report comes back, which
+ * is what the hourly workflow uses to write a useful issue.
+ *
+ * It answers 200 even when the news is bad. A poller needs to read the verdict;
+ * a 500 tells it only that something is wrong with the endpoint itself.
+ */
+async function handleHealth(request: Request, env: Env): Promise<Response> {
+  const report = await runHealthChecks(env.DB, {
+    now: Date.now(),
+    manifestUrl: `${coreConfig.dataBaseUrl.replace(/\/+$/, '')}/manifest.json`,
+  });
+  const auth = request.headers.get('authorization');
+  const given = auth !== null && auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  const body = tokenMatches(given, env.HEALTH_TOKEN) ? report : { status: report.status };
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'x-robots-tag': 'noindex, nofollow, noarchive',
+    },
+  });
+}
+
+/** A cron says it finished by stamping its own row. Never lets the stamp take
+ *  down the work it is reporting on. */
+async function stampHeartbeat(env: Env, name: string): Promise<void> {
+  try {
+    await env.DB.prepare(
+      'INSERT INTO cron_heartbeat (name, last_at) VALUES (?, ?) ON CONFLICT(name) DO UPDATE SET last_at = excluded.last_at',
+    ).bind(name, new Date().toISOString()).run();
+  } catch (err) {
+    console.error(`heartbeat stamp failed for ${name}: ${String(err)}`);
+  }
+}
+
 async function processOutbox(env: Env, nowMs = Date.now()): Promise<void> {
   // F2: a fact-find is somebody's date of birth, address and credit answer. Once
   // the broker has read it, ours is a copy of a record that lives on his system
@@ -1409,6 +1456,7 @@ export default {
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
     if (pathname === '/api/epc' && method === 'GET') return handleEpcLookup(request, env);
+    if (pathname === '/api/health' && method === 'GET') return handleHealth(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
     if (pathname === '/api/deals/dead' && method === 'GET') return handleTerminalPage(request, env, url, 'dead');
     if (pathname === '/api/deals/done' && method === 'GET') return handleTerminalPage(request, env, url, 'done');
@@ -1448,11 +1496,16 @@ export default {
     // notifies, and this app still sends no email of any kind. Every other
     // trigger is the Kit outbox safety net.
     if (event?.cron === DAILY_CRON) {
+      // The heartbeat means THIS CRON FINISHED ITS WORK, not that it was
+      // triggered — so a step that keeps failing shows up at /api/health as a
+      // cron that has stopped, instead of scrolling past in a log nobody reads.
+      let clean = true;
       // A failure here must never take the whole invocation down silently: it is
       // an index, and the board computes the same value on load regardless.
       try {
         if (features.dealPipeline) await stampStaleness(env.DB);
       } catch (err) {
+        clean = false;
         console.error(`daily staleness stamp failed: ${String(err)}`);
       }
       // Sweep expired EPC cache rows (E1). Separately guarded: the cache is a
@@ -1460,10 +1513,15 @@ export default {
       try {
         await sweepEpcCache(env.DB, Date.now());
       } catch (err) {
+        clean = false;
         console.error(`epc cache sweep failed: ${String(err)}`);
       }
+      if (clean) await stampHeartbeat(env, 'daily');
       return;
     }
+    // Same rule: no stamp unless the queue was actually worked. A throwing
+    // processOutbox used to be invisible; now it goes stale within 90 minutes.
     await processOutbox(env);
+    await stampHeartbeat(env, 'outbox');
   },
 };
