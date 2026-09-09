@@ -4,26 +4,37 @@ import { siteConfig } from '../../site.config';
 import { FOOTER } from '../../config/nav';
 import { DATA_FRESHNESS } from '../../config/freshness';
 import { features } from '../../config/features';
+import SocialMarks from './SocialMarks.astro';
 ---
 
 <footer class="site-footer">
+  {/* H1 — one centred column, in the order somebody reads it: who made it,
+      where to find him, the legal pages, then the attributions we are required
+      to print. It was a left-aligned list of leftovers against a 72rem rule. */}
   <p class="footer-maker">
     <span>{siteConfig.siteName} {FOOTER.madeBy}</span>
     <img src="/brand/gil-and-bricks-wordmark.png" alt={siteConfig.makerName} width="499" height="218" decoding="async" loading="lazy" />
   </p>
-  <p class="footer-contact">
-    {FOOTER.contactLead}
-    <a href={siteConfig.socials.instagram} target="_blank" rel="noopener noreferrer">{FOOTER.instagram}</a>
-    <a href={siteConfig.socials.youtube} target="_blank" rel="noopener noreferrer">{FOOTER.youtube}</a>
+
+  <p class="footer-contact">{FOOTER.contactLead}</p>
+  <SocialMarks place="footer" />
+
+  <nav class="footer-links" aria-label={FOOTER.linksLabel}>
     <a href="/terms">{FOOTER.terms}</a>
     <a href="/privacy">{FOOTER.privacy}</a>
-  </p>
-  <p>{OGL_ATTRIBUTION}</p>
-  <p>
-    {FOOTER.dataLicences}{' '}
-    <span data-asof-line>{FOOTER.asOfBefore}<span data-asof></span>{FOOTER.asOfAfter}</span>
-    {features.staleDataNote && <span class="asof-stale" data-stale-note hidden>{' '}{DATA_FRESHNESS.note}</span>}
-  </p>
+  </nav>
+
+  {/* The attributions are legally required and long. They are not hidden — they
+      get their own quiet place below a rule, so the footer reads as a designed
+      object instead of trailing off into small print. */}
+  <div class="footer-legal">
+    <p>{OGL_ATTRIBUTION}</p>
+    <p>{FOOTER.dataLicences}</p>
+    <p>
+      <span data-asof-line>{FOOTER.asOfBefore}<span data-asof></span>{FOOTER.asOfAfter}</span>
+      {features.staleDataNote && <span class="asof-stale" data-stale-note hidden>{' '}{DATA_FRESHNESS.note}</span>}
+    </p>
+  </div>
 </footer>
 
 <script>
@@ -56,8 +67,22 @@ import { features } from '../../config/features';
 </script>
 
 <style>
-  .footer-contact { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
-  .footer-contact a { color: var(--accent); }
+  .footer-contact { margin: 0; }
+  .footer-links { display: flex; justify-content: center; gap: var(--space-4); margin: 0; }
+  .footer-links a { color: var(--accent); }
+  /* The required attributions: their own place, below a rule, quieter than the
+     rest — printed in full, but not the loudest thing down here. */
+  .footer-legal {
+    margin: var(--space-4) auto 0;
+    padding-top: var(--space-4);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    max-width: 46rem;
+    font-size: var(--text-2xs);
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.5;
+  }
+  .footer-legal p { margin: 0 0 var(--space-2); }
+  .footer-legal p:last-child { margin-bottom: 0; }
   /* D5 — the as-of line holds its space from the first paint and is revealed in
      place, so the footer never grows under the page. */
   /* The month itself is the only part that arrives late; holding its width in
@@ -72,16 +97,24 @@ import { features } from '../../config/features';
   .site-footer {
     max-width: 72rem;
     margin: var(--space-8) auto 0;
-    padding: var(--space-5) var(--space-5) calc(var(--space-8) + 3rem);
+    padding: var(--space-6) var(--space-5) calc(var(--space-8) + 3rem);
     color: var(--text-dim);
     font-size: var(--text-xs);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
+    /* ONE centred column. The maker credit was left-aligned against a 72rem
+       rule and looked stranded (H1). */
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-3);
   }
   .footer-maker {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: var(--space-2);
-    margin: 0 0 var(--space-3);
+    margin: 0;
   }
   /* C2 — the asset was cropped to its glyph, so the same optical size is now a
      smaller number. The old CSS height was 44px on a 520x293 asset whose glyph

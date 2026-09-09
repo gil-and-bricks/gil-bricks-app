@@ -11,6 +11,7 @@ import { analyseBtl, scoreDeal, strategies, fmtPct, type BtlInputs } from '@gil-
 import { HOME } from '../config/home';
 import { COPY } from '../config/copy';
 import { features } from '../config/features';
+import VideoSlot from '../components/site/VideoSlot.astro';
 
 const store = siteConfig.chromeStoreUrl.trim();
 
@@ -50,18 +51,17 @@ const tier = deal === null ? '' : deal.verdict === 'good' ? 'ds-good' : deal.ver
 ---
 
 <AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={HOME.lead}>
+  {/* H1 — the page leads with WHAT IT DOES. The name and the maker were here
+      twice: once in the header, then again as the h1 and a line under it. A
+      stranger from a YouTube comment has ten seconds and does not need to be
+      told our name twice before being told what this is. */}
   <section class="home-hero">
-    <h1>{siteConfig.siteName}</h1>
-    <p class="hero-maker">by {siteConfig.makerName}</p>
-    <p class="tagline">{HOME.lead}</p>
+    <h1>{HOME.lead}</h1>
     <p class="home-sub">{features.dealScore ? HOME.sub : HOME.noScore.sub}</p>
-    <form class="home-search glass card" action="/area-data" method="get">
-      <label for="home-pc">{HOME.search.label}</label>
-      <div class="home-search-row">
-        <input id="home-pc" name="pc" required placeholder={HOME.search.placeholder} autocomplete="postal-code" />
-        <button type="submit" class="btn-primary">{HOME.search.submit}</button>
-      </div>
-    </form>
+    <p class="home-hero-cta">
+      <a class="btn-primary" href="/buy-to-let/analyser">{HOME.heroCta}</a>
+    </p>
+    <p class="home-hero-note">{HOME.heroCtaNote}</p>
   </section>
 
   {/* The product doing its job, not a description of it. */}
@@ -99,10 +99,16 @@ const tier = deal === null ? '' : deal.verdict === 'good' ? 'ds-good' : deal.ver
     </ul>
   </section>
 
-  {/* The extension is published, so it is promoted, not buried. */}
+  {/* H1 — ONE grouping, so "Ways in" actually groups them. It was a heading
+      followed by four sibling h2s, which announces four unrelated sections. */}
+  <section class="home-ways" aria-labelledby="home-ways-h">
+  <h2 class="home-ways-h" id="home-ways-h">{HOME.waysIn.heading}</h2>
+
+  {/* The extension is published, so it is promoted, not buried — and it is the
+      way in that fits somebody already looking at a listing. */}
   <section class="glass card home-extension" aria-labelledby="home-ext-h">
     <div>
-      <h2 id="home-ext-h">{HOME.extension.heading}</h2>
+      <h3 id="home-ext-h">{HOME.extension.heading}</h3>
       <p>{HOME.extension.body}</p>
       <p class="hint">{HOME.extension.note}</p>
     </div>
@@ -117,11 +123,15 @@ const tier = deal === null ? '' : deal.verdict === 'good' ? 'ds-good' : deal.ver
   </section>
 
   <section class="home-strategies" aria-labelledby="home-strat-h">
-    <h2 id="home-strat-h">{HOME.strategies.heading}</h2>
+    <h3 id="home-strat-h">{HOME.strategies.heading}</h3>
     <ul class="tool-list home-strategy-list">
       {strategies.map((s) => (
         <li class="glass card tool-card">
-          <h3><a href={`${s.route}/analyser`}>{s.name}</a></h3>
+          {/* h4, because "Pick a strategy" above them is an h3 inside the Ways
+              in group. Demoting the group headings and leaving the cards where
+              they were made the cards siblings of the heading meant to group
+              them, which flattens the outline a screen reader reads. */}
+          <h4><a href={`${s.route}/analyser`}>{s.name}</a></h4>
           <p class="hint">{s.tagline}</p>
         </li>
       ))}
@@ -129,11 +139,46 @@ const tier = deal === null ? '' : deal.verdict === 'good' ? 'ds-good' : deal.ver
     <p class="home-chooser-line">{HOME.chooser.body} <a href="/start">{HOME.chooser.cta}</a></p>
   </section>
 
+  <section class="glass card home-area" aria-labelledby="home-area-h">
+    <h3 id="home-area-h">{HOME.search.heading}</h3>
+    <form class="home-search" action="/area-data" method="get">
+      <label for="home-pc">{HOME.search.label}</label>
+      <div class="home-search-row">
+        <input id="home-pc" name="pc" required placeholder={HOME.search.placeholder} autocomplete="postal-code" />
+        <button type="submit" class="btn-secondary">{HOME.search.submit}</button>
+      </div>
+    </form>
+  </section>
+
   {features.toolsSection && (
     <section class="glass card home-tools" aria-labelledby="home-tools-h">
-      <h2 id="home-tools-h">{HOME.tools.heading}</h2>
+      <h3 id="home-tools-h">{HOME.tools.heading}</h3>
       <p>{HOME.tools.body}</p>
       <p><a class="btn-secondary" href="/tools">{HOME.tools.cta}</a></p>
+    </section>
+  )}
+
+  </section>
+
+  {features.homeVideo && (
+    <VideoSlot
+      ready={HOME.video.url.trim() !== ''}
+      url={HOME.video.url}
+      heading={HOME.video.heading}
+      placeholder={HOME.video.placeholder}
+      load={HOME.video.load}
+      note={HOME.video.note}
+    />
+  )}
+
+  {/* H1 — the operator writes this himself (HOME.whyFree.body). Until he does
+      it says so, rather than the page inventing a reason he never gave. */}
+  {features.homeWhyFree && (
+    <section class="glass card home-why" aria-labelledby="home-why-h">
+      <h2 id="home-why-h">{HOME.whyFree.heading}</h2>
+      {HOME.whyFree.body.trim() === ''
+        ? <p class="hint home-why-placeholder">{HOME.whyFree.placeholder}</p>
+        : <p>{HOME.whyFree.body}</p>}
     </section>
   )}
 

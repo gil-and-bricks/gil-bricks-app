@@ -1,0 +1,116 @@
+---
+/**
+ * The official Instagram and YouTube marks, ONE copy for header and footer (H1).
+ *
+ * C2 made them official; it left them the same 18px square box, and a square
+ * Instagram glyph and a wide YouTube badge at identical dimensions are never
+ * optically equal — the YouTube mark only fills 16.2 of its 24 units of height,
+ * so it rendered a third shorter and read as an afterthought.
+ *
+ * They are matched by the GEOMETRIC MEAN of their boxes (√(w×h)), which is what
+ * makes two filled badges of different proportions carry the same visual weight:
+ * matching height makes the wide one look bigger, matching width makes it look
+ * smaller. Sizes are in one place — the CSS below — and verified by counting
+ * painted pixels, not by eye.
+ *
+ * Neither mark is recoloured (both companies' guidelines forbid it) and neither
+ * is fetched: inline SVG, self-hosted, no CDN, no request.
+ */
+import { siteConfig } from '../../site.config';
+import { NAV } from '../../config/nav';
+
+interface Props {
+  /** Where these sit, so the two places can differ in size without forking. */
+  place: 'header' | 'footer';
+}
+const { place } = Astro.props;
+---
+
+<div class:list={['social-marks', `social-marks-${place}`]}>
+  <a
+    href={siteConfig.socials.instagram}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={NAV.socials.instagram.label(siteConfig.makerName)}
+    title={NAV.socials.instagram.title}
+  >
+    {/* Instagram's own gradient. The ids are namespaced AND suffixed by place:
+        header and footer both render this, and two identical ids on one page
+        would make the second mark reference the first one's gradient. */}
+    <svg viewBox="0 0 24 24" class="mark mark-ig" aria-hidden="true" focusable="false">
+      <defs>
+        <radialGradient id={`pl-ig-a-${place}`} cx="0.3" cy="1.05" r="1.3">
+          <stop offset="0" stop-color="#FFDD55"/>
+          <stop offset="0.5" stop-color="#FF543E"/>
+          <stop offset="1" stop-color="#C837AB"/>
+        </radialGradient>
+        <radialGradient id={`pl-ig-b-${place}`} cx="0.12" cy="0.02" r="0.75">
+          <stop offset="0" stop-color="#3771C8"/>
+          <stop offset="1" stop-color="#6600FF" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect x="0" y="0" width="24" height="24" rx="7" fill={`url(#pl-ig-a-${place})`}/>
+      <rect x="0" y="0" width="24" height="24" rx="7" fill={`url(#pl-ig-b-${place})`}/>
+      <path fill="#fff" d="M12 5.8c-1.7 0-1.9 0-2.6.04-.7.03-1.1.15-1.4.26-.36.14-.62.3-.89.57-.27.27-.43.53-.57.89-.11.3-.23.7-.26 1.4C6.2 9.66 6.2 9.88 6.2 12s0 2.34.04 3.04c.03.7.15 1.1.26 1.4.14.36.3.62.57.89.27.27.53.43.89.57.3.11.7.23 1.4.26.7.04.92.04 2.64.04s1.94 0 2.64-.04c.7-.03 1.1-.15 1.4-.26.36-.14.62-.3.89-.57.27-.27.43-.53.57-.89.11-.3.23-.7.26-1.4.04-.7.04-.92.04-3.04s0-2.34-.04-3.04c-.03-.7-.15-1.1-.26-1.4a2.4 2.4 0 0 0-.57-.89 2.4 2.4 0 0 0-.89-.57c-.3-.11-.7-.23-1.4-.26-.7-.04-.92-.04-2.64-.04Zm0 1.14c1.69 0 1.89 0 2.56.04.62.03.95.13 1.17.22.3.11.5.25.72.47.22.22.36.43.47.72.09.22.19.55.22 1.17.03.67.04.87.04 2.56s0 1.89-.04 2.56c-.03.62-.13.95-.22 1.17-.11.3-.25.5-.47.72-.22.22-.43.36-.72.47-.22.09-.55.19-1.17.22-.67.03-.87.04-2.56.04s-1.89 0-2.56-.04c-.62-.03-.95-.13-1.17-.22a1.9 1.9 0 0 1-.72-.47 1.9 1.9 0 0 1-.47-.72c-.09-.22-.19-.55-.22-1.17-.03-.67-.04-.87-.04-2.56s0-1.89.04-2.56c.03-.62.13-.95.22-1.17.11-.3.25-.5.47-.72.22-.22.43-.36.72-.47.22-.09.55-.19 1.17-.22.67-.03.87-.04 2.56-.04Zm0 1.94a3.12 3.12 0 1 0 0 6.24 3.12 3.12 0 0 0 0-6.24Zm0 5.14a2.02 2.02 0 1 1 0-4.04 2.02 2.02 0 0 1 0 4.04Zm3.97-5.26a.73.73 0 1 1-1.46 0 .73.73 0 0 1 1.46 0Z"/>
+    </svg>
+  </a>
+  <a
+    href={siteConfig.socials.youtube}
+    target="_blank"
+    rel="noopener noreferrer"
+    aria-label={NAV.socials.youtube.label(siteConfig.makerName)}
+    title={NAV.socials.youtube.title}
+  >
+    {/* The viewBox is cropped to the artwork (y 3.9 → 20.1), so the element's
+        box IS the mark. In the old 0 0 24 24 box a third of the height was
+        empty, which is precisely why it looked smaller than Instagram. */}
+    <svg viewBox="0 3.9 24 16.2" class="mark mark-yt" aria-hidden="true" focusable="false">
+      <path fill="#FF0000" d="M23.5 6.5a3 3 0 0 0-2.1-2.1C19.5 3.9 12 3.9 12 3.9s-7.5 0-9.4.5A3 3 0 0 0 .5 6.5 31.4 31.4 0 0 0 0 12a31.4 31.4 0 0 0 .5 5.5 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31.4 31.4 0 0 0 24 12a31.4 31.4 0 0 0-.5-5.5Z"/>
+      <path fill="#fff" d="M9.6 15.6V8.4l6.2 3.6Z"/>
+    </svg>
+  </a>
+</div>
+
+<style>
+  .social-marks { display: flex; align-items: center; gap: var(--space-3); }
+  .social-marks a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* A comfortable hit area around a quiet mark — the target is 44px, the
+       ink is not. */
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+    border-radius: 10px;
+    /* They are a credit, not a call to action: full colour at 0.85, and no lime
+       chrome of ours painted around somebody else's mark. */
+    opacity: 0.85;
+    transition: opacity 120ms ease;
+  }
+  .social-marks a:hover, .social-marks a:focus-visible { opacity: 1; }
+  .mark { display: block; }
+  /* MATCHED BY GEOMETRIC MEAN, not by height or width. Instagram is 1:1 and
+     YouTube is 24:16.2, so equal boxes are never equal marks. the first cut
+     matched the geometric mean and measured 11% heavy on YouTube, so these are
+     the sizes at which the PAINTED PIXEL COUNTS agree. */
+  .mark-ig { width: 22px; height: 22px; }
+  .mark-yt { width: 26.4px; height: 17.8px; }
+  /* THE HEADER SHOWS THEM ONLY WHERE ITS ROW ACTUALLY FITS THEM. Measured by
+     sweeping 300-1000px in 10px steps and reading the header's own height:
+       under 330px — no room beside the wordmark (the row wrapped, +43px, and
+                     CLS went to 0.129 against a 0.002 baseline)
+       330-640px  — the nav is hidden here and the tab bar has it, so there is
+                     room to spare: the marks show at 390px and at 360px
+       641-860px  — the full nav is back and the row wraps to two on EVERY page,
+                     76px to 128px. This is the whole tablet-portrait range
+                     (iPad mini 744, iPad 768/810, iPad Air 820, iPad Pro 834)
+                     and the first cut of H1 broke it by deleting the old
+                     blanket hide after measuring only 320, 390 and 1280.
+       861px+     — fits.
+     The footer carries them at every width, so nothing is ever unreachable. */
+  @media (max-width: 329px), (min-width: 641px) and (max-width: 860px) {
+    .social-marks-header { display: none; }
+  }
+  .social-marks-footer .mark-ig { width: 24px; height: 24px; }
+  .social-marks-footer .mark-yt { width: 28.8px; height: 19.4px; }
+</style>

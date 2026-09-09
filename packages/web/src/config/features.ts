@@ -200,6 +200,13 @@ export interface FeatureFlags {
    * shows the tax inside its cash-in tile as it did before, and the other three
    * name it only inside the maths accordion. */
   stampDutyCost: boolean;
+  /** The homepage's click-to-load video slot (H1). Off: the section is not
+   * rendered at all and no YouTube markup ships with the page. */
+  homeVideo: boolean;
+  /** The homepage's "why this is free" section (H1). Off: the section is not
+   * rendered. While HOME.whyFree.body is empty it shows a plainly-marked
+   * placeholder rather than words the operator did not write. */
+  homeWhyFree: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -235,6 +242,8 @@ export const features: FeatureFlags = {
   pdfExport: false,
   staleDataNote: true,
   stampDutyCost: true,
+  homeVideo: true,
+  homeWhyFree: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

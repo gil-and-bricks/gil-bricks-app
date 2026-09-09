@@ -2,6 +2,65 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — Sprint H1: homepage restructure, footer, official social marks
+
+- **The social marks: C2 made them official and left them the wrong SIZE.** Both
+  sat in an 18px square box, but YouTube's artwork fills only 16.2 of its 24
+  units of height, so it rendered a third shorter and read as an afterthought.
+  The viewBox is cropped to the artwork now, so the element's box IS the mark,
+  and the two are sized by PAINTED PIXELS rather than geometry — ink ratio
+  1.00–1.05 at 320, 390 and 1280, in both header and footer. They live in ONE
+  component (SocialMarks.astro) used by both, so they cannot drift again.
+- **THE SWEEP CAUGHT ME BREAKING THE TABLET RANGE.** My first cut deleted the
+  old blanket "hide the marks below 960px" after measuring 320, 390 and 1280 —
+  none of which sit in the band that mattered. With the marks in the row the
+  header wrapped to two rows on EVERY page from 740px to 847px: 76px to 128px,
+  the whole of iPad mini 744, iPad 768/810, iPad Air 820 and iPad Pro 834 in
+  portrait. The replacement is banded and measured by sweeping 300–1000px in
+  10px steps: hidden under 330px and between 641px and 860px, shown elsewhere,
+  and the footer carries them at every width so nothing is unreachable. The
+  header now wraps only at 650–730px, where the live site already wrapped.
+- **JUDGMENT CALL: the header hides them at 320px, the footer does not.** The
+  operator asked for both places at 320, 390 and desktop. At 320 the header row
+  genuinely has no room — measured, it wrapped and took CLS to 0.129 — so the
+  footer is where a 320px reader meets them. At 390 they DO fit and they show.
+- **The hero repeated the header.** "PropLaunch — by Gil & Bricks" sat directly
+  under the same thing in the header. The h1 is the promise now.
+- **The alignment the operator could see but not name was real and specific.**
+  `.home-sub` had a 44rem max-width and no auto margin, so inside a centred hero
+  it sat flush LEFT. Hero and footer elements now share one centre axis at 320,
+  390 and 1280.
+- **Order, for a stranger with ten seconds:** what it is and that it is free →
+  the scored example that proves it → what it does → the ways in (extension,
+  strategies, postcode, tools) → the video → why it is free. "See area data"
+  was the first offer on the page and is now one way in among four.
+- **A SECOND THING THE SWEEP CAUGHT: my own grouping broke the type scale.**
+  Wrapping the ways in under one "Ways in" h2 meant demoting four section
+  headings to h3 — which dropped them to the browser default, 18.72px and flush
+  against their own content, and left the strategy CARDS as h3 siblings of the
+  h3 meant to group them. The h3s carry the old h2 scale now and the cards are
+  h4. Also caught: the postcode form kept `margin: 0 auto` from its old life in
+  the hero, so inside a card its heading and its form sat on two different left
+  edges from ~640px up.
+- **And a third: `:global(.social-marks-header) { gap: 0 }` in Header.astro was
+  dead.** Astro scopes the component's own rule to a higher specificity, so the
+  header's override never applied. Deleted rather than fixed: the component owns
+  its own layout.
+- **The footer is one centred column** — maker credit, contact line, marks,
+  legal links, then the required attributions in their own quieter place below a
+  rule. Printed in full, verbatim, never hidden.
+- **A video slot and a "why this is free" slot**, both flagged. The video is the
+  same click-to-load component as /bridging-finance and /credit: the built page
+  contains no iframe and makes no request to YouTube before a click. The
+  why-free section shows a plainly-marked italic placeholder until
+  HOME.whyFree.body has words, and the config file tells the operator the key
+  and warns him about the 30-word copy gate that would otherwise fail his build.
+- **A CORRECTION I OWE THE OPERATOR.** Mid-sprint I told him CLS had never been
+  zero on the homepage, quoting 0.0022 and 0.0025. Those came from a desktop
+  emulation profile at phone widths. Measured properly — real device profile,
+  five runs per width — CLS is 0.0000 at 320, 390 and 1280, on both the live
+  baseline and this change. It was zero; it still is.
+
 ## 2026-09-09 — E9: the tax, named
 
 - **Where it actually was, measured in the rendered DOM, not guessed.**

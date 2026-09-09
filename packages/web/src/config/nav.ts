@@ -26,6 +26,8 @@ export const FOOTER = {
   youtube: 'YouTube',
   terms: 'Terms',
   privacy: 'Privacy',
+  /** Accessible name of the footer's own small link row. */
+  linksLabel: 'Legal',
   /** Sits after the site name, before the maker's wordmark. */
   madeBy: 'is made by',
   /** Licence attributions we must print verbatim — exempt from the two-sentence

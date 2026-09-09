@@ -10,7 +10,11 @@
  * Nothing here may claim anything the code cannot do.
  */
 export const HOME = {
-  /** The one line under the name. */
+  /**
+   * THE HEADLINE (H1). It leads the page, so it says what the product DOES.
+   * It used to sit under "PropLaunch — by Gil & Bricks", which repeated the
+   * header word for word and spent the first line of the page on our own name.
+   */
   lead: 'Check any England or Wales property against real sold prices, free.',
   /** Two sentences, no more: what it is and who it is for. */
   sub: 'Put in a listing and its numbers. It scores the deal out of ten and tells you in plain English what is holding it back.',
@@ -35,12 +39,24 @@ export const HOME = {
     doesBody: 'Save a deal to your account and come back to it whenever you like.',
   },
 
-  /** The postcode box, kept from the old homepage. */
+  /** The hero's own action. It goes to the analyser, because that is what the
+   *  product is; the postcode box is a different, smaller question and it now
+   *  sits with the other ways in rather than leading the page (H1). */
+  heroCta: 'Analyse a deal — free',
+  heroCtaNote: 'No sign-in. Nothing to install.',
+
+  /** The postcode box, kept from the old homepage — moved down with the other
+   *  ways in. "See area data" was the first thing a stranger met, and area data
+   *  is not the most important thing this does. */
   search: {
+    heading: 'Or start with an area',
     label: 'Start with a postcode',
     placeholder: 'e.g. CF37 1DL',
     submit: 'See area data',
   },
+
+  /** The ways in, once somebody has seen what an answer looks like. */
+  waysIn: { heading: 'Ways in' },
 
   /** The worked example. These are the only numbers on the page that are ours;
    *  everything else about it — the score, the verdict, the figures — comes
@@ -109,6 +125,42 @@ export const HOME = {
   chooser: {
     body: 'Not sure which one? Answer four questions.',
     cta: 'Point me at the right tool',
+  },
+
+  /**
+   * A video slot, same pattern as /bridging-finance and /credit: click to load,
+   * never autoplay, and honest while it is empty. Nothing reaches YouTube until
+   * somebody presses play, which is what keeps the no-cookie-banner promise
+   * true. Put the URL in `url` when the video exists; leave it empty and the
+   * slot says so plainly. Remove the section entirely with features.homeVideo.
+   */
+  video: {
+    url: '',
+    heading: 'How it works, in two minutes',
+    placeholder: 'A walkthrough is coming. Nothing is loaded here until then.',
+    load: 'Play the walkthrough',
+    note: 'Loads from YouTube only when you press play.',
+  },
+
+  /**
+   * ============================================================
+   *  OPERATOR: THIS IS THE ONE TO WRITE. Edit HOME.whyFree.body (and
+   *  HOME.whyFree.heading if you want different words above it) in
+   *  packages/web/src/config/home.ts. Nothing else needs touching:
+   *  the placeholder disappears the moment `body` is not empty.
+   *  Switch the whole section off with features.homeWhyFree.
+   * ============================================================
+   * Left deliberately empty. The page must not put words in the operator's
+   * mouth about why he built this, so while `body` is empty it says plainly
+   * that it is waiting rather than inventing a mission statement.
+   */
+  whyFree: {
+    heading: 'Why this is free',
+    /** ← YOUR WORDS GO HERE (HOME.whyFree.body). Empty ships the placeholder.
+     *  Keep it to two sentences and under 30 words: CI's copy gate enforces
+     *  that on every visible block, and it will fail the build if you don't. */
+    body: '',
+    placeholder: 'Gil is writing this bit. It will say why he built this and why it costs nothing.',
   },
 
   /** The trust line at the bottom. Every clause must be true. */

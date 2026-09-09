@@ -13,6 +13,10 @@ import { ANALYSER_SECTIONS } from './analyserSections';
 const src = fileURLToPath(new URL('..', import.meta.url));
 const read = (p: string): string => readFileSync(`${src}${p}`, 'utf8');
 const header = read('components/site/Header.astro');
+/** H1 — the marks moved out of the header into ONE component shared with the
+ *  footer. The guarantees did not move: they are asserted against wherever the
+ *  artwork actually lives now. */
+const marks = read('components/site/SocialMarks.astro');
 const strip = read('components/analyser/SectionStrip.astro');
 const css = read('styles/analyser.css');
 
@@ -44,42 +48,76 @@ describe('the social marks are the official ones', () => {
     // The attribute check alone was not enough: a single CSS rule
     // (`.social-icon path { fill: var(--accent) }`) put the lime straight back
     // and passed. The stylesheet must not paint inside these marks at all.
-    expect(header, 'a recoloured mark is an off-brand mark').not.toContain('fill="currentColor"');
-    const style = header.slice(header.indexOf('<style>'));
-    const painting = style.match(/\.social-icon[^{]*\{[^}]*\}/g) ?? [];
+    expect(marks, 'a recoloured mark is an off-brand mark').not.toContain('fill="currentColor"');
+    const style = marks.slice(marks.indexOf('<style>'));
+    const painting = style.match(/\.mark[^{]*\{[^}]*\}/g) ?? [];
     for (const rule of painting) {
       expect(rule, 'the stylesheet must not colour somebody else’s mark').not.toMatch(/(^|[^-])fill\s*:/);
       expect(rule).not.toMatch(/(^|[^-])color\s*:/);
     }
-    expect(style, 'and never reaches inside the artwork').not.toMatch(/\.social-icon\s+(path|rect|circle)/);
+    expect(style, 'and never reaches inside the artwork').not.toMatch(/\.mark\s+(path|rect|circle)/);
   });
 
   it('YouTube is YouTube red and Instagram carries ITS OWN gradient stops', () => {
-    expect(header).toContain('fill="#FF0000"');
+    expect(marks).toContain('fill="#FF0000"');
     // Naming the element was not enough — swapping a stop to lime kept the
     // element and passed. The stops themselves are the brand.
     for (const stop of ['#FFDD55', '#FF543E', '#C837AB', '#3771C8', '#6600FF']) {
-      expect(header, `Instagram stop ${stop}`).toContain(stop);
+      expect(marks, `Instagram stop ${stop}`).toContain(stop);
     }
-    expect(header, 'no brand lime inside either mark').not.toMatch(/stop-color="#dcff00"/i);
+    expect(marks, 'no brand lime inside either mark').not.toMatch(/stop-color="#dcff00"/i);
   });
 
   it('they are self-hosted — inline, with nothing fetched from a CDN', () => {
     // Comments stripped first: the file that explains there is no CDN must be
     // free to say the word.
-    const socials = strip_comments(header.slice(header.indexOf('header-socials'), header.indexOf('<AuthHeader')));
-    expect(socials).not.toMatch(/https?:\/\/(?!www\.instagram|www\.youtube)/);
+    const socials = strip_comments(marks);
+    expect(socials).not.toMatch(/https?:\/\/(?!www\.w3\.org|www\.instagram|www\.youtube)/);
     expect(socials, 'no external icon font or sprite').not.toMatch(/cdn|unpkg|jsdelivr|fontawesome/i);
   });
 
   it('the accessible labels survived', () => {
-    expect(header).toContain('NAV.socials.instagram.label');
-    expect(header).toContain('NAV.socials.youtube.label');
+    expect(marks).toContain('NAV.socials.instagram.label');
+    expect(marks).toContain('NAV.socials.youtube.label');
   });
 
   it('the lime hover chrome is gone — we do not paint our brand round theirs', () => {
-    const socials = header.slice(header.indexOf('.header-socials a {'), header.indexOf('.social-icon {'));
-    expect(socials).not.toContain('var(--accent)');
+    const style = marks.slice(marks.indexOf('<style>'));
+    expect(style, 'no brand colour painted around somebody else’s mark').not.toContain('var(--accent)');
+  });
+
+  /** H1 — a square glyph and a wide badge at the same dimensions are never
+   *  optically equal. C2 left both at 18px square and the YouTube mark, which
+   *  fills only 16.2 of its 24 units of height, read a third smaller. */
+  it('they are sized SEPARATELY, because their shapes are not the same', () => {
+    const style = marks.slice(marks.indexOf('<style>'));
+    const ig = /\.mark-ig \{ width: ([\d.]+)px; height: ([\d.]+)px; \}/.exec(style);
+    const yt = /\.mark-yt \{ width: ([\d.]+)px; height: ([\d.]+)px; \}/.exec(style);
+    expect(ig, 'instagram has its own size').not.toBeNull();
+    expect(yt, 'youtube has its own size').not.toBeNull();
+    const [iw, ih] = [Number(ig![1]), Number(ig![2])];
+    const [yw, yh] = [Number(yt![1]), Number(yt![2])];
+    expect(iw, 'instagram is square').toBe(ih);
+    expect(yw, 'youtube is wider than it is tall').toBeGreaterThan(yh);
+    expect(yw, 'and wider than instagram, or it looks smaller').toBeGreaterThan(iw);
+    expect(yh, 'while being shorter, which is what its artwork is').toBeLessThan(ih);
+    // measured in painted pixels at 320, 390 and 1280: ratio 1.00-1.05
+    const area = (w: number, h: number) => Math.sqrt(w * h);
+    expect(Math.abs(area(yw, yh) - area(iw, ih)) / area(iw, ih), 'within 10% by geometric mean').toBeLessThan(0.1);
+  });
+
+  it('and they are BIGGER than the 18px C2 left them at', () => {
+    const style = marks.slice(marks.indexOf('<style>'));
+    for (const m of style.matchAll(/width: ([\d.]+)px/g)) {
+      expect(Number(m[1]), 'no mark went backwards').toBeGreaterThan(18);
+    }
+  });
+
+  it('ONE component serves the header and the footer, so they cannot drift', () => {
+    expect(read('components/site/Header.astro')).toContain('<SocialMarks place="header" />');
+    expect(read('components/site/Footer.astro')).toContain('<SocialMarks place="footer" />');
+    // two inline SVGs on one page must not fight over a gradient id
+    expect(marks).toContain('pl-ig-a-${place}');
   });
 });
 

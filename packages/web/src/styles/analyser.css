@@ -303,15 +303,38 @@
 .spark-zero { background: rgba(255,255,255,0.25); }
 
 /* homepage (S5.1) */
-.home-hero { text-align: center; padding: var(--space-8) 0 var(--space-5); }
-.home-hero h1 { font-size: clamp(2rem, 6vw, var(--text-3xl)); font-weight: 800; margin: 0; }
-.home-hero .tagline { color: var(--text-dim); margin: var(--space-3) 0 var(--space-6); }
-.home-search { max-width: 34rem; margin: 0 auto; text-align: left; }
+/* H1 — the hero leads with what the product does, not with our name a second
+   time, and everything in it is centred ON THE SAME AXIS. The sub-line had a
+   44rem max-width and no auto margin, so inside a centred hero it sat flush
+   LEFT: that is the misalignment the operator could see but not name. */
+.home-hero { text-align: center; padding: var(--space-8) 0 var(--space-6); }
+.home-hero h1 {
+  font-size: clamp(1.75rem, 5vw, var(--text-3xl));
+  font-weight: 800;
+  margin: 0 auto;
+  max-width: 22ch;
+  text-wrap: balance;
+}
+.home-hero-cta { margin: var(--space-5) 0 0; }
+.home-hero-note { margin: var(--space-2) 0 0; color: var(--text-dim); font-size: var(--text-xs); }
+/* The heading over the ways in, so the three cards below read as one group. */
+.home-ways-h { text-align: center; margin: var(--space-8) 0 var(--space-4); }
+/* Centred in the hero it once led; inside the Ways in card it must share the
+   card's own left edge, or the heading and the form sit on two different axes
+   from about 640px up. */
+.home-search { max-width: 34rem; text-align: left; }
+.home-hero .home-search { margin: 0 auto; }
+/* The placeholder must LOOK like a placeholder, not like copy nobody proofread. */
+.home-why-placeholder {
+  border-left: 2px solid var(--accent);
+  padding-left: var(--space-3);
+  font-style: italic;
+}
 .home-cards { margin: var(--space-6) 0; }
 .home-chooser { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-chooser p { margin: 0; }
 /* Maker credit under the product name in the hero (E11.1) — quiet, secondary. */
-.hero-maker { margin: calc(-1 * var(--space-2)) 0 var(--space-2); color: var(--text-dim); font-size: var(--text-sm); letter-spacing: 0.04em; text-transform: uppercase; }
+/* .hero-maker went with the duplicate branding it styled (H1). */
 /* Desktop-only extension promo (E11) — hidden on phones where it can't be used. */
 .home-extension { margin-top: var(--space-4); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
 .home-extension p { margin: 0 0 var(--space-1); }
@@ -989,12 +1012,19 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 }
 
 /* ---------- The homepage (D2) ------------------------------------------- */
-.home-sub { color: var(--text-dim); margin: 0 0 var(--space-4); max-width: 44rem; }
+.home-sub { color: var(--text-dim); margin: var(--space-4) auto 0; max-width: 44rem; }
 .home-example { margin-top: var(--space-5); }
 .home-example .deal-score { margin-top: var(--space-3); }
 .home-figures { grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); margin-top: var(--space-3); }
 .home-does, .home-strategies { margin-top: var(--space-6); }
 .home-does h2, .home-strategies h2 { margin-bottom: var(--space-3); }
+/* H1 — the Ways in group's own section headings. They were h2 and carried the
+   card type scale; demoting them to h3 (so "Ways in" actually groups them) had
+   dropped them to the browser default, 18.72px and flush against their own
+   content. Same size and spacing as the h2s they replaced. */
+.home-ways > section > h3,
+.home-ways > section > div > h3 { font-size: var(--text-lg); margin: 0 0 var(--space-4); }
+.home-strategies h3 { margin: 0 0 var(--space-3); }
 /* The card lists go WIDE on a big screen — one column each was the pre-D2 grid
    collapsing after the markup changed. */
 .home-does .tool-list, .home-strategy-list { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
@@ -1044,7 +1074,7 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 /* .tool-list, NOT .tool-cards: that class is the homepage's card grid (line 142). */
 .tool-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
 .tool-list .tool-card { margin-bottom: 0; }
-.tool-card h2, .tool-card h3 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
+.tool-card h2, .tool-card h3, .tool-card h4 { margin: 0 0 var(--space-2); font-size: var(--text-lg); }
 .tool-card h2 a, .tool-card h3 a { color: var(--accent); text-decoration: none; }
 .tool-others { margin: var(--space-5) 0; }
 .tool-others .state-h { margin: 0 0 var(--space-3); }
