@@ -2,6 +2,59 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — C3 follow-up 3: /api/health, and the hourly Action that reads it
+
+- **The fault that justified this.** The Kit outbox retry is the app's only path
+  for a bridging enquiry or a fact-find to reach Kit. It runs every 15 minutes,
+  server-side, invisibly. If it threw, or Cloudflare stopped firing it, the row
+  sat queued for ever, the site looked perfectly well, and the app could not say
+  so because it may never send email (rule 6). So it publishes and something
+  else tells.
+- **WHAT AN ANONYMOUS CALLER GETS: one word.** `{"status":"ok"}` or
+  `{"status":"fail"}` — no check names, no counts, no ages, not a single digit.
+  Queue depth and cron timing are operational detail and a stranger has no
+  business with them. The full report needs `HEALTH_TOKEN` as a bearer, compared
+  in constant time so the endpoint is not a slow oracle for its own secret. A
+  WRONG token gets the stranger's answer, not an error that confirms the shape,
+  and an environment with no token configured degrades to anonymous rather than
+  to open.
+- **Eight checks:** the database answers; the oldest queued outbox row is under
+  3 hours; no row has GIVEN UP in the last 14 days (one is enough — that is
+  somebody's enquiry that never arrived); the 15-minute cron completed within 90
+  minutes; the daily cron within 26 hours; the manifest is reachable, is a schema
+  this app can read, and was refreshed within 45 days.
+- **JUDGMENT CALL: the heartbeat means COMPLETED, not TRIGGERED.** Each cron
+  stamps `cron_heartbeat` only after its work returns. A handler that throws
+  therefore surfaces as a cron that stopped, within 90 minutes — which is
+  precisely the failure that had no voice before. The daily cron stamps only if
+  neither of its guarded steps threw.
+- **JUDGMENT CALL: the stale-data threshold is IMPORTED from the footer's, not
+  retyped beside it.** The page tells visitors and the endpoint tells the
+  operator at the same moment, so the two can never disagree about "stale".
+- **JUDGMENT CALL: an unhealthy APP is not a broken WORKFLOW.** The poller does
+  not fail its own run when the app reports a fault — the assigned issue is the
+  signal, and a red run beside it would only double the noise. It fails only if
+  the POLLER breaks, which raises a separately-titled issue saying the app is
+  currently unwatched.
+- **It does not nag, and it tidies up after itself.** The issue carries a hidden
+  fingerprint of WHICH checks are failing. A repeat poll with the same set says
+  nothing; a new fault comments; recovery comments "Recovered" and CLOSES the
+  issue. An hourly comment on a known problem is how an alert gets muted.
+- **PROVED, end to end, on production.** Healthy: silent, no issues. Daily
+  heartbeat rewound 48 hours: endpoint `fail`, issue #2 opened and assigned,
+  naming `dailyCron — last completed 2880 minutes ago (limit 1560)`. Polled
+  again: no comment. Outbox heartbeat rewound too: one comment, both faults.
+  Polled again: no comment. Heartbeats restored: "Recovered", issue closed, zero
+  open. The outbox queries themselves are proved by unit tests running the real
+  SQL against the real migrations rather than by writing junk into the table
+  that holds real enquiries.
+- **Free tier:** 24 polls a day, one Worker request each, two D1 reads and one
+  R2 fetch per poll.
+- **Deliberately NOT checked:** anything needing a second service, and anything
+  the poller already covers by asking at all (the site being up is an HTTP code,
+  not a check). `HEAD /api/health` is a 404 — the route is GET-only, and a HEAD
+  could not carry the verdict anyway; a monitor pointed at it must use GET.
+
 ## 2026-09-09 — C3 follow-up 2: a failed refresh is now visible, and stale data says so
 
 **The operator's question was the right one: a bug that fails silently is worse

@@ -117,7 +117,13 @@ never states or implies a decision about anyone's finance.
 - Astro (static-first), built to dist/, deployed as Cloudflare Workers static assets.
 - wrangler v4, wrangler.jsonc (NOT toml). Recent compatibility_date.
 - Auth/Kit endpoints = Worker code (server-side); everything else prerendered.
-- D1 (accounts, saved_deals, kit_outbox) created with --jurisdiction eu.
+- GET /api/health is the app's own account of itself: D1, both crons' heartbeats
+  and the data files. ANONYMOUS callers get one word; the detail needs
+  HEALTH_TOKEN. .github/workflows/health.yml polls it hourly and opens an
+  ASSIGNED issue, because the app may never send email (rule 6). Thresholds in
+  src/config/health.ts. A cron stamps cron_heartbeat only when its work
+  COMPLETED, so a handler that throws shows up as a cron that stopped.
+- D1 (accounts, saved_deals, kit_outbox, cron_heartbeat) created with --jurisdiction eu.
   There is NO UK-only D1 residency — never claim one. EU jurisdiction + UK
   adequacy is the honest statement.
 - R2: per-postcode-sector JSON (primary query path) + EW .pmtiles. Parquet was
