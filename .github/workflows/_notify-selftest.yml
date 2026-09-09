@@ -1,0 +1,49 @@
+name: _notify-selftest
+
+# TEMPORARY (C3 follow-up). Proves the failure notifier actually opens and
+# updates an issue before we rely on it. Deleted as soon as it has.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  fail-on-purpose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fail on purpose
+        run: exit 1
+
+      - name: Raise an issue if this failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const TITLE = 'SELFTEST: the failure notifier works';
+            const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              'This is a deliberate failure, proving the notifier opens an issue and assigns it.',
+              '',
+              `Run: ${run}`,
+              '',
+              'Safe to close.',
+            ].join('\n');
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', per_page: 100,
+            });
+            const existing = open.data.find((i) => i.title === TITLE);
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.number, body,
+              });
+              core.notice(`commented on existing issue #${existing.number}`);
+            } else {
+              const made = await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body,
+                assignees: [context.repo.owner],
+              });
+              core.notice(`opened issue #${made.data.number}`);
+            }
