@@ -2,6 +2,43 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — C3 follow-up: the data refresh, and the ONSPD column that broke it
+
+- **The monthly data refresh was already broken, and it had nothing to do with
+  C3.** Running it to compress the sector files surfaced it: ONSPD's August 2026
+  edition renamed the country column `ctry25cd` → `ctry26cd`, and
+  `pipeline/build.mjs` had the old name typed into two queries. "Binder Error:
+  Referenced column ctry25cd not found in FROM clause". The 2 October cron would
+  have failed the same way, silently, with nobody watching.
+- **Fixed by resolving the name, not by typing the new one.** ONS re-versions
+  these on a schedule — ctry11cd, ctry25cd, ctry26cd — so
+  `pipeline/onspd-columns.mjs` finds the newest `<base>NNcd` in the CSV header
+  and THROWS if there is none. The country column is the England & Wales gate
+  (rule 8), so a missing one must stop the build rather than ship files with no
+  country on them. The LSOA column gets the same treatment: same hazard, same
+  query. Seven tests, including one that proves `cty26cd` (county) is never
+  mistaken for `ctry26cd` (country) — that near-miss would have shipped a wrong
+  gate rather than an error.
+- **The header is read as ONE line, not the whole file.** ONSPD is about a
+  gigabyte; the first cut called `readFileSync(...).slice(0, 8192)`, which reads
+  all of it into memory before throwing 99.999% away.
+- **A pre-flight now proves one upload before thousands go up.**
+  Content-Encoding and Cache-Control are sent UNSIGNED — SigV4 only covers the
+  headers named in SignedHeaders, and R2 has always honoured an unsigned
+  Content-Type here (verified against the live objects). But if it ever stopped
+  honouring Content-Encoding the run would still SUCCEED and every data file in
+  the product would be served as gzip bytes labelled application/json:
+  unreadable, silently, everywhere. `upload.mjs` now sends one probe, reads it
+  back through the public URL the app itself uses, and refuses to continue
+  unless it decodes. It costs a second.
+- **The dev preview page said four of the five surfaces work on a phone; it is
+  three.** The bridging enquiry form is a sign-in card until you are signed in
+  (BridgingEnquiry.tsx), and sign-in only works on localhost because that is the
+  registered OAuth redirect — so it needs the laptop exactly as the fact-find
+  does, and its `laptop: true` flag was missing. The note is COUNTED from the
+  list now rather than typed, because the number and the flags being two
+  separate facts is what let one go stale.
+
 ## 2026-09-09 — Sprint C3: aligned row links, pressable buttons, a map that survives zoom (deployed)
 
 - **The row actions wandered because C1 put them INSIDE the address cell and
