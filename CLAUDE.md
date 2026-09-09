@@ -172,6 +172,16 @@ never states or implies a decision about anyone's finance.
 - Leave CLEAN SEAMS for the operator's final design pass (name, logo, colours
   tokenised; components accept slots). Never bake operator-manual items into logic.
 - After each sprint, the verification gate in ROADMAP.md must demonstrably pass.
+- BEFORE COMMITTING run the checks the way CI does, and run them ALL: a test that
+  reads a build artefact (packages/web/public/map/vendor/* is gitignored and
+  generated) passes on a machine that has built and fails in CI. Run
+  `npm run verify:map` too — it is the only check that opens the real map, and it
+  sat broken from C1 to C3 because nothing else runs it. C3 cost two extra
+  commits for want of this.
+- A CSS override of a THIRD-PARTY stylesheet must WIN, not tie. MapLibre's sheet
+  is appended at map mount, after ours, so equal specificity loses. Assert the
+  computed value or the pixels — a test that greps our own file for a
+  declaration passes while the browser ignores it (C3).
 - When you get something wrong, add a line here so it never repeats.
 
 ## Do NOT (permanent exclusions)

@@ -117,6 +117,13 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   Three more survivors were the same defect seen from three lenses: a new test
   sliced the stylesheet BACKWARDS (its end marker is 750 lines earlier than its
   start), so it asserted against an empty string and could never fail.
+- **This sprint is THREE commits, not the charter's one, and that is on me.**
+  `4e3a41cb` is the product. `64d86c90` repairs `verify:map`, which had been
+  failing since C1 (it still expected the removed per-sale page and £/sqft) and
+  which I only ran after committing. `cc2e7412` fixes a new test that read a
+  gitignored build artefact — green locally, red in CI. To undo the sprint:
+  `git revert --no-commit cc2e7412 64d86c90 4e3a41cb && git commit`. The lesson
+  is in CLAUDE.md.
 - **Copy-ratchet debt went DOWN by two.** The blank-map reasons are diagnostic
   codes that reach `console.error`, not prose, so they are hyphenated tokens now
   and the mapImpl baseline drops 7 → 5 (64 strings across 21 files).
