@@ -177,7 +177,7 @@ export function handleDevPreview(request: Request, env: Env): Response {
     ? 'Fake broker and tool details are loaded, so all five render.'
     : 'The real config is loaded, so most of these still hide themselves. Stop this server and run <code>npm run preview:surfaces</code> instead.'}</p>
   <p class="note">Nothing here is real. The fake details go when the server stops.</p>
-  <p class="note">Four of the five work on a phone. The fact-find needs the laptop, because signing in needs localhost.</p>
+  <p class="note">${escapeHtml(phoneNote())}</p>
 </div>
 <ol>${rows}</ol>
 </main></body></html>`);
@@ -195,12 +195,36 @@ const html = (body: string): Response =>
 const escapeHtml = (s: string): string =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+/** Small numbers as words, so the note keeps its voice while being counted. */
+const WORDS = ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+const word = (n: number): string => WORDS[n] ?? String(n);
+
+/**
+ * How many of these you can actually open on a phone — COUNTED from the list,
+ * never typed. It said "four of the five" while two of them needed a laptop,
+ * because the number and the flags were two separate facts.
+ */
+export function phoneNote(): string {
+  const laptopOnly = PREVIEW_SURFACES.filter((s) => s.laptop === true);
+  const onPhone = PREVIEW_SURFACES.length - laptopOnly.length;
+  const names = laptopOnly.map((s) => s.name.replace(/^The /, 'the '));
+  const which = names.length === 1
+    ? `${names[0].replace(/^the /, 'The ')} needs`
+    : `${names.slice(0, -1).join(', ').replace(/^the /, 'The ')} and ${names.at(-1)} need`;
+  const head = `${word(onPhone).replace(/^./, (c) => c.toUpperCase())} of the ${word(PREVIEW_SURFACES.length)} work on a phone.`;
+  return laptopOnly.length === 0 ? head : `${head} ${which} the laptop, because signing in needs localhost.`;
+}
+
 /** What to open, and what to look at when you get there. */
 const PREVIEW_SURFACES: readonly { name: string; href: string; look: string; laptop?: boolean }[] = [
   {
     name: 'The bridging enquiry form',
     href: '/bridging-finance',
     look: 'It is at the foot of the page. Check the phone field says why it needs a number.',
+    // Signed out this is a sign-in card, not the form (BridgingEnquiry.tsx), so
+    // it needs the laptop for the same reason the fact-find does. The flag was
+    // missing, which is what made the note below say four instead of three.
+    laptop: true,
   },
   {
     name: 'The broker fact-find',

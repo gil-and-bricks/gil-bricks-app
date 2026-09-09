@@ -150,6 +150,79 @@ async function putWrangler(key, gzPath, cacheControl, attempt = 1) {
   }
 }
 
+/** The public base URL, read from core's config so it is defined in ONE place. */
+function publicBase() {
+  const src = readFileSync(new URL('../../core/src/config.ts', import.meta.url), 'utf8');
+  const m = /dataBaseUrl:\s*'([^']+)'/.exec(src);
+  if (!m) throw new Error('could not read dataBaseUrl from packages/core/src/config.ts');
+  return m[1].replace(/\/+$/, '');
+}
+
+async function deleteS3(key) {
+  const { accessKeyId, secretKey, host } = s3Creds;
+  const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, 'Z');
+  const date = now.slice(0, 8);
+  const payloadHash = sha256hex('');
+  const path = `/${BUCKET}/${key}`;
+  const canonical = ['DELETE', path, '', `host:${host}`, `x-amz-content-sha256:${payloadHash}`, `x-amz-date:${now}`, '', 'host;x-amz-content-sha256;x-amz-date', payloadHash].join('\n');
+  const scope = `${date}/auto/s3/aws4_request`;
+  const sts = ['AWS4-HMAC-SHA256', now, scope, sha256hex(canonical)].join('\n');
+  const key4 = hmac(hmac(hmac(hmac(`AWS4${secretKey}`, date), 'auto'), 's3'), 'aws4_request');
+  const sig = createHmac('sha256', key4).update(sts).digest('hex');
+  await fetch(`https://${host}${path}`, {
+    method: 'DELETE',
+    headers: {
+      Host: host,
+      'x-amz-date': now,
+      'x-amz-content-sha256': payloadHash,
+      Authorization: `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=${sig}`,
+    },
+  });
+}
+
+/**
+ * PROVE ONE OBJECT ROUND-TRIPS BEFORE SENDING THOUSANDS.
+ *
+ * Content-Type, Content-Encoding and Cache-Control are sent UNSIGNED — SigV4
+ * only covers the headers named in SignedHeaders, and R2 has always honoured an
+ * unsigned Content-Type here. But if it ever stopped honouring Content-Encoding
+ * the upload would still succeed and every file in the product would be served
+ * as gzip bytes labelled application/json: unreadable, silently, everywhere.
+ * So: send one probe, read it back through the PUBLIC url the app uses, and
+ * refuse to go on unless it decodes.
+ */
+async function preflight() {
+  const key = '_upload-preflight.json';
+  const body = Buffer.from(JSON.stringify({ preflight: true }));
+  const gz = gzipSync(body, { level: 9 });
+  const gzPath = 'pipeline/.data/_upload-preflight.json.gz';
+  if (fastMode) await putS3(key, gz, CACHE_CONTROL);
+  else {
+    writeFileSync(gzPath, gz);
+    try { await putWrangler(key, gzPath, CACHE_CONTROL); } finally { rmSync(gzPath, { force: true }); }
+  }
+  const url = `${publicBase()}/${key}`;
+  let last = '';
+  for (let i = 0; i < 12; i += 1) {
+    const res = await fetch(url, { cache: 'no-store' }).catch((e) => ({ ok: false, status: String(e) }));
+    if (res.ok) {
+      const enc = res.headers.get('content-encoding');
+      const cc = res.headers.get('cache-control');
+      const parsed = await res.json().catch(() => null);
+      if (enc !== 'gzip') throw new Error(`preflight FAILED: content-encoding came back as ${enc}, not gzip — every uploaded file would be unreadable`);
+      if (!cc) throw new Error('preflight FAILED: no cache-control was stored');
+      if (parsed?.preflight !== true) throw new Error('preflight FAILED: the object did not decode back to its own JSON');
+      console.log(`preflight OK — content-encoding: ${enc}, cache-control: ${cc}, ${body.length}B -> ${gz.length}B`);
+      if (fastMode) await deleteS3(key);
+      else await exec('node_modules/.bin/wrangler', ['r2', 'object', 'delete', `${BUCKET}/${key}`, '--remote']).catch(() => {});
+      return;
+    }
+    last = `HTTP ${res.status}`;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+  throw new Error(`preflight FAILED: the probe never became readable (${last})`);
+}
+
 const state = existsSync(STATE_PATH) ? JSON.parse(readFileSync(STATE_PATH, 'utf8')) : {};
 let stateDirty = 0;
 const saveState = () => writeFileSync(STATE_PATH, JSON.stringify(state));
@@ -166,6 +239,7 @@ async function listFiles(dir) {
 
 console.log(`mode: ${fastMode ? 'S3 API (derived creds)' : 'wrangler fallback (throttled)'}, concurrency ${CONCURRENCY}`);
 if (fastMode) await initS3();
+await preflight();
 
 const all = await listFiles(DIR);
 const files = all.filter((f) => f !== 'manifest.json').sort();

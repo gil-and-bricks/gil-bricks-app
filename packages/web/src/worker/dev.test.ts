@@ -7,7 +7,7 @@
  * product whose whole rulebook is enforced by tests. It has one now.
  */
 import { describe, expect, it } from 'vitest';
-import { isLocalHost, isPreviewEnv, handleDevPreview } from './dev';
+import { isLocalHost, isPreviewEnv, handleDevPreview, phoneNote } from './dev';
 import type { Env } from './index';
 
 const env = (devLogin?: string): Env => ({ DEV_LOGIN: devLogin } as unknown as Env);
@@ -54,5 +54,28 @@ describe('the preview cannot exist in production', () => {
     expect(res.headers.get('x-robots-tag')).toContain('noindex');
     expect(res.headers.get('cache-control')).toBe('no-store');
     expect(await res.text()).toContain('five surfaces');
+  });
+
+  /**
+   * The note said "Four of the five work on a phone" while TWO of them needed
+   * a laptop: the bridging enquiry form is a sign-in card until you are signed
+   * in, and sign-in only works on localhost because that is the registered
+   * OAuth redirect. The number and the flags were two separate facts, so one
+   * went stale silently. The number is counted from the list now.
+   */
+  describe('the phone note', () => {
+    it('counts the surfaces instead of asserting a number', () => {
+      expect(phoneNote()).toBe(
+        'Three of the five work on a phone. The bridging enquiry form and the broker fact-find need the laptop, because signing in needs localhost.',
+      );
+    });
+
+    it('and the page prints what it counted', async () => {
+      const body = await handleDevPreview(req('http://localhost:8787/dev/preview'), env('on')).text();
+      expect(body).toContain('Three of the five work on a phone.');
+      expect(body, 'the stale number must not come back').not.toContain('Four of the five');
+      // both laptop-only surfaces are marked in the list itself, not just the note
+      expect((body.match(/Laptop only/g) ?? []).length).toBe(2);
+    });
   });
 });
