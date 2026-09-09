@@ -12,6 +12,7 @@ import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseFlip, scoreDeal, type FlipAnalysis, type FlipStrategyInputs, type DealScore } from '@gil-bricks/core';
 import { SECTION_STRIP } from '../../config/analyserSections';
+import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
 import { leverIsRedundant } from './leverDedupe';
@@ -181,7 +182,8 @@ export function FlipVerdict({ config, comps, valuation }: {
               </div>
             </div>
             <Tile label={FLIP_COPY.tiles.profitAfterTax} value={fmtMoney(analysis.profitAfterTax.value)} breakdown={analysis.profitAfterTax.breakdown} />
-            <Tile id="sec-costs" label={FLIP_COPY.tiles.totalCostIn} value={fmtMoney(analysis.totalCostIn.value)} breakdown={analysis.totalCostIn.breakdown} />
+            {features.stampDutyCost && <StampDutyCost id="sec-costs" sdlt={analysis.stampDuty} viaCompany={p.flipAs === 'ltd'} />}
+            <Tile id={features.stampDutyCost ? undefined : 'sec-costs'} label={FLIP_COPY.tiles.totalCostIn} value={fmtMoney(analysis.totalCostIn.value)} breakdown={analysis.totalCostIn.breakdown} />
             <Tile label={FLIP_COPY.tiles.cashInvested} value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
             {analysis.financeCosts && (
               <Tile label={FLIP_COPY.tiles.financeCosts} value={fmtMoney(analysis.financeCosts.value)} breakdown={analysis.financeCosts.breakdown} />

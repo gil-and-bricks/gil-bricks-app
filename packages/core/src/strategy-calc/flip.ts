@@ -56,6 +56,9 @@ export interface FlipAnalysis {
   maxOfferGreen: number | null;
   gdvNeededGreen: number | null;
   stampDutyTax: number;
+  /** The whole tax result — regime, surcharge, bands — so a page can NAME it
+   *  and show its working instead of hiding it inside a chain of additions. */
+  stampDuty: import('../maths/breakdown').WithBreakdown<import('../maths/stampduty').StampDutyResult>;
 }
 
 const ZERO_TAX = (label: string): Breakdown => ({
@@ -271,5 +274,6 @@ export function analyseFlip(i: FlipStrategyInputs): FlipAnalysis {
     maxOfferGreen: maxOffer,
     gdvNeededGreen: gdvNeeded,
     stampDutyTax: c.sdlt.value.tax,
+    stampDuty: c.sdlt,
   };
 }

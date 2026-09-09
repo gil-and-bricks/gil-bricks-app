@@ -194,6 +194,12 @@ export interface FeatureFlags {
    * `DATA_FRESHNESS.staleAfterDays`). Off: the as-of date still shows, exactly
    * as it always did, and nothing says whether it is current. */
   staleDataNote: boolean;
+  /** Stamp duty / Land Transaction Tax as its OWN named cost tile on all four
+   * analysers, carrying the figure, which country's rules applied and whether
+   * the additional-property surcharge is in it. Off: the buy-to-let analyser
+   * shows the tax inside its cash-in tile as it did before, and the other three
+   * name it only inside the maths accordion. */
+  stampDutyCost: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -228,6 +234,7 @@ export const features: FeatureFlags = {
   desktopMore: true,
   pdfExport: false,
   staleDataNote: true,
+  stampDutyCost: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

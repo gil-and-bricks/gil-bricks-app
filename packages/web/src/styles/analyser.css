@@ -1572,6 +1572,14 @@ html[data-verdict] .sv-anchor { height: var(--sv-reserve); }
 html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
 
 
+/* ---------- The tax, named (E9) --------------------------------------------
+   Stamp duty is the biggest acquisition cost after the deposit and it was the
+   hardest thing on the page to find. One lime edge marks it as the headline
+   cost in the tile grid — never a lime fill, which would need near-black text
+   and turn a cost into a call to action. */
+.tile.tile-cost { border-left: 2px solid var(--accent); }
+.tile.tile-cost .bands { margin-top: var(--space-2); }
+
 /* ---------- A comparable's links (C1, aligned into a column in C3) -----------
    The per-sale page is gone and its actions live on the row. Four small links:
    Land Registry, Google, and the two portals' postcode sold prices.

@@ -752,6 +752,13 @@ function costsCard(view: PanelView): HTMLElement | null {
     li.append(e('span', 'costs-label', line.label + (line.estimate ? ' *' : '')));
     li.append(e('span', 'costs-amount', line.amount == null ? 'check particulars' : fmtGBP(line.amount)));
     ul.append(li);
+    // E9 — the tax says which rules made it. The surcharge is often most of
+    // this figure and it is the thing people get wrong.
+    if (line.note !== undefined) {
+      const n = e('li', 'costs-note');
+      n.append(e('span', 'costs-note-text', line.note));
+      ul.append(n);
+    }
   }
   box.append(ul);
   const total = e('p', 'costs-total');

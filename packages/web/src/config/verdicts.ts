@@ -39,6 +39,45 @@ export const VERDICT_COPY = {
 } as const;
 
 /** The buy-to-let verdict (BtlVerdict.tsx). */
+/**
+ * THE TAX, NAMED (E9). It is the biggest acquisition cost after the deposit and
+ * it was only ever visible on the buy-to-let analyser; everywhere else it sat
+ * inside a collapsed maths accordion, in a chain of additions, attached to no
+ * figure of its own. These are the words for the cost tile all four analysers
+ * now carry. Nothing here computes: the country, the regime and whether the
+ * surcharge applied are FACTS from @gil-bricks/core's stampDuty.
+ */
+export const STAMP_DUTY_COPY = {
+  /** Named by the country whose rules were applied. Never just "tax". */
+  name: (country: string): string => (country === 'W92000004' ? 'Land Transaction Tax' : 'Stamp Duty'),
+  /** The two things a buyer most often has wrong: which rules, and whether the
+   *  additional-property surcharge is in the figure. */
+  rules: (country: string, buyerType: string, surchargeApplied: boolean): string => {
+    const where = country === 'W92000004' ? 'Wales' : 'England';
+    if (surchargeApplied) return `${where}, higher rates. The additional-property surcharge is included.`;
+    if (buyerType === 'additional') return `${where}, standard rates. This price is under the surcharge threshold.`;
+    if (buyerType === 'firstTimeBuyer') {
+      return country === 'W92000004'
+        ? 'Wales has no first-time-buyer relief. Main rates apply.'
+        : 'England, first-time-buyer rates.';
+    }
+    return `${where}, standard rates.`;
+  },
+  /**
+   * Names the control that ACTUALLY sets it. The first cut of this said
+   * "Buying as", which is a different field: buying as a limited company forces
+   * the higher rates, but the choice itself is "Purchase tax basis". Sending
+   * somebody to the wrong control is worse than saying nothing.
+   */
+  changesWith: 'Set by “Purchase tax basis” in your inputs.',
+  /** Said only when a company purchase has taken the choice away. */
+  forcedByCompany: 'Buying through a company always pays the higher rates.',
+  /** One line per taxed band, inside the accordion like every other working. */
+  band: (rate: string, slice: string, tax: string): string => `${rate} on ${slice} = ${tax}`,
+  /** Which edition of the rates was used — the honest citation. */
+  asOf: (date: string): string => `Rates in force from ${date}.`,
+} as const;
+
 export const BTL_COPY = {
   /** The tax named in the cash-in tile and its band lines. */
   taxNames: { england: 'Stamp Duty', wales: 'Land Transaction Tax' },

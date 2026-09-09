@@ -96,6 +96,9 @@ export interface HmoAnalysis {
   cashIn: { value: number; breakdown: Breakdown };
   icr: { value: number; passes: boolean; threshold: number; breakdown: Breakdown };
   stampDutyTax: number;
+  /** The whole tax result — regime, surcharge, bands — so a page can NAME it
+   *  and show its working instead of hiding it inside a chain of additions. */
+  stampDuty: import('../maths/breakdown').WithBreakdown<import('../maths/stampduty').StampDutyResult>;
 }
 
 function core(i: HmoInputs) {
@@ -279,5 +282,6 @@ export function analyseHmo(i: HmoInputs): HmoAnalysis {
     cashIn: { value: c.cash.value, breakdown: c.cash.breakdown },
     icr: { value: c.icrRes.value, passes: c.icrRes.passes, threshold: c.threshold, breakdown: c.icrRes.breakdown },
     stampDutyTax: c.sdlt.value.tax,
+    stampDuty: c.sdlt,
   };
 }

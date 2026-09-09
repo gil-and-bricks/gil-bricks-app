@@ -5,7 +5,7 @@ import type { ComponentChildren } from 'preact';
 import type { Breakdown } from '@gil-bricks/core';
 import { SECTION_STRIP } from '../../config/analyserSections';
 
-export function MathsAccordion({ breakdown, label }: { breakdown: Breakdown; label?: string }) {
+export function MathsAccordion({ breakdown, label, children }: { breakdown: Breakdown; label?: string; children?: ComponentChildren }) {
   return (
     <Accordion label={label ?? SECTION_STRIP.maths}>
       <dl class="maths">
@@ -17,6 +17,7 @@ export function MathsAccordion({ breakdown, label }: { breakdown: Breakdown; lab
         <dd>{breakdown.result}</dd>
       </dl>
       <p class="maths-note">{breakdown.note}</p>
+      {children}
     </Accordion>
   );
 }

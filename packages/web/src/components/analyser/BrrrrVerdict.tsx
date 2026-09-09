@@ -10,6 +10,7 @@ import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseBrrrr, scoreDeal, type BrrrrAnalysis, type BrrrrStrategyInputs, type DealScore } from '@gil-bricks/core';
+import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
 import { leverIsRedundant } from './leverDedupe';
@@ -179,7 +180,8 @@ export function BrrrrVerdict({ config, comps, valuation }: {
                 note: BRRRR_COPY.arvNeededMaths.note,
               }} />
             <Tile label={BRRRR_COPY.tiles.refiLoan} value={fmtMoney(analysis.refiLoan.value)} breakdown={analysis.refiLoan.breakdown} />
-            <Tile id="sec-costs" label={BRRRR_COPY.tiles.cashInvested} value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
+            {features.stampDutyCost && <StampDutyCost id="sec-costs" sdlt={analysis.stampDuty} viaCompany={p.buyingAs === 'ltd'} />}
+            <Tile id={features.stampDutyCost ? undefined : 'sec-costs'} label={BRRRR_COPY.tiles.cashInvested} value={fmtMoney(analysis.cashInvested.value)} breakdown={analysis.cashInvested.breakdown} />
             {analysis.bridging && (
               <Tile label={BRRRR_COPY.tiles.bridging} value={fmtMoney(analysis.bridging.interest + analysis.bridging.arrangement + analysis.bridging.exit)} breakdown={analysis.bridging.breakdown} />
             )}

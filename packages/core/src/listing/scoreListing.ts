@@ -60,6 +60,9 @@ export interface CashLine {
   amount: number | null;
   /** True when the figure is an estimate the user must verify. */
   estimate?: boolean;
+  /** One short line under the amount — used by the tax line to say which
+   *  country's rules applied and whether the surcharge is in it (E9). */
+  note?: string;
 }
 export interface CashNeeded {
   lines: CashLine[];
@@ -317,7 +320,20 @@ function buildCashNeeded(
     lines.push({ label: 'Deposit', amount: cashIntoPurchase });
   }
 
-  lines.push({ label: taxName, amount: Math.round(sdlt) });
+  // E9 — the tax says which rules made it. Named here rather than left for the
+  // reader to infer from the postcode, because the surcharge is the thing people
+  // get wrong and it is often most of this figure.
+  const sd = (analysis as { stampDuty?: { value: { surchargeApplied: boolean } } }).stampDuty?.value;
+  const where = country === 'W92000004' ? 'Wales' : 'England';
+  lines.push({
+    label: taxName,
+    amount: Math.round(sdlt),
+    note: sd === undefined
+      ? undefined
+      : sd.surchargeApplied
+        ? `${where}, higher rates — surcharge included`
+        : `${where}, standard rates`,
+  });
   lines.push({ label: 'Legal & survey fees', amount: legals });
   if (refurb > 0) lines.push({ label: 'Refurb budget', amount: refurb });
   // Flip carries a contingency on the refurb — part of the cash in, so show it

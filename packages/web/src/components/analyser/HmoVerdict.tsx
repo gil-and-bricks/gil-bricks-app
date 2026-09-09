@@ -11,6 +11,7 @@ import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseHmo, checkRoomSizes, scoreDeal, type HmoAnalysis, type HmoInputs, type RoomOccupancy, type DealScore } from '@gil-bricks/core';
+import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
 import { leverIsRedundant } from './leverDedupe';
@@ -231,7 +232,8 @@ export function HmoVerdict({ config, comps, valuation }: {
             </div>
             <Tile label={HMO_COPY.tiles.cashflowAfterTax} value={`${fmtMoney(analysis.cashflowAfterTax.value)}${VERDICT_COPY.perMonth}`} breakdown={analysis.cashflowAfterTax.breakdown} />
             <Tile label={HMO_COPY.tiles.grossIncome} value={`${fmtMoney(analysis.grossIncome.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.grossIncome.breakdown} />
-            <Tile id="sec-costs" label={HMO_COPY.tiles.operatingCosts} value={`${fmtMoney(analysis.operatingCosts.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.operatingCosts.breakdown} />
+            {features.stampDutyCost && <StampDutyCost id="sec-costs" sdlt={analysis.stampDuty} viaCompany={p.buyingAs === 'ltd'} />}
+            <Tile id={features.stampDutyCost ? undefined : 'sec-costs'} label={HMO_COPY.tiles.operatingCosts} value={`${fmtMoney(analysis.operatingCosts.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.operatingCosts.breakdown} />
             <Tile label={HMO_COPY.tiles.noi} value={`${fmtMoney(analysis.noi.value)}${VERDICT_COPY.perYear}`} breakdown={analysis.noi.breakdown} />
             <Tile label={HMO_COPY.tiles.grossYield} value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
             <Tile label={HMO_COPY.tiles.netYield} value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />

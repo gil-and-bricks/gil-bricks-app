@@ -37,6 +37,17 @@ export interface StampDutyResult {
   bands: BandLine[];
   /** Which regime applied, e.g. "SDLT additional-property rates". */
   regime: string;
+  /**
+   * Were the additional-property / higher rates actually used? A page must be
+   * able to say "the surcharge IS included" without parsing `regime`, and
+   * without re-deriving the threshold rule and getting it subtly wrong.
+   */
+  surchargeApplied: boolean;
+  /** What the caller said they were buying as, echoed back so a page can point
+   *  at the control that changes all of this. */
+  buyerType: BuyerType;
+  /** England or Wales — the rules that were applied, not where the buyer is. */
+  country: StampCountry;
   /** The effectiveFrom date of the band table used, straight from rates.json. */
   effectiveFrom: string;
   /** Where those rates were read from, so a page can cite them. */
@@ -78,6 +89,7 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
   let regime: string;
   let note: string;
   let table: BandTable;
+  let surchargeApplied = false;
 
   if (inputs.country === 'E92000001') {
     const sdlt = rates.sdlt;
@@ -94,6 +106,7 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
       }
     } else if (inputs.buyerType === 'additional' && inputs.price >= sdlt.additionalMinPrice) {
       table = pickEffective(sdlt.additional as BandTable[], onDate);
+      surchargeApplied = true;
       regime = 'SDLT additional-property rates';
       note = 'when this is not your only property, every band is taxed at the higher additional-property rate';
     } else {
@@ -108,6 +121,7 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
     const ltt = rates.ltt;
     if (inputs.buyerType === 'additional' && inputs.price >= ltt.higherMinPrice) {
       table = pickEffective(ltt.higher as BandTable[], onDate);
+      surchargeApplied = true;
       regime = 'LTT higher residential rates';
       note = 'Wales uses its own standalone higher-rates table — not a surcharge on the main rates';
     } else {
@@ -144,5 +158,12 @@ export function stampDuty(inputs: StampDutyInputs): WithBreakdown<StampDutyResul
     note,
   };
   const effectiveRate = inputs.price > 0 ? (tax / inputs.price) * 100 : 0;
-  return { value: { tax, effectiveRate, bands: lines, regime, effectiveFrom: table.effectiveFrom, source: table.source }, breakdown };
+  return {
+    value: {
+      tax, effectiveRate, bands: lines, regime, surchargeApplied,
+      buyerType: inputs.buyerType, country: inputs.country,
+      effectiveFrom: table.effectiveFrom, source: table.source,
+    },
+    breakdown,
+  };
 }

@@ -12,6 +12,7 @@ import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
 import { analyseBtl, scoreDeal, type BtlAnalysis, type BtlInputs, type DealScore } from '@gil-bricks/core';
+import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
 import { leverIsRedundant } from './leverDedupe';
@@ -143,13 +144,23 @@ export function BtlVerdict({ config, comps, valuation }: {
             <Tile label={BTL_COPY.tiles.grossYield} value={fmtPct(analysis.grossYield.value)} breakdown={analysis.grossYield.breakdown} />
             <Tile label={BTL_COPY.tiles.netYield} value={fmtPct(analysis.netYield.value)} breakdown={analysis.netYield.breakdown} />
             <Tile label={BTL_COPY.tiles.cashflowAfterTax} value={`${fmtMoney(analysis.cashflowAfterTax.value)}${VERDICT_COPY.perMonth}`} breakdown={analysis.cashflowAfterTax.breakdown} />
-            <Tile id="sec-costs" label={BTL_COPY.tiles.cashIn(taxName)} value={fmtMoney(analysis.cashIn.value)} breakdown={analysis.cashIn.breakdown}>
-              <div class="bands">
-                <p class="field-hint">{BTL_COPY.taxTotal(taxName, fmtMoney(analysis.stampDuty.value.tax))}</p>
-                {analysis.stampDuty.value.bands.filter((b) => b.tax > 0).map((b) => (
-                  <p class="field-hint">{BTL_COPY.taxBand(fmtPct(b.rate * 100), fmtMoney(b.slice), fmtMoney(b.tax))}</p>
-                ))}
-              </div>
+            {/* E9 — the tax leads the costs, and owns the Costs anchor: it is the
+                biggest thing here after the deposit and it was the hardest to find. */}
+            {features.stampDutyCost && <StampDutyCost id="sec-costs" sdlt={analysis.stampDuty} viaCompany={p.buyingAs === 'ltd'} />}
+            <Tile
+              id={features.stampDutyCost ? undefined : 'sec-costs'}
+              label={BTL_COPY.tiles.cashIn(taxName)}
+              value={fmtMoney(analysis.cashIn.value)}
+              breakdown={analysis.cashIn.breakdown}
+            >
+              {!features.stampDutyCost && (
+                <div class="bands">
+                  <p class="field-hint">{BTL_COPY.taxTotal(taxName, fmtMoney(analysis.stampDuty.value.tax))}</p>
+                  {analysis.stampDuty.value.bands.filter((b) => b.tax > 0).map((b) => (
+                    <p class="field-hint">{BTL_COPY.taxBand(fmtPct(b.rate * 100), fmtMoney(b.slice), fmtMoney(b.tax))}</p>
+                  ))}
+                </div>
+              )}
             </Tile>
             <Tile
               label={VERDICT_COPY.icrLabel(Math.round(analysis.icr.threshold * 100))}

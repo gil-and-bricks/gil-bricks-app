@@ -62,6 +62,9 @@ export interface BrrrrAnalysis {
   grossYieldOnCost: { value: number; breakdown: Breakdown };
   icr: { value: number; passes: boolean; threshold: number; breakdown: Breakdown };
   stampDutyTax: number;
+  /** The whole tax result — regime, surcharge, bands — so a page can NAME it
+   *  and show its working instead of hiding it inside a chain of additions. */
+  stampDuty: import('../maths/breakdown').WithBreakdown<import('../maths/stampduty').StampDutyResult>;
   refinanceCoversBridge: boolean;
   outcomeBreakdown: Breakdown;
 }
@@ -318,6 +321,7 @@ export function analyseBrrrr(i: BrrrrStrategyInputs): BrrrrAnalysis {
     grossYieldOnCost: { value: gy.value, breakdown: gyBreakdown },
     icr: { value: c.rental.icrRes.value, passes: c.rental.icrRes.passes, threshold: c.threshold, breakdown: c.rental.icrRes.breakdown },
     stampDutyTax: c.sdlt.value.tax,
+    stampDuty: c.sdlt,
     refinanceCoversBridge: c.refinanceCoversBridge,
     outcomeBreakdown,
   };
