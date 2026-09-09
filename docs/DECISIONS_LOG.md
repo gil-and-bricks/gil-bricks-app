@@ -2,6 +2,39 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — E9: the tax, named
+
+- **Where it actually was, measured in the rendered DOM, not guessed.**
+  Buy-to-let: visible, as "Cash in (incl. Stamp Duty)" with "Stamp Duty:
+  £15,000" and its bands. Flip: two lines, both inside COLLAPSED maths
+  accordions, and only in the FORMULA ("price + Stamp Duty + legals + …") — no
+  figure beside the name. BRRRR: one such line. HMO: two, same problem. The
+  extension panel was already the best of them: a named "Stamp Duty (SDLT)" line
+  with its own amount in the cash-needed card. Nowhere — buy-to-let included —
+  said which country's rules applied or whether the surcharge was in.
+- **A first-time user would have found it on buy-to-let and nowhere else.** On
+  the other three you had to open a maths accordion and map a formula onto a
+  chain of numbers positionally.
+- **A CORRECTION I nearly shipped.** My first probe reported "not present at all"
+  on HMO. That was wrong: the HMO verdict had not rendered because I passed
+  buy-to-let inputs and no room data. Re-probed with rooms and room rent, it
+  behaves like flip and BRRRR.
+- **One component for all four**, so they cannot drift: name, figure, which
+  rules, whether the surcharge is in, what changes it, bands on demand. It
+  carries the `sec-costs` anchor, so the Costs chip now lands ON the tax.
+- **THE CONTROL I NAMED FIRST WAS THE WRONG ONE.** The line said "Set by
+  'Buying as'". `buyingAs` is a different field — it forces the higher rates
+  only when it is `ltd`; the choice itself is "Purchase tax basis". Sending
+  somebody to the wrong control is worse than saying nothing. It names
+  "Purchase tax basis", and when the purchase IS through a company it says so
+  instead, because then there is no choice to point at. A test checks the label
+  it names is a real field on all four strategies.
+- **`surchargeApplied` is a FIELD on the engine's result, not a string to
+  parse.** A page must be able to say "the surcharge is included" without
+  re-deriving the threshold rule and getting it subtly wrong.
+- **No figure moved.** The tax was always inside cash-in on every strategy;
+  this is entirely about whether you can see it. Behind `stampDutyCost`.
+
 ## 2026-09-09 — C3 follow-up 3: /api/health, and the hourly Action that reads it
 
 - **The fault that justified this.** The Kit outbox retry is the app's only path
