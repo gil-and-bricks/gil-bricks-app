@@ -12,8 +12,25 @@ import { DuckDBInstance } from '@duckdb/node-api';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { modalDecile, salesByMonth, saleShare, sectorStats, typicalPriceByType } from './stats.mjs';
+import { csvHeader, onspdColumn } from './onspd-columns.mjs';
+import { closeSync, openSync, readSync } from 'node:fs';
 
 const DATA = 'pipeline/.data';
+
+/** The first line only — ONSPD is about a gigabyte, so never read it whole. */
+function readFirstLine(path) {
+  const fd = openSync(path, 'r');
+  try {
+    const buf = Buffer.alloc(64 * 1024);
+    const n = readSync(fd, buf, 0, buf.length, 0);
+    const text = buf.subarray(0, n).toString('utf8');
+    const end = text.indexOf('\n');
+    if (end === -1) throw new Error(`no newline in the first ${buf.length} bytes of ${path}`);
+    return text.slice(0, end);
+  } finally {
+    closeSync(fd);
+  }
+}
 const args = process.argv.slice(2);
 const flag = (name) => {
   const i = args.indexOf(name);
@@ -29,6 +46,13 @@ const em = /ONSPD_([A-Z]{3})_(\d{4})/i.exec(onspdCsv);
 const MONTHS = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
 const onspdEdition = em ? `${em[2]}-${MONTHS[em[1].toUpperCase()]}` : '';
 if (!onspdEdition) throw new Error(`Cannot derive ONSPD edition from ${onspdCsv}`);
+
+// ONS renames its own columns by year (ctry25cd -> ctry26cd), which killed the
+// refresh. Resolve them from the header instead of typing a year in.
+const ONSPD_HEADER = csvHeader(readFirstLine(`${DATA}/onspd/${onspdCsv}`));
+const CTRY_COL = onspdColumn(ONSPD_HEADER, 'ctry');
+const LSOA_COL = onspdColumn(ONSPD_HEADER, 'lsoa');
+console.log(`onspd columns: country=${CTRY_COL}, lsoa=${LSOA_COL}`);
 
 const t0 = Date.now();
 const instance = await DuckDBInstance.create(':memory:');
@@ -65,7 +89,7 @@ console.log(`ppdMonth=${ppdMonth} window >= ${start}, onspdEdition=${onspdEditio
 
 await db.run(`
   CREATE VIEW onspd AS
-  SELECT upper(trim(pcds)) AS pcds, lat, long AS lng, ctry25cd AS ctry
+  SELECT upper(trim(pcds)) AS pcds, lat, long AS lng, ${CTRY_COL} AS ctry
   FROM read_csv('${DATA}/onspd/${onspdCsv}', header=true, all_varchar=false)
 `);
 
@@ -253,7 +277,7 @@ const pcReader = await db.runAndReadAll(`
   SELECT upper(replace(trim(pcds), ' ', '')) AS key,
          upper(trim(pcds)) AS pcds, lat, lng, ctry, lsoa
   FROM (
-    SELECT pcds, lat, long AS lng, ctry25cd AS ctry, doterm, lsoa21cd AS lsoa
+    SELECT pcds, lat, long AS lng, ${CTRY_COL} AS ctry, doterm, ${LSOA_COL} AS lsoa
     FROM read_csv('${DATA}/onspd/${onspdCsv}', header=true, all_varchar=false)
   )
   WHERE (doterm IS NULL OR trim(CAST(doterm AS VARCHAR)) = '')
