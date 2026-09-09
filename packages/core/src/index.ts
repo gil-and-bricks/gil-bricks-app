@@ -24,6 +24,7 @@ export * from './landregistry';
 
 // Sold-data client + schema-v1 types.
 export * from './data/client';
+export * from './data/freshness';
 export * from './data/types';
 
 // Strategy calculators (analyseBtl/Brrrr/Flip/Hmo → {value, breakdown}).

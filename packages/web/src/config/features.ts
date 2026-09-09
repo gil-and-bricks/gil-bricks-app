@@ -189,6 +189,11 @@ export interface FeatureFlags {
   /** PDF export of a result (D1). Off: no PDF button and no "coming soon"
    * caption anywhere — an unbuilt feature is hidden, never shown disabled. */
   pdfExport: boolean;
+  /** The honest note beside the footer's as-of date when the monthly data
+   * refresh has plainly stopped running (older than
+   * `DATA_FRESHNESS.staleAfterDays`). Off: the as-of date still shows, exactly
+   * as it always did, and nothing says whether it is current. */
+  staleDataNote: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -222,6 +227,7 @@ export const features: FeatureFlags = {
   valuationTypeCaveat: true,
   desktopMore: true,
   pdfExport: false,
+  staleDataNote: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

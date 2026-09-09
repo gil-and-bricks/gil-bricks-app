@@ -2,6 +2,8 @@
 import { OGL_ATTRIBUTION } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
 import { FOOTER } from '../../config/nav';
+import { DATA_FRESHNESS } from '../../config/freshness';
+import { features } from '../../config/features';
 ---
 
 <footer class="site-footer">
@@ -20,11 +22,14 @@ import { FOOTER } from '../../config/nav';
   <p>
     {FOOTER.dataLicences}{' '}
     <span data-asof-line>{FOOTER.asOfBefore}<span data-asof></span>{FOOTER.asOfAfter}</span>
+    {features.staleDataNote && <span class="asof-stale" data-stale-note hidden>{' '}{DATA_FRESHNESS.note}</span>}
   </p>
 </footer>
 
 <script>
-  import { getManifest } from '@gil-bricks/core';
+  import { getManifest, dataFreshness } from '@gil-bricks/core';
+  import { DATA_FRESHNESS } from '../../config/freshness';
+  import { features } from '../../config/features';
   // Only ever shown once a REAL as-of date is in hand — a dash where a date
   // belongs reads as broken, and if the manifest can't be reached we would be
   // printing it for ever (D3). It is hidden with VISIBILITY, not `hidden`, so
@@ -37,6 +42,15 @@ import { FOOTER } from '../../config/nav';
       if (!el || !line || !m.ppdMonth) return;
       el.textContent = m.ppdMonth;
       (line as HTMLElement).dataset.asofLine = 'ready';
+      // THE DATE ALONE IS NOT ENOUGH. When the monthly refresh stops, this line
+      // keeps printing a true but frozen month and looks identical to a fresh
+      // one. The age is judged in @gil-bricks/core against a threshold in
+      // config; this only reveals a sentence that is already on the page.
+      if (!features.staleDataNote) return;
+      const note = document.querySelector('[data-stale-note]');
+      if (note !== null && dataFreshness(m.generatedAt, Date.now(), DATA_FRESHNESS.staleAfterDays).stale) {
+        (note as HTMLElement).hidden = false;
+      }
     })
     .catch(() => {});
 </script>
@@ -51,6 +65,10 @@ import { FOOTER } from '../../config/nav';
   [data-asof-line] { visibility: hidden; }
   [data-asof] { display: inline-block; min-width: 4.5em; }
   [data-asof-line='ready'] { visibility: visible; }
+  /* Not dimmed like the rest of the footer: it is the one line here that is
+     telling you something is wrong. It is the LAST thing in the footer, so
+     revealing it pushes nothing down (no layout shift). */
+  .asof-stale { color: var(--text); }
   .site-footer {
     max-width: 72rem;
     margin: var(--space-8) auto 0;
