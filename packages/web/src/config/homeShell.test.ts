@@ -93,14 +93,21 @@ describe('the video slot is honest while it is empty', () => {
     expect(home, 'the same component the bridging and credit pages use').toContain('<VideoSlot');
   });
 
-  it('the built page REQUESTS nothing from YouTube before a click', () => {
-    // The word "youtube" is allowed to appear: the social link points at the
-    // channel and the click handler holds the embed URL it will build LATER.
-    // What must not exist is anything the browser fetches on its own.
-    const dist = readFileSync(fileURLToPath(new URL('../../dist/index.html', import.meta.url)), 'utf8');
-    expect(dist, 'no embed until somebody presses play').not.toMatch(/<iframe/i);
-    expect(dist, 'and no warm-up request either').not.toMatch(/rel="(preconnect|dns-prefetch|prefetch|preload)"[^>]*(youtube|ytimg)/i);
-    expect(dist).not.toMatch(/<(script|img|link)[^>]+(src|href)="[^"]*(youtube|ytimg)[^"]*"/i);
+  it('nothing REQUESTS YouTube until the button is pressed', () => {
+    // Asserted against the SOURCE, not against dist/: a test that reads the
+    // build output passes on a machine that has built and fails in CI, which is
+    // exactly the mistake C3 made and CLAUDE.md warns about. (The built page is
+    // checked in the browser at deploy time.)
+    const slot = read('components/site/VideoSlot.astro');
+    const markup = slot.slice(0, slot.indexOf('<script'));
+    expect(markup, 'no iframe in the markup at all').not.toMatch(/<iframe/i);
+    expect(markup, 'and no warm-up link to their origin').not.toMatch(/preconnect|dns-prefetch/i);
+    // The embed URL exists only inside the click handler that builds it.
+    const script = slot.slice(slot.indexOf('<script'));
+    const embedAt = script.search(/youtube[^\s]*\/embed/i);
+    expect(embedAt, 'the embed URL is in the script').toBeGreaterThan(-1);
+    expect(script.slice(0, embedAt), 'and it is built inside a click listener')
+      .toMatch(/addEventListener\(\s*'click'/);
   });
 
   it('and the flag removes it', () => {
