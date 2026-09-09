@@ -2,6 +2,55 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — C3 follow-up 2: a failed refresh is now visible, and stale data says so
+
+**The operator's question was the right one: a bug that fails silently is worse
+than a bug.** What follows is what was actually true before today.
+
+- **Nothing in the repo told anyone a scheduled job had failed.** No workflow
+  had an `if: failure()` step; there was no issue, no push, no message. Whether
+  the operator saw a failure depended entirely on his personal GitHub
+  notification settings — which are not in this repo and cannot be relied on.
+  All three scheduled/dispatch workflows now open an issue on failure and
+  ASSIGN it, because GitHub emails an assignee. A repeat failure comments on the
+  open issue rather than opening a thirteenth.
+- **The notifier was PROVED, not assumed.** A throwaway workflow that failed on
+  purpose ran twice: the first opened issue #1 assigned to the owner, the second
+  commented on it instead of duplicating. Then it was deleted. This mattered:
+  the repo's default workflow permission is `read`, and it was not obvious that
+  a workflow-level `permissions: issues: write` could raise it. It can.
+- **What the app served while the refresh was down: the last good data, with a
+  true but FROZEN as-of month.** The footer's date comes from `manifest.json`
+  (`ppdMonth`), fetched live — it is not typed anywhere — so it was never
+  wrong. It just looked identical to a fresh one, for ever. That is the silence
+  the operator objected to, and it is the real gap.
+- **The footer now says so.** Once the manifest's own `generatedAt` is older
+  than `DATA_FRESHNESS.staleAfterDays` (45 days, `src/config/freshness.ts`), the
+  as-of line gains: "This is older than usual — treat the figures as a rough
+  guide." The date still shows exactly as before; the note is an addition, never
+  a swap. Behind `staleDataNote`.
+- **JUDGMENT CALL: 45 days, and `generatedAt` rather than `ppdMonth`.** The
+  refresh runs on the 2nd, so a healthy site is never more than ~31 days old; 45
+  lets a slow month land and still speaks about two weeks after a cycle has
+  plainly been missed. `generatedAt` is the direct signal ("we have not
+  refreshed"), where `ppdMonth` is naturally one to two months behind by design
+  and would take four months of silence to look wrong.
+- **JUDGMENT CALL: the footer only.** It is on every page, it is where the site
+  makes the as-of claim, and it is the LAST element in the footer, so revealing
+  the note pushes nothing down. Repeating it on the comparables line would mean
+  plumbing the manifest into a component that today only has `result.asOf`, for
+  a second copy of the same sentence.
+- **An unreadable date claims NOTHING.** `dataFreshness` returns `known: false`
+  for a missing or unparseable timestamp, and a future date clamps to zero
+  rather than reporting a negative age. Crying wolf on a broken manifest would
+  train the operator to ignore the one line that matters.
+- **Still silent, and named rather than half-fixed.** The Worker's 15-minute Kit
+  outbox cron: if `processOutbox` throws, the invocation fails into Cloudflare's
+  logs and rows queue up unsent with nothing to see. The daily 06:00 cron is
+  already guarded and logs to console. Neither has a way to reach the operator,
+  and rule 6 forbids the app sending email, so this needs a deliberate design
+  rather than a quick alert bolted on.
+
 ## 2026-09-09 — C3 follow-up: the data refresh, and the ONSPD column that broke it
 
 - **The monthly data refresh was already broken, and it had nothing to do with
