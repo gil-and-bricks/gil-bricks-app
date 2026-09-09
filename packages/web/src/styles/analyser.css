@@ -905,30 +905,84 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
   .shell-body[data-split]:has(.pinned-row) > *,
   .shell-body[data-split]:has(.pinned-row) > astro-island > * { grid-column: 1 / -1; }
   .shell-body[data-split]:has(.pinned-row) > main.page-wrap { grid-column: 2; }
+  /* ---- THE LEFT RAIL: ONE OBJECT (C2) ---------------------------------
+     It was two. A bordered, rounded strategy box, then 12px of nothing, then a
+     bare list of chips with no surface of its own — so the sections read as
+     something left over rather than as part of the page's navigation. They are
+     the same question asked twice (which strategy am I in; where am I on the
+     page), so they now sit in ONE bordered surface, split by a hairline instead
+     of a gap.
+     Alignment was the other half of it, and the harder half to name: the
+     strategy segments were CENTRED while the section chips were left-aligned,
+     so the rail had no text edge at all. Everything is left-aligned now and the
+     icons share one column, which is what gives the rail a spine. */
   .shell-body[data-split]:has(.pinned-row) > .pinned-row {
     /* The mobile row's right-edge fade must not follow it into the sidebar. */
     -webkit-mask-image: none; mask-image: none;
     --pinned: vertical;
     grid-column: 1;
     position: sticky; top: calc(var(--sticky-h, 0px) + var(--space-4));
-    flex-direction: column; align-items: stretch; gap: var(--space-3);
+    flex-direction: column; align-items: stretch; gap: 0;
     overflow: visible; min-height: 0;
-    padding: var(--space-4) 0 var(--space-4) var(--space-4);
-    background: none; border-bottom: 0;
+    margin: var(--space-4) 0;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
     -webkit-backdrop-filter: none; backdrop-filter: none;
   }
+  /* The strategy zone: the top of the one object, so it loses its own box. */
   .shell-body[data-split]:has(.pinned-row) > .pinned-row .strategy-seg {
     position: static; flex-direction: column; align-items: stretch;
-    margin: 0; border-radius: 12px;
+    margin: 0; border: 0; border-radius: 0; background: none;
+    padding: var(--space-2);
   }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .seg { justify-content: center; min-height: 2.25rem; }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strategy-seg .seg:first-child { border-radius: 12px 12px 0 0; }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strategy-seg .seg:last-child { border-radius: 0 0 12px 12px; }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .seg + .seg { border-left: 0; border-top: 1px solid var(--glass-border); }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .section-strip { display: block; }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-row { flex-direction: column; align-items: stretch; padding: 0; gap: var(--space-1); }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip { border: 0; padding: var(--space-2) var(--space-3); border-radius: 8px; }
-  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip[aria-current='true'] { background: rgba(220, 255, 0, 0.12); color: var(--accent); border: 0; }
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .seg {
+    justify-content: flex-start; min-height: 2.25rem;
+    /* The left inset clears the icon column below, so the strategy names and the
+       section labels share ONE text edge. The icons hang to its left as a
+       marker column — the rail's spine — rather than pushing the text apart. */
+    padding: var(--space-1) var(--space-3);
+    padding-left: calc(var(--space-3) + 16px + var(--space-2));
+    border-radius: 8px;
+  }
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strategy-seg .seg:first-child,
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strategy-seg .seg:last-child { border-radius: 8px; }
+  /* Stacked links, not a segmented control: the dividing lines between them were
+     what made this look like a separate widget. */
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .seg + .seg { border-left: 0; border-top: 0; }
+  /* THE HAIRLINE. One line does the job the 12px gap was failing to do: it says
+     these are two parts of one thing rather than two things. */
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .section-strip {
+    display: block;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    padding: var(--space-2);
+  }
+  /* The hairline divides two zones, so it must not exist when there is only one.
+     With features.segmentedStrategy off the switcher renders nothing and the
+     strip becomes the first child: the divider then stacked on the rail's own
+     top border, giving a 2px line squared across a 12px corner. A flag being
+     off has to be a clean state, not a blemished one. */
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .section-strip:first-child { border-top: 0; }
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-row { flex-direction: column; align-items: stretch; padding: 0; gap: 1px; }
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip {
+    border: 0; border-radius: 8px;
+    padding: var(--space-1) var(--space-3);
+    min-height: 2.25rem;
+    gap: var(--space-2);
+  }
+  /* The icon column is what the labels hang off — a fixed box, so the text
+     starts at the same x on every row however wide the glyph draws. */
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .chip-icon { display: block; }
+  /* ACTIVE: the lime tint stays, and a solid left edge marks position at a
+     glance. The bar is 2px of accent against the tint, so it reads as "you are
+     here" before any word is read — and the label is still there for anyone the
+     colour does not reach. */
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip[aria-current='true'] {
+    background: rgba(220, 255, 0, 0.12); color: var(--accent); border: 0;
+    box-shadow: inset 2px 0 0 var(--accent);
+  }
+  .shell-body[data-split]:has(.pinned-row) > .pinned-row .strip-chip:hover { background: rgba(255, 255, 255, 0.06); }
   .shell-body[data-split]:has(.pinned-row) > main.page-wrap { padding-left: var(--space-5); }
 }
 
@@ -1511,3 +1565,12 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
   }
   .comp-actions a { min-height: 2.75rem; padding-inline: var(--space-3); flex: 1 1 auto; justify-content: center; }
 }
+
+
+/* ---------- Section chips: the icon (C2) ---------------------------------
+   The chip has always been an inline-flex row, so the glyph and the label sit
+   on one baseline with no layout change. The icon is drawn ONLY in the desktop
+   rail: in the phone's horizontal strip it would cost width the labels need,
+   and the strip there is already a scannable row. */
+.chip-icon { width: 16px; height: 16px; flex: 0 0 16px; display: none; }
+.chip-label { min-width: 0; }

@@ -12,6 +12,26 @@ import { StrategySegments } from './StrategySegments';
 
 interface Props { currentId: string | null }
 const { currentId } = Astro.props;
+
+/**
+ * The rail's glyphs (C2). DRAWING, not copy — the names live in
+ * config/analyserSections.ts, the shapes live here.
+ *
+ * Hand-written and self-hosted: no icon library, no CDN, no font. One stroke
+ * weight and one 24-unit box for all eight, so the column reads as a set rather
+ * than a collection. Each is decorative: it sits BESIDE its label and is
+ * aria-hidden, so nothing is ever carried by the picture alone.
+ */
+const ICONS: Record<string, string> = {
+  home: 'M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1Z',
+  pin: 'M12 21s7-6 7-11a7 7 0 1 0-14 0c0 5 7 11 7 11Zm0-8.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z',
+  pencil: 'M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Zm11-13 3 3',
+  verdict: 'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18Zm-3.5 9 2.5 2.5L15.5 9',
+  chart: 'M4 20h16M7 20v-6m5 6V7m5 13v-9',
+  coins: 'M15 7.5c0 1.9-2.9 3.5-6.5 3.5S2 9.4 2 7.5 4.9 4 8.5 4 15 5.6 15 7.5Zm0 0v4c0 1.9-2.9 3.5-6.5 3.5S2 13.4 2 11.5v-4m20 1c0 1.9-2.9 3.5-6.5 3.5-1 0-2-.1-2.8-.3M22 8.5v4c0 1.9-2.9 3.5-6.5 3.5-1 0-2-.1-2.8-.3',
+  list: 'M4 6h16M4 12h16M4 18h10',
+  tag: 'M20 12.5 12.5 20a2 2 0 0 1-2.8 0l-6-6a2 2 0 0 1-.6-1.4V5a2 2 0 0 1 2-2h7.6a2 2 0 0 1 1.4.6l6 6a2 2 0 0 1 0 2.9ZM7.5 7.5h.01',
+};
 ---
 
 {(features.sectionOverview || features.segmentedStrategy) && (
@@ -24,7 +44,12 @@ const { currentId } = Astro.props;
         <ul class="strip-row">
           {ANALYSER_SECTIONS.map((s) => (
             <li>
-              <a class="strip-chip" href={`#${s.id}`} data-chip={s.id} hidden>{s.label}</a>
+              <a class="strip-chip" href={`#${s.id}`} data-chip={s.id} hidden>
+                <svg class="chip-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"
+                  fill="none" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round"><path d={ICONS[s.icon]} /></svg>
+                <span class="chip-label">{s.label}</span>
+              </a>
             </li>
           ))}
         </ul>

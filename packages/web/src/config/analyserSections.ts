@@ -12,20 +12,27 @@ export interface AnalyserSection {
   id: string;
   /** The chip's label. Short: the strip is one line on a 390px screen. */
   label: string;
+  /**
+   * Which glyph the left rail draws beside the label (C2). A NAME, not artwork:
+   * the shapes live in SectionStrip.astro because they are drawing, not copy.
+   * The icon is decorative and aria-hidden — the label is always there, so the
+   * icon never carries meaning on its own.
+   */
+  icon: 'home' | 'pin' | 'pencil' | 'verdict' | 'chart' | 'coins' | 'list' | 'tag';
 }
 
 export const ANALYSER_SECTIONS: readonly AnalyserSection[] = [
-  { id: 'sec-property', label: 'Property' },
-  { id: 'sec-area', label: 'Area' },
-  { id: 'sec-inputs', label: 'Inputs' },
-  { id: 'sec-verdict', label: 'Verdict' },
-  { id: 'sec-figures', label: 'Figures' },
-  { id: 'sec-costs', label: 'Costs' },
+  { id: 'sec-property', label: 'Property', icon: 'home' },
+  { id: 'sec-area', label: 'Area', icon: 'pin' },
+  { id: 'sec-inputs', label: 'Inputs', icon: 'pencil' },
+  { id: 'sec-verdict', label: 'Verdict', icon: 'verdict' },
+  { id: 'sec-figures', label: 'Figures', icon: 'chart' },
+  { id: 'sec-costs', label: 'Costs', icon: 'coins' },
   // C1 — COMPARABLES BEFORE VALUATION. You work through the evidence and
   // satisfy yourself it is right BEFORE you are shown a valuation built on it.
   // The strip is a map of the page, so this order and the page's must agree.
-  { id: 'sec-comps', label: 'Comparables' },
-  { id: 'valuation', label: 'Valuation' },
+  { id: 'sec-comps', label: 'Comparables', icon: 'list' },
+  { id: 'valuation', label: 'Valuation', icon: 'tag' },
 ];
 
 export const SECTION_STRIP = {

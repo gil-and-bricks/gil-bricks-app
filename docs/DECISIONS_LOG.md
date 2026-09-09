@@ -2,6 +2,83 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-09 — Sprint C2: aligned header, official social marks, unified left rail (deployed)
+
+- **The wordmark and the credit did not line up because the ARTWORK was
+  padded, not because the CSS was wrong.** `.brand` already had
+  `align-items: flex-start`, so the boxes agreed. The PNG was 900x225 with 50px
+  of transparent padding down its left side, so at the old 38px render height
+  the glyph began 8.4px inside its own box while "BY GIL & BRICKS" began at 0 —
+  and the offset scaled with the render height, which is why nudging had never
+  held. Both wordmarks are cropped to their alpha bounding box (PropLaunch
+  900x225 → 804x100, Gil & Bricks 520x293 → 499x218), so the declared size IS
+  the mark. Measured after: Δ 0px at 320, 390 and 1440.
+  The old box was also 38px tall around a 17px glyph, which made the vertical
+  gap accidental; the mark now renders at its true 17px (13px under 400px, the
+  same optical size as before) and the gap is `--space-1`, chosen rather than
+  the previous `1px`.
+- **Cropping the wordmark caused a CLS regression, and the fix is the real
+  improvement.** The brand block had been setting the header's height. Shorten
+  it and the `client:idle` signed-in control became the tallest thing in the
+  header, so its arrival started moving the whole page: CLS 0 → 0.011. The row
+  it lands in now reserves `min-height: 2.75rem`, so the header is a fixed
+  height from the first frame. CLS is 0 again, and matches the pre-sprint
+  baseline shift-for-shift when measured with the same probe.
+- **The Instagram and YouTube marks are the official ones now.** Ours were
+  recoloured to lime, which both companies' brand guidelines forbid and which
+  stopped them reading as the platforms at all. They are inline SVG — self
+  hosted, no CDN, no icon font — in YouTube red and Instagram's own gradient.
+  They are the only full-colour things on the page, so they were made SMALLER
+  (1.25rem → 1.125rem) at the same 2rem hit area, and sit at 0.85 opacity until
+  hovered: full colour at the old size would have shouted. The lime hover fill
+  went with them — we do not paint our brand around somebody else's mark.
+- **JUDGMENT CALL on the left rail: the operator's diagnosis was right, and
+  there was a second half to it.** Two objects, yes: a bordered strategy box,
+  then 12px of nothing, then a bare list with no surface of its own. But the
+  half that is felt before it is named is ALIGNMENT — the strategy segments were
+  CENTRED while the section chips were left-aligned, so the rail had no text
+  edge at all. One outlined surface now holds both, split by a hairline instead
+  of a gap, and everything is left-aligned on ONE text spine with the icons
+  hanging in a 16px marker column to its left.
+- **The rail's outline is NOT lime, and that was deliberate.** The obvious
+  choice was `--glass-border`, which resolves to `rgba(220,255,0,0.4)` — that
+  would have rebuilt the lime box C1 removed from the switcher a day earlier.
+  It uses the same quiet `rgba(255,255,255,0.16)` the section chips use, so the
+  only lime in the rail is the strategy you are in and the section you are
+  reading.
+- **The icons are ours, and never carry meaning alone.** Eight hand-written
+  paths on one 24-unit box at one stroke weight, named in
+  `config/analyserSections.ts` and drawn in `SectionStrip.astro` — the name is
+  config, the shape is drawing. Each is `aria-hidden` beside its own visible
+  label, and they render only in the desktop rail: in the phone's horizontal
+  strip they would cost width the labels need.
+- **The active section reads before it is read.** It keeps its lime tint and
+  gains a 2px lime left edge, so position registers as shape as well as colour.
+- **No copy changed.** The section labels are byte-identical; only an `icon` key
+  was added beside them.
+- **The review caught the footer, where the same arithmetic went wrong.** The
+  header's crop maths was right because its tag attributes (152x38) matched the
+  CSS height. The footer's did not: the tag said 88x50 while the CSS rendered at
+  44px, and deriving from the ATTRIBUTES made the maker wordmark 13% bigger
+  (218/293 x 50 = 37 instead of 218/293 x 44 = 32.74). It is 33px now, measured
+  at 75.5x33 against HEAD's 74.9x32.7 — within 0.8%.
+- **The review also caught tests that did not enforce what they were named for.**
+  Five regressions passed the first version of `headerRail.test.ts`, including
+  the sprint's own subject: a single CSS rule could recolour both social marks
+  back to lime, and swapping an Instagram gradient stop to lime passed because
+  the assertion only looked for the word "radialGradient". A redundant
+  `border-bottom` also let `border: 0` remove the rail's outline unnoticed —
+  that dead declaration is gone, and each of the six mutations now fails.
+- **A flags-off blemish, fixed.** With `segmentedStrategy` off the switcher
+  renders nothing, so the section strip became the rail's first child and its
+  zone hairline stacked on the rail's own top border: a 2px line squared across
+  a 12px corner. A `:first-child` reset restores a clean off state.
+- **Process note, third time: a stray background process bit the verification.**
+  An `astro check` left running from earlier in this same sprint had been
+  burning CPU for 14h42m and starved the copy gate into `networkidle` timeouts
+  on random analyser pages. Nothing was wrong with the product; the gate passed
+  all 21 pages the moment the machine was quiet.
+
 ## 2026-09-08 — Sprint C3: non-standard sales, excluded and said out loud (deployed)
 
 - **The premise did not hold, and that is the headline.** The brief asked to
