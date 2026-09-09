@@ -1,0 +1,18 @@
+# Static-asset caching (C3). Cloudflare's default for Workers assets is
+# `max-age=0, must-revalidate`, so every hashed chunk, glyph and sprite costs a
+# round trip on every visit — measured on the map's own critical path.
+#
+# ONLY paths whose CONTENT CANNOT CHANGE UNDER A CACHED CLIENT are listed:
+# /_astro/* is content-hashed by Astro, and the sprite folder is versioned (v4).
+# /map/vendor/* is deliberately ABSENT — maplibre's worker file lives there at a
+# stable path and must always match the library bundled beside it.
+/_astro/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/map/sprites/v4/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Glyphs are regenerated only if we change font, which would be a deliberate act
+# with a path change beside it. A month, so a mistake still heals by itself.
+/map/fonts/*
+  Cache-Control: public, max-age=2592000

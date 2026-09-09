@@ -84,12 +84,16 @@ describe('the row shows the right things', () => {
     expect(COMPARABLES.filters.age.newBuild).toBeTruthy();
   });
 
-  it('the actions sit under the ADDRESS, not in a far-right column nobody sees', () => {
+  it('the actions are a COLUMN of their own, straight after the address (C3)', () => {
+    // C1 put them inside the address cell. The table sets nowrap, so they sat
+    // BESIDE each address rather than under it, and their left edge tracked the
+    // length of the address — a 146px wander down the list at 1280px. See
+    // compsRowAndMap.test.ts for the rule this replaced it with.
     const mod = read('components/analyser/CompsModule.tsx');
-    expect(mod, 'no Links column').not.toContain('COMPARABLES.table.actions');
-    expect(mod).toContain('comp-address-cell');
-    const cell = mod.slice(mod.indexOf('comp-address-cell'), mod.indexOf('comp-address-cell') + 260);
-    expect(cell, 'the actions live in that cell').toContain('<CompActions');
+    expect(mod, 'the column has a heading again').toContain('COMPARABLES.table.actions');
+    const at = mod.indexOf('<td class="comp-address-cell">');
+    const cell = mod.slice(at, mod.indexOf('</td>', at));
+    expect(cell, 'the address cell carries the address and nothing else').not.toContain('<CompActions');
   });
 
   it('the columns the operator asked to keep are all still there', () => {

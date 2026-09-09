@@ -14,6 +14,7 @@ import type { Comp } from '@gil-bricks/core';
 import type { MapData, MapHandle } from './mapImpl';
 import { hoveredCompId } from './mapSync';
 import { fetchArticle4InBbox } from '../../lib/map/article4';
+import { warmMapAssets } from '../../lib/map/warm';
 
 export interface CompMapProps {
   subject: { lat: number; lng: number };
@@ -52,6 +53,9 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
   useEffect(() => {
     let cancelled = false;
     setStatus('loading');
+    // Before the 270KB map module, not after it: the stylesheet and the first
+    // glyph range are known now and used to wait behind it (lib/map/warm.ts).
+    warmMapAssets();
     void import('./mapImpl')
       .then((m) => {
         if (cancelled || !el.current) return;
@@ -64,6 +68,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
             if (!autoRetried.current) {
               autoRetried.current = true;
               m.resetTiles();
+              setStatus('loading'); // a map that died AFTER painting must say it is trying again
               setAttempt((n) => n + 1);
             } else {
               setStatus('blank');
@@ -90,6 +95,7 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
   }, [hoveredCompId.value, variant]);
 
   const broken = status === 'blank' || status === 'failed';
+  const loading = status === 'loading';
 
   const manualRetry = () => {
     autoRetried.current = false; // allow the auto-heal to fire again on this fresh attempt
@@ -99,6 +105,9 @@ export function CompMap({ subject, radiusMiles, comps, selectedId, variant = 'co
 
   return (
     <>
+      {loading && (
+        <p class="hint map-loading" role="status">{COPY.comps.mapLoading}</p>
+      )}
       {broken && (
         <p class="hint map-fallback" role="alert">
           {COPY.comps.mapBroken}{' '}

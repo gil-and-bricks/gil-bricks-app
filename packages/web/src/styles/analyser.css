@@ -412,11 +412,13 @@
 .a4-headline { margin: 0 0 var(--space-1); font-weight: 600; }
 .a4-card a { color: var(--accent); }
 .map-a4-note { margin: var(--space-2) 0 0; }
+/* Said while the map is a dark box and nothing has painted yet (C3). */
+.map-loading { margin: var(--space-2) 0 0; }
 .map-chip { display: inline-block; margin: var(--space-2) 0; padding: 0.2rem 0.7rem; border-radius: 999px; font-size: var(--text-xs); color: var(--text-dim); border: 1px solid rgba(255,255,255,0.18); }
 .comp-map .maplibregl-ctrl button { font-size: 1rem; line-height: 1; }
 /* MapLibre's control group is white and sets no text colour, so the label
    inherited the page's white and was invisible (pre-existing; found in N3). */
-.comp-map .maplibregl-ctrl button.map-reset-btn { width: auto; padding: 0 0.5rem; font-size: var(--text-xs); color: var(--accent-ink); font-weight: 700; }
+.comp-map .maplibregl-ctrl button.map-reset-btn { width: auto; padding: 0 0.5rem; font-size: var(--text-xs); color: var(--accent); font-weight: 700; }
 
 /* plain-English state headings (S8.1) — legibility only, not a design change */
 .state-h { font-size: var(--text-base); font-weight: 600; margin: 0 0 var(--space-1); }
@@ -1171,6 +1173,44 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
    need a container class to outrank it (D1 review). */
 .comp-map .maplibregl-ctrl-group { background: var(--glass-bg-fallback); border: 1px solid var(--glass-border); }
 .comp-map .maplibregl-ctrl-group button { color: var(--accent); }
+/* MapLibre's divider between stacked buttons is #ddd — a bright line across a
+   dark control. */
+.comp-map .maplibregl-ctrl-group button + button { border-top: 1px solid rgba(255, 255, 255, 0.18); }
+
+/* ---- The zoom controls you can actually see (C3) --------------------------
+   Zoom in and zoom out are MapLibre's own glyphs, drawn as a data-URI SVG with
+   fill="#333" baked in. That is a dark glyph on the dark control group above,
+   so the two most-used controls on the map were all but invisible — as was the
+   Reset label, still painted accent-ink from when the group behind it was white.
+   The colour has to come from the token, and a colour cannot be pushed into
+   somebody else's data URI, so the glyph is MASKED and the token paints it.
+
+   `background-image: none` MUST live in the per-button rules below, not in the
+   shared one. MapLibre's own rule is `.maplibregl-ctrl button.maplibregl-ctrl-
+   zoom-in .maplibregl-ctrl-icon` — (0,3,1), exactly the same weight as a shared
+   `.comp-map .maplibregl-ctrl button .maplibregl-ctrl-icon` — and its stylesheet
+   is appended at map mount, AFTER ours, so on a tie it wins. The first attempt
+   at this lost that tie: the lime painted, MapLibre's #333 glyph painted on top
+   of it, the mask clipped both to the same shape, and the control measured
+   1.53:1 — no better than before. Naming the button takes these to (0,4,1). */
+.comp-map .maplibregl-ctrl button .maplibregl-ctrl-icon {
+  background-color: var(--accent);
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-position: 50%; mask-position: 50%;
+  /* The map underneath is a picture and is never re-coloured, so a control
+     forced to the system palette can vanish against it. Ours stays put. */
+  forced-color-adjust: none;
+}
+.comp-map .maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon {
+  background-image: none;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M14.5 9.5v10M9.5 14.5h10' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M14.5 9.5v10M9.5 14.5h10' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.comp-map .maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
+  background-image: none;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M9.5 14.5h10' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='29' height='29' viewBox='0 0 29 29'%3E%3Cpath d='M9.5 14.5h10' stroke='%23000' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
 .comp-map .maplibregl-ctrl-attrib, .comp-map .maplibregl-ctrl-attrib.maplibregl-compact { background-color: rgba(7, 0, 20, 0.82); color: var(--text); }
 .comp-map .maplibregl-ctrl-attrib a { color: var(--text); }
 
@@ -1532,26 +1572,45 @@ html[data-verdict] .sv-anchor { height: var(--sv-reserve); }
 html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
 
 
-/* ---------- A comparable's links (C1) ---------------------------------------
+/* ---------- A comparable's links (C1, aligned into a column in C3) -----------
    The per-sale page is gone and its actions live on the row. Four small links:
-   Land Registry, Google, and the two portals' postcode sold prices. */
+   Land Registry, Google, and the two portals' postcode sold prices.
+
+   THEY LOOK PRESSABLE AT REST. They used to be white text inside a 0.4-white
+   hairline and only became lime on hover — so they read as labels, and on the
+   surface where it matters most, a phone, there is no hover at all. They now
+   carry a fill and a 0.55-white boundary at rest, the same reasoning C1 applied
+   to the list/map toggle: a control has to look like one before you touch it. */
 .comp-actions { display: inline-flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
 .comp-actions a {
   display: inline-flex; align-items: center; min-height: 2rem;
   padding: 0.15rem var(--space-2);
-  border: 1px solid rgba(255, 255, 255, 0.4); border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.55); border-radius: 8px;
   color: var(--text); font-size: var(--text-2xs); font-weight: 600;
   text-decoration: none; white-space: nowrap;
 }
-.comp-actions a:hover, .comp-actions a:focus-visible { border-color: var(--accent); color: var(--accent); }
-/* ON DESKTOP the actions live UNDER THE ADDRESS, not in a column of their own.
-   A Links column sat at the far right of a table that already overflowed its
-   wrapper, so the actions were 100% off-screen at every width — the headline of
-   the change, invisible — and the narrow column stacked them four-deep, taking
-   a row from 31px to 161px. Under the address they are in the leftmost region,
-   always on screen, and they cost ONE line instead of four. */
-.comps-table .comp-address-cell { white-space: nowrap; }
-.comps-table .comp-actions { margin-top: 0.25rem; flex-wrap: nowrap; }
+.comp-actions a:hover, .comp-actions a:focus-visible {
+  background: rgba(255, 255, 255, 0.14); border-color: var(--accent); color: var(--accent);
+}
+.comp-actions a:active { background: rgba(255, 255, 255, 0.2); }
+
+/* ON DESKTOP THEY ARE THEIR OWN COLUMN, immediately after the address (C3).
+   C1 put them INSIDE the address cell, and because the table sets nowrap they
+   sat beside the address rather than under it — so their left edge tracked the
+   length of each address and wandered over a 146px range down the list (measured
+   at 1280px: 213px to 358px). A column fixes that by construction.
+
+   Measured at 1280px, before and after: the buttons' left edge went from 213px-
+   358px down the list to 411px on every row. The address column, which had been
+   564px because it was carrying the links too, is 274px; the links column is
+   299px and sits at 403-702px inside a 1054px wrapper, so it is fully on screen.
+   The table itself is 9px wider (1223 -> 1232) and the rows are 4px SHORTER.
+
+   NOT the far right, which is what C1 tried first: the table is wider than its
+   wrapper, so a last column is scrolled off the card and nobody ever sees it. */
+.comps-table .comp-links-col { white-space: nowrap; width: 1px; }
+.comps-table .comp-actions { flex-wrap: nowrap; gap: var(--space-1); }
 .comps-table .comp-actions a { font-size: var(--text-2xs); padding: 0 0.35rem; min-height: 1.5rem; }
 
 @media (max-width: 640px) {

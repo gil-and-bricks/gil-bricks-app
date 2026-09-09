@@ -225,7 +225,7 @@ const INLINE_COPY_BASELINE: Record<string, number> = {
   'components/analyser/SubjectForm.tsx': 0,
   'components/analyser/Tooltip.tsx': 1,
   'components/analyser/ValuationCard.tsx': 1,
-  'components/analyser/mapImpl.ts': 7,
+  'components/analyser/mapImpl.ts': 5,
   'components/area/AreaApp.tsx': 22,
   'components/auth/AccountApp.tsx': 1,
   'components/auth/LoginWall.tsx': 2,

@@ -17,11 +17,19 @@
  *    which caps at 1,200 requests / 5 min account-wide (a full-speed run
  *    429'd at ~5,000 objects), so this path self-throttles to ~3.3 req/s.
  *
+ * EVERY OBJECT GOES UP GZIPPED, with a Cache-Control (C3). R2 does not compress
+ * on the fly and r2.dev sets no cache header, so sectors-index.json — which both
+ * the analyser and /comparables preload — was 881KB of uncompressed JSON on
+ * every visit, measured at 6.2 seconds of a phone's 4G. Gzipped it is 135KB.
+ * Content-Encoding is decoded transparently by browsers, by Workers and by
+ * Node, so nothing that reads this data changes.
+ *
  * Usage: node pipeline/upload.mjs [--dir pipeline/.data/out] [--concurrency 12]
  */
 import { createHash, createHmac } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { execFile } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
@@ -36,6 +44,14 @@ const flag = (name, dflt) => {
 const DIR = flag('--dir', 'pipeline/.data/out');
 const CONCURRENCY = Math.max(1, Number(flag('--concurrency', '12')) || 1);
 const STATE_PATH = 'pipeline/.data/upload-state.json';
+
+/** Bumped whenever HOW an object is stored changes, so a resumed run re-sends
+ *  files whose bytes are unchanged but whose encoding or headers are not. */
+const ENCODING_TAG = 'gz1';
+/** The data is refreshed monthly and manifest.json is the as-of source, so it is
+ *  the one file that must never be held. */
+const CACHE_CONTROL = 'public, max-age=86400';
+const MANIFEST_CACHE_CONTROL = 'public, max-age=300';
 
 const TOKEN = process.env.CLOUDFLARE_API_TOKEN;
 const ACCOUNT = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -73,7 +89,7 @@ async function initS3() {
 const sha256hex = (d) => createHash('sha256').update(d).digest('hex');
 const hmac = (k, d) => createHmac('sha256', k).update(d).digest();
 
-async function putS3(key, body, attempt = 1) {
+async function putS3(key, body, cacheControl, attempt = 1) {
   const { accessKeyId, secretKey, host } = s3Creds;
   const now = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, 'Z');
   const date = now.slice(0, 8);
@@ -91,6 +107,8 @@ async function putS3(key, body, attempt = 1) {
       headers: {
         Host: host,
         'Content-Type': 'application/json',
+        'Content-Encoding': 'gzip',
+        'Cache-Control': cacheControl,
         'x-amz-date': now,
         'x-amz-content-sha256': payloadHash,
         Authorization: `AWS4-HMAC-SHA256 Credential=${accessKeyId}/${scope}, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=${sig}`,
@@ -100,7 +118,7 @@ async function putS3(key, body, attempt = 1) {
   } catch (err) {
     if (attempt < 6) {
       await new Promise((r) => setTimeout(r, 1000 * attempt));
-      return putS3(key, body, attempt + 1);
+      return putS3(key, body, cacheControl, attempt + 1);
     }
     throw err;
   }
@@ -109,23 +127,24 @@ async function putS3(key, body, attempt = 1) {
   if (retryable && attempt < 6) {
     const after = Number(res.headers.get('retry-after') ?? 0) * 1000;
     await new Promise((r) => setTimeout(r, Math.max(after, 2000 * attempt)));
-    return putS3(key, body, attempt + 1);
+    return putS3(key, body, cacheControl, attempt + 1);
   }
   throw new Error(`PUT ${key} failed: HTTP ${res.status} ${await res.text()}`);
 }
 
-async function putWrangler(key, path, attempt = 1) {
+async function putWrangler(key, gzPath, cacheControl, attempt = 1) {
   await throttle();
   try {
     await exec('node_modules/.bin/wrangler', [
       'r2', 'object', 'put', `${BUCKET}/${key}`,
-      '--file', path, '--content-type', 'application/json', '--remote',
+      '--file', gzPath, '--content-type', 'application/json',
+      '--content-encoding', 'gzip', '--cache-control', cacheControl, '--remote',
     ], { maxBuffer: 10 * 1024 * 1024 });
   } catch (err) {
     if (attempt < 6) {
       const isRateLimit = String(err.message ?? err).includes('429');
       await new Promise((r) => setTimeout(r, (isRateLimit ? 20000 : 1500) * attempt));
-      return putWrangler(key, path, attempt + 1);
+      return putWrangler(key, gzPath, cacheControl, attempt + 1);
     }
     throw err;
   }
@@ -160,14 +179,25 @@ const t0 = Date.now();
 async function uploadOne(rel) {
   const path = join(DIR, rel);
   const body = readFileSync(path);
-  const md5 = createHash('md5').update(body).digest('hex');
+  // The md5 is of the SOURCE bytes, so it still means "this file changed"; the
+  // tag beside it means "and it is stored the way we store things today".
+  const md5 = `${createHash('md5').update(body).digest('hex')}:${ENCODING_TAG}`;
   const key = rel.split('\\').join('/');
   if (state[key] === md5) {
     skipped += 1;
     return;
   }
-  if (fastMode) await putS3(key, body);
-  else await putWrangler(key, path);
+  const gz = gzipSync(body, { level: 9 });
+  if (fastMode) await putS3(key, gz, CACHE_CONTROL);
+  else {
+    const gzPath = `${path}.gz`;
+    writeFileSync(gzPath, gz);
+    try {
+      await putWrangler(key, gzPath, CACHE_CONTROL);
+    } finally {
+      rmSync(gzPath, { force: true });
+    }
+  }
   state[key] = md5;
   uploaded += 1;
   stateDirty += 1;
@@ -208,9 +238,18 @@ if (uploaded + skipped !== files.length) {
 if (hasManifest) {
   console.log('uploading manifest.json (last)...');
   const body = readFileSync(join(DIR, 'manifest.json'));
-  if (fastMode) await putS3('manifest.json', body);
-  else await putWrangler('manifest.json', join(DIR, 'manifest.json'));
-  state['manifest.json'] = createHash('md5').update(body).digest('hex');
+  const gz = gzipSync(body, { level: 9 });
+  if (fastMode) await putS3('manifest.json', gz, MANIFEST_CACHE_CONTROL);
+  else {
+    const gzPath = join(DIR, 'manifest.json.gz');
+    writeFileSync(gzPath, gz);
+    try {
+      await putWrangler('manifest.json', gzPath, MANIFEST_CACHE_CONTROL);
+    } finally {
+      rmSync(gzPath, { force: true });
+    }
+  }
+  state['manifest.json'] = `${createHash('md5').update(body).digest('hex')}:${ENCODING_TAG}`;
   saveState();
 }
 

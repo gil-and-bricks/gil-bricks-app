@@ -18,9 +18,11 @@ import {
 import type { Feature, FeatureCollection, Point } from 'geojson';
 import type { IControl } from 'maplibre-gl';
 import { PMTiles, Protocol } from 'pmtiles';
+import { HealingPmtilesCache } from '../../lib/map/healingCache';
 import type { Comp } from '@gil-bricks/core';
 import { circleRing, clusterForVariant, escapeHtml as esc, isRenderedTileEvent, pinState, shouldCluster } from '../../lib/map/geo';
 import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
+import { warmMapAssets } from '../../lib/map/warm';
 import { MAP_COPY } from '../../config/misc';
 import { fmtMoney } from '@gil-bricks/core';
 import { compLinks } from '@gil-bricks/core';
@@ -49,7 +51,10 @@ function ensureProtocol(): void {
 }
 
 function addArchive(): void {
-  const archive = new PMTiles(tilesHttpUrl());
+  // The healing cache is the fix for the map that vanished on zoom: pmtiles'
+  // own cache keeps a REJECTED promise for ever, so one failed range request
+  // killed every tile after it (src/lib/map/healingCache.ts).
+  const archive = new PMTiles(tilesHttpUrl(), new HealingPmtilesCache());
   protocol!.add(archive);
   // pre-warm the header + root directory with a few retries, on our own
   // (never a map's) fetch — so it lands cached-resolved, not poisoned.
@@ -159,24 +164,11 @@ function circleGeoJson(data: MapData): Feature {
   };
 }
 
-/** MapLibre's own stylesheet, self-hosted and fetched on FIRST MOUNT only —
- * importing it here would make the bundler put an 83KB render-blocking <link>
- * on every analyser page, map or no map (N3). */
-const MAP_CSS_HREF = '/map/vendor/maplibre-gl.css';
-function ensureMapCss(): void {
-  if (typeof document === 'undefined' || document.querySelector(`link[href="${MAP_CSS_HREF}"]`) !== null) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = MAP_CSS_HREF;
-  // a failed fetch removes the tag so the NEXT mount tries again, rather than
-  // leaving every future map unstyled behind a link that will never load
-  link.onerror = () => link.remove();
-  document.head.appendChild(link);
-}
-
 export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbacks = {}): MapHandle {
   ensureProtocol();
-  ensureMapCss();
+  // already started by CompMap when the map was asked for; idempotent here so a
+  // direct mount (tests, a future caller) still gets them.
+  warmMapAssets();
   const LIME = cssToken('--accent');
   const INK = cssToken('--accent-ink');
   const LIME_FILL = cssTokenAlpha('--accent', 0.1);
@@ -201,7 +193,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
     });
   } catch (err) {
     // WebGL unavailable / blocked on this device — fail visibly, not blank.
-    opts.onBlank?.(err instanceof Error ? err.message : 'webgl unavailable');
+    opts.onBlank?.(err instanceof Error ? err.message : 'webgl-unavailable');
     return { update() {}, setHovered() {}, destroy() {} };
   }
 
@@ -217,9 +209,12 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
     clearTimeout(watchdog);
     opts.onRendered?.();
   };
+  // 20s, not the old 12s: a real phone on 4G measured 3.9s to first paint and a
+  // cold page-load-with-map 12.1s, so 12s fired on a map that was merely slow —
+  // and the "fix" it triggered was a remount, which starts the wait again.
   const watchdog = setTimeout(() => {
-    if (!healthy) opts.onBlank?.('no tiles rendered');
-  }, 12000);
+    if (!healthy) opts.onBlank?.('no-tiles-rendered');
+  }, 20000);
   map.on('data', (e: { dataType?: string; sourceId?: string; tile?: unknown }) => {
     // ONLY the basemap counts — pins (GeoJSON) loading must not mask an absent basemap
     if (isRenderedTileEvent(e, TILES_SOURCE_ID)) markHealthy();
@@ -231,7 +226,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
     (e) => {
       e.preventDefault(); // allow a potential restore, but treat as blank now
       clearTimeout(watchdog);
-      opts.onBlank?.('webgl context lost');
+      opts.onBlank?.('webgl-context-lost');
     },
     { once: true },
   );
@@ -401,11 +396,34 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
   });
   // MapLibre reports tile/style failures as events, not exceptions — surface
   // them so a broken basemap is never a silent black box.
+  /** Has the basemap actually gone, rather than merely complained? The only
+   *  honest test is whether anything of it is still on screen. */
+  const basemapGone = (): boolean => {
+    try {
+      const ids = (map.getStyle()?.layers ?? [])
+        .filter((l) => (l as { source?: string }).source === TILES_SOURCE_ID)
+        .map((l) => l.id);
+      return ids.length > 0 && map.queryRenderedFeatures({ layers: ids }).length === 0;
+    } catch {
+      return false;
+    }
+  };
+  let deathCheck: ReturnType<typeof setTimeout> | null = null;
   map.on('error', (e) => {
     const msg = e.error?.message ?? 'unknown';
     console.error('map error:', msg);
     // a failure to load the style/glyphs/sprite is fatal to rendering
     if (!healthy && /style|glyph|sprite|sourcemap|worker/i.test(msg)) opts.onBlank?.(msg);
+    // AFTER it has painted, an error used to be logged and nothing more, so a
+    // basemap that died mid-session left an empty box saying nothing. Wait for
+    // the map to settle, then ask the only question that matters: is it still
+    // there? If not, say so — never show a blank box and call it a map.
+    if (healthy && deathCheck === null) {
+      deathCheck = setTimeout(() => {
+        deathCheck = null;
+        if (basemapGone()) opts.onBlank?.('basemap-stopped-loading');
+      }, 4000);
+    }
   });
 
   if (interactive) {
@@ -521,6 +539,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
     },
     destroy() {
       clearTimeout(watchdog);
+      if (deathCheck !== null) clearTimeout(deathCheck);
       if (pulseFrame) cancelAnimationFrame(pulseFrame);
       popup?.remove();
       map.remove();

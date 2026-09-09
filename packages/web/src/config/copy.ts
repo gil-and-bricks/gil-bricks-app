@@ -89,6 +89,10 @@ export const COPY = {
     untick: 'Untick a row to leave it out — the stats update instantly.',
     listCarriesData: 'The list view carries the same data for keyboard and screen-reader use.',
     article4: 'Article 4 areas from the national planning dataset (England). Coverage is patchy — check with the council.',
+    /** Said while the map is coming up. It is a dark box until the first tile
+     * paints, and on a phone that can be four seconds — long enough to read as
+     * broken unless it says otherwise (C3). */
+    mapLoading: 'Loading the map…',
     /** When the map itself cannot render: the honest pointer at the table,
      * and the button that tries the map once more. */
     mapBroken: "The map couldn't display here — the table below has every sale we hold.",

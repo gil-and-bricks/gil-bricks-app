@@ -274,6 +274,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                     <th><span class="sr-only">{COMPARABLES.table.include}</span></th>
                     <th aria-sort={sortKey === 'date' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('date')}>{COMPARABLES.table.date}{sortArrow('date')}</button></th>
                     <th>{COMPARABLES.table.address}</th>
+                    <th class="comp-links-col">{COMPARABLES.table.actions}</th>
                     <th>{COMPARABLES.table.postcode}</th>
                     <th>{COMPARABLES.table.propertyType}</th>
                     <th>{COMPARABLES.table.tenure}</th>
@@ -296,10 +297,8 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                           aria-label={COMPARABLES.card.include([c.saon, c.paon, c.street].filter(Boolean).join(' '))} />
                       </td>
                       <td>{c.date}</td>
-                      <td class="comp-address-cell">
-                        {[c.saon, c.paon, c.street].filter(Boolean).join(' ')}
-                        <CompActions c={c} />
-                      </td>
+                      <td class="comp-address-cell">{[c.saon, c.paon, c.street].filter(Boolean).join(' ')}</td>
+                      <td class="comp-links-col"><CompActions c={c} /></td>
                       <td>{c.postcode}</td>
                       <td>{TYPE_LABEL[c.type] ?? c.type}</td>
                       <td>{TENURE_LABEL[c.tenure] ?? c.tenure}</td>

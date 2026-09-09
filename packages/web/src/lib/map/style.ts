@@ -6,6 +6,7 @@
  */
 import { layers, namedFlavor } from '@protomaps/basemaps';
 import { siteConfig } from '../../site.config';
+import { ITALIC_STACK, UPRIGHT_STACK } from './fonts';
 
 /** R2 key of the England & Wales extract (docs/MAP_OPERATOR_NOTE.md). */
 export const TILES_KEY = 'map/ew.pmtiles';
@@ -97,6 +98,28 @@ export function brandFlavor(): ReturnType<typeof namedFlavor> {
   return f;
 }
 
+/**
+ * ONE fewer font on the critical path (C3). Five faint layers — address labels,
+ * lake, ocean and waterway names — asked for "Noto Sans Italic", and that stack's
+ * first glyph range is 80KB. Measured on a phone at 4G it was the LAST thing the
+ * map waited for before it could paint. Upright labels on a basemap this muted
+ * are not a loss anyone can see; 80KB on every first map open is.
+ */
+
+/** text-font can be a plain array or an expression, so swap inside the value
+ *  wherever the name appears rather than assuming a shape. */
+export function foldItalicLabels(styleLayers: unknown[]): unknown[] {
+  return styleLayers.map((layer) => {
+    const l = layer as { layout?: Record<string, unknown> };
+    const font = l.layout?.['text-font'];
+    if (font === undefined) return layer;
+    const swapped: unknown = JSON.parse(
+      JSON.stringify(font).split(`"${ITALIC_STACK}"`).join(`"${UPRIGHT_STACK}"`),
+    );
+    return { ...l, layout: { ...l.layout, 'text-font': swapped } };
+  });
+}
+
 export interface MapStyleSpec {
   version: 8;
   glyphs: string;
@@ -119,6 +142,6 @@ export function buildMapStyle(): MapStyleSpec {
         attribution: '© OpenStreetMap contributors · Protomaps',
       },
     },
-    layers: layers('protomaps', brandFlavor(), { lang: 'en' }),
+    layers: foldItalicLabels(layers('protomaps', brandFlavor(), { lang: 'en' })),
   };
 }
