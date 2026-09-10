@@ -2,6 +2,134 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-10 — P12: the pipeline board, bugs first
+
+### The bugs
+
+- **"MOVING A DEAL DUPLICATES IT" — NOT IN THE DATABASE, AND NOT IN THE MOVE.**
+  `handleMoveDeal` → `moveStage` is an `UPDATE deals SET stage…` plus a row in
+  `deal_stage_history`; it holds no `INSERT INTO deals` and cannot make a second
+  deal. The only insert path is `upsertPipelineDeal`, keyed by deal id. Driven in
+  a real browser against a seeded board, a move never duplicated: simple moves,
+  moves that EMPTY a column (so it disappears), moves that RE-CREATE a middle
+  column, and rapid successive moves all left one card, in one place, with 16
+  rows in D1 before and after.
+- **But one real path could put a deal on the board twice, and it is fixed.**
+  "Show more" filtered the incoming page against the array the CLICK captured,
+  then appended to whatever the array had BECOME. Those are different lists: a
+  board reload lands mid-fetch (coming back to this tab from the analyser
+  re-reads the board), replaces the rows wholesale, and a deal the reload had
+  already restored was appended a second time. De-duping now happens inside the
+  updater, against the list actually being appended to. Extracted as
+  `appendUnseen` so a test could hold it — and p12.test.ts reproduces the old
+  double before proving the new code cannot.
+- **The stage sections had no `key`.** Columns are filtered to non-empty, so
+  moving a deal inserts or removes a whole `<section>` mid-list and Preact was
+  diffing them by index. It converged, but it was reusing the wrong DOM to get
+  there. Keyed by stage now.
+- **A STAGE CUT OFF WITH NO WAY TO REACH IT — measured, and the operator's
+  instinct was right.** At 1512px the board was 2000px of content in a 992px
+  `overflow-x: auto` box: 1008px hidden, "Bought it" sitting at x=1988, entirely
+  outside. macOS hides overlay scrollbars until you scroll, so nothing said so.
+  **JUDGMENT CALL: a stage is a BAND, not a column.** A horizontal scrollbar is a
+  desktop affordance on a product used one-handed on a phone, and it is what made
+  a stage reachable only by discovering it. The obvious replacement — a wrapping
+  grid of columns — was tried and measured, and it was wrong too: a grid row is
+  as tall as its tallest column, so cards of 354px and 2,930px in one row left
+  **1,483px and 2,576px of dead board** and made the page 5,482px tall for ten
+  cards. So each stage now takes the full width and its cards flow across it and
+  wrap. The band is exactly as tall as its own contents (measured waste: 0px in
+  every band), nothing is off-screen, nothing scrolls sideways, and the phone and
+  the laptop are the SAME layout — one card per row down there, several across up
+  here — instead of two designs to keep in step. `auto-fill`, not `auto-fit`, so
+  a stage holding one deal keeps a card-sized card instead of stretching it
+  across the whole board. `.board-wrap` also went 62rem → 72rem: 62rem is a
+  reading measure and this is the one wide surface in the product.
+  Verified: 0px hidden and all 7 stage headings inside the viewport at 320, 390
+  and 1512.
+- **THE DATE CONTROL DID NOTHING, and the cause was the trick that made it
+  pretty.** The `<input type="date">` was stretched over its own label at
+  `opacity: 0`. The tap DID land on it — that is the lime ring the operator saw —
+  but Safari opens a date picker only from the calendar indicator, and that
+  indicator was invisible. It is now the browser's own control, shown, under its
+  label, with the indicator inverted so it reads on a dark field. No script, so
+  nothing to go wrong. Set, changed and cleared end-to-end on both widths.
+- **SCORE HISTORY WAS NOT DEAD — IT HAD ONE POINT.** `/api/deals/:id/history`
+  answered `{"points":[{"score":9.3,…}]}`. The panel then drew a sparkline with
+  no line, one dot, and one step repeating the number already on the card:
+  pressing it looked exactly like nothing happening. The board query now counts
+  `deal_verdicts` per deal (`score_points`, additive, no migration) and the
+  control is offered only at two or more. If an older payload reaches the panel
+  with one point it says so in words instead of drawing a line through a dot.
+
+### The design
+
+- **Stage labels.** They were the structure of the page and the faintest thing
+  on it — 0.9rem, uppercase, 70% white. Now full white at 1rem with a hairline
+  under each, so a heading reads as the top of its column: **19.06:1**, up from
+  9.31:1.
+- **JUDGMENT CALL on card consistency: reserve space for what EVERY card has,
+  never for what only some cards have.** The address and the verdict are on every
+  card and differ only in length, so their lines are reserved — the score and the
+  verdict now sit at the same height on every card in a column (measured spread
+  0px and 4px). An auction warning, a change note, a retrade line are genuinely
+  absent on most cards, so nothing is held open for them and the card simply
+  ends. Regular where cards are the same; honest where they differ; no card
+  clipped at any width.
+- **JUDGMENT CALL: the attention line is information, so it stopped looking like
+  an action.** It was a lime-edged, lime-tinted box in BOTH states, so "Nothing
+  needs you today" — the calmest thing the board can say — shouted as loudly as
+  the day something is wrong. Calm state is now a plain sentence with no box at
+  all; the state with something to do keeps a left rule and the faintest tint,
+  the same notice pattern the cards use. **It stays at the top, once.** Per-stage
+  attention lines would put up to seven claims on a page whose whole design is
+  "one deal, one action" — P8's own rule is that a line which cries wolf is worse
+  than no line, and seven of them is the loudest possible way to break it.
+- **The top of the board is one composition.** Heading, attention line and the
+  two quiet facts share one rhythm (`--space-2`) inside `.board-head`, and a
+  single larger gap (`--space-7`) separates that block from the stages. Spacing
+  does the grouping; no rules, no boxes.
+- **The "What happened?" Cancel** was the eleventh chip in a wrapping row, so it
+  landed mid-row beside "Covenant" wearing the same lime outline as the things it
+  is not. It now takes its own full-width row under a hairline. **NOT RED:** red
+  already means one thing here — a deal to walk away from — and spending it on
+  "close this sheet" would make the two argue.
+
+### The feature
+
+- **PRESSING A CHIP OPENS THE FACT THAT WOULD FILL IT.** Pressable: **Refurb**
+  (→ Builder's quote), **End value** (→ Down-valuation), **Rent** (→ Rent
+  agreed). Not pressable, and deliberately not styled as though they were:
+  **Comps** (a sold-price check the analyser performs, not a fact anybody types)
+  and **Room sizes** (measured in the extension). The rule is the DATA, not a
+  list retyped in a component — `CHIP_SPECS[key].evidencedBy` already declared
+  it, so `factForChip` returns null for exactly those two. An already-evidenced
+  chip is inert too: there is nothing left to fix. Chips are inert entirely on
+  the analyser and on a dead or bought deal, where no fact can be recorded.
+
+### Honest notes
+
+- **CLS on the board was never zero; it effectively is now: 0.0000 at 320px,
+  0.0000 at 390px and 0.0010 at 1512px, down from 0.0207 and 0.0234 before this
+  sprint** (three runs each, identical every time). Bands are most of the reason:
+  a card growing when its D4 notice lands now moves only the band it sits in.
+- **THE ADVERSARIAL SWEEP FOUND TWO REAL DEFECTS OF MINE, both now fixed and
+  both proved fixed in a browser.** (1) BLOCKER: pressing a second evidence chip
+  while the fact form was half-filled re-labelled the form but KEPT the number —
+  £42,000 typed as a builder's quote could be saved as the agreed monthly rent
+  and the deal re-scored on it. `choose` never cleared `value`/`note`, which was
+  safe only because the picker was previously the sole way in; the chip is a new
+  door into the same function. It now abandons the old entry and bumps `attempt`,
+  which also disowns a save still in flight for the fact being left. (2) SERIOUS:
+  `score_points` came only from the board payload, so the history control stayed
+  hidden through the very session in which the score moved — the only session it
+  matters in. `applyScore` now counts the verdict row it just caused.
+  The PUBLIC pages are untouched and measure identically to production
+  (0.0000 at 320 and 390; 0.0006 home / 0.0166 analyser at 1280, both pre-existing).
+- **axe-core is now a devDependency** so the accessibility claim is a measurement
+  rather than an assertion: 0 violations across wcag2a/2aa/21a/21aa/best-practice
+  at 320, 390 and 1512, both resting and with the fact sheet open.
+
 ## 2026-09-10 — Share: a button that names an app must open that app
 
 - **THE OPERATOR'S DIAGNOSIS WAS EXACTLY RIGHT.** "Share on WhatsApp" called
