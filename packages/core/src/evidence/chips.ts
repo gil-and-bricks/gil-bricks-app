@@ -153,6 +153,28 @@ export function evidenceChips(strategy: StrategyId, inputs: EvidenceInputs): Evi
 }
 
 /**
+ * THE FACT THAT WOULD FILL THIS CHIP (P12), or null when nothing can.
+ *
+ * A chip names something the score rests on, so the obvious move is to press it
+ * and record the real number. Two chips cannot work that way and must never look
+ * pressable: `comps` is a sold-price check the analyser performs, not a fact
+ * anybody types, and `roomSizes` comes from measuring in the extension. Both
+ * declare no `evidencedBy`, so this returns null and the surface leaves them
+ * inert — the rule is the data, not a list repeated in a component.
+ */
+export function factForChip(key: ChipKey): string | null {
+  return CHIP_SPECS[key].evidencedBy[0] ?? null;
+}
+
+/**
+ * Can pressing this chip actually change anything? Only when a fact could fill
+ * it AND it is not already evidenced — an evidenced chip has nothing left to fix.
+ */
+export function chipIsFixable(chip: EvidenceChip): boolean {
+  return chip.state !== 'evidenced' && factForChip(chip.key) !== null;
+}
+
+/**
  * What the score is weakest on, worst first: nobody knows it, then you assumed
  * it. Ties keep the strategy's own order, so the answer is the same every time.
  */
@@ -204,6 +226,9 @@ export const CHIP_COPY = {
   allEvidenced: (score: string): string => `This ${score} rests on numbers you have checked.`,
   /** Joins the weak inputs: "a guessed refurb and a suggested end value". */
   join: ' and ',
+  /** P12 — a chip you can press. Names what pressing it does, for anyone who
+   *  cannot see that it is a button: "Refurb: assumed — Get a builder's number". */
+  fixLabel: (label: string, state: string, action: string): string => `${label}: ${state} — ${action}`,
 } as const;
 
 /** The finished sentence for a set of chips — the same words on every surface. */

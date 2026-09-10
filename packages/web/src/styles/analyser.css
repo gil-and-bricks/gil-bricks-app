@@ -457,15 +457,40 @@
    column, natural scroll, no horizontal drag. Desktop: the same sections become
    side-by-side board columns. Empty stages are omitted upstream, so a near-empty
    board never shows columns of nothing. */
-.board-wrap { max-width: 62rem; margin: 0 auto; }
-.board-count { color: var(--text-dim); font-size: var(--text-sm); margin: 0 0 var(--space-4); }
+/* P12 — the board is the one WIDE surface in the product: seven stages side by
+   side, not a column of prose. 62rem was a reading measure and it cost two whole
+   columns on a laptop, which is what made the old scrolling row necessary in the
+   first place. It now takes the shell's full 72rem. */
+.board-wrap { max-width: 72rem; margin: 0 auto; }
+.board-count { color: var(--text-dim); font-size: var(--text-sm); margin: 0; }
 
-.board-stages { display: flex; flex-direction: column; gap: var(--space-5); }
+/* P12 — EVERY STAGE REACHABLE, ON EVERY WIDTH, WITH NOTHING WASTED.
+   The columns were a fixed-width flex row inside `overflow-x: auto`. At 1512px
+   that put 2000px of board in a 992px window: 1008px of it — three whole stages,
+   "Bought it" among them — sat outside the box, and macOS hides overlay
+   scrollbars until you scroll, so nothing on screen said so. A horizontal
+   scrollbar is the wrong answer anyway: it is a desktop affordance on a product
+   used one-handed on a phone, and it is what made a stage reachable only by
+   discovering it.
+
+   A WRAPPING GRID OF COLUMNS was the obvious replacement and it was wrong too:
+   a grid row is as tall as its tallest column, so cards of 354px and 2930px in
+   the same row left 1,483px and 2,576px of dead board and made the page 5,482px
+   tall for ten cards.
+
+   SO A STAGE IS A BAND, not a column. Each stage takes the full width, its cards
+   flow across it and wrap, and the band is exactly as tall as its own contents.
+   Nothing is ever off-screen, nothing scrolls sideways, no space is wasted, and
+   the phone and the laptop are the SAME layout — one card per row down there,
+   several across up here — rather than two designs to keep in step. */
+.board-stages { display: flex; flex-direction: column; gap: var(--space-6); }
 .board-col { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .board-col-h {
-  display: flex; align-items: center; gap: var(--space-2); margin: 0;
-  font-size: var(--text-sm); font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.04em; color: var(--text-dim);
+  display: flex; align-items: center; gap: var(--space-2);
+  margin: 0; padding-bottom: var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: var(--text-base); font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text);
 }
 .board-col-n {
   display: inline-block; min-width: 1.4rem; text-align: center;
@@ -473,14 +498,21 @@
   border-radius: 999px; padding: 0 var(--space-2);
   font-size: var(--text-xs); font-weight: 600; letter-spacing: 0;
 }
-.board-col-cards { display: flex; flex-direction: column; gap: var(--space-3); }
-
-@media (min-width: 720px) {
-  /* side-by-side stage columns; the CONTAINER scrolls horizontally only if there
-     are many stages — a desktop scroll, never a phone drag. */
-  .board-stages { flex-direction: row; align-items: flex-start; gap: var(--space-4); overflow-x: auto; padding-bottom: var(--space-2); }
-  .board-col { flex: 0 0 17rem; width: 17rem; }
+/* The cards inside a band. `auto-fill`, not `auto-fit`: a stage holding one deal
+   keeps a card-sized card instead of stretching it across the whole board.
+   `min(…, 100%)` keeps it safe below the track width, where a bare minmax would
+   overflow the very screens this protects. `align-items: start` stops a short
+   card being stretched to match a tall neighbour. */
+.board-col-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(17rem, 100%), 1fr));
+  gap: var(--space-3);
+  align-items: start;
 }
+
+/* No breakpoint: the grid decides how many columns fit, so there is no width at
+   which a stage can be pushed out of view. (The old `min-width: 720px` block that
+   made this a scrolling row is deliberately gone — see the note above.) */
 
 /* The card: glass + thin lime border, readable in a second. A link that re-opens
    the analyser with the deal's state restored (read-only this sprint). */
@@ -522,6 +554,9 @@
   font-family: var(--font-display);
   font-weight: 700; font-size: var(--text-sm); line-height: 1.3;
   letter-spacing: 0.01em;
+  /* Two lines reserved: nearly every address takes one or two, so this is the
+     card's identity slot rather than a hole (P12). A longer one still runs on. */
+  min-height: calc(1.3em * 2);
 }
 /* the answer sits immediately under the address it belongs to */
 .dc-meta {
@@ -575,11 +610,30 @@
 
 /* ---- Pipeline board P4: today line, next-step, ageing, card actions ---------- */
 /* The answer, not a list: ONE deal, ONE action, above the board. */
+/* P12 — THE TOP OF THE BOARD IS ONE COMPOSITION, not three stacked things.
+   The heading, the attention line and the two quiet facts under it now sit in a
+   single block with one internal rhythm, and ONE larger gap separates that block
+   from the stages. Spacing does the grouping; no rules, no boxes. */
+.board-head { display: flex; flex-direction: column; gap: var(--space-2); margin: 0 0 var(--space-7); }
+.board-head > * { margin: 0; }
+
+/* THE ATTENTION LINE IS INFORMATION, NOT AN ACTION (P12).
+   It was a lime-edged, lime-tinted box in BOTH states — so "Nothing needs you
+   today", the calmest thing the board can say, was styled as loudly as the day
+   it has something urgent to tell you. Lime means the primary action or an
+   active state; a status line is neither.
+   Calm state: no box at all, just the sentence. Something to do: a left rule and
+   the faintest tint, which is the notice pattern used everywhere else on the
+   card. It is a statement in both, and it never competes with a button. */
 .today-line {
-  margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--glass-border); border-left: 4px solid var(--accent);
-  border-radius: var(--radius-card); background: rgba(220, 255, 0, 0.06);
+  margin: 0; padding: 0;
   font-size: var(--text-base); font-weight: 600; color: var(--text);
+}
+.today-line.today-act {
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  background: rgba(220, 255, 0, 0.06);
 }
 .board-note { margin: 0 0 var(--space-3); color: var(--text-dim); font-size: var(--text-sm); }
 
@@ -626,9 +680,19 @@
 /* Second in the order: the reason, in the reader's own voice. It sits close to
    the score it explains, and the line-height opens up so a three-line verdict is
    comfortable rather than cramped (D6). */
+/* P12 — A CONSISTENT CARD, WITHOUT INVENTING HOLES.
+   Cards grew to whatever they happened to carry, so a column read as a jumble.
+   The rule now is: RESERVE SPACE FOR WHAT EVERY CARD HAS, NEVER FOR WHAT ONLY
+   SOME CARDS HAVE. The scan area — address, score, verdict — is on every single
+   card and differs only in LENGTH, so its lines are reserved and every card
+   agrees where those three things sit. An auction warning, a change note, a
+   retrade line are genuinely absent on most cards, so nothing is held open for
+   them: the card simply ends. Regular where cards are the same, honest where
+   they differ. Nothing is clipped — a longer address or verdict still runs on. */
 .dc-verdict {
   margin: calc(var(--space-1) - var(--space-3)) 0 0;
   font-size: var(--text-base); color: var(--text); line-height: 1.45;
+  min-height: calc(1.45em * 3);
 }
 .dc-verdict.v-unscored { color: var(--text-dim); font-style: italic; }
 /* Per-card action note (skip / rollback) — on the card it refers to, not the page top. */
@@ -1282,6 +1346,25 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 .fact-choices { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 /* EVERY control in the sheet is a 44px target, Cancel included. */
 .fact-choices .chip { min-height: 44px; font-size: var(--text-sm); }
+/* P12 — CANCEL WAS THE ELEVENTH CHIP. It wrapped into whatever gap the ten fact
+   choices left, so it landed mid-row beside "Covenant" and wore the same lime
+   outline as the things it is not. It now takes its own full-width row under a
+   hairline: below the choices, aligned with them, plainly the way out.
+   NOT RED. Red already means one thing here — a deal to walk away from
+   (--verdict-walk) — and spending it on "close this sheet" would make the two
+   argue. A neutral outline separates it from the lime actions without claiming
+   the danger colour. */
+.fact-choices .chip-cancel {
+  flex: 1 0 100%;
+  margin-top: var(--space-2); padding-top: var(--space-3);
+  border: 0; border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 0; background: none;
+  color: var(--text-dim); text-align: center;
+}
+.fact-choices .chip-cancel:hover, .fact-choices .chip-cancel:focus-visible {
+  color: var(--text); border-color: rgba(255, 255, 255, 0.14); outline: none;
+  text-decoration: underline;
+}
 .fact-entry { display: flex; flex-direction: column; gap: var(--space-1); }
 .fact-entry label { font-size: var(--text-sm); font-weight: 600; color: var(--text); }
 .fact-entry input {
@@ -1365,6 +1448,32 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 }
 .ev-chip.ev-assumed { border-color: rgba(255, 255, 255, 0.22); color: var(--text); }
 .ev-chip.ev-unknown { border-style: dashed; border-color: rgba(255, 255, 255, 0.18); color: var(--text-dim); }
+/* P12 — PRESS A CHIP TO FIX WHAT IT NAMES. A chip that a fact could fill is a
+   real button: it carries a "+", brightens on hover and takes a focus ring. A
+   chip nothing can fill — Comps (a sold-price check, not a fact) and Room sizes
+   (measured in the extension) — is not a button at all and gains none of this,
+   so nothing on the card offers a door that is shut. */
+.ev-chips > li { display: inline-flex; }
+button.ev-fix {
+  font: inherit; font-size: var(--text-2xs); line-height: 1.5;
+  cursor: pointer; display: inline-flex; align-items: center; gap: 0.3em;
+  background: rgba(255, 255, 255, 0.06);
+}
+/* A PRESSABLE CHIP IS A TOUCH TARGET (P12). 27px is not one on a phone and the
+   rest of this product is 44px. The whole row grows together — a strip of mixed
+   heights reads as a mistake — and only where the strip is interactive: the
+   analyser's chips are labels, not controls, and are untouched. */
+.ev-chips-fixable { gap: var(--space-2); align-items: center; }
+.ev-chips-fixable .ev-chip {
+  display: inline-flex; align-items: center; min-height: 44px;
+  padding: var(--space-1) var(--space-3); font-size: var(--text-xs);
+}
+button.ev-fix::after { content: '+' / ''; font-weight: 700; opacity: 0.75; }
+button.ev-fix:hover, button.ev-fix:focus-visible {
+  color: var(--text); border-color: var(--accent); background: rgba(220, 255, 0, 0.10);
+}
+button.ev-fix:hover::after, button.ev-fix:focus-visible::after { opacity: 1; }
+button.ev-fix:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ev-line { margin: 0; font-size: var(--text-xs); color: var(--text-dim); line-height: 1.35; }
 @media (prefers-contrast: more) {
   .ev-chip.ev-assumed { border-color: var(--text); }
@@ -1372,26 +1481,36 @@ main :is(p, li) a:not(.btn-primary):not(.btn-secondary):not(.dc-title) { color: 
 
 /* ---- P8: dates you set, and the honest limit on the today line ----------- */
 /* The board can only tell you this when you open it — said once, quietly. */
-.today-only-here { margin: calc(var(--space-2) * -1) 0 var(--space-3); color: var(--text-dim); font-size: var(--text-xs); }
+.today-only-here { margin: 0; color: var(--text-dim); font-size: var(--text-xs); }
 
 /* One tap, the phone's own date wheel, done. The whole row is the target. */
-.dc-dates { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); margin: var(--space-1) 0 0; padding: 0; }
-.dc-date { position: relative; display: inline-flex; align-items: center; gap: var(--space-2); }
-.dc-date label {
-  display: inline-flex; align-items: center; min-height: 44px; padding: 0 0.7rem;
-  border: 1px dashed var(--glass-border); border-radius: 999px;
-  color: var(--text-dim); font-size: var(--text-xs); cursor: pointer;
-}
-.dc-date-set label { border-style: solid; border-color: var(--accent); color: var(--text); }
-/* The input covers its label so a tap anywhere opens the picker, and it stays
-   focusable and announced rather than hidden from the keyboard. */
+/* P12 — A DATE FIELD YOU CAN SEE AND USE. The input was absolutely positioned
+   over its own label at opacity 0: the tap landed on it (the lime focus ring
+   proved that), but Safari opens a date picker only from the calendar
+   indicator, and that indicator was invisible — so on a Mac the control offered
+   nothing. It is now the browser's own control, shown, under its label: one tap
+   opens the picker on every platform, with no script to go wrong. */
+.dc-dates { list-style: none; display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-2) 0 0; padding: 0; }
+.dc-date { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.dc-date label { color: var(--text-dim); font-size: var(--text-xs); }
+.dc-date-set label { color: var(--text); }
+.dc-date-field { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .dc-date input[type='date'] {
-  position: absolute; inset: 0; width: 100%; height: 100%;
-  opacity: 0; border: 0; padding: 0; cursor: pointer;
+  flex: 1 1 8rem; min-width: 0; min-height: 44px;
+  font: inherit; font-size: var(--text-sm); color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed var(--glass-border); border-radius: 10px;
+  padding: 0 0.7rem; cursor: pointer;
 }
-.dc-date input[type='date']:focus-visible + * , .dc-date label:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
-.dc-date:focus-within label { outline: 2px solid var(--accent); outline-offset: 2px; }
-.dc-date-clear { position: relative; z-index: 1; min-height: 44px; }
+.dc-date-set input[type='date'] { border-style: solid; border-color: var(--accent); }
+.dc-date input[type='date']:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* The calendar button is the thing Safari needs a person to hit, so it must be
+   visible against a dark field — the browser draws it near-black by default. */
+.dc-date input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(1); opacity: 0.75; cursor: pointer;
+}
+.dc-date input[type='date']:hover::-webkit-calendar-picker-indicator { opacity: 1; }
+.dc-date-clear { min-height: 44px; }
 
 /* ---- P9: the graveyard — deals you killed ------------------------------- */
 /* Not a bin: the memory. Collapsed until asked for, so it never clutters the

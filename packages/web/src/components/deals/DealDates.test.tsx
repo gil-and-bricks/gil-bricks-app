@@ -67,4 +67,25 @@ describe('the control itself', () => {
     html({ onSet });
     expect(onSet).not.toHaveBeenCalled();
   });
+
+  /**
+   * P12 — the input used to be stretched over its own label at opacity 0. The
+   * tap landed on it (hence the lime focus ring the operator saw), but Safari
+   * opens a date picker only from the calendar indicator, and that indicator was
+   * invisible — so on a Mac the control did nothing at all.
+   */
+  it('the date input is SHOWN, not an invisible layer over its label', () => {
+    const out = html();
+    expect(out).toContain('dc-date-field');
+    // nothing may hide it again
+    expect(out).not.toContain('opacity: 0');
+    expect(out).not.toContain('opacity:0');
+  });
+
+  it('its label points at the field, so a tap on either reaches the picker', () => {
+    const out = html();
+    const id = /id="(date-viewing_date-d1)"/.exec(out)?.[1];
+    expect(id).toBe('date-viewing_date-d1');
+    expect(out).toContain(`for="${id}"`);
+  });
 });

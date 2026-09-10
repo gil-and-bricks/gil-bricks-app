@@ -60,6 +60,13 @@ export function ScoreHistory({ dealId, dealTitle }: { dealId: string; dealTitle:
             <div class="skeleton sk-line" aria-hidden="true" />
           ) : n === 0 ? (
             <p class="hint">{CHANGE_COPY.historyEmpty}</p>
+          ) : n === 1 ? (
+            // P12 — ONE POINT IS NOT A HISTORY. This used to draw a sparkline with
+            // no line and a single dot, over one step repeating the score already
+            // on the card: opening it looked exactly like nothing happening. The
+            // board no longer offers the control at all in this case; if an older
+            // payload gets here anyway, it says what one point means.
+            <p class="hint">{CHANGE_COPY.historyOnce((points as HistoryPoint[])[0].score.toFixed(1))}</p>
           ) : (
             <>
               <svg class="sparkline" viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={CHANGE_COPY.historyLabel(dealTitle)}>

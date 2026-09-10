@@ -345,6 +345,8 @@ export interface BoardRow {
   url_params: string; key_figure: string; stage_since: string;
   /** What this row was ordered by on a page — the cursor to ask for the next
    * one. Only present on a paged (terminal) row. */
+  /** P12 — how many scores this deal has held (deal_verdicts with a score). */
+  score_points?: number;
   page_at?: string;
 }
 
@@ -353,7 +355,11 @@ const BOARD_COLUMNS = `d.id, d.strategy, d.title, d.stage, d.current_score, d.st
               d.headline_figure, d.verdict_line, d.is_auction, d.updated_at, d.sold_evidence, d.room_size_failures,
               d.viewing_date, d.chase_date, d.auction_date, d.exchange_date, d.stale_state, d.stale_at, d.chain_ack_at,
               s.url_params, s.key_figure,
-              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since`;
+              COALESCE((SELECT MAX(h.at) FROM deal_stage_history h WHERE h.deal_id = d.id), d.created_at) AS stage_since,
+              -- P12: how many scores this deal has actually held. The card offers
+              -- the history control only when there is a history to show; with one
+              -- point it opened on a single dot and the number already on the card.
+              (SELECT COUNT(*) FROM deal_verdicts v WHERE v.deal_id = d.id AND v.score IS NOT NULL) AS score_points`;
 
 /**
  * THE board query (P10). The badge answers the same question the board does, so

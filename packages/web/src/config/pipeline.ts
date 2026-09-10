@@ -437,6 +437,9 @@ export const CHANGE_COPY = {
   /** The score it holds today — no date, because it is the one you are looking at. */
   historyNow: (score: string): string => `${score} now`,
   historyEmpty: 'No history yet.',
+  /** P12 — one point is not a history. The card already shows this number, so
+   *  the panel says what that means rather than drawing a line through one dot. */
+  historyOnce: (score: string): string => `Scored ${score} when you saved it. It has not moved since.`,
 } as const;
 
 /**

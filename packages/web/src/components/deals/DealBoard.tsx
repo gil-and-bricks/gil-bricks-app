@@ -31,7 +31,7 @@ import { RetradeRadar } from './RetradeRadar';
 import { retradeFor } from '../../lib/deals/retrade';
 import { buildIcs, eventsForDeal, hasExportableDate, icsFilename } from '../../lib/deals/ics';
 import { siteConfig } from '../../site.config';
-import { auctionWarningDue, boardCounts, cardVerdict, chainRiskDue, counterLine, datesOf, dwellState, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
+import { appendUnseen, auctionWarningDue, boardCounts, cardVerdict, chainRiskDue, counterLine, datesOf, dwellState, hasScoreHistory, isLive, nextStepLine, parkedDeals, stageColumns, stageMeta, type BoardDeal } from '../../lib/deals/board';
 import { headstones, toDeath, type DealDeath, type DeathRowJson } from '../../lib/deals/graveyard';
 import { Graveyard } from './Graveyard';
 import { todayLine } from '../../lib/deals/urgency';
@@ -75,6 +75,11 @@ export function DealBoard() {
   const [loadingMore, setLoadingMore] = useState(false);
   /** The optional line typed while killing a deal. Never required. */
   const [killNote, setKillNote] = useState('');
+  /**
+   * P12 — an evidence chip was pressed. Which deal, and which fact it asked for.
+   * One-shot: DealFacts opens on it and clears it, so it can never re-open.
+   */
+  const [fixFor, setFixFor] = useState<{ dealId: string; factType: string } | null>(null);
   /** Said back after a kill or a revival, where the deal has just GONE — the card
    * that carried the message is no longer on the board (P9). */
   const [boardNote, setBoardNote] = useState('');
@@ -347,12 +352,15 @@ export function DealBoard() {
         deals: BoardDeal[]; deaths?: DeathRowJson[]; facts?: DealFact[]; more?: boolean;
         counts?: { live: number; done: number; dead: number };
       };
-      const known = new Set(deals.map((d) => d.id));
-      const fresh = body.deals.filter((d) => !known.has(d.id));
-      setDeals((cur) => (Array.isArray(cur) ? [...cur, ...fresh] : cur));
-      setDeaths((cur) => [...cur, ...(body.deaths ?? []).map(toDeath)]);
-      const heldFacts = new Set(facts.map((f) => f.id));
-      setFacts((cur) => [...cur, ...(body.facts ?? []).filter((f) => !heldFacts.has(f.id))]);
+      // DE-DUPE AGAINST THE ARRAY WE ARE ACTUALLY APPENDING TO, not the one this
+      // closure captured before the fetch. A board reload (visibilitychange, when
+      // the operator comes back from the analyser tab) lands DURING this await and
+      // replaces `deals` wholesale; a page filtered against the pre-fetch list then
+      // appended a deal the reload had already put back — the same deal twice in
+      // the array, and so the same card in two places (P12).
+      setDeals((cur) => (Array.isArray(cur) ? appendUnseen(cur, body.deals) : cur));
+      setDeaths((cur) => appendUnseen(cur, (body.deaths ?? []).map(toDeath)));
+      setFacts((cur) => appendUnseen(cur, body.facts ?? []));
       setMore((cur) => ({ ...cur, [status]: body.more === true }));
       if (body.counts) setCounts(body.counts);
     } catch {
@@ -424,7 +432,17 @@ export function DealBoard() {
     if (!body) return;
     setDeals((cur) => (Array.isArray(cur)
       ? cur.map((d) => (d.id === dealId
-        ? { ...d, current_score: body.score as number, headline_figure: body.headline_figure as string, verdict_line: body.verdict_line as string }
+        ? {
+            ...d,
+            current_score: body.score as number,
+            headline_figure: body.headline_figure as string,
+            verdict_line: body.verdict_line as string,
+            // A re-score WRITES A VERDICT ROW, so the history just gained a
+            // point. Counting it here is what lets the score-history control
+            // appear at the moment there is finally something to show; without
+            // it the control stayed hidden until the next full page load (P12).
+            score_points: (d.score_points ?? 0) + 1,
+          }
         : d))
       : cur));
   };
@@ -732,6 +750,13 @@ export function DealBoard() {
             strategy={d.strategy}
             inputs={evidenceInputsFor({ ...d, url_params: paramsFor(d) }, factsFor(d.id))}
             score={(d.current_score as number).toFixed(1)}
+            /* Pressable ONLY where the fact could actually be recorded: the facts
+               feature on, and a deal still live. A bought or dead deal takes no
+               new facts, so its chips stay inert rather than offering a door
+               that is shut (P12). */
+            onFix={features.dealFacts && isLive(d)
+              ? (factType) => setFixFor({ dealId: d.id, factType })
+              : undefined}
           />
         )}
 
@@ -807,6 +832,8 @@ export function DealBoard() {
             facts={factsFor(d.id)}
             busy={busy}
             canAdd={isLive(d)}
+            openWith={fixFor?.dealId === d.id ? fixFor.factType : ''}
+            onOpened={() => setFixFor(null)}
             onAdd={(t, val, n) => addFact(d, t, val, n)}
             onRemove={(id) => removeFact(d, id)}
           />
@@ -836,7 +863,7 @@ export function DealBoard() {
           />
         )}
 
-        {features.verdictChanges && verdict.scored && <ScoreHistory dealId={d.id} dealTitle={d.title} />}
+        {features.verdictChanges && verdict.scored && hasScoreHistory(d) && <ScoreHistory dealId={d.id} dealTitle={d.title} />}
 
         {/* A fact that cannot move this strategy's maths says why, and never
             invents a cost (P5). */}
@@ -888,15 +915,21 @@ export function DealBoard() {
 
   return (
     <div class="board">
-      <p class={`today-line${today.dealId ? ' today-act' : ''}`} role="status">{today.text}</p>
-      {/* P8 rule 6 — the board can only say this when you open it. Nothing here
-          reaches anybody: the app sends no email and runs nothing on your phone. */}
-      <p class="today-only-here">{TODAY_COPY.onlyHere}</p>
-      <p class="board-count">{counterLine(tallies, cap)}</p>
+      {/* P12 — the heading, the attention line and the two quiet facts are ONE
+          block with one rhythm; the gap below it is what separates the top of
+          the page from the board. They used to be three things stacked up. */}
+      <div class="board-head">
+        <p class={`today-line${today.dealId ? ' today-act' : ''}`} role="status">{today.text}</p>
+        {/* P8 rule 6 — the board can only say this when you open it. Nothing here
+            reaches anybody: the app sends no email and runs nothing on your phone. */}
+        <p class="today-only-here">{TODAY_COPY.onlyHere}</p>
+        <p class="board-count">{counterLine(tallies, cap)}</p>
+      </div>
 
       <div class="board-stages">
         {columns.map((col) => (
           <section
+            key={col.stage.key}
             class={`board-col${dropStage === col.stage.key ? ' drop-target' : ''}`}
             aria-labelledby={`col-${col.stage.key}`}
             onDragOver={(e) => { if (dragId !== '') { e.preventDefault(); setDropStage(col.stage.key); } }}

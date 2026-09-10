@@ -1,5 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
+import { render as mount } from 'preact';
+import { act } from 'preact/test-utils';
 import { render } from 'preact-render-to-string';
 import { DealFacts } from './DealFacts';
 import type { DealFact } from '../../lib/deals/facts';
@@ -71,5 +73,79 @@ describe('a deal that is no longer live (D3)', () => {
     const out = html([fact()], true);
     expect(out).toContain(BOARD_COPY.card.factsOpen);
     expect(out).toContain(BOARD_COPY.card.factRemove);
+  });
+});
+
+/**
+ * P12 — SWITCHING FACT MUST ABANDON THE OLD ONE.
+ *
+ * Pressing a second evidence chip while the form is half-filled used to re-label
+ * the form and KEEP the number: £42,000 typed as a builder's quote could be
+ * saved as the agreed monthly rent, and the deal re-scored on it.
+ */
+describe('opening the sheet straight onto one fact (P12)', () => {
+  const mountWith = (openWith: string) => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const added: Array<[string, number | null, string]> = [];
+    let current = openWith;
+    const draw = (): void => {
+      act(() => {
+        mount(
+          <DealFacts
+            dealId="d1" dealTitle="12 Test Street" strategy="brrrr" facts={[]}
+            onAdd={async (t, v, n) => { added.push([t, v, n]); return true; }}
+            onRemove={async () => true} busy={false} canAdd
+            openWith={current} onOpened={() => {}}
+          />, host);
+      });
+    };
+    draw();
+    return { host, added, open: (k: string) => { current = k; draw(); } };
+  };
+
+  it('opens on the fact it was asked for, not the list of ten', () => {
+    const { host } = mountWith('builder-quote');
+    expect(host.querySelector('.fact-entry')).not.toBeNull();
+    expect(host.querySelector('.fact-entry label')?.textContent).toContain('The quote');
+    expect(host.querySelector('.fact-choices')).toBeNull();
+  });
+
+  it('SWITCHING FACT CLEARS THE NUMBER AND THE NOTE — a quote is never saved as a rent', () => {
+    const { host, open } = mountWith('builder-quote');
+    const num = host.querySelector('.fact-entry input[type=number]') as HTMLInputElement;
+    const note = host.querySelector('.fact-entry input[type=text]') as HTMLInputElement;
+    act(() => {
+      num.value = '42000';
+      num.dispatchEvent(new Event('input', { bubbles: true }));
+      note.value = 'from the builder';
+      note.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect((host.querySelector('.fact-entry input[type=number]') as HTMLInputElement).value).toBe('42000');
+
+    open('rent-agreed');
+    expect(host.querySelector('.fact-entry label')?.textContent).toContain('agreed rent');
+    expect((host.querySelector('.fact-entry input[type=number]') as HTMLInputElement).value).toBe('');
+    expect((host.querySelector('.fact-entry input[type=text]') as HTMLInputElement).value).toBe('');
+  });
+
+  it('ignores a fact key nothing knows rather than opening an empty form', () => {
+    const { host } = mountWith('not-a-fact-type');
+    expect(host.querySelector('.fact-entry')).toBeNull();
+  });
+
+  it('opens nothing at all on a deal that cannot take facts', () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    act(() => {
+      mount(
+        <DealFacts
+          dealId="d1" dealTitle="12 Test Street" strategy="brrrr" facts={[]}
+          onAdd={async () => true} onRemove={async () => true} busy={false} canAdd={false}
+          openWith="builder-quote" onOpened={() => {}}
+        />, host);
+    });
+    expect(host.querySelector('.fact-entry')).toBeNull();
+    expect(host.querySelector('.fact-sheet')).toBeNull();
   });
 });

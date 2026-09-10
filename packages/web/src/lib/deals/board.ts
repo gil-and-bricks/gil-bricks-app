@@ -31,6 +31,14 @@ export interface BoardDeal {
   verdict_line: string | null;
   updated_at: string;
   /**
+   * P12 — how many scores this deal has ever held. The score-history control is
+   * offered only at 2 or more: with one point it opened on a single dot and a
+   * line repeating the number already on the card, which is a control that leads
+   * nowhere. Absent on a board answered before P12 — treated as "unknown", so the
+   * control is offered rather than silently withheld.
+   */
+  score_points?: number;
+  /**
    * The sold-price band the SAVED score was judged against (P5.1), as JSON, or
    * the string 'null' when there was none. `null`/undefined = the deal was saved
    * before we recorded it, so a re-score cannot use the same evidence and the
@@ -213,6 +221,35 @@ export function stageColumns(deals: readonly BoardDeal[]): StageColumn[] {
     stage,
     deals: deals.filter((d) => d.stage === stage.key),
   })).filter((c) => c.deals.length > 0);
+}
+
+/**
+ * APPEND A PAGE OF ROWS WITHOUT EVER REPEATING ONE (P12).
+ *
+ * "Show more" used to filter the incoming page against the array the click had
+ * captured, then append to whatever the array had become. Those are not the same
+ * list: a board reload lands mid-fetch (coming back to this tab from the
+ * analyser re-reads the board), replaces the rows wholesale, and a deal the
+ * reload had already restored was then appended a second time. One deal, two
+ * entries, the same card in two places.
+ *
+ * De-duping against the list being appended to makes that impossible whatever
+ * arrives in between.
+ */
+export function appendUnseen<T extends { id: string }>(current: readonly T[], incoming: readonly T[]): T[] {
+  const known = new Set(current.map((x) => x.id));
+  return [...current, ...incoming.filter((x) => !known.has(x.id))];
+}
+
+/**
+ * Is there a score history worth opening? Two or more scores (P12).
+ *
+ * With one point the panel could only draw a dot and repeat the number already
+ * on the card, so the control led nowhere. `undefined` means a board payload
+ * from before P12 counted them — offer it rather than hide something real.
+ */
+export function hasScoreHistory(d: BoardDeal): boolean {
+  return d.score_points === undefined || d.score_points >= 2;
 }
 
 /** Dead/parked deals — kept off the live board, reachable but tucked away. */

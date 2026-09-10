@@ -32,6 +32,14 @@ export interface FactsProps {
    * hiding it was the very thing the guard meant to protect (D3 review).
    */
   canAdd: boolean;
+  /**
+   * P12 — OPEN STRAIGHT ONTO ONE FACT. An evidence chip names a weak input, so
+   * pressing it should land on the form for the fact that fixes it, not on the
+   * list of ten. The parent sets this to a fact-type key; the sheet opens on it
+   * and calls `onOpened` so it is a one-shot, never a state that re-opens itself.
+   */
+  openWith?: string;
+  onOpened?: () => void;
 }
 
 const dayOf = (iso: string): string => {
@@ -39,7 +47,7 @@ const dayOf = (iso: string): string => {
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 };
 
-export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove, busy, canAdd }: FactsProps) {
+export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove, busy, canAdd, openWith, onOpened }: FactsProps) {
   const [state, setState] = useState<State>(STATE.closed);
   const saving = state === STATE.saving;
   const [picked, setPicked] = useState('');
@@ -75,7 +83,16 @@ export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove,
 
   const choose = (key: string): void => {
     const chosen = factTypeFor(key);
+    // SWITCHING FACT ABANDONS THE OLD ONE COMPLETELY (P12). Pressing a second
+    // evidence chip while the form is half-filled used to re-label the form and
+    // keep the number: £42,000 typed as a builder's quote could be saved as the
+    // agreed monthly rent, and the deal re-scored on it. Bumping `attempt` also
+    // disowns any save still in flight for the fact being left, so its late
+    // reply cannot reopen a form or report a failure against the new one.
+    attempt.current += 1;
     setPicked(key);
+    setValue('');
+    setNote('');
     setError(null);
     // A flag carries no number, so there is nothing to type: save it now.
     if (chosen?.kind === 'flag') {
@@ -109,8 +126,20 @@ export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove,
     });
   };
 
+  // A chip was pressed: open the sheet on that fact and hand the request back.
+  // Nothing happens on a deal that cannot take facts — the chip is not pressable
+  // there either, so this is a second lock on the same door.
+  const sheet = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (openWith === undefined || openWith === '' || !canAdd) return;
+    if (factTypeFor(openWith) === undefined) return; // a key nothing knows: ignore it
+    choose(openWith);
+    onOpened?.();
+    requestAnimationFrame(() => sheet.current?.scrollIntoView({ block: 'nearest' }));
+  }, [openWith, canAdd]);
+
   return (
-    <div class="dc-facts">
+    <div class="dc-facts" ref={sheet}>
       {facts.length > 0 && (
         <ul class="fact-list" aria-label={BOARD_COPY.card.factsListHeading}>
           {facts.map((f) => {

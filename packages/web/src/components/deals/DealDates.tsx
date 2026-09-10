@@ -57,24 +57,32 @@ export function DealDates({ dealId, dealTitle, stage, isAuction, dates, busy, on
               {value === '' ? spec.add : TODAY_COPY.dateSet(spec.label, day(value))}
               <span class="sr-only">{TODAY_COPY.dateFor(dealTitle)}</span>
             </label>
-            <input
-              id={`date-${spec.key}-${dealId}`}
-              type="date"
-              value={value}
-              disabled={busy}
-              onChange={(e) => onSet(spec.key, (e.target as HTMLInputElement).value)}
-            />
-            {value !== '' && (
-              <button
-                type="button"
-                class="btn-link dc-date-clear"
+            {/* A REAL, VISIBLE FIELD (P12). This input used to be stretched over
+                its own label at opacity 0, so a tap focused it — the lime ring —
+                and nothing else: Safari opens a date picker only from the
+                calendar indicator, which was invisible, so on a Mac the control
+                did nothing at all. Shown, it is the browser's own date control on
+                every platform and needs no script to open. */}
+            <span class="dc-date-field">
+              <input
+                id={`date-${spec.key}-${dealId}`}
+                type="date"
+                value={value}
                 disabled={busy}
-                aria-label={TODAY_COPY.dateClearLabel(spec.noun, dealTitle)}
-                onClick={() => onSet(spec.key, '')}
-              >
-                {TODAY_COPY.dateClear}
-              </button>
-            )}
+                onChange={(e) => onSet(spec.key, (e.target as HTMLInputElement).value)}
+              />
+              {value !== '' && (
+                <button
+                  type="button"
+                  class="btn-link dc-date-clear"
+                  disabled={busy}
+                  aria-label={TODAY_COPY.dateClearLabel(spec.noun, dealTitle)}
+                  onClick={() => onSet(spec.key, '')}
+                >
+                  {TODAY_COPY.dateClear}
+                </button>
+              )}
+            </span>
           </li>
         );
       })}

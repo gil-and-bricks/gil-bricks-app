@@ -40,6 +40,7 @@
   "devDependencies": {
     "@babel/parser": "^7.29.8",
     "@duckdb/node-api": "^1.5.5-r.4",
+    "axe-core": "^4.13.0",
     "happy-dom": "^20.13.1",
     "playwright-core": "^1.62.1",
     "pngjs": "^7.0.0",
