@@ -2,6 +2,53 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-10 — Share: a button that names an app must open that app
+
+- **THE OPERATOR'S DIAGNOSIS WAS EXACTLY RIGHT.** "Share on WhatsApp" called
+  `navigator.share` wherever the browser had it and only fell back to a wa.me
+  link otherwise. Chrome and Safari on macOS both have it, so on his Mac the
+  button opened the macOS panel offering Mail, Messages, Notes and Freeform —
+  and WhatsApp was not even on it. On a phone it opened the iOS/Android sheet.
+  The named app was always a menu away, and on desktop often not there at all.
+- **The fallback URL was already correct; the branch above it was the bug.**
+  The fix is a deletion, not an invention: always hand WhatsApp its own share
+  link, `https://wa.me/?text=<message + link>`, and let WhatsApp route to the
+  desktop app or WhatsApp Web. That routing is WhatsApp's to do — deciding it
+  for people is what went wrong in the first place.
+- **A second, quieter bug went with it.** The old code reached its WhatsApp line
+  only AFTER `await` on a rejected share, by which time the user gesture was
+  spent and the browser could block the tab as a popup. The open is now
+  synchronous, straight out of the click.
+- **JUDGMENT CALL: one module, two callers, no OS sheet anywhere.**
+  `src/lib/share/whatsapp.ts` owns the URL; the analyser action bar and the
+  saved-deal list both call it. A test walks every shipped source file in all
+  three packages and fails if the Web Share API reappears on ANY surface, or if
+  a wa.me link is hand-rolled outside that module.
+- **The sweep found the label bug the operator predicted.** The saved-deal row
+  said just "Share", which promises a choice it never gave. It now says
+  "Share on WhatsApp" — the same words as the analyser, held equal by a test.
+  At 320px the row wraps to two lines (`.deal-actions` already flex-wraps);
+  at 390px it stays on one. No overflow at either width.
+- **MY OWN SWEEP MISSED A PACKAGE DIRECTORY, and the guard now prevents that.**
+  The first cut searched `packages/extension/src` — but the extension's entire
+  UI is in `packages/extension/entrypoints`. It was clean, so nothing was
+  broken, but the sweep had not actually looked. The guard now lists shipped
+  directories explicitly AND fails when a new directory of code belongs to
+  neither list. Both halves proved by planting a regression.
+- **JUDGMENT CALL: typed the shared label out rather than importing it.**
+  Reading it from `ACTION_BAR` was tidier but `config/account.ts` is pulled in
+  by the header auth slot on all 26 pages, and the import dragged a 2.6KB
+  analyser-copy chunk onto every one of them for one word. A test asserting the
+  two are equal costs nothing and catches drift just as well.
+- **Everything else that shares or sends already did what it said.** The board
+  deal card — the one users actually see — has no share control at all; the
+  re-trade radar says "Copy the message" and copies, never sends; the
+  extension's "Send to my analyser →" opens the analyser; the tools' and
+  bridging "Send" buttons post to our own server. Nothing else touched.
+- **NOT BUILT, deliberately:** a general "Share…" that offers the OS sheet.
+  There is a real case for one on phones, but it is a separate control with its
+  own label and the operator's call to make.
+
 ## 2026-09-10 — E11: which button finds the house, and which finds the area
 
 - **The operator diagnosed the real defect, and it was a design one.** Google
