@@ -90,7 +90,7 @@ describe('the row shows the right things', () => {
     // length of the address — a 146px wander down the list at 1280px. See
     // compsRowAndMap.test.ts for the rule this replaced it with.
     const mod = read('components/analyser/CompsModule.tsx');
-    expect(mod, 'the column has a heading again').toContain('COMPARABLES.table.actions');
+    expect(mod, 'the columns have headings again').toContain('COMPARABLES.table.thisProperty');
     const at = mod.indexOf('<td class="comp-address-cell">');
     const cell = mod.slice(at, mod.indexOf('</td>', at));
     expect(cell, 'the address cell carries the address and nothing else').not.toContain('<CompActions');

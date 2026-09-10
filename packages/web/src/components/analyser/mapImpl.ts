@@ -24,6 +24,7 @@ import { circleRing, clusterForVariant, escapeHtml as esc, isRenderedTileEvent, 
 import { buildMapStyle, TILES_SOURCE_ID, tilesHttpUrl } from '../../lib/map/style';
 import { warmMapAssets } from '../../lib/map/warm';
 import { MAP_COPY } from '../../config/misc';
+import { COMPARABLES } from '../../config/comparables';
 import { fmtMoney } from '@gil-bricks/core';
 import { compLinks } from '@gil-bricks/core';
 
@@ -457,7 +458,11 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
             }</p>` +
             // C1 — the per-sale page is gone; the popup offers the same search
             // the row does, which is the useful one.
-            `<p class="map-popup-link"><a href="${esc(p.google)}" target="_blank" rel="noopener" aria-label="${esc(MAP_COPY.searchFull(String(p.address ?? '')))}">${MAP_COPY.search}</a></p>`,
+            // E11 — the same two words the table's columns use, from the SAME
+            // config key, so the popup and the table cannot come to describe
+            // the same button differently. One link here, but a reader should
+            // still know without pressing that it finds this house, not the area.
+            `<p class="map-popup-link"><span class="map-popup-scope">${esc(COMPARABLES.table.thisProperty)}</span> <a href="${esc(p.google)}" target="_blank" rel="noopener" aria-label="${esc(MAP_COPY.searchFull(String(p.address ?? '')))}">${MAP_COPY.search}</a></p>`,
         )
         .addTo(map);
     });

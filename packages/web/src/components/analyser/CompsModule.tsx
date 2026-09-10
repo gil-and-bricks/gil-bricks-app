@@ -36,7 +36,21 @@ const TENURE_LABEL: Record<string, string> = COMPARABLES.tenures;
  * word is short because the row is dense; the accessible name says the whole
  * promise, which is what a screen reader announces.
  */
-function CompActions({ c }: { c: Comp }) {
+/**
+ * A comparable's links, SPLIT BY WHAT THEY ACTUALLY FIND (E11).
+ *
+ * Google and the Land Registry record reach that exact house. Rightmove and
+ * Zoopla reach only the postcode's sold prices — there is no public,
+ * non-scraping route to a listing (see @gil-bricks/core links.ts). Sitting side
+ * by side and styled identically, the four hid that difference completely: the
+ * operator pressed a postcode one, got a street back, and reasonably concluded
+ * the door number was missing from our data.
+ *
+ * The fix is grouping, not explanation. Each scope is its own table column
+ * under its own heading, so the difference is stated once for the whole table
+ * and never repeated on a button. Nothing is added to any row.
+ */
+function CompActions({ c, scope }: { c: Comp; scope: 'property' | 'postcode' }) {
   const address = fullAddress({ saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode });
   const links = compLinks(c.id, { saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode });
   const A = COMPARABLES.actions;
@@ -45,12 +59,18 @@ function CompActions({ c }: { c: Comp }) {
   // this has never fired; it exists so that if one ever arrives, the button is
   // withheld rather than searching a street and calling it a house.
   const named = identifiesAProperty({ saon: c.saon, paon: c.paon });
+  if (scope === 'property') {
+    return (
+      <span class="comp-actions">
+        <a href={links.landRegistry} target="_blank" rel="noopener" aria-label={A.landRegistryFull(address)}>{A.landRegistry}</a>
+        {named && (
+          <a href={links.google} target="_blank" rel="noopener" aria-label={A.googleFull(address)}>{A.google}</a>
+        )}
+      </span>
+    );
+  }
   return (
     <span class="comp-actions">
-      <a href={links.landRegistry} target="_blank" rel="noopener" aria-label={A.landRegistryFull(address)}>{A.landRegistry}</a>
-      {named && (
-        <a href={links.google} target="_blank" rel="noopener" aria-label={A.googleFull(address)}>{A.google}</a>
-      )}
       {links.rightmoveSoldPrices !== null && (
         <a href={links.rightmoveSoldPrices} target="_blank" rel="noopener" aria-label={A.rightmoveFull(c.postcode)}>{A.rightmove}</a>
       )}
@@ -266,7 +286,12 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                           <span>{COMPARABLES.card.distanceValue(c.distanceMiles.toFixed(2))}</span>
                         </p>
                         {!c.included && <p class="comp-out">{COMPARABLES.card.excluded}</p>}
-                        <CompActions c={c} />
+                        {/* No table header on a phone, so the two words go on
+                            the card — once each, above their own pair. */}
+                        <p class="comp-scope">{COMPARABLES.table.thisProperty}</p>
+                        <CompActions c={c} scope="property" />
+                        <p class="comp-scope">{COMPARABLES.table.thisPostcode}</p>
+                        <CompActions c={c} scope="postcode" />
                       </div>
                     </li>
                   );
@@ -281,7 +306,8 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                     <th><span class="sr-only">{COMPARABLES.table.include}</span></th>
                     <th aria-sort={sortKey === 'date' ? (dir === 'asc' ? 'ascending' : 'descending') : undefined}><button type="button" onClick={() => setSort('date')}>{COMPARABLES.table.date}{sortArrow('date')}</button></th>
                     <th>{COMPARABLES.table.address}</th>
-                    <th class="comp-links-col">{COMPARABLES.table.actions}</th>
+                    <th class="comp-links-col">{COMPARABLES.table.thisProperty}</th>
+                    <th class="comp-links-col">{COMPARABLES.table.thisPostcode}</th>
                     <th>{COMPARABLES.table.postcode}</th>
                     <th>{COMPARABLES.table.propertyType}</th>
                     <th>{COMPARABLES.table.tenure}</th>
@@ -305,7 +331,8 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                       </td>
                       <td>{c.date}</td>
                       <td class="comp-address-cell">{[c.saon, c.paon, c.street].filter(Boolean).join(' ')}</td>
-                      <td class="comp-links-col"><CompActions c={c} /></td>
+                      <td class="comp-links-col"><CompActions c={c} scope="property" /></td>
+                      <td class="comp-links-col comp-links-area"><CompActions c={c} scope="postcode" /></td>
                       <td>{c.postcode}</td>
                       <td>{TYPE_LABEL[c.type] ?? c.type}</td>
                       <td>{TENURE_LABEL[c.tenure] ?? c.tenure}</td>

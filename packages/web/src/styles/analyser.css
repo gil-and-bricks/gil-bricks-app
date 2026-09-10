@@ -425,6 +425,9 @@
 .map-popup-line { margin: 0.2rem 0 0; font-size: var(--text-xs); color: var(--text-dim); }
 .map-popup-link { margin: var(--space-2) 0 0; }
 .map-popup-link a { color: var(--accent); }
+/* E11 — the scope word before the popup's link, in the same quiet register as
+   the card's. */
+.map-popup-scope { font-size: var(--text-2xs); color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; margin-right: var(--space-1); }
 .comps-table tbody tr:hover { background: rgba(220,255,0,0.05); }
 
 /* article 4 + map polish (S7.2) */
@@ -1663,6 +1666,20 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
    NOT the far right, which is what C1 tried first: the table is wider than its
    wrapper, so a last column is scrolled off the card and nobody ever sees it. */
 .comps-table .comp-links-col { white-space: nowrap; width: 1px; }
+/* E11 — the two scopes are two columns, so the table says once what each kind
+   of button finds. A hairline between them makes the pairs read as pairs
+   without adding a word to any row. */
+.comps-table .comp-links-area { border-left: 1px solid rgba(255, 255, 255, 0.1); }
+/* On a phone there is no table header to carry the two words, so the card does
+   — small, dim and once each, above its own pair. */
+.comp-scope {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-2xs);
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.comp-scope + .comp-actions { margin-top: var(--space-1); padding-top: 0; border-top: 0; }
 .comps-table .comp-actions { flex-wrap: nowrap; gap: var(--space-1); }
 .comps-table .comp-actions a { font-size: var(--text-2xs); padding: 0 0.35rem; min-height: 1.5rem; }
 

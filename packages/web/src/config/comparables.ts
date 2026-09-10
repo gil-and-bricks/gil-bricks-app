@@ -108,8 +108,17 @@ export const COMPARABLES = {
     sqm: 'm²',
     perSqm: '£/m²',
     miles: 'Miles',
-    /** The row's actions, and the column that holds them. */
-    actions: 'Links',
+    /**
+     * THE TWO KINDS OF LOOKUP, NAMED (E11). Google and the Land Registry record
+     * find THAT HOUSE; Rightmove and Zoopla can only reach the postcode's sold
+     * prices, because there is no public non-scraping way to a listing. Four
+     * identical-looking buttons in a row hid that difference completely: the
+     * operator pressed a postcode one and reasonably concluded the door number
+     * was missing from our data. These head the two columns, so the difference
+     * is stated ONCE for the whole table instead of on every button.
+     */
+    thisProperty: 'This property',
+    thisPostcode: 'This postcode',
     sortedAsc: ' ↑',
     sortedDesc: ' ↓',
   },

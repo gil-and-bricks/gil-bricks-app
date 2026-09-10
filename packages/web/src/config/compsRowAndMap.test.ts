@@ -28,9 +28,12 @@ const strip = (t: string): string =>
 describe('1. the row actions line up down the whole list', () => {
   it('they are a table column, so their left edge cannot depend on an address', () => {
     const head = mod.slice(mod.indexOf('<thead>'), mod.indexOf('</thead>'));
-    expect(head, 'a heading cell of its own').toContain('<th class="comp-links-col">{COMPARABLES.table.actions}</th>');
+    // E11 — one column became two, each named for what it actually finds.
+    expect(head).toContain('<th class="comp-links-col">{COMPARABLES.table.thisProperty}</th>');
+    expect(head).toContain('<th class="comp-links-col">{COMPARABLES.table.thisPostcode}</th>');
     const body = mod.slice(mod.indexOf('<tbody>'), mod.indexOf('</tbody>'));
-    expect(body).toContain('<td class="comp-links-col"><CompActions c={c} /></td>');
+    expect(body).toContain('<td class="comp-links-col"><CompActions c={c} scope="property" /></td>');
+    expect(body).toContain('<td class="comp-links-col comp-links-area"><CompActions c={c} scope="postcode" /></td>');
   });
 
   it('the column sits straight after the address, NOT at the far right', () => {
@@ -38,9 +41,9 @@ describe('1. the row actions line up down the whole list', () => {
     // it was scrolled off the card at every width. Order is the whole fix.
     const head = mod.slice(mod.indexOf('<thead>'), mod.indexOf('</thead>'));
     const at = (needle: string) => head.indexOf(needle);
-    expect(at('COMPARABLES.table.actions')).toBeGreaterThan(at('COMPARABLES.table.address'));
-    expect(at('COMPARABLES.table.actions')).toBeLessThan(at('COMPARABLES.table.postcode'));
-    expect(at('COMPARABLES.table.actions'), 'never the last column').toBeLessThan(at('COMPARABLES.table.miles'));
+    expect(at('COMPARABLES.table.thisProperty')).toBeGreaterThan(at('COMPARABLES.table.address'));
+    expect(at('COMPARABLES.table.thisPostcode')).toBeLessThan(at('COMPARABLES.table.postcode'));
+    expect(at('COMPARABLES.table.thisProperty'), 'never the last column').toBeLessThan(at('COMPARABLES.table.miles'));
   });
 
   it('the column shrinks to its buttons and never wraps them into a stack', () => {
@@ -58,7 +61,8 @@ describe('1. the row actions line up down the whole list', () => {
 
   it('the phone still gets them at the foot of the card, full-width', () => {
     const cards = mod.slice(mod.indexOf('comp-cards'), mod.indexOf('table-wrap'));
-    expect(cards, 'the card keeps its own copy').toContain('<CompActions c={c} />');
+    expect(cards, 'the card keeps its own copy').toContain('<CompActions c={c} scope="property" />');
+    expect(cards).toContain('<CompActions c={c} scope="postcode" />');
     expect(css).toMatch(/\.comp-actions a \{ min-height: 2\.75rem/);
   });
 });
@@ -226,7 +230,8 @@ describe('4. the map controls are visible', () => {
 
 describe('nothing here invented a word that config does not own', () => {
   it('every label the row and the map show still comes from config', () => {
-    expect(COMPARABLES.table.actions).toBe('Links');
+    expect(COMPARABLES.table.thisProperty).toBe('This property');
+    expect(COMPARABLES.table.thisPostcode).toBe('This postcode');
     for (const s of [COPY.comps.mapLoading, COPY.comps.mapBroken, COPY.comps.mapRetry]) {
       expect(typeof s).toBe('string');
       expect(s.length).toBeGreaterThan(0);

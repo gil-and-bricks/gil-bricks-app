@@ -2,6 +2,36 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-10 — E11: which button finds the house, and which finds the area
+
+- **The operator diagnosed the real defect, and it was a design one.** Google
+  and the Land Registry record reach that exact house; Rightmove and Zoopla can
+  only reach the postcode's sold prices, because there is no public
+  non-scraping route to a listing (C1). Four buttons, side by side, styled
+  identically, with the difference held only in a tooltip and an aria-label. He
+  pressed a postcode one, got a street back, and reasonably concluded our data
+  had lost the door number. E10 proved the data was fine and missed this — the
+  fault was never in what we searched, it was in what the row let you assume.
+- **JUDGMENT CALL: grouping, not explanation.** The options were per-button
+  labels ("Rightmove: postcode"), a note under the table, or columns. A row of
+  small actions is not a place for sentences, and a note under a table is not
+  read at the moment of pressing. The two scopes are now two table columns under
+  two headings — "This property" and "This postcode" — so the difference is
+  stated ONCE for the whole table and never repeated on a button. Not one word
+  was added to any row. Cost: 13px of table width (1232 → 1245).
+- **The phone card has no table header, so it carries the two words itself** —
+  small, dim, uppercase, once above each pair. The map popup, which has a single
+  link, gets the same word before it: with one button there is nothing to
+  confuse, but a reader should still know without pressing that it finds this
+  house and not the area.
+- **The words are defined ONCE.** `COMPARABLES.table.thisProperty` and
+  `.thisPostcode`; the popup imports the same key rather than retyping the
+  phrase, and a test fails if it ever does.
+- **What a row reads now:** `6 VAUGHAN STREET | This property: Land Registry,
+  Google | This postcode: Rightmove, Zoopla`. The Google link still carries
+  `6 VAUGHAN STREET CF37 1HR`; the portal links still carry `cf37-1hr`, which is
+  now visibly what they are for.
+
 ## 2026-09-10 — E10: the full address in a Google search, and the subject property
 
 - **THE REPORTED BUG DOES NOT EXIST, and the data says why.** The comparable
