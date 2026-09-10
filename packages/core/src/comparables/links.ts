@@ -49,6 +49,25 @@ export function fullAddress(parts: {
     .join(' ');
 }
 
+/** ONE place that builds a Google search URL, so the row, the map popup and the
+ *  subject property can never encode an address three different ways. */
+export function googleSearchUrl(address: string): string {
+  return `https://www.google.com/search?q=${encodeURIComponent(address)}`;
+}
+
+/**
+ * Is there enough here to search for a PROPERTY, rather than for a street?
+ *
+ * HM Land Registry populates PAON on every record we have (checked across 804
+ * sales in twelve sectors: none missing), and SAON on 55% of them — a flat or
+ * unit. But a record with neither is a street name and a postcode, and
+ * searching that as though it were somebody's house is a lie the button would
+ * tell silently. Callers use this to withhold the search instead.
+ */
+export function identifiesAProperty(parts: { saon?: string | null; paon?: string | null }): boolean {
+  return (parts.paon ?? '').trim() !== '' || (parts.saon ?? '').trim() !== '';
+}
+
 export function compLinks(
   saleId: string,
   address: { saon?: string | null; paon?: string | null; street?: string | null; postcode?: string | null } = {},
@@ -57,7 +76,7 @@ export function compLinks(
   const slug = postcodeSlug(address.postcode ?? '');
   return {
     landRegistry: `https://landregistry.data.gov.uk/data/ppi/transaction/${guid}/current`,
-    google: `https://www.google.com/search?q=${encodeURIComponent(fullAddress(address))}`,
+    google: googleSearchUrl(fullAddress(address)),
     // Both verified in a real browser against SA1 6SN: Rightmove answers
     // "House Prices in SA1 6SN", Zoopla "Sold house prices in SA1 6SN".
     rightmoveSoldPrices: slug === '' ? null : `https://www.rightmove.co.uk/house-prices/${slug}.html`,

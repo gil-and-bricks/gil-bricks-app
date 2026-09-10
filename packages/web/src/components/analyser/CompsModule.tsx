@@ -1,6 +1,6 @@
 import { fmtMoney } from '@gil-bricks/core';
 import { COPY } from '../../config/copy';
-import { compLinks, fullAddress } from '@gil-bricks/core';
+import { compLinks, fullAddress, identifiesAProperty } from '@gil-bricks/core';
 import type { Comp, ComparablesResult, SortKey } from '@gil-bricks/core';
 import { computeStats, sortComps } from '@gil-bricks/core';
 import { useMemo, useRef, useState } from 'preact/hooks';
@@ -40,10 +40,17 @@ function CompActions({ c }: { c: Comp }) {
   const address = fullAddress({ saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode });
   const links = compLinks(c.id, { saon: c.saon, paon: c.paon, street: c.street, postcode: c.postcode });
   const A = COMPARABLES.actions;
+  // E10 — a record with neither a house number nor a flat number is a STREET.
+  // Land Registry has populated one or the other on every record we hold, so
+  // this has never fired; it exists so that if one ever arrives, the button is
+  // withheld rather than searching a street and calling it a house.
+  const named = identifiesAProperty({ saon: c.saon, paon: c.paon });
   return (
     <span class="comp-actions">
       <a href={links.landRegistry} target="_blank" rel="noopener" aria-label={A.landRegistryFull(address)}>{A.landRegistry}</a>
-      <a href={links.google} target="_blank" rel="noopener" aria-label={A.googleFull(address)}>{A.google}</a>
+      {named && (
+        <a href={links.google} target="_blank" rel="noopener" aria-label={A.googleFull(address)}>{A.google}</a>
+      )}
       {links.rightmoveSoldPrices !== null && (
         <a href={links.rightmoveSoldPrices} target="_blank" rel="noopener" aria-label={A.rightmoveFull(c.postcode)}>{A.rightmove}</a>
       )}

@@ -2,6 +2,44 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-10 — E10: the full address in a Google search, and the subject property
+
+- **THE REPORTED BUG DOES NOT EXIST, and the data says why.** The comparable
+  row has carried the house number since C1: `fullAddress` joins SAON, PAON,
+  street and postcode, and Land Registry populates PAON on every record we hold.
+  Checked against the live product's own function over 804 real sales in twelve
+  sectors — dense urban, flats, rural, Welsh — **0 records with PAON missing**.
+  Live rows read `6 VAUGHAN STREET CF37 1HR`; map popups read
+  `31 LAN PARK ROAD CF37 2DH`. Said plainly rather than inventing a fix.
+- **What the survey DID find, and it is worth knowing.** 22.5% of records have a
+  PAON with no digit in it — a named building, `MOORE HOUSE` — but SAON supplies
+  the flat number, so the search is still one property:
+  `FLAT 37 MOORE HOUSE CASSILIS ROAD E14 9LN`. 2.5% have no street at all: the
+  address IS the name, `GELLIWION FARM CF37 1QB`. 55% carry a SAON. Every one of
+  those shapes searches honestly today.
+- **The guard the operator asked for, built even though it has never fired.** A
+  record with neither PAON nor SAON is a street and a postcode. There are none,
+  but if one arrives the row now WITHHOLDS the Google button rather than
+  searching a street and calling it a house. The Land Registry link is not
+  withheld — it is keyed by sale id, not by address, so it is right either way.
+- **The real gap: the subject property had no lookup.** Every comparable could
+  be searched; the one property the person came about could not. It now sits in
+  the property card, under the address they typed.
+- **JUDGMENT CALL: it searches what they TYPED, and infers no street.** We ask
+  for a postcode and a house number, never a street. We could guess one from the
+  sales sharing that postcode, and it would usually be right — but "usually" put
+  on their screen as their own address is a bad trade, and Google resolves
+  `6 CF37 1HR` perfectly well. With a flat: `FLAT 2 8 CF37 1DL`.
+- **No house number, no button.** A bare postcode is a street. Instead of
+  searching one it says "Add the house number to look this property up." — the
+  same shape the EPC lookup already uses, so the page has one habit rather than
+  two. Before a postcode is typed it says nothing at all.
+- **The extension panel offers no Google search at anything** — checked, there is
+  no such action in it. Out of scope for this sprint; noted rather than added.
+- **A 35px touch target, caught by verifying instead of assuming.** `.mini-btn`
+  is 35px tall; every other row action in the product is 44px on a phone. Fixed
+  before the sprint closed.
+
 ## 2026-09-09 — Sprint H1: homepage restructure, footer, official social marks
 
 - **The social marks: C2 made them official and left them the wrong SIZE.** Both

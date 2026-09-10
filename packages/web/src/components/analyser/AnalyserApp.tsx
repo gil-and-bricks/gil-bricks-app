@@ -15,6 +15,7 @@ import { READ_ONCE } from './arrival';
 import { initArrivedFacts } from './analyserEvidence';
 import { initProvenance, editedKeys } from './provenance';
 import { SubjectForm } from './SubjectForm';
+import { SubjectLookup } from './SubjectLookup';
 import { BtlVerdict } from './BtlVerdict';
 import { StrategySwitcher } from './StrategySwitcher';
 import { BrrrrVerdict } from './BrrrrVerdict';
@@ -207,6 +208,9 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
       <section class="glass card" id="sec-property">
         <h2>{ANALYSER_SHELL.propertyHeading}</h2>
         <SubjectForm postcodeError={postcodeError} />
+        {/* E10 — inside the property card, under the address they typed, so it
+            can never be mistaken for one of the comparables below. */}
+        {features.subjectLookup && <SubjectLookup />}
       </section>
 
       {error && (

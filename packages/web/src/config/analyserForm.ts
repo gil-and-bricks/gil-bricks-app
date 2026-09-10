@@ -63,6 +63,20 @@ export const SUBJECT_FORM = {
     /** The typed figure always wins; this says what the EPC would have said. */
     keptYours: (sqm: number): string => `EPC says ${sqm} sqm — your figure kept.`,
   },
+  /**
+   * LOOK UP THE PROPERTY YOU ARE ANALYSING (E10). Every comparable row could be
+   * searched on Google; the subject — the one property the person actually
+   * cares about, and the only address they typed themselves — could not.
+   * It searches WHAT THEY TYPED and nothing inferred.
+   */
+  lookup: {
+    button: 'Search Google',
+    /** Names the property, so it can never be mistaken for a comparable. */
+    full: (address: string): string => `Search Google for ${address}`,
+    /** Said instead of the button. A bare postcode is a street, not a house, and
+     *  searching one as though it were their property would be a quiet lie. */
+    needsNumber: 'Add the house number to look this property up.',
+  },
   /** The dropdown choices. The empty row every optional dropdown opens on. */
   choices: {
     empty: '—',

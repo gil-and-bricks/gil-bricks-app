@@ -1602,6 +1602,21 @@ html[data-verdict] .sv-anchor { height: var(--sv-reserve); }
 html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
 
 
+/* ---------- The subject property's own lookup (E10) ------------------------
+   Sits under the address they typed, inside the property card, so it can never
+   be read as belonging to one of the comparables further down. */
+.subject-lookup { margin: var(--space-2) 0 0; }
+.subject-lookup .mini-btn {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  /* The same 44px target the comparables' own links get on a phone: .mini-btn
+     alone measured 35px, which is under everything else in the product. */
+  min-height: 2.75rem;
+  padding-inline: var(--space-3);
+}
+.subject-lookup-needs { margin: var(--space-2) 0 0; }
+
 /* ---------- The tax, named (E9) --------------------------------------------
    Stamp duty is the biggest acquisition cost after the deposit and it was the
    hardest thing on the page to find. One lime edge marks it as the headline

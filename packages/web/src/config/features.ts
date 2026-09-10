@@ -207,6 +207,10 @@ export interface FeatureFlags {
    * rendered. While HOME.whyFree.body is empty it shows a plainly-marked
    * placeholder rather than words the operator did not write. */
   homeWhyFree: boolean;
+  /** The Google lookup for the SUBJECT property on every analyser (E10),
+   * pre-filled with the address the person typed. Off: only the comparable
+   * rows and the map popups offer a search, as before. */
+  subjectLookup: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -244,6 +248,7 @@ export const features: FeatureFlags = {
   stampDutyCost: true,
   homeVideo: true,
   homeWhyFree: true,
+  subjectLookup: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags
