@@ -9,6 +9,7 @@ import { state, strategyParams, toQuery } from './state';
 import { fmtMoney, postcodeToSector, strategies } from '@gil-bricks/core';
 import { features } from '../../config/features';
 import { ACTION_BAR } from '../../config/analyserForm';
+import { openWhatsApp } from '../../lib/share/whatsapp';
 
 /** Subject fields whose provenance is worth snapshotting as evidence. */
 const EVIDENCE_SUBJECT_KEYS = ['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon'] as const;
@@ -163,12 +164,10 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
     return bits.join(' — ');
   };
 
-  const share = async () => {
-    const text = `${summary()} ${location.href}`;
-    if (navigator.share) {
-      try { await navigator.share({ text }); return; } catch { /* fall through */ }
-    }
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  // The button says WhatsApp, so it opens WhatsApp — never the OS share sheet.
+  // See lib/share/whatsapp.ts for why the Web Share API is not used here.
+  const share = (): void => {
+    openWhatsApp(`${summary()} ${location.href}`);
   };
 
   const copyLink = async () => {

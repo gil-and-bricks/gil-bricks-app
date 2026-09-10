@@ -55,7 +55,14 @@ export const ACCOUNT = {
      *  strategy's own short name, from @gil-bricks/core. */
     compsBadge: 'Comps',
     open: 'Open',
-    share: 'Share',
+    /** THE SAME BUTTON AS THE ANALYSER'S, so it carries the same words. It said
+     *  just "Share", which promised a choice it never gave — it opens WhatsApp.
+     *  TYPED OUT rather than read from ACTION_BAR on purpose: this file is
+     *  pulled in by the header auth slot on all 26 pages, and importing the
+     *  analyser's copy for one label added a 2.6KB chunk to every one of them.
+     *  The two are held equal by a test instead (lib/share/whatsapp.test.ts),
+     *  which costs nothing and catches the drift just as well. */
+    share: 'Share on WhatsApp',
     delete: 'Delete',
     /** The second tap: delete one saved deal, or keep it. */
     confirm: 'Sure?',

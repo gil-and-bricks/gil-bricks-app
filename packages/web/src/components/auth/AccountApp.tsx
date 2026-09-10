@@ -5,6 +5,7 @@ import { COPY } from '../../config/copy';
 import { loadMe, me, meUnknown, openLoginWall } from '../../lib/auth/session';
 import { strategies } from '@gil-bricks/core';
 import { dealShareText } from '../../lib/deals/deal';
+import { openWhatsApp } from '../../lib/share/whatsapp';
 import { features } from '../../config/features';
 
 interface Deal {
@@ -52,17 +53,10 @@ export function AccountApp() {
     });
   }, []);
 
-  const shareDeal = async (d: Deal) => {
-    const text = dealShareText(d.title, d.key_figure, `${location.origin}${dealUrl(d)}`);
-    if (navigator.share) {
-      try {
-        await navigator.share({ text });
-        return;
-      } catch {
-        /* fall through */
-      }
-    }
-    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
+  // Named for WhatsApp, so it opens WhatsApp — never the OS share sheet.
+  // See lib/share/whatsapp.ts for why the Web Share API is not used here.
+  const shareDeal = (d: Deal): void => {
+    openWhatsApp(dealShareText(d.title, d.key_figure, `${location.origin}${dealUrl(d)}`));
   };
 
   const [dealNote, setDealNote] = useState('');
@@ -193,7 +187,7 @@ export function AccountApp() {
                 </div>
                 <div class="deal-actions">
                   <a class="btn-secondary" href={dealUrl(d)}>{ACCOUNT.deals.open}</a>
-                  <button type="button" class="btn-secondary" onClick={() => void shareDeal(d)}>{ACCOUNT.deals.share}</button>
+                  <button type="button" class="btn-secondary" onClick={() => shareDeal(d)}>{ACCOUNT.deals.share}</button>
                   {confirmDelete === d.id ? (
                     <>
                       <button
