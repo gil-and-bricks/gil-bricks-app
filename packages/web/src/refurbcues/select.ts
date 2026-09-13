@@ -11,8 +11,10 @@ import type { CueConfidence, CueRoom, RefurbCue } from './types';
 /**
  * Value order. Conclusive first because it is worth most; weak last because it
  * is barely evidence and, per the brief, "should barely be shown at all".
+ * 'strong' sits second: the observation is reliable even where the implication
+ * is not, which is exactly the research's own middle rung.
  */
-const WEIGHT: Record<CueConfidence, number> = { conclusive: 0, indicative: 1, weak: 2 };
+const WEIGHT: Record<CueConfidence, number> = { conclusive: 0, strong: 1, indicative: 2, weak: 3 };
 
 /**
  * The candidates for a photo, best first.

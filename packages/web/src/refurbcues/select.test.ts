@@ -16,6 +16,7 @@ const FIXTURES: RefurbCue[] = Array.from({ length: 8 }, (_, i) => ({
   confidence: i === 7 ? 'weak' : i < 2 ? 'conclusive' : 'indicative',
   costItem: 'kitchen',
   regulation: 'fixture-reg',
+  basis: 'standard',
   look: `Look for fixture thing ${i}.`,
   means: 'It may mean work is needed; worth checking.',
   caveat: 'Only an inspection can say.',

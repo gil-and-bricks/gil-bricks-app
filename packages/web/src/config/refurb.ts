@@ -261,9 +261,20 @@ export const REFURB_PHOTOS = {
     caveatLabel: 'To be sure',
     /** Named so nobody has to take our word for the rule behind it. */
     regulation: (name: string, checked: string): string => `${name} · checked ${checked}`,
+    /**
+     * WHAT KIND of thing is behind the tip. Said because "Part M" alone reads
+     * as though it binds this house, and for an existing home it does not.
+     */
+    basis: {
+      legal: 'The law — often only for new or altered work',
+      policy: 'Confirmed policy, not yet fully in force',
+      standard: 'A standard, checked by a report',
+      practitioner: 'Trade experience, not a regulation',
+    } as Record<string, string>,
     /** Confidence, said in the user's language rather than ours. */
     confidence: {
       conclusive: 'Usually clear from a photo',
+      strong: 'Usually clear from a photo',
       indicative: 'Worth investigating',
       weak: 'A weak signal only',
     } as Record<string, string>,

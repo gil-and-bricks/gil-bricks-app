@@ -33,6 +33,8 @@ export interface CarouselProps {
 }
 
 const itemLabel = (key: string): string => REFURB_ITEMS.find((i) => i.key === key)?.label ?? key;
+/** The cue's regulation, or null where the research gave none direct. */
+const regOf = (cue: RefurbCue) => (cue.regulation === null ? null : REGULATIONS[cue.regulation] ?? null);
 
 export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItems }: CarouselProps) {
   const [open, setOpen] = useState(true);
@@ -118,18 +120,24 @@ export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItem
                 <p class="rc-tip-look">{cue.look}</p>
                 <p class="rc-tip-means">{cue.means}</p>
                 <p class="rc-tip-caveat"><strong>{P.tip.caveatLabel}:</strong> {cue.caveat}</p>
-                {REGULATIONS[cue.regulation] && (
-                  <p class="rc-tip-reg">{P.tip.regulation(REGULATIONS[cue.regulation].name, REGULATIONS[cue.regulation].lastChecked)}</p>
+                {/* The rule behind it, and WHAT KIND of rule — twelve of the forty
+                    rest on trade experience alone, and those say so instead. */}
+                {regOf(cue) !== null
+                  ? <p class="rc-tip-reg">{P.tip.regulation(regOf(cue)!.name, regOf(cue)!.lastChecked)} · {P.tip.basis[cue.basis]}</p>
+                  : <p class="rc-tip-reg">{P.tip.basis[cue.basis]}</p>}
+                {/* THE LOOP: you see it, you tick it, the total moves, the deal
+                    re-scores. A cue with no cost — room size, a missing photo —
+                    offers no tick, because there is no number behind it. */}
+                {cue.costItem !== null && (
+                  <button
+                    type="button"
+                    class="tp-btn tp-btn-primary rc-tick"
+                    disabled={tickedItems.has(cue.costItem)}
+                    onClick={() => onTickItem(cue.costItem as string)}
+                  >
+                    {tickedItems.has(cue.costItem) ? P.tip.ticked(itemLabel(cue.costItem)) : P.tip.tick(itemLabel(cue.costItem))}
+                  </button>
                 )}
-                {/* THE LOOP: you see it, you tick it, the total moves, the deal re-scores. */}
-                <button
-                  type="button"
-                  class="tp-btn tp-btn-primary rc-tick"
-                  disabled={tickedItems.has(cue.costItem)}
-                  onClick={() => onTickItem(cue.costItem)}
-                >
-                  {tickedItems.has(cue.costItem) ? P.tip.ticked(itemLabel(cue.costItem)) : P.tip.tick(itemLabel(cue.costItem))}
-                </button>
               </>
             )}
         </div>

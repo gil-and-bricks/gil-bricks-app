@@ -1,11 +1,25 @@
+// @vitest-environment happy-dom
 /**
  * R3 — THE PHOTOS ARRIVE WITH THE LISTING, AT NO EXTRA TAP, and the flag off
  * leaves the refurb section exactly as it was.
+ *
+ * R3.1 — THE FLAG-OFF CHECK NOW RENDERS THE SECTION AND LOOKS AT IT. It used to
+ * read RefurbSection.tsx and assert the guard lines were present in the source,
+ * which proves the line is written, not that the page obeys it: rename a
+ * variable and the test passes while the carousel ships. So the section is
+ * rendered twice, with real photo URLs in the query string — once with the flag
+ * on, so the assertions are known to be capable of failing, and once with it
+ * off — and the OUTPUT is what is examined.
  */
 import { describe, expect, it, afterEach } from 'vitest';
 import { PHOTOS_PARAM, MAX_HANDOFF_PHOTOS, buildAnalyserHandoff, found, missing, type NormalisedListing } from '@gil-bricks/core';
+import { render } from 'preact-render-to-string';
 import { photosFromParam } from './index';
+import { CUES } from './library';
 import { features } from '../config/features';
+import { REFURB_ITEMS, REFURB_PHOTOS } from '../config/refurb';
+import { RefurbSection, MODE_PARAM } from '../components/analyser/RefurbSection';
+import { state, strategyParams } from '../components/analyser/state';
 
 const listing = (photos: string[] | null): NormalisedListing => ({
   portal: 'rightmove', extractorVersion: 'rm-1.0.0', configVersion: 't', source: 'embedded',
@@ -55,23 +69,46 @@ describe('the photos travel in the handoff', () => {
 });
 
 describe('with the flag off the refurb section is exactly what it was', () => {
-  it('no photos are read from the URL at all', () => {
+  const PHOTOS = 'https://media.rightmove.co.uk/a.jpeg https://media.rightmove.co.uk/b.jpeg';
+
+  /** The section as a browser would build it, with photos in the URL. */
+  const renderSection = (): string => {
+    window.history.replaceState({}, '', `/analyser?ph=${encodeURIComponent(PHOTOS)}`);
+    strategyParams.value = { [MODE_PARAM]: '1' };
+    state.value = { ...state.value, postcode: '', area: '', beds: '' };
+    return render(<RefurbSection legacy={false} onLegacySeen={() => {}} country={null} hasContingency={false} />);
+  };
+
+  it('POSITIVE CONTROL: with the flag ON the photos and a pointer are really there', () => {
+    features.refurbPhotos = true;
+    const out = renderSection();
+    expect(out).toContain('rc-photo');
+    expect(out).toContain('https://media.rightmove.co.uk/a.jpeg');
+    expect(out).toContain(REFURB_PHOTOS.caveat);
+    // a real pointer from the library, not a placeholder
+    expect(out).toContain('rc-tip-look');
+  });
+
+  it('with the flag OFF nothing of the carousel is rendered at all', () => {
     features.refurbPhotos = false;
-    // the section reads `ph` only when the flag is on — asserted at the source,
-    // because that is the line that decides it
-    const src = require('node:fs').readFileSync(
-      require('node:url').fileURLToPath(new URL('../components/analyser/RefurbSection.tsx', import.meta.url)), 'utf8',
-    ) as string;
-    expect(src).toContain('features.refurbPhotos\n    ? photosFromParam(');
-    expect(src).toContain('features.refurbPhotos && photos.length > 0');
+    const out = renderSection();
+    expect(out).not.toContain('rc-photo');
+    expect(out).not.toContain('https://media.rightmove.co.uk/a.jpeg');
+    expect(out).not.toContain(REFURB_PHOTOS.caveat);
+    expect(out).not.toContain('rc-tip');
+    // and not one cue's words reach the page
+    for (const cue of CUES) expect(out, cue.key).not.toContain(cue.look);
   });
 
   it('and the itemised list is untouched by any of this', () => {
-    const src = require('node:fs').readFileSync(
-      require('node:url').fileURLToPath(new URL('../components/analyser/RefurbSection.tsx', import.meta.url)), 'utf8',
-    ) as string;
-    // the list, its toggle and its rows are all still there, outside the flag
-    expect(src).toContain('id="refurb-list"');
-    expect(src).toContain('REFURB_ITEMS.map((item)');
+    features.refurbPhotos = false;
+    const off = renderSection();
+    expect(off).toContain('refurb-list');
+    for (const item of REFURB_ITEMS) expect(off, item.key).toContain(item.label);
+
+    // the same rows are there with the flag on: the carousel ADDS, never swaps
+    features.refurbPhotos = true;
+    const on = renderSection();
+    for (const item of REFURB_ITEMS) expect(on, item.key).toContain(item.label);
   });
 });
