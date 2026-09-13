@@ -24,7 +24,6 @@ export const SUBJECT_FORM = {
     area: 'Internal area (sqm)',
     beds: 'Bedrooms',
     baths: 'Bathrooms',
-    refurb: 'Refurb needed',
     age: 'Age band',
     garden: 'Garden',
     parking: 'Parking',
@@ -87,12 +86,6 @@ export const SUBJECT_FORM = {
       semiDetached: 'Semi-detached',
       terraced: 'Terraced',
       flat: 'Flat',
-    },
-    refurb: {
-      none: 'None',
-      light: 'Light',
-      moderate: 'Moderate',
-      heavy: 'Heavy',
     },
     age: {
       pre1900: 'Pre-1900',

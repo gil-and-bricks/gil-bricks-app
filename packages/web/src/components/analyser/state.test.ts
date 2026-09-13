@@ -54,7 +54,7 @@ describe('strategy switcher round-trip', () => {
     const full: UrlState = {
       ...DEFAULTS,
       postcode: 'CF37 1HR', price: '150000', type: 'T', area: '90', beds: '3',
-      baths: '1', refurb: 'light', age: 'pre1900', garden: 'yes', parking: '1',
+      baths: '1', age: 'pre1900', garden: 'yes', parking: '1',
       paon: '6', saon: '', radius: '1', period: '6', ctype: 'houses',
       tenure: 'F', cage: 'old', minArea: '50', maxArea: '120',
       minPrice: '100000', maxPrice: '200000', excluded: '{ABC-1},{DEF-2}',

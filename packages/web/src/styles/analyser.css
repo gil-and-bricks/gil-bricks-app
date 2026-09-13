@@ -1822,3 +1822,85 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
    and the strip there is already a scannable row. */
 .chip-icon { width: 16px; height: 16px; flex: 0 0 16px; display: none; }
 .chip-label { min-width: 0; }
+
+/* ---------- The refurb section (R1) --------------------------------------
+   THE 390px DECISION, and why it is this one. Fourteen rows each with a label
+   and a money box is roughly 1,000px of scrolling sitting between the inputs
+   and the verdict — on a phone, a wall you must get past to reach the answer.
+   Three things keep it small:
+     1. the section opens as ONE money field and a closed disclosure, so the
+        person who already has a builder's quote types it and never sees a row;
+     2. an unticked row is a single 48px line — a tick and a name, nothing else;
+     3. the money box exists only on a TICKED row, so the list grows with what
+        you actually use rather than with what we could think of.
+   The whole row is the tick target (the label wraps the checkbox), so it is a
+   thumb-sized hit anywhere across the screen, and ticking moves focus into that
+   row's box — typing a figure is one tap away, one-handed. */
+.refurb { margin: var(--space-4) 0 0; }
+.refurb > h3 { font-size: var(--text-base); margin: 0 0 var(--space-1); }
+.refurb > .hint { margin: 0 0 var(--space-3); }
+.refurb-total { margin-bottom: var(--space-2); }
+
+/* The derived total: still a figure on the same baseline as the input it
+   replaces, never a disabled input — a disabled box reads as "broken", and this
+   number is not broken, it is being worked out for you. */
+.refurb-derived {
+  display: block; width: 100%; box-sizing: border-box;
+  padding: var(--space-2) var(--space-3); border-radius: 10px;
+  border: 1px dashed var(--line); background: rgba(255, 255, 255, 0.03);
+  color: var(--text); font-size: var(--text-lg); font-weight: 700;
+}
+.refurb-superseded { color: var(--warn, var(--text)); }
+
+.refurb-toggle {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  width: 100%; min-height: 48px; padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line); border-radius: 10px; background: transparent;
+  color: var(--text); font: inherit; font-size: var(--text-sm); font-weight: 600;
+  cursor: pointer; text-align: left;
+}
+.refurb-toggle:hover { border-color: var(--brand); }
+.refurb-count { color: var(--text-dim); font-weight: 500; }
+
+.refurb-list { margin-top: var(--space-3); }
+.refurb-waiting, .refurb-mine { margin: 0 0 var(--space-2); font-size: var(--text-xs); }
+.refurb-rows { list-style: none; margin: 0; padding: 0; }
+.refurb-rows.is-superseded { opacity: 0.55; }
+
+.refurb-row { border-top: 1px solid var(--line); }
+.refurb-row:last-child { border-bottom: 1px solid var(--line); }
+
+/* The whole line is the control. 48px is the tap target, not the text size. */
+.refurb-tick {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: 48px; padding: var(--space-1) 0; margin: 0;
+  cursor: pointer; font-size: var(--text-sm); color: var(--text);
+}
+.refurb-tick input[type="checkbox"] { width: 20px; height: 20px; flex: 0 0 20px; accent-color: var(--brand); margin: 0; }
+.refurb-name { flex: 1 1 auto; min-width: 0; }
+/* The figure repeated on the row itself, so a closed-up list still reads as a
+   list of numbers rather than a list of ticks. */
+.refurb-amt-shown { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.refurb-hint { margin: 0 0 var(--space-2) 32px; font-size: var(--text-xs); color: var(--text-dim); }
+
+.refurb-amount { display: flex; gap: var(--space-2); align-items: center; padding: 0 0 var(--space-2) 32px; }
+.refurb-amount input { flex: 1 1 auto; min-width: 0; }
+/* The operator's own figure, offered as one tap. Never applied on its own. */
+.refurb-suggest {
+  flex: 0 0 auto; min-height: 44px; padding: var(--space-1) var(--space-3);
+  border: 1px dashed var(--line); border-radius: 999px; background: transparent;
+  color: var(--text-dim); font: inherit; font-size: var(--text-xs); cursor: pointer;
+}
+.refurb-suggest:hover { color: var(--text); border-color: var(--brand); }
+
+.refurb-sum {
+  margin: var(--space-3) 0 0; padding-top: var(--space-2);
+  border-top: 2px solid var(--line);
+  font-size: var(--text-sm); font-weight: 600; color: var(--text);
+}
+.refurb-legacy {
+  display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap;
+  margin: 0 0 var(--space-3); padding: var(--space-2) var(--space-3);
+  border-radius: 10px; background: rgba(220, 255, 0, 0.08);
+  font-size: var(--text-sm);
+}

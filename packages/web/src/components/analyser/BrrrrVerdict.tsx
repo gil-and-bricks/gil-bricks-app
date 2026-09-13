@@ -17,7 +17,8 @@ import { leverIsRedundant } from './leverDedupe';
 import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
-import { initStrategyParams, state, strategyParams, updateStrategy } from './state';
+import { initStrategyParams, state, strategyParams, updateStrategy, legacyRefurbLevel } from './state';
+import { RefurbSection, refurbParamKeys } from './RefurbSection';
 import { StrategyInputs } from './StrategyInputs';
 import { MathsAccordion } from './Accordion';
 
@@ -36,7 +37,12 @@ export function BrrrrVerdict({ config, comps, valuation }: {
 }) {
   const fields = [...config.strategyInputs, ...config.assumptions];
   useEffect(() => {
-    initStrategyParams(fields);
+    // R1: the refurb rows are params too, so a saved deal and a shared link
+    // carry the itemised list exactly as they carry every other input.
+    initStrategyParams([
+      ...fields,
+      ...(features.refurbSection ? refurbParamKeys().map((key) => ({ key, kind: 'number' as const, default: '' })) : []),
+    ]);
   }, []);
 
   const s = state.value;
@@ -130,6 +136,11 @@ export function BrrrrVerdict({ config, comps, valuation }: {
     <section class="glass card" aria-labelledby="verdict-h">
       <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
       <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
+      {/* R1 — AFTER the inputs, BEFORE the answer. The refurb figure is one of
+          the verdict's inputs, so the verdict can never render above it. */}
+      {features.refurbSection && (
+        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }} />
+      )}
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}

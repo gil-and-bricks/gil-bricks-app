@@ -8,6 +8,14 @@ import { Accordion } from './Accordion';
 import { ProvBadge } from './ProvBadge';
 import { markEdited } from './provenance';
 import { SECTION_STRIP } from '../../config/analyserSections';
+import { REFURB } from '../../config/refurb';
+import { features } from '../../config/features';
+
+/** R1 — the refurb section owns `refurbCost` and draws it with its working, so
+ * the generic renderer must not draw it a second time. With the flag off this
+ * is false and the field renders here exactly as it always did. */
+const ownedByRefurbSection = (f: StrategyField): boolean =>
+  features.refurbSection && f.key === REFURB.fieldKey;
 
 /** A pounds field is one whose unit starts with £ — the config already says so,
  * so no component keeps its own list of "which fields are money" (F1). */
@@ -41,6 +49,7 @@ export function StrategyInputs({ visible, assumptions }: { visible: StrategyFiel
     <>
       <div class="subject-form" id="sec-inputs">
         {visible
+          .filter((f) => !ownedByRefurbSection(f))
           .filter((f) => !f.showWhen || (strategyParams.value[f.showWhen.key] ?? '') === f.showWhen.value)
           .map((f) => <Field f={f} />)}
       </div>
@@ -48,7 +57,7 @@ export function StrategyInputs({ visible, assumptions }: { visible: StrategyFiel
         <div class="assumptions">
           <Accordion label={SECTION_STRIP.assumptions}>
             <div class="subject-form">
-              {assumptions.map((f) => <Field f={f} />)}
+              {assumptions.filter((f) => !ownedByRefurbSection(f)).map((f) => <Field f={f} />)}
             </div>
           </Accordion>
         </div>

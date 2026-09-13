@@ -142,6 +142,16 @@ export interface FeatureFlags {
    * already minted stop resolving; the enquiries themselves are untouched. */
   brokerEnquiryLink: boolean;
 
+  /** The itemised refurb section (R1): its own section between the inputs and
+   * the verdict, with the fourteen big-ticket items behind a disclosure, the
+   * sum shown, and the total still typeable for anyone holding a quote. It
+   * replaced a "Light / Moderate / Heavy" dropdown that no calculation ever
+   * read. Off: the section does not render and `refurbCost` goes back to being
+   * an ordinary field in the strategy inputs — the same single box, the same
+   * score, no working shown. Item params already in a saved URL are ignored
+   * while off and picked up again when it is turned back on; nothing is lost. */
+  refurbSection: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -238,6 +248,7 @@ export const features: FeatureFlags = {
   epcRegisterLookup: true,
   brokerFactFind: true,
   brokerEnquiryLink: true,
+  refurbSection: true,
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,

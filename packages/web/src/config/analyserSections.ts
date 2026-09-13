@@ -25,6 +25,10 @@ export const ANALYSER_SECTIONS: readonly AnalyserSection[] = [
   { id: 'sec-property', label: 'Property', icon: 'home' },
   { id: 'sec-area', label: 'Area', icon: 'pin' },
   { id: 'sec-inputs', label: 'Inputs', icon: 'pencil' },
+  // R1 — REFURB BEFORE THE VERDICT. The refurb figure is an input to the
+  // verdict, so the verdict must never sit above it. The strip is a map of the
+  // page and the page renders it in this order too.
+  { id: 'sec-refurb', label: 'Refurb', icon: 'coins' },
   { id: 'sec-verdict', label: 'Verdict', icon: 'verdict' },
   { id: 'sec-figures', label: 'Figures', icon: 'chart' },
   { id: 'sec-costs', label: 'Costs', icon: 'coins' },

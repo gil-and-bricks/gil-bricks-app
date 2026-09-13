@@ -19,7 +19,6 @@ const TIPS: Record<string, string> = {
   area: tip('subject.area'),
   beds: tip('subject.beds'),
   baths: tip('subject.baths'),
-  refurb: tip('subject.refurb'),
   age: tip('subject.age'),
   garden: tip('subject.garden'),
   parking: tip('subject.parking'),
@@ -138,16 +137,6 @@ export function SubjectForm({ postcodeError }: { postcodeError: string | null })
         <select id="f-baths" value={s.baths} onChange={(e) => { update({ baths: (e.target as HTMLSelectElement).value }); markEdited('baths'); }}>
           <option value="">{SUBJECT_FORM.choices.empty}</option>
           {['1', '2', '3+'].map((b) => <option value={b}>{b}</option>)}
-        </select>
-      </div>
-      <div class="field">
-        <label for="f-refurb">{SUBJECT_FORM.labels.refurb} <Tooltip text={TIPS.refurb} /></label>
-        <select id="f-refurb" value={s.refurb} onChange={(e) => update({ refurb: (e.target as HTMLSelectElement).value as never })}>
-          <option value="">{SUBJECT_FORM.choices.empty}</option>
-          <option value="none">{SUBJECT_FORM.choices.refurb.none}</option>
-          <option value="light">{SUBJECT_FORM.choices.refurb.light}</option>
-          <option value="moderate">{SUBJECT_FORM.choices.refurb.moderate}</option>
-          <option value="heavy">{SUBJECT_FORM.choices.refurb.heavy}</option>
         </select>
       </div>
       <div class="field">

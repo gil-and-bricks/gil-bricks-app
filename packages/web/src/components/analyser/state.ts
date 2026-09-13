@@ -12,7 +12,6 @@ export interface SubjectState {
   area: string;
   beds: string;
   baths: string;
-  refurb: '' | 'none' | 'light' | 'moderate' | 'heavy';
   age: '' | 'pre1900' | '1900-1949' | '1950-1999' | '2000plus';
   garden: '' | 'none' | 'yes';
   parking: '' | '0' | '1' | '2plus';
@@ -39,7 +38,7 @@ export type UrlState = SubjectState & CompsFilterState;
 
 export const DEFAULTS: UrlState = {
   postcode: '', price: '', type: '', area: '', beds: '', baths: '',
-  refurb: '', age: '', garden: '', parking: '', paon: '', saon: '',
+  age: '', garden: '', parking: '', paon: '', saon: '',
   radius: '0.5', period: '12', ctype: 'all', tenure: 'any', cage: 'all',
   minArea: '', maxArea: '', minPrice: '', maxPrice: '', excluded: '', view: 'list',
 };
@@ -52,7 +51,6 @@ let strategyDefaults: Record<string, string> = {};
 
 const ALLOWED: Partial<Record<keyof UrlState, string[]>> = {
   type: ['', 'D', 'S', 'T', 'F'],
-  refurb: ['', 'none', 'light', 'moderate', 'heavy'],
   age: ['', 'pre1900', '1900-1949', '1950-1999', '2000plus'],
   garden: ['', 'none', 'yes'],
   parking: ['', '0', '1', '2plus'],
@@ -64,8 +62,17 @@ const ALLOWED: Partial<Record<keyof UrlState, string[]>> = {
   view: ['list', 'map'],
 };
 
+/**
+ * R1 — did this URL come from before the refurb section existed? The old
+ * "Light / Moderate / Heavy" dropdown wrote `refurb=` and nothing read it. A
+ * saved deal or a shared link can still carry it, and the section says once
+ * that the figure carried over rather than leaving an empty list unexplained.
+ */
+export const legacyRefurbLevel = signal(false);
+
 export function parseQuery(search: string): UrlState {
   const q = new URLSearchParams(search);
+  if ((q.get('refurb') ?? '') !== '') legacyRefurbLevel.value = true;
   const out = { ...DEFAULTS } as unknown as Record<string, string>;
   for (const key of Object.keys(DEFAULTS)) {
     const v = q.get(key);
