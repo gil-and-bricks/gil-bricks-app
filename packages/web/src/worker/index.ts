@@ -13,6 +13,8 @@ import { BRIDGING_RULES, BROKER, brokerReady, factFindReady, FACTFIND_RULES } fr
 import { captureReady, KIT_FIELDS } from '../config/capture';
 import { qualify, isComplete, loanAmount, phoneDigits, type Enquiry } from '../lib/bridging';
 import { cleanFactFind, isFactFindComplete, FACTFIND_KEYS } from '../lib/factfind';
+import { detailsPage as enquiryDetailsPage, enquiryLink, enquiryRecipient, gonePage as enquiryGonePage, KIT_ENQUIRY_FIELD, linkExpiry, purgeEnquiryLinks, revealPage as enquiryRevealPage, type EnquiryRow } from './lib/enquiryLink';
+import { hashToken as hashBrokerToken, mintToken as mintBrokerToken } from './lib/brokerLink';
 import {
   detailsPage, factFindLink, factFindRecipient, gonePage, hashToken, KIT_FACTFIND_FIELD, mintToken,
   purgeFactFinds, revealPage, type FactFindRow,
@@ -282,7 +284,7 @@ async function attemptKitRow(
     //    a few hours, and once Kit has it there is no reason for a copy to sit
     //    in our database as well (F2 review). Only its hash remains.
     await env.DB.prepare(
-      "UPDATE kit_outbox SET status = 'sent', sent_at = ?, attempts = ?, last_attempt = ?, last_error = ?, email = CASE WHEN action = 'unsubscribe' AND user_id IS NULL THEN '' ELSE email END, fields_json = CASE WHEN action = 'factfind-ready' THEN NULL ELSE fields_json END WHERE id = ?",
+      "UPDATE kit_outbox SET status = 'sent', sent_at = ?, attempts = ?, last_attempt = ?, last_error = ?, email = CASE WHEN action = 'unsubscribe' AND user_id IS NULL THEN '' ELSE email END, fields_json = CASE WHEN action IN ('factfind-ready','enquiry-ready') THEN NULL ELSE fields_json END WHERE id = ?",
     )
       .bind(new Date().toISOString(), row.attempts + 1, attemptTs, result.note ?? null, row.id)
       .run();
@@ -385,8 +387,8 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     );
   }
   stmts.push(
-    // F1: a bridging enquiry is personal data too — deleting the account
-    // deletes it, exactly as the privacy policy says.
+    // F1/F3: a bridging enquiry is personal data too — deleting the account
+    // deletes it, and with it the broker's link, which resolves by row.
     env.DB.prepare('DELETE FROM bridging_enquiries WHERE user_id = ?').bind(user.sub),
     // F2: and the fact-find with it — the most personal thing this product ever
     // holds. Deleting it also kills the broker's link, which resolves by row.
@@ -750,7 +752,9 @@ async function handleBridgingEnquiry(request: Request, env: Env): Promise<Respon
   if (!features.bridgingFinance) return json({ error: 'not found' }, 404);
   // The form does not render until the broker is real, so the endpoint must not
   // accept a phone number either — no collection without somewhere to send it.
-  if (!brokerReady()) return json({ error: 'not open' }, 404);
+  // F3: the form is hidden without a way for him to READ the answers, so the
+  // endpoint behind it is shut for the same reason.
+  if (!brokerReady() || !features.brokerEnquiryLink) return json({ error: 'not open' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
 
@@ -807,6 +811,27 @@ async function handleBridgingEnquiry(request: Request, env: Env): Promise<Respon
     "SELECT id, email, first_name, action, attempts FROM kit_outbox WHERE action = ? AND user_id = ? ORDER BY created_at DESC LIMIT 1",
   ).bind(action, user.sub).first<{ id: string; email: string; first_name: string; action: string; attempts: number }>();
   if (row) await attemptKitRow(env, row);
+
+  // F3 — THE DISCLOSURE THE CONSENT TICK PROMISES. A qualified enquiry mints a
+  // single-use, expiring link and tells the broker, at his own address, that one
+  // is waiting. Only the hash is stored, so a database leak yields no working
+  // link. Kit is given that link and nothing else: not the loan, not the deposit
+  // band, not the phone number, not a word of what they wrote.
+  //
+  // A NOT-YET enquiry mints nothing. It was not passed on, so there is nothing
+  // for him to read and no link to leak.
+  if (decision.outcome === 'qualified') {
+    const { token, hash } = await mintBrokerToken();
+    await env.DB.prepare('UPDATE bridging_enquiries SET token_hash = ?, link_expires_at = ? WHERE id = ? AND user_id = ?')
+      .bind(hash, linkExpiry(), id, user.sub).run();
+    const to = enquiryRecipient();
+    const linkId = crypto.randomUUID();
+    const fields = JSON.stringify({ [KIT_ENQUIRY_FIELD]: enquiryLink(coreConfig.appBaseUrl, token) });
+    await env.DB.prepare(
+      "INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at, fields_json) VALUES (?, ?, ?, ?, 'enquiry-ready', 'pending', ?, ?)",
+    ).bind(linkId, user.sub, to.email, to.name, now, fields).run();
+    await attemptKitRow(env, { id: linkId, email: to.email, first_name: to.name, action: 'enquiry-ready', attempts: 0, fields_json: fields });
+  }
 
   // the reasons are stable keys; the page turns them into one line each. The id
   // travels only for a QUALIFIED enquiry, because that is the only one the
@@ -936,6 +961,46 @@ async function handleBrokerFactFind(request: Request, env: Env, url: URL): Promi
     .bind(now, row.id).run();
   if ((spent.meta?.changes ?? 0) === 0) return html(gonePage(), 404);
   return html(detailsPage(row));
+}
+
+/**
+ * F3 — the page the broker reads a QUALIFIED ENQUIRY on. Identical protections
+ * to the fact-find page above, for identical reasons: a GET reveals nothing,
+ * because email security scanners follow links and must never be able to spend
+ * the one use; the POST reveals the details and marks the link spent.
+ */
+async function handleBrokerEnquiry(request: Request, env: Env, url: URL): Promise<Response> {
+  const html = (body: string, status = 200): Response => new Response(body, {
+    status,
+    headers: {
+      'content-type': 'text/html; charset=utf-8',
+      'cache-control': 'no-store, no-cache, must-revalidate, private',
+      'x-robots-tag': 'noindex, nofollow, noarchive',
+      'referrer-policy': 'no-referrer',
+    },
+  });
+  if (!features.bridgingFinance || !features.brokerEnquiryLink) return html(enquiryGonePage(), 404);
+  const token = request.method === 'POST'
+    ? String(new URLSearchParams(await request.text()).get('t') ?? '')
+    : (url.searchParams.get('t') ?? '');
+  if (token.trim() === '') return html(enquiryGonePage(), 404);
+  if (request.method !== 'POST') return html(enquiryRevealPage(token));
+
+  const row = await env.DB
+    .prepare('SELECT * FROM bridging_enquiries WHERE token_hash = ?')
+    .bind(await hashBrokerToken(token))
+    .first<EnquiryRow>();
+  const now = new Date().toISOString();
+  // Used once, and only inside its window. Either way the answer is the same
+  // page, so a probe learns nothing from which door it hit.
+  if (!row || row.link_viewed_at !== null || (row.link_expires_at ?? '') <= now) return html(enquiryGonePage(), 404);
+  // The one use is spent by the UPDATE, not by the read: two taps arriving
+  // together must not both be shown the details. Only the request that actually
+  // marked it gets the page.
+  const spent = await env.DB.prepare('UPDATE bridging_enquiries SET link_viewed_at = ? WHERE id = ? AND link_viewed_at IS NULL')
+    .bind(now, row.id).run();
+  if ((spent.meta?.changes ?? 0) === 0) return html(enquiryGonePage(), 404);
+  return html(enquiryDetailsPage(row));
 }
 
 /** P4: move a deal to another progress stage (skipping allowed — it's the user's own
@@ -1398,6 +1463,14 @@ async function processOutbox(env: Env, nowMs = Date.now()): Promise<void> {
   } catch (err) {
     console.error(`factfind retention sweep failed: ${String(err)}`);
   }
+  // F3: the broker's enquiry link. This clears the TOKEN, never the enquiry —
+  // that is the person's own record and carries their consent evidence (0020).
+  // Guarded for the same reason as the sweep above.
+  try {
+    await purgeEnquiryLinks(env.DB, nowMs);
+  } catch (err) {
+    console.error(`enquiry link retention sweep failed: ${String(err)}`);
+  }
   // A tool lead carries someone's own figures and, on the typed path, an
   // address with no account behind it. Once Kit has it (or it has given up),
   // there is no reason to keep it — so it is pruned, not kept for ever.
@@ -1452,6 +1525,10 @@ export default {
     // The broker's own page: a GET reveals nothing, a POST spends the one use.
     if (pathname === '/broker/factfind' && (method === 'GET' || method === 'POST')) {
       return handleBrokerFactFind(request, env, url);
+    }
+    // F3: the same two doors, for a qualified enquiry's own answers.
+    if (pathname === '/broker/enquiry' && (method === 'GET' || method === 'POST')) {
+      return handleBrokerEnquiry(request, env, url);
     }
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);

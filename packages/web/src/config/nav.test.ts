@@ -232,7 +232,9 @@ describe('the header renders the pinned structure (A2)', () => {
     // nobody could reach. If it moves back, the ruling behind the header link
     // stops holding, and this is where that shows up.
     const bridging = read('../components/finance/BridgingEnquiry.tsx');
-    const notOpen = bridging.slice(bridging.indexOf('if (!brokerReady())'));
+    // F3 widened this gate (the enquiry link is required too), so the anchor is
+    // the call, not the whole condition — the card it guards is what matters.
+    const notOpen = bridging.slice(bridging.indexOf('if (!brokerReady()'));
     const card = notOpen.slice(0, notOpen.indexOf('</section>'));
     expect(card).toContain('BRIDGING.disclaimer');
   });

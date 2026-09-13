@@ -15,20 +15,12 @@
  */
 import { FACTFIND, FACTFIND_VIEW, FACTFIND_RULES, BROKER } from '../../config/bridging';
 import { FACTFIND_KEYS } from '../../lib/factfind';
+import * as broker from './brokerLink';
 
-/** A token the broker can be given, and the hash we keep instead of it. */
-export async function mintToken(): Promise<{ token: string; hash: string }> {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-  return { token, hash: await hashToken(token) };
-}
-
-/** SHA-256, hex. The only form of the token that touches the database. */
-export async function hashToken(token: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+/** One implementation of the token pair, shared with the enquiry link (F3).
+ * Re-exported because this module was their home first. */
+export const mintToken = broker.mintToken;
+export const hashToken = broker.hashToken;
 
 /** The row as the broker's page reads it. */
 export interface FactFindRow {
@@ -85,76 +77,32 @@ export function factFindLink(base: string, token: string): string {
   return `${base}/broker/factfind?t=${encodeURIComponent(token)}`;
 }
 
-const escape = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-
-/**
- * The whole page, server-rendered. No stylesheet is available here and no script
- * runs, so the little CSS it needs is inline — plain neutral colours, since this
- * is a working document rather than a brand surface.
- */
-function page(title: string, body: string): string {
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow, noarchive">
-<meta name="referrer" content="no-referrer">
-<title>${escape(title)}</title>
-<style>
- body { margin:0; padding:24px; font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; background:#111; color:#f4f4f4; }
- main { max-width: 46rem; margin: 0 auto; }
- h1 { font-size: 1.3rem; margin: 0 0 4px; }
- h2 { font-size: 1rem; margin: 24px 0 8px; text-transform: uppercase; letter-spacing: .05em; opacity: .7; }
- dl { display: grid; grid-template-columns: 1fr; gap: 2px 16px; margin: 0; }
- dt { font-size: .8rem; opacity: .7; }
- dd { margin: 0 0 12px; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
- .note { opacity: .7; font-size: .85rem; }
- button { font: inherit; font-weight: 600; padding: 14px 20px; min-height: 48px; border-radius: 10px; border: 0; cursor: pointer; }
- @media (min-width: 40rem) { dl { grid-template-columns: 14rem 1fr; } dd { margin-bottom: 4px; } }
-</style></head><body><main>${body}</main></body></html>`;
-}
-
 /** Step one: a button, not the details. A scanner following the link sees this. */
 export function revealPage(token: string): string {
-  return page(FACTFIND_VIEW.title, `
-    <h1>${escape(FACTFIND_VIEW.heading)}</h1>
-    <p class="note">${escape(FACTFIND_VIEW.revealNote)}</p>
-    <form method="POST" action="/broker/factfind">
-      <input type="hidden" name="t" value="${escape(token)}">
-      <button type="submit">${escape(FACTFIND_VIEW.reveal)}</button>
-    </form>`);
+  return broker.revealPage(FACTFIND_VIEW, '/broker/factfind', token);
 }
 
 /** A link that has been used, has expired, or never existed. Says one thing. */
 export function gonePage(): string {
-  return page(FACTFIND_VIEW.gone.heading, `
-    <h1>${escape(FACTFIND_VIEW.gone.heading)}</h1>
-    <p class="note">${escape(FACTFIND_VIEW.gone.body(BROKER.inbox))}</p>`);
+  return broker.gonePage(FACTFIND_VIEW, BROKER.inbox);
 }
 
-/** The details, once. Labels come from the same config the person answered. */
+/**
+ * The details, once. Every label comes from FACTFIND — the same config the
+ * person answered — so nothing is re-worded between the asking and the reading.
+ * A question that was never asked has no value and is not shown.
+ */
 export function detailsPage(row: FactFindRow): string {
-  const v = FACTFIND_VIEW;
-  const answers = FACTFIND.fields
-    .map((field) => {
-      const value = String(row[FACTFIND_COLUMNS[field.key]] ?? '').trim();
-      if (value === '') return ''; // a question that was not asked
-      const shown = field.options?.find((o) => o.value === value)?.label ?? value;
-      return `<dt>${escape(field.label)}</dt><dd>${escape(shown)}</dd>`;
-    })
-    .join('');
+  const answers = FACTFIND.fields.map((field) => {
+    const value = String(row[FACTFIND_COLUMNS[field.key]] ?? '').trim();
+    return { label: field.label, value: field.options?.find((o) => o.value === value)?.label ?? value };
+  });
   const contact = [
-    [v.labels.name, row.applicant_name],
-    [v.labels.email, row.email],
-    [v.labels.phone, row.phone],
-  ].filter(([, value]) => String(value).trim() !== '')
-    .map(([label, value]) => `<dt>${escape(String(label))}</dt><dd>${escape(String(value))}</dd>`)
-    .join('');
-  return page(v.title, `
-    <h1>${escape(v.heading)}</h1>
-    <p class="note">${escape(v.collected(row.created_at.slice(0, 10)))}</p>
-    <h2>${escape(v.contactHeading)}</h2><dl>${contact}</dl>
-    <h2>${escape(v.answersHeading)}</h2><dl>${answers}</dl>
-    <p class="note">${escape(v.footer)}</p>`);
+    { label: FACTFIND_VIEW.labels.name, value: row.applicant_name },
+    { label: FACTFIND_VIEW.labels.email, value: row.email },
+    { label: FACTFIND_VIEW.labels.phone, value: row.phone },
+  ];
+  return broker.detailsPage(FACTFIND_VIEW, row.created_at.slice(0, 10), contact, answers);
 }
 
 /**

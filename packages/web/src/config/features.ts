@@ -131,6 +131,17 @@ export interface FeatureFlags {
    * 404. Anything already collected stays in D1 until retention deletes it. */
   brokerFactFind: boolean;
 
+  /** The broker's enquiry link (F3): when an enquiry QUALIFIES, a single-use
+   * expiring link is minted and Kit is told — at his own address — that one is
+   * waiting. He reads the answers on a page here; Kit is never given them. This
+   * is what makes the consent tick beside the form ("share these answers with
+   * him") factually true. Off: no link is minted, no `enquiry-ready` row is
+   * queued, and `/broker/enquiry` is 404 — a qualified enquiry notifies him by
+   * tag alone, as it did before, and the form does not render at all, because
+   * the consent would otherwise promise a disclosure that cannot happen. Links
+   * already minted stop resolving; the enquiries themselves are untouched. */
+  brokerEnquiryLink: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -226,6 +237,7 @@ export const features: FeatureFlags = {
   bridgingVideo: true,
   epcRegisterLookup: true,
   brokerFactFind: true,
+  brokerEnquiryLink: true,
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,

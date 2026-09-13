@@ -29,7 +29,7 @@ const MIGRATIONS = [
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
   '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0009_bridging_enquiries.sql', '0020_factfind_consent_record.sql',
   // account deletion reaches into these too, so the fixture carries them
-  '0010_tool_saves.sql', '0011_outbox_fields.sql', '0019_bridging_factfind.sql',
+  '0010_tool_saves.sql', '0011_outbox_fields.sql', '0019_bridging_factfind.sql', '0024_bridging_enquiry_link.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -76,7 +76,7 @@ const enquiry = (id: string, user: string, outcome: string): void => {
   ).run(id, user, `${user}@t.test`, outcome, '2026-09-06T00:00:00Z', '2026-09-06T00:00:00Z');
 };
 
-const REAL_BROKER = { name: 'Test Broker', email: 'broker@test.test', inbox: 'inbox@test.test', kitTagQualified: '1', kitTagNotYet: '2', kitTagFactFind: '3' };
+const REAL_BROKER = { name: 'Test Broker', email: 'broker@test.test', inbox: 'inbox@test.test', kitTagQualified: '1', kitTagNotYet: '2', kitTagFactFind: '3', kitTagEnquiry: '4' };
 const savedBroker = { ...BROKER } as Record<string, string>;
 
 beforeEach(() => {

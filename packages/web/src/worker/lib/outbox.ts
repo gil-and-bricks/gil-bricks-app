@@ -15,6 +15,10 @@
  * nothing else: the fact-find's own answers — a date of birth, a home address, a
  * credit answer — never enter Kit at all.
  *
+ * F3 adds 'enquiry-ready', the second row addressed to the BROKER: a qualified
+ * enquiry's own answers, delivered the same way — his address and a single-use
+ * link, and nothing the enquirer typed.
+ *
  * F1 adds two actions, 'bridging-qualified' and 'bridging-not-yet': the person
  * is upserted and TAGGED, and Kit's own automations send the broker's
  * notification and the follow-up. The app still sends no email itself. Until
@@ -68,8 +72,8 @@ export async function pushToKit(
   row: Pick<OutboxRow, 'email' | 'first_name' | 'action'> & { fields_json?: string | null },
   apiKey: string,
   fetchImpl: typeof fetch = fetch,
-  tags: { qualified: string; notYet: string; factFind: string } =
-    { qualified: BROKER.kitTagQualified, notYet: BROKER.kitTagNotYet, factFind: BROKER.kitTagFactFind },
+  tags: { qualified: string; notYet: string; factFind: string; enquiry: string } =
+    { qualified: BROKER.kitTagQualified, notYet: BROKER.kitTagNotYet, factFind: BROKER.kitTagFactFind, enquiry: BROKER.kitTagEnquiry },
 ): Promise<PushResult> {
   const headers = { 'X-Kit-Api-Key': apiKey, 'content-type': 'application/json' };
   try {
@@ -107,6 +111,35 @@ export async function pushToKit(
         return { ok: false, error: `kit subscribe HTTP ${up.status}` };
       }
       const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tagId)}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email }),
+      });
+      if (res.status === 200 || res.status === 201 || res.status === 202) return { ok: true };
+      return { ok: false, error: `kit tag HTTP ${res.status}` };
+    }
+    if (row.action === 'enquiry-ready') {
+      // F3: the BROKER is told a qualified enquiry is waiting, and given the
+      // link. Kit receives his own address and that link — never the loan, the
+      // deposit band, the phone number or a word of what they wrote. Those stay
+      // in D1 and he reads them on our page.
+      if (tags.enquiry.trim() === '') return { ok: false, error: 'kit tag id not configured for enquiry-ready' };
+      let fields: Record<string, string> = {};
+      try {
+        const parsed = row.fields_json === null || row.fields_json === undefined ? {} : JSON.parse(row.fields_json);
+        if (parsed !== null && typeof parsed === 'object') fields = parsed as Record<string, string>;
+      } catch {
+        fields = {};
+      }
+      const up = await fetchImpl(`${KIT_API}/subscribers`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ email_address: row.email, first_name: row.first_name, fields }),
+      });
+      if (!(up.status === 200 || up.status === 201 || up.status === 202)) {
+        return { ok: false, error: `kit subscribe HTTP ${up.status}` };
+      }
+      const res = await fetchImpl(`${KIT_API}/tags/${encodeURIComponent(tags.enquiry)}/subscribers`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ email_address: row.email }),

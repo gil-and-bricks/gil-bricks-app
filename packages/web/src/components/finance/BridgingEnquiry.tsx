@@ -144,7 +144,10 @@ export function BridgingEnquiry() {
     }
   }, [who]);
 
-  if (!brokerReady()) {
+  // F3: no enquiry link means he cannot read what they wrote, and the consent
+  // tick below would be promising a disclosure that never happens. No link, no
+  // form — the same honesty gate the placeholder broker details already enforce.
+  if (!brokerReady() || !features.brokerEnquiryLink) {
     return (
       <section class="glass card" aria-labelledby="bridge-shut">
         <h2 id="bridge-shut">{BRIDGING_NOT_OPEN.heading}</h2>

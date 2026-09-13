@@ -35,13 +35,24 @@ export const BROKER = {
    * not render at all — the same gate F1 uses for the enquiry itself.
    */
   kitTagFactFind: '',
+  /**
+   * F3 — the tag whose Kit automation emails the BROKER his one-time link to
+   * the ENQUIRY answers. Same shape as the fact-find tag above, and required
+   * for the same reason: the consent tick says these answers are shared with
+   * him, and that is only true if there is a way for him to read them.
+   */
+  kitTagEnquiry: '',
 } as const;
 
 /** True only when there is a real, named broker and somewhere to send it. */
 export function brokerReady(): boolean {
   const filled = (v: string): boolean => v.trim() !== '' && !v.includes('TBC') && !v.includes('example.com');
   return filled(BROKER.name) && filled(BROKER.email) && filled(BROKER.inbox)
-    && BROKER.kitTagQualified.trim() !== '' && BROKER.kitTagNotYet.trim() !== '';
+    && BROKER.kitTagQualified.trim() !== '' && BROKER.kitTagNotYet.trim() !== ''
+    // F3: without this there is no way for him to READ a qualified enquiry, and
+    // the consent tick beside the form would be claiming a disclosure that
+    // never happens. No link, no form.
+    && BROKER.kitTagEnquiry.trim() !== '';
 }
 
 /**
@@ -71,6 +82,27 @@ export const FACTFIND_RULES = {
   /** Days after the broker READS a fact-find before ours is deleted. */
   keepAfterViewedDays: 7,
   /** Days after collection before it is deleted whether he read it or not. */
+  keepMaxDays: 30,
+} as const;
+
+/**
+ * F3 — how long the BROKER'S ENQUIRY LINK lives, and how long the link itself
+ * is kept. The same shape as FACTFIND_RULES, and the same reasoning about a
+ * bearer token in an email: hours, not days.
+ *
+ * WHAT IS DELETED HERE IS THE LINK, NEVER THE ENQUIRY. A fact-find is deleted
+ * outright because it is his record once he has read it. An enquiry is not: it
+ * is the person's own history, it carries the evidence that they consented
+ * (migration 0020), and the privacy policy says it is kept until they delete
+ * it. So the sweep clears the token, the expiry and the view mark, and leaves
+ * every answer where it is.
+ */
+export const ENQUIRY_LINK_RULES = {
+  /** Hours the one-time link is valid for. */
+  linkHours: 72,
+  /** Days after the broker READS an enquiry before the dead link is cleared. */
+  keepAfterViewedDays: 7,
+  /** Days after the enquiry before the link is cleared, read or not. */
   keepMaxDays: 30,
 } as const;
 
@@ -532,6 +564,37 @@ export const FACTFIND_VIEW = {
     heading: 'This link has gone',
     /** It says who to contact, because nothing here can mint a new link by
      * itself — the operator does it (F2 review). `inbox` is filled in at render. */
+    body: (inbox: string): string => `It works once, and only for a few days. Email ${inbox} if you still need it.`,
+  },
+  labels: {
+    name: 'Name',
+    email: 'Email',
+    phone: 'Phone',
+  },
+} as const;
+
+/**
+ * F3 — what the BROKER sees when he opens his one-time ENQUIRY link.
+ *
+ * THE LABELS ARE NOT HERE ON PURPOSE. Every question he reads is rendered from
+ * BRIDGING.form above — the very strings the enquirer answered — so nothing can
+ * be re-worded between what they were asked and what he is shown. This block
+ * carries only the page's own furniture.
+ */
+export const ENQUIRY_VIEW = {
+  title: 'Bridging enquiry',
+  heading: 'Bridging enquiry',
+  /** A button, not the details: scanners follow links, people press buttons. */
+  reveal: 'Show the enquiry',
+  revealNote: 'This link works once. Take what you need before you close it.',
+  contactHeading: 'Contact',
+  answersHeading: 'Their answers',
+  collected: (when: string): string => `Sent ${when}.`,
+  /** Said at the bottom, every time. */
+  footer: 'Passed to you with their consent. They expect your call.',
+  gone: {
+    heading: 'This link has gone',
+    /** Nothing here can mint a new link; the operator does. */
     body: (inbox: string): string => `It works once, and only for a few days. Email ${inbox} if you still need it.`,
   },
   labels: {

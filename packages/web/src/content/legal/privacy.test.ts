@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { FACTFIND, FACTFIND_RULES } from '../../config/bridging';
+import { ENQUIRY_LINK_RULES, FACTFIND, FACTFIND_RULES } from '../../config/bridging';
 import { FACTFIND_KEYS } from '../../lib/factfind';
 
 const read = (p: string): string => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
@@ -20,6 +20,10 @@ const POLICY = POLICY_RAW.replace(/\s+/g, ' ');
 const WORKER = read('../../worker/index.ts');
 const OUTBOX = read('../../worker/lib/outbox.ts');
 const FACTFIND_SERVER = read('../../worker/lib/factfind.ts');
+// F3: both of the broker's links mint, hash and render through one module, so
+// the guarantees the policy makes about "his page" are read out of that.
+const BROKER_SERVER = read('../../worker/lib/brokerLink.ts');
+const ENQUIRY_SERVER = read('../../worker/lib/enquiryLink.ts');
 
 describe('what the policy says it collects', () => {
   it('names every sensitive answer the form actually asks for', () => {
@@ -68,7 +72,7 @@ describe('what the policy says about the broker', () => {
   it('claims only a one-way fingerprint of the link is kept — and stores a hash', () => {
     expect(POLICY).toContain('one-way fingerprint');
     expect(WORKER).toContain('token_hash');
-    expect(FACTFIND_SERVER).toContain("crypto.subtle.digest('SHA-256'");
+    expect(BROKER_SERVER).toContain("crypto.subtle.digest('SHA-256'");
     // the token itself is never a column
     expect(read('../../../migrations/0019_bridging_factfind.sql')).not.toMatch(/^\s*token TEXT/m);
   });
@@ -77,7 +81,55 @@ describe('what the policy says about the broker', () => {
     expect(POLICY).toContain('not indexed, not cached');
     expect(WORKER).toContain("'cache-control': 'no-store");
     expect(WORKER).toContain("'x-robots-tag': 'noindex");
-    expect(FACTFIND_SERVER).toContain('noindex, nofollow, noarchive');
+    expect(BROKER_SERVER).toContain('noindex, nofollow, noarchive');
+  });
+});
+
+/**
+ * F3 — the claims the policy makes about the broker's ENQUIRY link, each read
+ * back out of the code. The consent tick beside the form says these answers are
+ * shared with him; this is where that promise is held to the plumbing.
+ */
+describe('what the policy says about the broker reading an enquiry', () => {
+  it('claims he reads it here and Kit never gets the answers — and the code agrees', () => {
+    expect(POLICY).toContain('your answers stay in the database here and he reads them on a page here');
+    // Kit is handed a link and nothing else
+    expect(ENQUIRY_SERVER).toContain("KIT_ENQUIRY_FIELD = 'enquiry_link'");
+    expect(OUTBOX).toContain("row.action === 'enquiry-ready'");
+    // and our own copy of that link is dropped once Kit has it
+    expect(WORKER).toContain("fields_json = CASE WHEN action IN ('factfind-ready','enquiry-ready') THEN NULL");
+  });
+
+  it('claims the same questions he reads are the ones you answered — and they are', () => {
+    expect(POLICY).toContain('under the same questions you answered');
+    // the labels are read from the form config, not retyped
+    expect(ENQUIRY_SERVER).toContain('BRIDGING.form.loan');
+    expect(ENQUIRY_SERVER).toContain('field.label');
+  });
+
+  it('claims it works once and expires — and the code enforces both', () => {
+    expect(WORKER).toContain("row.link_viewed_at !== null || (row.link_expires_at ?? '') <= now");
+    const days = ENQUIRY_LINK_RULES.linkHours / 24;
+    expect(POLICY.toLowerCase()).toContain(`stops working after ${['zero', 'one', 'two', 'three', 'four', 'five'][days]} days`);
+  });
+
+  it('claims a failed enquiry makes no link at all — and the mint is gated on qualifying', () => {
+    expect(POLICY).toContain('no link is made at all');
+    expect(WORKER).toContain("if (decision.outcome === 'qualified') {");
+  });
+
+  it('states the SAME two windows the link is cleared on, and keeps the enquiry', () => {
+    expect(POLICY).toContain(`the link is cleared within **${ENQUIRY_LINK_RULES.keepAfterViewedDays} days**`);
+    expect(POLICY).toContain(`cleared\n  **${ENQUIRY_LINK_RULES.keepMaxDays} days** after you sent it`.replace(/\n\s+/g, ' '));
+    expect(POLICY).toContain('Clearing the link changes nothing about the enquiry itself');
+    // the sweep sets the columns NULL; it never deletes the row
+    expect(ENQUIRY_SERVER).toContain('UPDATE bridging_enquiries SET token_hash = NULL');
+    expect(ENQUIRY_SERVER).not.toContain('DELETE FROM bridging_enquiries');
+  });
+
+  it('claims deleting the account kills that link too — and the delete does it', () => {
+    expect(POLICY).toContain('which kills his link to that enquiry on the spot');
+    expect(WORKER).toContain("DELETE FROM bridging_enquiries WHERE user_id = ?");
   });
 });
 

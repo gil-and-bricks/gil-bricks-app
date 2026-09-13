@@ -17,7 +17,7 @@ const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/
 const MIGRATIONS = [
   '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
   '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql', '0019_bridging_factfind.sql', '0009_bridging_enquiries.sql', '0011_outbox_fields.sql', '0020_factfind_consent_record.sql', '0021_change_cash_needed.sql',
+  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql', '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql', '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql', '0019_bridging_factfind.sql', '0009_bridging_enquiries.sql', '0011_outbox_fields.sql', '0020_factfind_consent_record.sql', '0021_change_cash_needed.sql', '0024_bridging_enquiry_link.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -56,11 +56,15 @@ const rows = <T>(sql: string): T[] => sqlite.prepare(sql).all() as T[];
 let turnstileOk = true;
 let kitOk = true;
 /** The endpoint is shut until the broker is real, so the tests make him real. */
-const REAL_BROKER = { name: 'Test Broker', email: 'broker@test.test', inbox: 'inbox@test.test', kitTagQualified: '1', kitTagNotYet: '2' };
+const REAL_BROKER = { name: 'Test Broker', email: 'broker@test.test', inbox: 'inbox@test.test', kitTagQualified: '1', kitTagNotYet: '2', kitTagEnquiry: '4' };
 const savedBroker = { ...BROKER } as Record<string, string>;
 beforeEach(() => {
   Object.assign(BROKER as unknown as Record<string, string>, REAL_BROKER);
   features.bridgingFinance = true;
+  // F3: the form and this endpoint are both shut without a way for him to READ
+  // the answers, so these F1 tests must turn that on as deliberately as they
+  // turn on bridgingFinance.
+  features.brokerEnquiryLink = true;
   turnstileOk = true;
   kitOk = true;
   sqlite = new DatabaseSync(':memory:');
@@ -79,6 +83,10 @@ afterEach(() => {
   Object.assign(BROKER as unknown as Record<string, string>, savedBroker);
   vi.unstubAllGlobals();
   features.bridgingFinance = true;
+  // F3: the form and this endpoint are both shut without a way for him to READ
+  // the answers, so these F1 tests must turn that on as deliberately as they
+  // turn on bridgingFinance.
+  features.brokerEnquiryLink = true;
 });
 
 describe('POST /api/bridging (F1)', () => {

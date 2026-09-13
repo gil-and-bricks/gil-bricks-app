@@ -83,12 +83,22 @@ There is no password to steal: sign-in is Google's.
 - **The bridging broker** — only if you send a bridging enquiry and tick the
   consent box. Your answers are stored here, in this app's own database. Kit is
   told your email address and your first name and tags you; it is never given
-  your phone number, your credit answer or what you wrote. His notification
-  comes from that tag, and this app sends no email itself. He is an independent
+  your phone number, your credit answer or what you wrote. This app sends no
+  email itself. He is an independent
   business and decides for himself what he can help with. No saved deal and no
   analysis is ever passed to him.
   While his details are not yet set up the form does not appear at all, so
   nothing can be sent.
+  **How he actually reads it.** If your enquiry qualifies, he is sent a link —
+  the same kind described below, and for the same reason. Kit is given his own
+  email address and that link, and nothing else; your answers stay in the
+  database here and he reads them on a page here. He sees them under the same
+  questions you answered, so nothing is re-worded between what you said and what
+  he is shown. The link works **once**, stops working after three days, and the
+  page is not indexed, not cached and not stored by his browser. Our own copy of
+  the link is deleted the moment Kit has taken it. **If your enquiry does not
+  qualify, no link is made at all** — it was not passed on, so there is nothing
+  for him to read.
   **The broker's questions (the fourth thing above) never go through Kit.** Kit
   is an email tool, and a date of birth, a home address and a credit answer do
   not belong in one. Those answers stay in the database here. Kit receives three
@@ -152,7 +162,11 @@ address to Cloudflare to confirm you are a person. Turnstile is not analytics.
 - Other queued email instructions (a subscribe or an unsubscribe) hold only an
   email address and first name, and are deleted when you delete your account.
 - A bridging enquiry is kept until you ask for it to be deleted or you delete
-  your account.
+  your account. **His link to it does not last that long.** Once he has opened
+  it, the link is cleared within **7 days**; if he never opens it, it is cleared
+  **30 days** after you sent it. Clearing the link changes nothing about the
+  enquiry itself — your answers, and the record that you consented, stay until
+  you delete them.
 - **The broker's questions are kept for days, not for ever.** Once he has opened
   the link and read them, the copy here is deleted within **7 days** — from that
   moment they are his record, not mine. If he never opens it, they are deleted
@@ -163,8 +177,9 @@ address to Cloudflare to confirm you are a person. Turnstile is not analytics.
 
 **Delete everything** is a button on the account page. It permanently removes:
 your account record, every saved deal and everything in your pipeline, any
-bridging enquiry you sent, **the broker's questions and your answers to them —
-which also kills his link on the spot, even if he has not opened it** — anything
+bridging enquiry you sent — **which kills his link to that enquiry on the
+spot** — **the broker's questions and your answers to them — which also kills
+his link on the spot, even if he has not opened it** — anything
 a tool queued for your email address, and any queued message about you. If you had consented to marketing, one record
 keeps just your email address long enough to tell Kit to unsubscribe you, and
 that record is blanked once Kit has done it. You are signed out. It cannot be
