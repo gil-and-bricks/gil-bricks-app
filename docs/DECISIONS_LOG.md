@@ -2,6 +2,122 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — R3.2: three cues reworded, and all forty ship
+
+The operator ruled on the three things R3.1 flagged. All were rewords of the
+research's own tip text, which R3.1 was not authorised to make and this was.
+
+### #19 stopped diagnosing water
+
+- **Was:** "A brown ceiling stain means water got in at some point. Ask if it
+  was fixed and when." **Now:** "A brown stain often means water, but it can
+  also be nicotine, rust or old adhesive. Ask what caused it and whether it was
+  fixed."
+- The **caveat changed too**, and that was the sharper half: "cannot tell if
+  fixed or active" admitted the timing was unknown while taking the cause for
+  granted. It now reads "cannot tell the cause from a photo, or whether it was
+  fixed."
+
+### #40 stopped turning an absent photo into a budget line
+
+- **Was:** "expect it to need work and ask to see it", carrying
+  `costItem: 'kitchen'` — so a missing photograph could tick a kitchen into
+  someone's total. **Now:** "No kitchen or bathroom photo? Often the room that
+  needs the most work, but ask to see it before you offer", with
+  `costItem: null`, so there is no tick button at all.
+- It now matches its sibling #36, which handled the identical situation
+  correctly from the start ("Not always bad, but ask why").
+
+### The two withheld cues were reworded at the opening, and now ship
+
+- **#1:** "The fuse box looks old. That does not always mean…" → "An old fuse
+  box does not always mean…". **#2:** "This plastic fuse box is legal…" → "A
+  plastic fuse box is legal…".
+- Every substantive word of the research's tip survives in both. Only the
+  demonstrative went — which is exactly what made them unshippable, and exactly
+  what R3.1 said the whole fix was.
+- **`WITHHELD` is now empty and stays** as the mechanism. An entry there is an
+  honest "we have this, we are not showing it, here is why" rather than a silent
+  deletion. A test says out loud that it is empty today, because the three loops
+  over it pass vacuously otherwise and a reader deserves to know which situation
+  they are in.
+
+### What a second adversarial pass caught in the rewords themselves
+
+- **#2's reword was briefly WRONG.** Dropping the demonstrative turned a true
+  claim into a false one: "this plastic fuse box is legal" was true of one
+  already-installed board, because Reg 421.1.201 is not retrospective — "a
+  plastic fuse box is legal" is false of anything fitted since 1 January 2016.
+  It now reads "A plastic fuse box **fitted under the old rules** is legal".
+- **#40's first reword kept the assumption** it was meant to remove: "Often the
+  room that needs the most work" swapped a banned word for a frequency claim
+  about a room nobody has seen. It now matches #36 as instructed: "Not always a
+  bad sign, but ask to see the room before you offer."
+- **The header claimed all four were reworded "only at the opening".** True of
+  #1 and #2, false of #19 and #40, whose whole `means` was replaced. Provenance
+  is this file's stated contract, so it now says precisely which and how much.
+- **#19's three alternatives are the OPERATOR'S**, from the instruction that
+  ordered the change — not in the research, and not invented here. Recorded in
+  the header so nobody later reads them as the research's.
+
+### The guard was hardened again, and it was worth doing
+
+A second attack pass found the R3.1 fixes were closed doors in a wall of holes.
+All verified scoring zero problems before this:
+
+- **"photograph" defeated both sight rules** — not a substring of "the photo
+  shows", not in the regex's noun list. So did one adverb: "The photo **clearly**
+  shows". So did "In the photo you can see…".
+- **ASSERTS only ever saw the start of a sentence**, and sentences split only on
+  `.!?`. "Worth noting, the fuse box is an old rewireable one" was invisible. So
+  was "The fuse box **in the hall** is old" — four words between the article and
+  the verb, one more than the regex allowed.
+- **The plural of every banned verdict was unbanned** — the identical one-letter
+  fault the sight rule learned in R3.1, never applied to diagnoses. "Fuse boards
+  of that age **are** unsafe", "Textured ceilings of that age **contain**
+  asbestos".
+- **"this kitchen", "this roof", "this listing"** walked past the this-property
+  rule, whose noun list held six words and none of them a room.
+- **A caveat of "." satisfied "every tip carries a caveat"** while rendering as a
+  third of the tip saying nothing.
+- **A cue could opt out of the hedge rule by declaring itself conclusive.** The
+  research assigns 'conclusive' to nothing, so now neither may we.
+
+Hedged verdicts are explicitly NOT verdicts: a hedging word immediately before
+the phrase disarms it, so the shipped "can contain asbestos" and "often need
+replacing" stay honest while a bare "contain asbestos" fails.
+
+**One judgement call, written down rather than buried.** The attack said "is a
+safety worry" (cue #5, "A socket right beside the sink is a safety worry") is
+the same speech act as the banned "is unsafe". It is not banned, because a worry
+is a precaution where "unsafe" and "hazard" are verdicts on an installation
+nobody has inspected, and the research calls that placement "a legitimate
+EICR/safety concern". The phrase and its reasoning sit in the DIAGNOSES list as
+a comment: add it and #5 moves to WITHHELD. The guard decides, not taste.
+
+### Housekeeping
+
+- Three probe test files written into `src/refurbcues/` by verification agents
+  were deleted. They would have shipped a failing test into the repo.
+
+### The guard was not WEAKENED at any point
+
+- The rewording step passed all forty with `honestyProblems` byte-for-byte
+  unchanged — no phrase left a ban list, no hedge was added, no regex was
+  narrowed. That is the point of rewording rather than relaxing, and it is
+  checkable from the diff.
+- The hardening that followed only ever ADDED bans, and all forty still pass.
+- The library header no longer claims every tip is the research's verbatim,
+  because four now are not. It names which four and what changed in each.
+
+### A stale count that nothing was checking
+
+- Three files and the flag doc said **twelve** cues rest on trade experience
+  with no regulation. It is **fifteen** — the number went up when MEES was
+  dropped from three more cues in R3.1 and the prose never followed.
+- Now asserted by test, with the count of cost-item-free cues beside it, so the
+  next drift stops the build instead of surviving in four places.
+
 ## 2026-09-13 — R3.1: the cue library arrives, and two cues do not ship
 
 ### The research landed, pasted in full this time
@@ -59,7 +175,7 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
 - **#11** cites HHSRS and Awaab's Law. HHSRS is carried; Awaab's Law is not,
   because its PRS extension runs through the Renters' Rights Act and CLAUDE.md
   permanently excludes Renters' Rights content.
-- Twelve cues have **no regulation at all** — the research marks them "none
+- Fifteen cues have **no regulation at all** — the research marks them "none
   direct". `regulation` is now nullable and those say "Trade experience, not a
   regulation" on screen. A made-up citation beside a tradesman's rule of thumb
   would be worse than no citation.
