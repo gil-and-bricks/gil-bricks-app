@@ -28,6 +28,8 @@ export const HIDDEN_FROM_SEARCH: readonly string[] = [
   '/styleguide',
   '/terms',
   '/privacy',
+  // M2 — a tool for the operator, not a page for anyone else.
+  '/diagnostics',
 ];
 
 /**

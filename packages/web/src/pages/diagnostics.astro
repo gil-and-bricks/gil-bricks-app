@@ -1,0 +1,152 @@
+---
+/**
+ * THE DIAGNOSTIC PAGE (M2) — the browser's own account of itself.
+ *
+ * WHY IT EXISTS. Twice now a fault has been diagnosed from the server's side —
+ * the header is correct, the image returns 200, the gates are green — while the
+ * operator's browser told a different story that nobody was reading. Everything
+ * on this page is measured IN THE BROWSER THAT OPENS IT and printed verbatim,
+ * so the answer comes from the machine that has the problem.
+ *
+ * It reads; it never writes. No data is stored, nothing is sent anywhere, and
+ * the only external request it makes is for one Rightmove image — exactly the
+ * request the refurb carousel makes, so the result is the real answer.
+ */
+import AppShell from '../layouts/AppShell.astro';
+import { DIAGNOSTICS } from '../config/diagnostics';
+---
+
+<AppShell title={DIAGNOSTICS.title} description={DIAGNOSTICS.description} noindex={true}>
+  <h1>{DIAGNOSTICS.heading}</h1>
+  <p class="page-sub">{DIAGNOSTICS.intro}</p>
+
+  <section class="glass card">
+    <h2>{DIAGNOSTICS.policy.heading}</h2>
+    <p class="hint">{DIAGNOSTICS.policy.lead}</p>
+    <pre class="diag-pre" id="d-csp">…</pre>
+    <p class="hint" id="d-imgsrc">…</p>
+    <p class="hint" id="d-meta">…</p>
+  </section>
+
+  <section class="glass card">
+    <h2>{DIAGNOSTICS.image.heading}</h2>
+    <p class="hint">{DIAGNOSTICS.image.lead}</p>
+    <p id="d-img-result" class="diag-result">…</p>
+    <pre class="diag-pre" id="d-violation">…</pre>
+    <div class="diag-shot"><img id="d-img" alt="" referrerpolicy="no-referrer" /></div>
+  </section>
+
+  <section class="glass card">
+    <h2>{DIAGNOSTICS.handoff.heading}</h2>
+    <p class="hint">{DIAGNOSTICS.handoff.lead}</p>
+    <label class="diag-label" for="d-url">{DIAGNOSTICS.handoff.label}</label>
+    <textarea id="d-url" class="diag-input" rows="3" placeholder={DIAGNOSTICS.handoff.placeholder}></textarea>
+    <button type="button" class="btn-primary" id="d-check">{DIAGNOSTICS.handoff.button}</button>
+    <p id="d-handoff" class="diag-result">…</p>
+    <pre class="diag-pre" id="d-handoff-detail"></pre>
+  </section>
+
+  <section class="glass card">
+    <h2>{DIAGNOSTICS.copy.heading}</h2>
+    <p class="hint">{DIAGNOSTICS.copy.lead}</p>
+    <button type="button" class="btn-secondary" id="d-copy">{DIAGNOSTICS.copy.button}</button>
+    <pre class="diag-pre" id="d-report"></pre>
+  </section>
+</AppShell>
+
+<script>
+  import { DIAGNOSTICS } from '../config/diagnostics';
+
+  const set = (id: string, text: string): void => {
+    const el = document.getElementById(id);
+    if (el !== null) el.textContent = text;
+  };
+
+  /** Every refusal the browser makes on this page, verbatim, as it happens. */
+  const violations: string[] = [];
+  document.addEventListener('securitypolicyviolation', (e) => {
+    const v = e as SecurityPolicyViolationEvent;
+    violations.push(`${v.violatedDirective} blocked ${v.blockedURI}`);
+    set('d-violation', violations.join('\n'));
+  });
+
+  // ---- 1. the policy this browser actually received -------------------------
+  void (async () => {
+    try {
+      const res = await fetch(location.href, { cache: 'no-store' });
+      const csp = res.headers.get('content-security-policy');
+      if (csp === null) {
+        set('d-csp', DIAGNOSTICS.policy.none);
+      } else {
+        set('d-csp', csp.split(';').map((d) => d.trim()).join('\n'));
+        const img = csp.split(';').map((d) => d.trim()).find((d) => d.startsWith('img-src')) ?? '';
+        const named = img.includes(DIAGNOSTICS.host);
+        set('d-imgsrc', named ? DIAGNOSTICS.policy.named(DIAGNOSTICS.host) : DIAGNOSTICS.policy.notNamed(DIAGNOSTICS.host));
+      }
+    } catch (err) {
+      set('d-csp', `${DIAGNOSTICS.policy.unreadable} ${String(err)}`);
+    }
+    const metas = document.querySelectorAll('meta[http-equiv="Content-Security-Policy"]');
+    set('d-meta', metas.length === 0 ? DIAGNOSTICS.policy.noMeta : DIAGNOSTICS.policy.hasMeta(metas.length));
+  })();
+
+  // ---- 2. one real image from the portal ------------------------------------
+  const img = document.getElementById('d-img') as HTMLImageElement | null;
+  if (img !== null) {
+    img.addEventListener('load', () => {
+      set('d-img-result', DIAGNOSTICS.image.ok(img.naturalWidth, img.naturalHeight));
+    });
+    img.addEventListener('error', () => {
+      set('d-img-result', violations.length > 0 ? DIAGNOSTICS.image.blocked : DIAGNOSTICS.image.failed);
+    });
+    img.src = DIAGNOSTICS.image.url;
+  }
+
+  // ---- 3. what a handoff URL actually carries -------------------------------
+  document.getElementById('d-check')?.addEventListener('click', () => {
+    const raw = (document.getElementById('d-url') as HTMLTextAreaElement | null)?.value.trim() ?? '';
+    if (raw === '') { set('d-handoff', DIAGNOSTICS.handoff.empty); return; }
+    let url: URL;
+    try { url = new URL(raw); } catch { set('d-handoff', DIAGNOSTICS.handoff.notAUrl); return; }
+    const ph = url.searchParams.get('ph');
+    const fp = url.searchParams.get('fp');
+    const photos = ph === null ? [] : ph.split(/\s+/).filter((p) => p !== '');
+    set('d-handoff', DIAGNOSTICS.handoff.verdict(photos.length, fp !== null));
+    const lines = [
+      `${DIAGNOSTICS.handoff.photosLabel} ${photos.length}`,
+      `${DIAGNOSTICS.handoff.planLabel} ${fp ?? DIAGNOSTICS.handoff.absent}`,
+      ...photos.slice(0, 3),
+    ];
+    set('d-handoff-detail', lines.join('\n'));
+  });
+
+  // ---- 4. one block to paste back ------------------------------------------
+  document.getElementById('d-copy')?.addEventListener('click', () => {
+    const grab = (id: string): string => document.getElementById(id)?.textContent ?? '';
+    const report = [
+      `when: ${new Date().toISOString()}`,
+      `agent: ${navigator.userAgent}`,
+      `screen: ${window.innerWidth}x${window.innerHeight}`,
+      '',
+      `[policy the browser received]`, grab('d-csp'),
+      '', grab('d-imgsrc'), grab('d-meta'),
+      '', `[portal image]`, grab('d-img-result'),
+      '', `[refusals]`, grab('d-violation') || DIAGNOSTICS.image.noViolations,
+      '', `[handoff]`, grab('d-handoff'), grab('d-handoff-detail'),
+    ].join('\n');
+    set('d-report', report);
+    void navigator.clipboard?.writeText(report).catch(() => {});
+  });
+</script>
+
+<style>
+  .diag-pre {
+    white-space: pre-wrap; word-break: break-all; font-size: .8rem;
+    background: rgba(0,0,0,.35); border: 1px solid var(--line);
+    border-radius: 8px; padding: var(--space-3); margin: var(--space-3) 0;
+  }
+  .diag-result { font-weight: 600; margin: var(--space-3) 0; }
+  .diag-input { width: 100%; font-size: .85rem; margin-bottom: var(--space-3); }
+  .diag-label { display: block; margin-bottom: var(--space-2); }
+  .diag-shot img { max-width: 100%; border-radius: 8px; }
+</style>
