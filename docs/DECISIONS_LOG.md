@@ -2,6 +2,95 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — T1: the single-room floorplan tracer
+
+### The specification did not arrive
+
+- The brief said "I am pasting the full specification below… follow its
+  algorithms and tolerances rather than inventing your own". **Nothing was
+  pasted** — the message goes straight from that sentence to the constraint.
+- Unlike R2's missing figures, this did not block the sprint: points 1-8 are a
+  complete functional spec and the brief says this prompt wins on conflicts.
+  What was missing was the pre-decided **tolerances**. Each one is chosen,
+  justified beside itself in `src/traceplan/config.ts`, and listed here so it
+  can be overruled without touching logic:
+
+  | Tolerance | Chosen | Why |
+  | --- | --- | --- |
+  | loupe offset | 72 px | an adult fingertip covers ~45-50 px on a phone; less puts the magnifier back under the thumb, which is the one thing it exists to prevent |
+  | loupe size / zoom | 104 px / 2.5× | enough to separate two wall lines a few px apart; more shows texture rather than shape |
+  | close-room radius | 22 px | generous, because closing is the action people fumble — but it only applies once there are ≥3 corners, so it cannot swallow an ordinary second tap |
+  | grab radius | 22 px | matches close, so the two never disagree about what a finger hit |
+  | minimum corners | 3 | a triangle is a real room shape |
+  | minimum scale reference | 40 px on screen | scale error is amplified by room ÷ reference; a 40 px line across a whole plan is a guess wearing a number, and is refused with a reason |
+  | area range | ±10% | the brief says "about 5 to 10 per cent"; this takes the WORSE end, because a range that turns out too narrow is the one that misleads |
+
+### The image never reaches a server, and cannot
+
+- The plan is only ever `<image href="https://…portal CDN…">` — the same request
+  the listing page already made. **The module never HOLDS the bytes**, which is
+  stronger than promising not to send them: there is nothing to send.
+- Enforced, not asserted. Tests fail the build if any file in the module so much
+  as mentions `getImageData`, `toDataURL`, `toBlob`, `drawImage`,
+  `createImageBitmap`, `OffscreenCanvas`, `captureStream` or
+  `transferToImageBitmap`; or `fetch`, `XMLHttpRequest`, `sendBeacon`,
+  `WebSocket`, `EventSource`, `postMessage` or `chrome.runtime.sendMessage`.
+  Comments are stripped first, so prose naming an API it never calls does not
+  read as a call.
+- **It will not even DISPLAY bytes we are holding.** `isDisplayableImageUrl`
+  refuses `blob:`, `data:` and `filesystem:` and requires https — those schemes
+  mean the pixels are in our hands, and holding them is the thing to avoid.
+- The one thing crossing the boundary is `TracedRoom`: a name and three numbers.
+  A test pins it to exactly four keys, all primitives, and greps the serialised
+  result for `data:`, `blob:`, `base64`, `href`, `src`, `image`, `points`.
+
+### Isolation, which the brief wanted more than the feature
+
+- Everything lives in `src/traceplan/` — UI, maths, state, strings, and its CSS
+  block. Tests prove: **nothing outside imports its internals** (only the door),
+  **it imports nothing outside itself** (so it can be deleted in one go), its
+  public surface is exactly three exports, every sentence-shaped string is in
+  its own config, and every CSS selector in its block is `tp-` prefixed.
+- Behind `traceplan` in a new `src/features.ts` — the extension's own flags file,
+  documented in `docs/EXTENSION_FLAGS.md`. **Deliberately separate from the web's
+  `features.ts`**: the two products release at different speeds (the web app
+  deploys in a minute, the extension waits on a store review), and a flag that
+  cannot be turned off as fast as its neighbour has no business sharing a
+  switchboard with it. A test holds flags and doc in step, as the web's does.
+
+### Two bugs found by driving the thing, not by reasoning about it
+
+- **Every pinch dropped a stray corner.** Lifting the FIRST finger of a
+  two-finger gesture cleared the pinch state, so the second finger's lift was
+  read as a tap. Fixed with a `multiTouch` flag that lives from the second
+  finger landing until the last one leaves. This would have been constant and
+  maddening in real use.
+- **`display: flex` beat the browser's own `[hidden]` rule**, so the scale
+  controls stayed on screen underneath the finished result. Found by rendering
+  the completed surface and reading it back. Both are now pinned by tests.
+
+### Smaller calls
+
+- **A tap never grabs an existing corner while the room is open.** Tracing is
+  building; a tap near a placed corner is a tight corner or a fumble, and in
+  both cases the user meant to place. If it grabbed, a genuine tight corner
+  would silently drag the previous one and the room would deform under them.
+  Adjusting belongs to the closed room, where a touch on a corner can mean
+  nothing else.
+- **Undo after closing REOPENS the room** rather than deleting a corner — after
+  closing, "undo" obviously means "I closed it too early".
+- **One finger places, two fingers navigate**, so nothing needs a mode switch: a
+  person never has to say which they meant, because their hand already did.
+- **SVG, not canvas**: stays in the DOM for accessibility semantics, stays crisp
+  under pinch-zoom, and the surface has a fixed box from first paint so nothing
+  below it shifts.
+- **Nothing is persisted**, as the brief said, and the screen says so out loud
+  rather than letting a measurement look saved.
+
+### Verified
+
+- 2,083 tests (up 78), typecheck clean, both builds, web copy gate passed.
+
 ## 2026-09-13 — S1: security review and hardening
 
 ### Secrets: nothing has ever leaked
