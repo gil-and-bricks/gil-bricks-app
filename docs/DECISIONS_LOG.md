@@ -2,6 +2,99 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — F3: the broker's enquiry link
+
+### The fault
+
+- **THE CONSENT TICK WAS MAKING A CLAIM THE PLUMBING DID NOT KEEP.** Beside the
+  bridging form it says "Share these answers and my contact details with
+  [broker]". What actually left the building was an email address, a first name
+  and a tag. Every answer — the loan, the deposit band, how they buy, the exit
+  route, the timing, the credit answer, the phone number and the paragraph they
+  wrote — stayed in `bridging_enquiries`, and there was no page anywhere that
+  showed any of it to him. The fact-find (F2) had such a page; the enquiry that
+  gates it did not.
+- **Fixed in the plumbing, not the wording.** Softening the tick to "we will
+  pass on your contact details" would have been true and would have taken ten
+  minutes. It was rejected: the sentence describes what the person wants to
+  happen, and the product either does it or should not be asking.
+
+### What was built
+
+- **A mirror of the fact-find link, deliberately — not a second design.** That
+  link is built, reviewed and honest, and the threat model here is identical: a
+  bearer token travelling by email to one person. So F3 reuses every decision
+  rather than re-litigating any: single-use, 72-hour expiry, only a SHA-256 hash
+  stored, revealed by a POST behind a "Show the enquiry" button so a mail
+  scanner following the link cannot spend the one view, `noindex` + `no-store` +
+  `no-referrer`, and our own copy of the link dropped from `kit_outbox` the
+  moment Kit has taken it.
+- **One shell, two links.** The page markup, the inline CSS, the reveal button
+  and the dead-link page moved into `worker/lib/brokerLink.ts`, which both links
+  now render through, along with `mintToken`/`hashToken`. These are security
+  decisions rather than styling, and two copies would have meant fixing either
+  one twice. `factfind.ts` keeps its exports and re-exports the token pair, so
+  nothing that imported it had to change.
+- **A separate outbox action, `enquiry-ready`, addressed to HIM.** The existing
+  `bridging-qualified` row is addressed to the enquirer and drives their own
+  confirmation; putting a link on it would have written the broker's one-use
+  token into the applicant's Kit record. So the link rides its own row, to his
+  address, under its own tag — and a test asserts the applicant's rows never
+  contain it.
+- **He reads the form's own labels.** `ANSWER_FIELDS` pairs each column with the
+  `BRIDGING.form` block that ASKED it, so the question he reads is the string
+  the enquirer read and option codes render as their own labels ("25% or more",
+  not "25-plus"). `answersCoverEveryQuestion()` fails the build if a question is
+  ever added to the form without reaching him.
+- **A not-yet enquiry mints nothing.** It was not passed on, so there is nothing
+  for him to read and no token to leak.
+
+### Retention: the link dies, the enquiry does not
+
+- **72 hours live, cleared 7 days after he reads it, 30 days if he never does.**
+  The same three numbers as the fact-find, because the thing being protected is
+  the same thing: a bearer credential in a mailbox.
+- **But the sweep clears the TOKEN COLUMNS and leaves every answer.** This is the
+  one place F3 deliberately differs from F2. A fact-find is deleted outright
+  because once he has read it, ours is a copy of a record that lives on his
+  system. An enquiry is not that: it is the person's own history, the privacy
+  policy says it is kept until they delete it, and migration 0020 puts the
+  evidence that they consented ON that row precisely so it outlives the
+  fact-find. Deleting enquiries on a timer would have destroyed the consent
+  record that 0020 exists to preserve. So `purgeEnquiryLinks` is an UPDATE to
+  NULL, never a DELETE, and a test asserts the story and the phone number are
+  still there afterwards.
+- **Expiry alone already kills the link**; clearing the hash afterwards is the
+  belt to that braces — a dead hash is one less thing worth attacking offline.
+
+### The gate got stricter, on purpose
+
+- **`brokerReady()` now requires `BROKER.kitTagEnquiry` too**, so the enquiry
+  form does not render and `POST /api/bridging` answers 404 until there is a way
+  for him to read what is sent. The alternative — form live, link not — is
+  exactly the state this sprint set out to remove.
+- **The flag `brokerEnquiryLink` turns the whole form off, not just the link**,
+  for the same reason. A flag that left the form up with a consent tick nobody
+  could honour would be a switch for turning the bug back on.
+
+### The policy was corrected claim by claim
+
+- The broker bullet now says how he actually reads an enquiry, that Kit gets the
+  link and nothing else, that he sees the same questions the person answered,
+  and that a failed enquiry makes no link at all. The retention section states
+  the link's own two windows and says plainly that clearing it changes nothing
+  about the enquiry. Six new assertions in `privacy.test.ts` read each of those
+  claims back out of the code, so the policy cannot drift from the product
+  without a test failing.
+
+### Also
+
+- `docs/KIT_SETUP.md` was rewritten from "here are three options for this gap"
+  to the built thing: 6 custom fields, 7 tags, 7 automations, and a warning that
+  the broker now receives two different links for the same person which are not
+  interchangeable.
+- 31 new tests (25 in `enquiryLink.test.ts`, 6 in `privacy.test.ts`).
+
 ## 2026-09-10 — P12: the pipeline board, bugs first
 
 ### The bugs
