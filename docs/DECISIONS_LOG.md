@@ -2,6 +2,69 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — B2: our own CSP was blocking the portals' images
+
+B1 fixed the floor plan surface's HEIGHT and left the real fault untouched. The
+photos and the floor plan were both blocked by our own Content-Security-Policy.
+
+### One cause, two symptoms
+
+`img-src` named `'self'`, `data:`, `blob:`, Google avatars and the R2 bucket.
+It did not name the portals. F1 and R3 are both built on the opposite premise —
+the image is THEIRS, so the user's own browser fetches it from the portal's
+server and we never touch it — and neither sprint added the hosts. So:
+
+- every listing photo was refused, and the carousel correctly said "That photo
+  would not load";
+- the floor plan's backdrop was refused, which is why the surface was BLACK.
+  Capping its height in B1 made it a smaller black rectangle.
+
+The only explanation appeared as a console line. Nothing on the page said it,
+because from the page's point of view nothing went wrong.
+
+    img-src … https://media.rightmove.co.uk https://*.zoocdn.com
+
+`img-src` only, in the Worker policy and `public/_headers`. Those hosts may
+paint pixels and nothing else; a test asserts they appear in no other directive.
+
+### Why nothing caught it — including me
+
+- **The boundary tests prove we never FETCH a portal image. Nothing proved the
+  browser is ALLOWED TO DISPLAY one.** That gap is the whole bug: every test was
+  guarding the half of the position that was already safe.
+- **The parity test between the Worker policy and `_headers` compares a
+  hardcoded list of origins.** A new host added to one file and not the other
+  would pass. The portals are now in that list, and there is a test that the
+  policy permits exactly what the product is built on.
+- **My own verification was a false pass.** When I checked the carousel on the
+  live site in B1, I used images from OUR OWN origin, which `'self'` permits.
+  The feature appeared to work because I had tested the one case the policy
+  could never block. A same-origin image is not a test of a cross-origin policy.
+
+### The gate
+
+`check-render.mjs` now loads a handoff carrying real portal URLs and fails on
+any CSP refusal. Proven against the deployed site before the fix:
+
+    ✗ blocked by our own Content-Security-Policy: https://media.rightmove.co.uk/…
+
+It asserts the REFUSAL, not that the image loads — a 404 from a synthetic URL is
+the portal's answer, not ours, and asserting on it would make the gate flaky.
+
+### And a latent one found on the way
+
+The section strip syncs inside `requestAnimationFrame`, **which never fires
+while a tab is hidden**. The sections arrive after the island hydrates, so in a
+tab that is not on screen the strip runs once — when only the first section
+exists — hides every other chip, and stays that way until something scrolls it.
+That looks exactly like the strip skipping whole sections.
+
+Found because the Browser pane was hidden while I measured, which made my own
+reading wrong before it made anything else clear. It now falls back to a timer
+when hidden and re-syncs on `visibilitychange`. I could not confirm this is what
+the operator hit — `chrome.tabs.create` opens the analyser active — so it is
+recorded as a robustness fix, not as a diagnosis.
+
 ## 2026-09-13 — B1: the floor plan was a black screen, and why nothing saw it
 
 Reported as "the analyser is broken": no photos, no pointers, two empty box
