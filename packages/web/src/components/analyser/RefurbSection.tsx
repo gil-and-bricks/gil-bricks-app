@@ -143,7 +143,14 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
    * happened. Written together, the two can only disagree because something
    * ELSE moved the total.
    */
-  const writeLines = (next: RefurbLine[], extra: Record<string, string> = {}): void => {
+  const writeLines = (make: (from: RefurbLine[]) => RefurbLine[], extra: Record<string, string> = {}): void => {
+    // READ THE LIVE PARAMS, NOT THE RENDER-TIME SNAPSHOT. Two ticks landing in
+    // one tick of the event loop — a fast double tap, a keyboard repeat, a
+    // screen reader firing both — would otherwise both start from the same
+    // stale `lines` and the second would overwrite the first's contribution.
+    // Found on the deployed site by ticking four rows without waiting: the
+    // total came back as the last row alone.
+    const next = make(linesFrom(strategyParams.value));
     const stillTicked = next.some((l) => l.ticked);
     updateStrategy({
       ...extra,
@@ -154,7 +161,7 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
   };
 
   const setLine = (key: string, raw: string): void => {
-    writeLines(lines.map((l) => (l.key === key ? { ...l, ticked: true, amount: numOf(raw) } : l)),
+    writeLines((from) => from.map((l) => (l.key === key ? { ...l, ticked: true, amount: numOf(raw) } : l)),
       { [paramFor(key)]: raw === '' ? '0' : raw });
   };
 
@@ -168,9 +175,10 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
     if (on) focusNext.current = key;
     const sug = on ? suggestionOf(key) : null;
     const filled = sug !== null && isSuggestion(sug) && sug.band.mid !== null ? sug.band.mid : null;
-    const amount = on ? (filled ?? lines.find((l) => l.key === key)?.amount ?? 0) : 0;
-    writeLines(lines.map((l) => (l.key === key ? { ...l, ticked: on, amount } : l)),
-      { [paramFor(key)]: on ? String(amount) : '' });
+    writeLines((from) => {
+      const amount = on ? (filled ?? from.find((l) => l.key === key)?.amount ?? 0) : 0;
+      return from.map((l) => (l.key === key ? { ...l, ticked: on, amount } : l));
+    }, { [paramFor(key)]: on ? String(filled ?? lines.find((l) => l.key === key)?.amount ?? 0) : '' });
   };
 
   const displayTotal = refurbTotal(lines, stored);

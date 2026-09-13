@@ -53,9 +53,23 @@ A running record of choices made while building Gil & Bricks. Newest sprint at t
   ticking both — about £3,000 on a mid-point, which is the kind of error this
   whole section exists to stop.
 
+### A bug the unit tests could not have caught
+
+- **Ticking four rows on the LIVE site without pausing produced a total of the
+  last row alone** (£3,888 instead of £26,208). Both row handlers read the
+  render-time `lines` snapshot, so ticks landing inside one tick of the event
+  loop all started from the same stale list and overwrote each other. With a
+  human gap between taps it was always correct, which is why nothing caught it
+  until the deployed page was driven four-clicks-in-one-tick.
+- **Fixed by reading the live signal inside the handler** rather than the
+  closure, and there is now a regression test that clicks four checkboxes with
+  no await between them. This is the second bug in this feature found only by
+  driving a real browser; both were about the gap between what state says and
+  when the component last rendered.
+
 ### Verified
 
-- 1,946 tests (up 10), typecheck clean, all builds, flags-off green, copy gate
+- 1,947 tests (up 11), typecheck clean, all builds, flags-off green, copy gate
   passed.
 
 ## 2026-09-13 — R2: regional refurb suggestions

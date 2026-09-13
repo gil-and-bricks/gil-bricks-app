@@ -247,3 +247,33 @@ describe('contingency is drawn only where the strategy actually applies one', ()
     expect(html({ [MODE_PARAM]: '1' }, TERRACE, false)).not.toContain('id="rf-contingency"');
   });
 });
+
+/**
+ * FOUND ON THE DEPLOYED SITE, not by a unit test: ticking four rows without
+ * pausing produced a total of the LAST row alone. Both handlers read the
+ * render-time `lines` snapshot, so ticks landing inside one tick of the event
+ * loop all started from the same stale list and overwrote each other.
+ */
+describe('ticks that land together all survive', () => {
+  it('four rows ticked with no re-render between them still add up', async () => {
+    const { RefurbSection: Section } = await import('./RefurbSection');
+    const { render: mount } = await import('preact');
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    strategyParams.value = {};
+    state.value = { ...state.value, ...TERRACE };
+    mount(<Section legacy={false} onLegacySeen={() => {}} country="E92000001" hasContingency />, host);
+    (host.querySelector('.refurb-toggle') as HTMLButtonElement).click();
+    await new Promise((r) => setTimeout(r, 0));
+    // all four in ONE tick — no await between them, which is what broke it
+    for (const k of ['rewire', 'kitchen', 'bathroom', 'plastering']) {
+      (host.querySelector(`#rf-${k}`) as HTMLInputElement).click();
+    }
+    await new Promise((r) => setTimeout(r, 0));
+    // the MOCKED figures at north-west 0.94: 3948 + 5640 + 3760 + 3807.
+    // Before the fix this was 3807 — the last row alone.
+    expect(strategyParams.value.refurbCost).toBe('17155');
+    mount(null, host);
+    host.remove();
+  });
+});
