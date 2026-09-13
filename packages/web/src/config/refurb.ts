@@ -264,9 +264,15 @@ export const REFURB_PHOTOS = {
     /**
      * WHAT KIND of thing is behind the tip. Said because "Part M" alone reads
      * as though it binds this house, and for an existing home it does not.
+     *
+     * KEPT NEUTRAL ON PURPOSE. 'legal' used to read "The law — often only for
+     * new or altered work", which is true of Part M and Part P and plainly
+     * false of asbestos management, HMO room sizes and knotweed. The
+     * retrospective-or-not nuance differs per rule, so it lives in each cue's
+     * own caveat, where the research already puts it.
      */
     basis: {
-      legal: 'The law — often only for new or altered work',
+      legal: 'The law',
       policy: 'Confirmed policy, not yet fully in force',
       standard: 'A standard, checked by a report',
       practitioner: 'Trade experience, not a regulation',
