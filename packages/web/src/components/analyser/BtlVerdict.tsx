@@ -12,7 +12,7 @@ import { useEffect } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseBtl, scoreDeal, type BtlAnalysis, type BtlInputs, type DealScore } from '@gil-bricks/core';
+import { analyseBtl, scoreDeal, type BtlAnalysis, type BtlInputs, type DealScore , missingForVerdict } from '@gil-bricks/core';
 import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
@@ -129,8 +129,8 @@ export function BtlVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
+      missing={missingForVerdict(config, strategyParams.value)}
     >
-      {!rentOk && <p class="hint">{COPY.verdict.needRent}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}

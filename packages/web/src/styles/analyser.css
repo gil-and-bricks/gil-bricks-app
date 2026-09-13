@@ -906,6 +906,12 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .noscript-note { border: 1px solid var(--glass-border); border-radius: 12px; padding: var(--space-3); margin-bottom: var(--space-4); }
 
 /* The quiet way back to the inputs after a jump (N2). */
+/* The line that sits where a section would be. Quiet — it is an explanation,
+   not an error — and it carries the anchors for the sections it stands in for,
+   so their chips land on it instead of vanishing from the strip. */
+.waiting-for { margin: var(--space-3) 0; }
+.waiting-anchor { display: block; height: 0; }
+
 .back-to-inputs { margin: calc(var(--space-2) * -1) 0 var(--space-4); font-size: var(--text-xs); }
 /* A standalone link in its own paragraph, so 2.5.8 applies to it in full. */
 .back-to-inputs a { display: inline-block; min-height: 24px; padding: 4px 0; }

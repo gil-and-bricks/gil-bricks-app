@@ -51,6 +51,19 @@ export interface StrategyConfig {
   strategyInputs: StrategyField[];
   /** Editable assumptions, in a collapsed accordion. */
   assumptions: StrategyField[];
+  /**
+   * The field keys that MUST carry a value before this strategy can produce a
+   * verdict. Named here, in config, for two reasons:
+   *
+   *   1. the page can say WHICH field it is waiting for, in the field's own
+   *      words, instead of hiding the verdict and looking broken;
+   *   2. a test can prove every one of them is reachable without opening a
+   *      collapsed block — refusing to show a verdict while hiding the field
+   *      that would produce it is a dead end anyone would hit.
+   *
+   * Every key here must appear in `strategyInputs`, never in `assumptions`.
+   */
+  requiredForVerdict: readonly string[];
   /** Verdict thresholds — tune here, never in code. */
   thresholds: Record<string, number>;
   /** Island component name registered in AnalyserApp; null = placeholder. */

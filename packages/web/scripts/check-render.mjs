@@ -140,6 +140,23 @@ for (const [vpName, viewport, isMobile] of VIEWPORTS) {
       note(where, `empty box ${e.w}x${e.h} <${e.tag} class="${e.cls}"> — renders nothing`);
     }
 
+    // ---- 2b. the strip's icon, MEASURED -------------------------------------
+    // It is a 16px marker in the desktop rail and must not appear in the phone's
+    // horizontal strip, where it eats the width the labels need. The stylesheet
+    // says so; this is the browser agreeing.
+    const icon = await page.evaluate(() => {
+      const el = document.querySelector('.chip-icon');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { display: cs.display, w: Math.round(el.getBoundingClientRect().width) };
+    });
+    if (icon === null) note(where, 'the section strip rendered no chip icon at all');
+    else if (vpName === 'phone' && icon.display !== 'none') {
+      note(where, `chip icon is ${icon.display} at 390px — it belongs to the desktop rail only`);
+    } else if (vpName === 'desktop' && (icon.display === 'none' || icon.w !== 16)) {
+      note(where, `chip icon is ${icon.display} at ${icon.w}px in the rail — expected block at 16px`);
+    }
+
     // ---- 3. stuck loading placeholders -------------------------------------
     const skeletons = await page.evaluate(() => document.querySelectorAll('.skeleton').length);
     if (skeletons > 0) note(where, `${skeletons} loading placeholders still on screen after 6s`);

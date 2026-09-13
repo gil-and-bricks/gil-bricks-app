@@ -26,6 +26,27 @@ export const VERDICT_COPY = {
    * a score means nothing without knowing the standard behind it.
    */
   judgedByYours: 'Judged by the minimums you set in the extension, not our defaults.',
+  /**
+   * WHY A SECTION IS NOT THERE YET.
+   *
+   * An absent Verdict, Figures or Costs used to be simply hidden. That reads as
+   * a broken page — it was read as one for two days. One quiet line sits where
+   * the section would be and names the ACTUAL field it is waiting for, in that
+   * field's own words, taken from the StrategyConfig that decides it. It can
+   * never drift into a generic message, because there is no generic message.
+   */
+  waitingFor: (fieldLabels: readonly string[]): string => {
+    const named = fieldLabels
+      .map((l) => l.charAt(0).toLowerCase() + l.slice(1))
+      .join(' and the ');
+    return `Add the ${named} to see the verdict.`;
+  },
+  /**
+   * The Figures and Costs sections live inside the verdict and go with it, so
+   * they anchor to the SAME line rather than repeating it three times. Their
+   * chips stay in the strip and land on the explanation.
+   */
+  waitingAnchors: ['sec-figures', 'sec-costs'] as const,
   /** Unit suffixes, stuck on the end of an already-formatted figure. */
   perMonth: '/mo',
   perYear: '/yr',

@@ -20,7 +20,7 @@
  * detail, never the only place the answer exists.
  */
 import type { ComponentChildren } from 'preact';
-import type { CountryCode, StrategyConfig } from '@gil-bricks/core';
+import type { CountryCode, StrategyConfig, StrategyField } from '@gil-bricks/core';
 import { ANALYSER_SHELL } from '../../config/analyserForm';
 import { VERDICT_COPY } from '../../config/verdicts';
 import { features } from '../../config/features';
@@ -29,7 +29,7 @@ import { StrategyInputs } from './StrategyInputs';
 import { legacyRefurbLevel } from './state';
 
 export function VerdictShell({
-  config, country, hasContingency, aboveInputs, afterInputs, beforeVerdict, children,
+  config, country, hasContingency, aboveInputs, afterInputs, beforeVerdict, missing, children,
 }: {
   config: StrategyConfig;
   /** ONSPD country of the subject, for the refurb section's regional figures. */
@@ -42,9 +42,17 @@ export function VerdictShell({
   afterInputs?: ComponentChildren;
   /** Rendered between refurb and the verdict: the floor plan. */
   beforeVerdict?: ComponentChildren;
+  /**
+   * The fields this strategy still needs before it can answer. When there are
+   * any, the Verdict, Figures and Costs sections are not rendered by the island
+   * — so the shell puts a line where each one would be, naming what it wants.
+   */
+  missing?: readonly StrategyField[];
   /** The verdict card's own body: the score, the banner, the figures, the costs. */
   children: ComponentChildren;
 }) {
+  const waiting = missing ?? [];
+  const labels = waiting.map((f) => f.label);
   return (
     <>
       <section class="glass card" id="sec-inputs-card" aria-labelledby="inputs-h">
@@ -70,6 +78,15 @@ export function VerdictShell({
       <section class="glass card" aria-labelledby="verdict-h">
         <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
         {children}
+        {/* SAY WHY, DO NOT JUST HIDE IT. Each section keeps its own anchor, so
+            its chip stays in the strip and lands on the explanation rather than
+            disappearing and leaving the page looking broken. */}
+        {waiting.length > 0 && (
+          <p class="hint waiting-for" id="sec-verdict" role="status">
+            {VERDICT_COPY.waitingFor(labels)}
+            {VERDICT_COPY.waitingAnchors.map((id) => <span class="waiting-anchor" id={id} key={id} />)}
+          </p>
+        )}
       </section>
     </>
   );

@@ -56,6 +56,8 @@ export const strategies: StrategyConfig[] = [
     tagline: 'Will it wash its face? Yield, cashflow and value in one place.',
     heroLine: 'Check any England & Wales buy-to-let against real sold prices.',
     strategyInputs: btlInputs,
+    /** Without these there is no verdict, and the page says so by name. */
+    requiredForVerdict: ['rent'],
     assumptions: btlAssumptions,
     // Verdict thresholds (logged in DECISIONS_LOG): tune here, never in code.
     thresholds: { minCashflowGreen: 150, minRoiGreen: 8, icrBasic: 1.25, icrHigher: 1.45 },
@@ -97,6 +99,8 @@ export const strategies: StrategyConfig[] = [
         tip: 'Changes how the profit is taxed — both scenarios are shown either way.',
       },
     ],
+    /** Without these there is no verdict, and the page says so by name. */
+    requiredForVerdict: ['gdv'],
     assumptions: [
       { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.' },
       { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.' },
@@ -172,6 +176,8 @@ export const strategies: StrategyConfig[] = [
         tip: 'Changes how the rental profit is taxed.',
       },
     ],
+    /** Without these there is no verdict, and the page says so by name. */
+    requiredForVerdict: ['arv', 'rent'],
     assumptions: [
       { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.' },
       { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.' },
@@ -253,6 +259,8 @@ export const strategies: StrategyConfig[] = [
         tip: 'HMO management is real work — rooms turn over faster than whole houses.',
       },
     ],
+    /** Without these there is no verdict, and the page says so by name. */
+    requiredForVerdict: ['roomRent'],
     assumptions: [
       { key: 'deposit', label: 'Deposit', kind: 'number', unit: '%', default: '25', tip: 'Your cash share of the price.' },
       { key: 'rate', label: 'HMO mortgage rate', kind: 'number', unit: '%', default: '6.0', tip: 'HMO mortgages price higher than single lets.' },
@@ -287,3 +295,4 @@ export const strategies: StrategyConfig[] = [
 export const strategyById = (id: string): StrategyConfig | undefined =>
   strategies.find((s) => s.id === id);
 export type { StrategyConfig, StrategyField };
+export * from './required';

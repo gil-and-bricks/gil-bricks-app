@@ -11,7 +11,7 @@ import { useEffect, useState } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseHmo, checkRoomSizes, scoreDeal, type HmoAnalysis, type HmoInputs, type RoomOccupancy, type DealScore } from '@gil-bricks/core';
+import { analyseHmo, checkRoomSizes, scoreDeal, type HmoAnalysis, type HmoInputs, type RoomOccupancy, type DealScore , missingForVerdict } from '@gil-bricks/core';
 import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
@@ -158,6 +158,7 @@ export function HmoVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
+      missing={missingForVerdict(config, strategyParams.value)}
       aboveInputs={<p class="hint">{COPY.verdict.hmoScope}</p>}
       afterInputs={(
         <>
@@ -171,7 +172,6 @@ export function HmoVerdict({ config, comps, valuation, beforeVerdict }: {
       {!isSuiGeneris && p.bills === 'no' && (
         <p class="field-hint">{COPY.verdict.hmoBills}</p>
       )}
-      {!isSuiGeneris && !ready && <p class="hint">{COPY.verdict.needRoomRent}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
 
       {!isSuiGeneris && (

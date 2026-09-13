@@ -10,7 +10,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseBrrrr, scoreDeal, type BrrrrAnalysis, type BrrrrStrategyInputs, type DealScore } from '@gil-bricks/core';
+import { analyseBrrrr, scoreDeal, type BrrrrAnalysis, type BrrrrStrategyInputs, type DealScore , missingForVerdict } from '@gil-bricks/core';
 import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
 import { analyserEvidence } from './analyserEvidence';
@@ -141,14 +141,15 @@ export function BrrrrVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
+      missing={missingForVerdict(config, strategyParams.value)}
     >
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}
-      {!ready && (
-        <p class="hint">
-          {p.ltv === 'custom' && num('ltvCustom') <= 0 ? COPY.verdict.needLtv : COPY.verdict.needBrrrr}
-        </p>
+      {/* The shell says which field the verdict is waiting for. This one stays
+          because it is a DIFFERENT condition: a custom LTV chosen and left blank. */}
+      {p.ltv === 'custom' && num('ltvCustom') <= 0 && (
+        <p class="hint">{COPY.verdict.needLtv}</p>
       )}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail

@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
 import type { Valuation } from '@gil-bricks/core';
-import { analyseFlip, scoreDeal, type FlipAnalysis, type FlipStrategyInputs, type DealScore } from '@gil-bricks/core';
+import { analyseFlip, scoreDeal, type FlipAnalysis, type FlipStrategyInputs, type DealScore , missingForVerdict } from '@gil-bricks/core';
 import { SECTION_STRIP } from '../../config/analyserSections';
 import { StampDutyCost } from './StampDutyCost';
 import { DealScoreChip, BindingConstraintNote } from './DealScore';
@@ -142,12 +142,12 @@ export function FlipVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
+      missing={missingForVerdict(config, strategyParams.value)}
     >
       {valuation && prefilled.current !== null && !diverged.current && (strategyParams.value.gdv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}
       {isLtd && <p class="field-hint">{COPY.verdict.companyTax}</p>}
-      {!ready && <p class="hint">{COPY.verdict.needFlip}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
           beside the inputs; on a phone it is display:contents — no change. */}

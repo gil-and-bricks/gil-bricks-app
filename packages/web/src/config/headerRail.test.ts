@@ -172,13 +172,26 @@ describe('every icon has a text label beside it', () => {
     expect(svg).toContain('focusable="false"');
   });
 
-  it('the icon is a 16px marker, drawn ONLY in the desktop rail', () => {
-    // Unasserted before: making it 40px and visible put icons in the phone's
-    // horizontal strip, eating the width the labels need, and passed.
-    expect(css).toMatch(/\.chip-icon\s*\{[^}]*width:\s*16px/);
-    expect(css).toMatch(/\.chip-icon\s*\{[^}]*display:\s*none/);
-    const rail = css.slice(css.indexOf('THE LEFT RAIL: ONE OBJECT'), css.indexOf('main.page-wrap { padding-left'));
-    expect(rail, 'and turned on only inside the rail').toMatch(/\.chip-icon\s*\{\s*display:\s*block/);
+  /**
+   * THE ICON'S SIZE IS MEASURED IN A BROWSER, NOT READ OUT OF THE STYLESHEET.
+   *
+   * This used to regex the CSS file for `width: 16px` and `display: none`, then
+   * slice the file and look for `display: block` inside the rail block. That
+   * asserts the declarations are WRITTEN, not that the browser obeys them — a
+   * later rule with higher specificity, a different cascade order, or a media
+   * query that never matches would all keep this green while icons appeared in
+   * the phone strip eating the width the labels need, which is the exact fault
+   * the old comment said it was guarding.
+   *
+   * It is now asserted in scripts/check-render.mjs, which opens the real page
+   * at 390px and at 1440px and reads the COMPUTED display and width. What is
+   * left here is the thing a stylesheet read can honestly prove: that the rule
+   * exists at all, so its absence is caught in unit time rather than in CI.
+   */
+  it('the icon rule exists — the browser check that it is obeyed lives in the render gate', () => {
+    expect(css, 'declared here').toMatch(/\.chip-icon\s*\{[^}]*width:\s*16px/);
+    const gate = read('../scripts/check-render.mjs');
+    expect(gate, 'and measured in a real browser there').toContain('chip-icon');
   });
 
   it('the shapes are ours: no icon library, no font, no CDN', () => {
