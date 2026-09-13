@@ -2,6 +2,154 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — R3.1: the cue library arrives, and two cues do not ship
+
+### The research landed, pasted in full this time
+
+- All forty cues are transcribed into `src/refurbcues/library.ts`. Every
+  regulation reference, confidence level, caveat and `lastChecked` date is the
+  research's. Each `means` line is the research's `tip_text` **verbatim**,
+  including the lower-case caveats — they are written that way in the source and
+  read correctly after "To be sure:".
+- What is NOT the research's is stated in the file header so nobody has to
+  guess: the `look` sentences render the research's `cue` field into this
+  schema's "Look for…" form; `room` maps its eleven rooms onto the eight a user
+  can tap; `costItem` maps onto REFURB_ITEMS (boiler→heating, insulation→
+  decoration, fire doors→other).
+
+### Two cues are withheld, and the reason is the point
+
+- **#1 (old fuse box)** opens "The fuse box looks old." **#2 (plastic consumer
+  unit)** opens "This plastic fuse box is legal." Both **assert that the
+  photograph contains the thing**. We cannot see a photograph. That is the
+  operator's first rule for this feature and it is also the research's own
+  delivery rule — "the tip must never assert the photo contains the defect —
+  only 'look for'".
+- They are kept whole in a `WITHHELD` export with the reason, and a test proves
+  each really does fail the guard, so nothing was dropped on taste. Rewording
+  the opening of `means` and moving the entry into `CUES` is the whole fix.
+- **The brief said report rather than soften, and that is what happened**: no
+  cue's wording was touched to make it pass.
+
+### The guard had two gaps, found only by running forty real tips through it
+
+- **It did not catch an assertion.** "The fuse box looks old" contains none of
+  the banned phrases. Added: a sentence that OPENS with a demonstrative, a noun
+  phrase and a linking verb is an assertion. The one-to-three words in the
+  middle are what separate it from a plain back-reference like "That is cheap",
+  and there is a test for both directions.
+- **Its hedge vocabulary was too small.** It knew "may" and "might" but not
+  "can mean", "usually", "checked" or "ask" — so genuinely hedged tips failed.
+  The list grew and matching became word-stem based. This is the guard learning
+  English, not a tip being softened.
+- **The hedge requirement now applies to `indicative` and `weak` only.** The
+  research uses FOUR confidence levels; `strong` was added to the type rather
+  than flattening a cue up or down a level to fit three. A strong cue's
+  observation is reliable, so it may state the general fact — it still may not
+  assert this photo contains it.
+
+### Five citations were not carried, and none was replaced by an invented one
+
+- **#13, #14, #23 and half of #15** cite MEES / EPC C by 2030. CLAUDE.md
+  permanently excludes "EPC-C / MEES warnings — proposed rules unsettled; stale
+  compliance warnings are worse than none". The research types all three as
+  partly **practitioner** cues, so they ship as practitioner cues with no
+  citation; #15 ships on Part L, which the research names first for that work.
+  **No cue was lost to this.**
+- **#11** cites HHSRS and Awaab's Law. HHSRS is carried; Awaab's Law is not,
+  because its PRS extension runs through the Renters' Rights Act and CLAUDE.md
+  permanently excludes Renters' Rights content.
+- Twelve cues have **no regulation at all** — the research marks them "none
+  direct". `regulation` is now nullable and those say "Trade experience, not a
+  regulation" on screen. A made-up citation beside a tradesman's rule of thumb
+  would be worse than no citation.
+
+### Smaller things that followed from real data
+
+- **`costItem` is nullable too.** Four cues (room size, a missing rear photo, a
+  missing smoke alarm, wide-angle photos) have no price behind them; the research
+  says "cost: none direct". They render no tick button rather than offering to
+  put a nothing into a total.
+- **Three tips run to three sentences** (#16 Artex, #20 under-stairs board, #35
+  garage roof), against copy rule 1. All are well inside the word cap and in each
+  case the third sentence is the safety instruction. They are named as exemptions
+  with a reason, the way `copy.test.ts` does it, rather than reworded — and the
+  rule is now enforced on this file, which the page-walking copy gate cannot do
+  because a tip only renders with photos in the URL.
+- **`sequence_weight` was NOT implemented.** The research specifies it but gives
+  no per-cue values, only a named high group and low group. Ordering stays on
+  confidence, which with four levels now runs conclusive → strong → indicative →
+  weak. Say so rather than inventing forty numbers.
+- **#7 (back boiler) is filed under `kitchen`**, which is where the research puts
+  it, though it describes a living-room chimney breast. Kept faithful and flagged
+  rather than silently moved.
+
+### Independent verification found four ways to fool the guard, all now closed
+
+A verification pass re-read all forty cues against the research and tried to
+break the guard on purpose. **Fidelity came back clean** — two claimed
+discrepancies, both refuted on checking. The guard did not:
+
+- **The caveat was never read.** It is a third of every tip's visible text and
+  only its emptiness was checked, so "the photo clearly shows scorching, so it
+  is unsafe" passed **as a caveat**. Every content rule now applies to it.
+- **The sight list was singular-only.** "The photo shows" was banned; "These
+  photos show rising damp" was not. One letter defeated the rule the whole
+  feature rests on.
+- **The diagnosis list was literal substrings**, so near-synonyms walked
+  through: "is not safe", "will need a rewire", "would fail an EICR", "have
+  rotted through", "is a fire risk", "is rising damp". Widened, and matched on
+  word boundaries so "needs a" catches "needs a rewire" and leaves "needs an
+  EICR" alone.
+- **"Expect" counted as a hedge.** It is an instruction to ASSUME a defect —
+  the opposite. Removed.
+- **New rule: a tip may not speak about THIS property.** The escape that
+  exposed the last one was "expect a full rewire on **this one**". Every tip is
+  written once and shown against thousands of houses nobody has seen, so "this
+  property", "that house", "on this one" cannot be honest whatever follows.
+  This is the operator's own example of the indefensible, now enforced.
+- Each has a fixture using the exact wording that was verified passing before.
+  **No cue's wording was touched, and all 38 still pass the tightened guard.**
+
+**Rejected: requiring the hedge in the CLAIM sentence** rather than anywhere in
+`means`. Measured first: it fails 15 of the 30 indicative and weak cues,
+including honest general statements like "Bathrooms need good air flow" and
+"Wide-angle photos make rooms look bigger". A rule that withholds half the
+library over correct English is a bad rule.
+
+### Three things flagged for the operator, not changed
+
+These are judgements about the research's own wording, which this session was
+told not to reword. They are real and worth a ruling:
+
+- **#18 states England-only law flat.** "For a shared house (HMO) a single room
+  must be at least 6.51 square metres" is an England mandatory licence
+  condition; Wales licenses differently. The regulation NAME now carries
+  "(England)" so the qualifier sits beside the claim, but the tip's own sentence
+  does not. Four instruments were qualified this way — Part P, Boiler Plus, the
+  Smoke and CO Regulations and SI 2018/616 — matching how the research's own
+  text writes them. **Not fixed:** the Approved Documents (M, F, C, L) are also
+  England instruments and the research does not qualify them, so neither do we.
+- **#19 "A brown ceiling stain means water got in at some point."** A brown
+  stain can also be nicotine, rust from a fixing, or adhesive bleed. The cue is
+  indicative and its second sentence is a prompt, so the guard passes it — but
+  nothing in the cue admits the stain might not be water at all.
+- **#40 turns an absent photo into a ticked cost.** "Expect it to need work"
+  carries `costItem: 'kitchen'`, so a missing photo can tick a kitchen into a
+  total, while its own caveat says "still just a prompt". Its sibling #36
+  handles the identical situation with "Not always bad, but ask why".
+
+### The flag-off test now renders the section and looks at it
+
+- It used to read `RefurbSection.tsx` and assert the guard lines were present in
+  the source. That proves the line is written, not that the page obeys it —
+  rename a variable and the test passes while the carousel ships.
+- It now renders the section twice with real photo URLs in the query string:
+  once with the flag **on**, as a positive control so the assertions are known to
+  be capable of failing, and once **off**. It asserts no photo, no pointer, no
+  `rc-` markup and not one cue's words reach the page, and that every itemised
+  row is present in both.
+
 ## 2026-09-13 — R3: listing photos and regulation-backed pointers
 
 ### The research document did not arrive, and this time it could not be worked around
