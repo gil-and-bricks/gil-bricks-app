@@ -519,7 +519,7 @@ export function createChrome(surface: Surface): {
     const cal = s.calibration;
     sizedBy.textContent = cal.kind === 'dimension' ? C.scale.usingDimension(one(cal.dimensionMetres ?? 0))
       : cal.kind === 'epc' ? C.scale.usingEpc(one(cal.knownSqm ?? 0), AREA_SOURCE_LABELS[cal.knownSource ?? ''] ?? (cal.knownSource ?? ''))
-        : cal.kind === 'room' ? C.scale.usingRoom(cal.roomName ?? '', one((cal.metresPerPx ?? 0) > 0 ? 0 : 0))
+        : cal.kind === 'room' ? C.scale.usingRoom(cal.roomName ?? '', one(cal.knownSqm ?? 0))
           : C.scale.unmeasured;
     // The honest limit of an area-solved scale, said only when one is in use.
     sizedCaveat.textContent = cal.kind === 'epc' || cal.kind === 'room' ? C.scale.epcCaveat : '';

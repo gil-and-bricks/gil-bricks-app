@@ -9,7 +9,7 @@ import {
   tapScale, tapTrace, tracedPx2, tracedRooms, undo, useDimension, useKnownRoom, useKnownTotal,
   useNothing, zoomAbout, type TracerState,
 } from './plan';
-import { FLOORPLAN_LEVELS, FLOORPLAN_TOLERANCES as T } from './config';
+import { FLOORPLAN_COPY, FLOORPLAN_LEVELS, FLOORPLAN_TOLERANCES as T } from './config';
 
 const TOO_SHORT = 'too short';
 const NEED = 'need';
@@ -74,6 +74,28 @@ describe('the four ways to size it', () => {
     expect(s.calibration.kind).toBe('room');
     expect(propertySqm(s)).toBe(20);
     expect(roomReading(s, tracedRooms(s)[0])!.sqm).toBe(20);
+  });
+
+  /**
+   * AND IT REMEMBERS THE FIGURE, because the panel says it back on screen:
+   * "Sized from Room 1 at 20.0 m²".
+   *
+   * It did not. `useKnownRoom` never stored the size — the type's own comment
+   * said "how big they said it is" and the code did not — so view.ts printed
+   * `one((cal.metresPerPx ?? 0) > 0 ? 0 : 0)`, a ternary whose branches are
+   * both zero. Every user who sized a plan from a room they knew was told
+   * "Sized from Room 1 at 0.0 m²" under a total that was correct.
+   *
+   * Nothing caught it because every test here read the AREAS, which were right.
+   * None read the SENTENCE. So this one reads the sentence.
+   */
+  it('and remembers the figure, because the panel says it back', () => {
+    const before = traced();
+    const s = useKnownRoom(before, tracedRooms(before)[0].id, 20, NEED);
+    expect(s.calibration.knownSqm).toBe(20);
+    const said = FLOORPLAN_COPY.scale.usingRoom(s.calibration.roomName ?? '', s.calibration.knownSqm!.toFixed(1));
+    expect(said).toContain('20.0');
+    expect(said).toBe('Sized from Room 1 at 20.0 m².');
   });
 
   it('or nothing at all, which is a real answer and says so', () => {

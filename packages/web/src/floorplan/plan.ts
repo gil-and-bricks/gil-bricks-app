@@ -308,7 +308,7 @@ export function useKnownRoom(s: TracerState, roomId: string, sqm: number, needRo
   if (room === undefined) return { ...s, error: needRoom };
   const mpp = scaleFromKnownArea(shoelaceArea(room.points), sqm);
   if (mpp === null) return { ...s, error: needRoom };
-  return { ...s, calibration: { kind: 'room', metresPerPx: mpp, roomId, roomName: room.name }, error: null };
+  return { ...s, calibration: { kind: 'room', metresPerPx: mpp, roomId, roomName: room.name, knownSqm: sqm }, error: null };
 }
 
 /** Leave it unmeasured, honestly. The shapes are kept; no areas are claimed. */
