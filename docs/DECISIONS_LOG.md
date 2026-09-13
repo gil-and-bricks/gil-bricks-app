@@ -2,6 +2,135 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — S1: security review and hardening
+
+### Secrets: nothing has ever leaked
+
+- **Six live secrets** (JWT, Google client secret, Turnstile, Kit, EPC bearer,
+  DEV_LOGIN) live only in `packages/web/.dev.vars`, which is gitignored and has
+  never been tracked, plus Cloudflare Worker secrets and GitHub Actions secrets.
+- **Proved, not assumed.** Every live secret value was grepped against every
+  blob in all 155 commits on every branch: no hit. The whole history was then
+  pattern-scanned for credential shapes (GOCSPX, AKIA, private-key blocks, Slack
+  / GitHub / Stripe / OpenAI tokens, signed JWTs) — every hit was a
+  `${{ secrets.X }}` reference or a test fixture.
+- **The only key-shaped strings in the client bundle are public by design**: the
+  Turnstile SITE key and the Google OAuth CLIENT ID, both documented as public
+  in site.config.ts.
+- **`DEV_LOGIN` is a flag, not a password**, and the dev routes need it AND a
+  localhost/private host. Verified against production: `/auth/dev-login`,
+  `/dev/seed`, `/dev/seed/clear` and `/dev/preview` all 404, including with a
+  spoofed `X-Forwarded-Host: localhost`.
+- Standing gates added: a test fails the build if a secret shape appears in any
+  tracked file, anywhere in git history, or in the built bundle — and if any
+  non-Worker source file so much as names a server-only env var.
+
+### The headers were the real finding: there were none
+
+- **The deployed site sent no CSP, no X-Frame-Options, no Referrer-Policy, no
+  nosniff, no Permissions-Policy and no HSTS.** The broker pages were the sole
+  exception, already setting their own no-store / noindex / no-referrer trio.
+- **The two that mattered:**
+  - **Anything could frame the whole site.** "Delete everything" on the account
+    page is one click and is not undoable; a transparent iframe over a page the
+    attacker controls is the classic way to get a signed-in person to click it.
+  - **The analyser holds the entire deal in its URL** — postcode, house number,
+    price, beds, and now every ticked refurb line — and the product deliberately
+    links out to Rightmove, Zoopla and Google. With no Referrer-Policy the full
+    query string went to those third parties in the Referer header, on every one
+    of those clicks. That is a live privacy leak, not a theoretical one.
+- Fixed in one module applied at the Worker's SINGLE EXIT, so a route added
+  later cannot forget them, and a handler's own stricter value (the broker
+  pages' `no-referrer`) is never overwritten.
+- **`script-src` keeps 'unsafe-inline' and the code says so.** Astro emits inline
+  island bootstraps; a strict policy needs a per-build hash or nonce for each,
+  which is real work and takes the site down when wrong. So the CSP is honest
+  about what it is NOT yet: an XSS backstop. What it does close —
+  `frame-ancestors`, `object-src`, `base-uri`, `form-action` — are the injection
+  routes that need no script at all. Tightening script-src is the follow-up.
+
+### Authorisation: one gap, and it was not a leak
+
+- Every one of the eleven id-bearing deal routes already gated on the session
+  and scoped every query by `user_id`. Driving them as the wrong user found no
+  route that returned, changed or deleted another person's data.
+- **`GET /api/deals/:id/history` answered 200 where the other ten answer 404.**
+  It leaked nothing — `scoreHistory` checks ownership and returned an empty
+  list — but the check lived in exactly one place, inside a helper, with nothing
+  at the door. A refactor of that helper would have leaked silently. Gated at
+  the handler now, so it is refused twice and the API has one shape.
+- **No oracle.** A test asserts every id route answers a deal you do not own
+  identically to a deal that does not exist — a different status or message
+  would confirm which ids are real.
+- The broker links were attacked directly: wrong tokens, empty, `'` OR 1=1 --`,
+  `%`, path traversal, and a GET with the RIGHT token. None revealed anything,
+  none spent the single use, and the right token works exactly once.
+
+### Deletion: made ours instead of the platform's
+
+- `deals`, `deal_facts`, `deal_verdicts`, `deal_stage_history`, `deal_changes`
+  and `deal_deaths` were **never deleted explicitly** — account deletion relied
+  entirely on `ON DELETE CASCADE`.
+- **D1 does run with `PRAGMA foreign_keys = 1` (verified against production), so
+  nothing was being left behind.** But the privacy policy's "everything in your
+  pipeline" rested on a platform default we neither control nor test: a changed
+  default, or one migration recreating a table without its FK, and deletion
+  would silently stop working with nothing failing.
+- Now deleted explicitly, children first, in the same transaction — and the test
+  that proves it runs with **foreign keys switched OFF**, so it fails the moment
+  the code goes back to relying on the cascade.
+
+### Abuse: one endpoint was a free proxy
+
+- **`/api/epc` was anonymous, unauthenticated and unlimited, and every cache
+  MISS spent OUR EPC bearer token upstream.** A script sweeping postcode +
+  house-number pairs would have exhausted the register's rate limit or got the
+  token pulled — breaking the feature for every real user, and looking like our
+  fault.
+- Fixed with a sliding-window limit (30 misses per IP per 10 minutes) keyed on
+  **`CF-Connecting-IP`**, which Cloudflare sets at the edge and a client cannot
+  spoof — unlike `X-Forwarded-For`, whose leftmost value is whatever the caller
+  typed. No trusted header means one shared "unknown" bucket, never a free pass.
+- **Only misses are charged.** A cache hit costs the register nothing, so
+  re-opening the same property is free and the limit sits only on the path a
+  script takes.
+- **It fails OPEN on a database error, deliberately.** This guards a
+  convenience; a D1 blip must not take the analyser down for everybody.
+- Counted in buckets, not one row per request, so the limiter cannot become the
+  thing it prevents — and the daily cron sweeps old buckets.
+- The other vectors: there is **no feedback table** to flood (the feature does
+  not exist); every outbox-writing path is behind Turnstile or a session; the
+  browser-side calls to police.uk, the Environment Agency and planning.data.gov.uk
+  go direct from the user's own browser on their own IP, carrying no credential
+  of ours. Cloudflare's free tier caps spend by refusing traffic rather than
+  billing, so the exposure there is availability, not money.
+
+### Extension: already sound, now held that way
+
+- Permissions are the four it actually uses; no `tabs`, `scripting`, `cookies`,
+  `webRequest` or `<all_urls>`. Hosts are the two portals and our own app.
+- **No `web_accessible_resources` and no `externally_connectable`**, so a page
+  can neither load extension resources nor message it. The content script stays
+  in the isolated world.
+- **Nothing in the extension writes HTML from a string** — the panel builds DOM
+  with `createElement` + `textContent`. A listing whose address is
+  `<img src=x onerror=alert(1)>` renders as visible text: proved by asserting
+  `&lt;img` IS in the HTML and no `<img>` element exists.
+- One outbound call, to our own `/api/attention`. Nothing read from a listing
+  leaves the machine.
+
+### Dependencies
+
+- **0 vulnerabilities in what ships.** All 13 findings were dev-only and
+  transitive; `npm audit fix` cleared 4 without breaking anything.
+- The remaining 9 need major bumps of `wrangler` and `wxt`. Not forced blind in
+  a security sprint: the chains are the Firefox extension runner (never invoked
+  — we build Chrome MV3) and miniflare's image processing (local dev only).
+- **Made self-maintaining, since the operator will not be watching**: Dependabot
+  opens one grouped PR a week for minor/patch with majors separated, and CI now
+  fails on `npm audit --omit=dev --audit-level=high` — production dependencies
+  only, because a gate that shouts about build-tool noise is a gate people turn off.
+
 ## 2026-09-13 — R2.1: the operator's figures land
 
 - **The research arrived and is in `refurbFigures.ts`.** Thirteen items with
