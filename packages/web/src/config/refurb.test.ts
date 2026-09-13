@@ -9,7 +9,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { REFURB, REFURB_ITEMS, paramFor } from './refurb';
-import { REFURB_FIGURES, figureFor, hasAnyFigure } from './refurbFigures';
+import { LABOUR_FACTORS, REFURB_FIGURES, REGION_MULTIPLIERS, FIGURES_REVIEWED, FIGURES_INCLUDE_VAT, figureFor, hasAnyFigure, suggestionsReady } from './refurbFigures';
+import { LABOUR_OPTIONS, DEFAULT_LABOUR } from './refurb';
+import { REGION_IDS } from '@gil-bricks/core';
+import { REGION_LABELS, labelsCoverEveryRegion } from './regions';
 import { ANALYSER_SECTIONS } from './analyserSections';
 import { strategies } from '@gil-bricks/core';
 
@@ -83,20 +86,40 @@ describe('the old Light / Moderate / Heavy is gone, not kept alongside', () => {
 
 describe('NOTHING SHIPS A REFURB PRICE THE OPERATOR DID NOT WRITE', () => {
   it('every figure is empty until he fills it in', () => {
-    for (const [key, value] of Object.entries(REFURB_FIGURES)) {
-      expect(value, `${key} must be null until the operator writes it`).toBeNull();
+    for (const [key, spec] of Object.entries(REFURB_FIGURES)) {
+      for (const f of ['mid', 'low', 'high'] as const) {
+        expect(spec[f], `${key}.${f} must be null until the operator writes it`).toBeNull();
+      }
+      for (const [band, v] of Object.entries(spec.bands ?? {})) {
+        for (const f of ['mid', 'low', 'high'] as const) {
+          expect(v[f], `${key}.bands.${band}.${f}`).toBeNull();
+        }
+      }
     }
     expect(hasAnyFigure()).toBe(false);
+    expect(suggestionsReady()).toBe(false);
+  });
+
+  it('no regional multiplier and no labour factor is invented either', () => {
+    for (const [k, v] of Object.entries(REGION_MULTIPLIERS)) expect(v, `region ${k}`).toBeNull();
+    for (const [k, v] of Object.entries(LABOUR_FACTORS)) expect(v, `labour ${k}`).toBeNull();
+  });
+
+  it('and no compile date or VAT basis is claimed', () => {
+    expect(FIGURES_REVIEWED).toBeNull();
+    expect(FIGURES_INCLUDE_VAT).toBeNull();
   });
 
   it('so no item offers a suggestion at all', () => {
     for (const item of REFURB_ITEMS) expect(figureFor(item.key), item.key).toBeNull();
   });
 
-  it('the figures file holds no number anywhere — not even in a comment example that could be copied wrong', () => {
+  it('the shipped tables hold no number anywhere', () => {
     const src = read('./refurbFigures.ts');
-    const table = src.slice(src.indexOf('export const REFURB_FIGURES'), src.indexOf('export const REFURB_FIGURES_LABEL'));
-    expect(table).not.toMatch(/:\s*\d/);
+    const table = src.slice(src.indexOf('export const REFURB_FIGURES'), src.indexOf('export const FIGURES_REVIEWED'));
+    // band KEYS like '1-2' and '4+' are quoted; a bare `: 4500` is a figure
+    expect(table).not.toMatch(/\b(mid|low|high)\s*:\s*\d/);
+    expect(table).not.toMatch(/^\s*'?[a-z-]+'?\s*:\s*[\d.]+,/mi);
   });
 
   it('the item list carries no prices either', () => {
@@ -107,5 +130,38 @@ describe('NOTHING SHIPS A REFURB PRICE THE OPERATOR DID NOT WRITE', () => {
 
   it('every item has a figures slot, and every slot an item — so one cannot be renamed alone', () => {
     expect(Object.keys(REFURB_FIGURES).sort()).toEqual(REFURB_ITEMS.map((i) => i.key).sort());
+  });
+});
+
+describe('R2 — region, labour and the shape the research must arrive in', () => {
+  it('every region has a multiplier slot and a label', () => {
+    expect(Object.keys(REGION_MULTIPLIERS).sort()).toEqual([...REGION_IDS].sort());
+    expect(labelsCoverEveryRegion()).toBe(true);
+    expect(Object.keys(REGION_LABELS).sort()).toEqual([...REGION_IDS].sort());
+  });
+
+  it('every labour option has a factor slot, and the default is the builder baseline', () => {
+    expect(Object.keys(LABOUR_FACTORS).sort()).toEqual(LABOUR_OPTIONS.map((o) => o.id).sort());
+    expect(LABOUR_OPTIONS.map((o) => o.id)).toContain(DEFAULT_LABOUR);
+    expect(DEFAULT_LABOUR).toBe('builder');
+  });
+
+  it('the DIY option says out loud what it leaves out', () => {
+    const diy = LABOUR_OPTIONS.find((o) => o.id === 'diy');
+    expect(diy?.note.toLowerCase()).toContain('free');
+  });
+
+  it('every item declares how it scales, and the sized ones are sized', () => {
+    const driverOf = (k: string) => REFURB_ITEMS.find((i) => i.key === k)?.driver;
+    expect(driverOf('flooring')).toBe('perSqm');
+    expect(driverOf('plastering')).toBe('perSqm');
+    expect(driverOf('rewire')).toBe('beds');
+    expect(driverOf('windows')).toBe('perUnit');
+    for (const i of REFURB_ITEMS) expect(['flat', 'perSqm', 'beds', 'perUnit'], i.key).toContain(i.driver);
+  });
+
+  it('partial data offers nothing — one filled item is not enough on its own', () => {
+    // suggestionsReady needs an item AND every region AND every labour factor
+    expect(suggestionsReady()).toBe(false);
   });
 });

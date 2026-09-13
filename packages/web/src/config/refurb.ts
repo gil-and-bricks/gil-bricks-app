@@ -15,6 +15,8 @@
  *      invisible, so prefer editing a `label` over editing a `key`.
  */
 
+import type { RefurbDriver } from '@gil-bricks/core';
+
 /** One big-ticket item. Nothing here is a door handle. */
 export interface RefurbItem {
   /** Stable key: the URL param is `rf` + this, capitalised. Never re-used. */
@@ -23,6 +25,17 @@ export interface RefurbItem {
   label: string;
   /** Said under the label ONLY where the label alone could be misread. */
   hint?: string;
+  /**
+   * R2 — how this item's cost scales. Several are meaningless as a flat figure,
+   * so they are sized from what we already know rather than guessed:
+   *   'flat'    a job price on a typical property
+   *   'perSqm'  × internal floor area (EPC, or typed)
+   *   'beds'    priced by band, from the bedroom count
+   *   'perUnit' × a count the person sets (windows)
+   * A row whose driver needs something we do not have SAYS SO on the row — it
+   * never contributes a guess to a total somebody then trusts.
+   */
+  driver: RefurbDriver;
 }
 
 /**
@@ -31,20 +44,20 @@ export interface RefurbItem {
  * deliberate — someone reading down the list is walking through the job.
  */
 export const REFURB_ITEMS: readonly RefurbItem[] = [
-  { key: 'ripOut', label: 'Rip-out and skips' },
-  { key: 'damp', label: 'Damp or structural' },
-  { key: 'roof', label: 'Roof' },
-  { key: 'windows', label: 'Windows' },
-  { key: 'rewire', label: 'Full rewire' },
-  { key: 'plumbing', label: 'Plumbing' },
-  { key: 'heating', label: 'Boiler and heating' },
-  { key: 'plastering', label: 'Plastering' },
-  { key: 'kitchen', label: 'Kitchen' },
-  { key: 'bathroom', label: 'Bathroom' },
-  { key: 'flooring', label: 'Flooring' },
-  { key: 'decoration', label: 'Decoration' },
-  { key: 'externals', label: 'Garden and externals' },
-  { key: 'other', label: 'Anything else', hint: 'Fees, surveys, anything the list misses.' },
+  { key: 'ripOut', label: 'Rip-out and skips', driver: 'flat' },
+  { key: 'damp', label: 'Damp or structural', driver: 'flat' },
+  { key: 'roof', label: 'Roof', driver: 'flat' },
+  { key: 'windows', label: 'Windows', driver: 'perUnit' },
+  { key: 'rewire', label: 'Full rewire', driver: 'beds' },
+  { key: 'plumbing', label: 'Plumbing', driver: 'flat' },
+  { key: 'heating', label: 'Boiler and heating', driver: 'flat' },
+  { key: 'plastering', label: 'Plastering', driver: 'perSqm' },
+  { key: 'kitchen', label: 'Kitchen', driver: 'flat' },
+  { key: 'bathroom', label: 'Bathroom', driver: 'flat' },
+  { key: 'flooring', label: 'Flooring', driver: 'perSqm' },
+  { key: 'decoration', label: 'Decoration', driver: 'flat' },
+  { key: 'externals', label: 'Garden and externals', driver: 'flat' },
+  { key: 'other', label: 'Anything else', hint: 'Fees, surveys, anything the list misses.', driver: 'flat' },
 ];
 
 /** The URL param a row writes to. One rule, so nothing keeps a second list. */
@@ -56,6 +69,10 @@ export const REFURB = {
   /** The strategy field this section owns. StrategyInputs stops drawing it, so
    * the figure appears once on the page — here, with its working. */
   fieldKey: 'refurbCost',
+  /** R2 — how old the operator's figures may get before the page says so. */
+  staleAfterMonths: 12,
+  /** R2 — the label over his suggested figures. Only shown once he has some. */
+  figuresLabel: 'Gil’s rough figures — change them to yours',
   /** The anchor and its chip. Kept with the section, not retyped in the strip. */
   sectionId: 'sec-refurb',
   chipLabel: 'Refurb',
@@ -87,5 +104,113 @@ export const REFURB = {
     /** R1 rule 3 — a deal saved before this section existed. Said ONCE. */
     legacy: 'This deal’s refurb was one figure. It carried over. Break it down if you want.',
     legacyDismiss: 'Got it',
+
+    // ---- R2 ----
+    /** The inferred region, said in one line with a way to change it. */
+    regionLine: (region: string): string => `Figures for ${region}.`,
+    regionChange: 'Change region',
+    regionLabel: 'Region these figures are for',
+    /** No region could be inferred — honest, and the picker is the fix. */
+    regionUnknown: 'Pick a region to see suggested figures.',
+    /** The range under a filled row, e.g. "typically £3,800–£6,200". */
+    rowRange: (low: string, high: string): string => `typically ${low}–${high}`,
+    /** A row we cannot size. One line each, naming what is missing. */
+    needsArea: 'Add a floor area to size this one.',
+    needsBeds: 'Add bedrooms to size this one.',
+    needsCount: 'How many?',
+    countLabel: (item: string): string => `${item} — how many`,
+    /** The windows count is prefilled from bedrooms and must say so. */
+    countGuess: 'A guess from the bedrooms. Change it.',
+    /** Who is doing the work. */
+    labourLabel: 'Who is doing the work',
+    /** The total's range, beside the mid-point. */
+    totalRange: (low: string, high: string): string => `Range ${low}–${high}`,
+    /** The working. Every step, named. */
+    maths: 'How is this worked out?',
+    mathsItem: 'Item',
+    mathsBase: 'Base',
+    mathsRegion: 'Region',
+    mathsLabour: 'Labour',
+    mathsRow: 'Figure',
+    mathsSubtotal: 'Subtotal',
+    mathsContingency: (pct: string): string => `Contingency ${pct}%`,
+    mathsTotal: 'Total',
+    /** A per-unit or per-m² base, e.g. "£45/m² × 92 m²". */
+    mathsQuantity: (base: string, qty: string): string => `${base} × ${qty}`,
+    /** When the figures were compiled, and whether they are getting old. */
+    reviewed: (when: string): string => `Figures last reviewed ${when}.`,
+    stale: 'They are over a year old — treat them as rough.',
   },
+} as const;
+
+/**
+ * R2 — WHO IS DOING THE WORK. Four options, and the default is a builder
+ * because that is what the stored figures are priced at.
+ *
+ * THE FACTORS ARE NOT HERE. They live with the operator's other numbers in
+ * refurbFigures.ts, because they are his to set — see LABOUR_FACTORS there,
+ * which also states the direction each one must move in.
+ */
+export interface LabourOption {
+  id: string;
+  label: string;
+  /** One line under the selector when this one is chosen. */
+  note: string;
+}
+
+export const LABOUR_OPTIONS: readonly LabourOption[] = [
+  {
+    id: 'mainContractor',
+    label: 'A main contractor',
+    note: 'They coordinate the trades and carry the risk, and charge for it.',
+  },
+  {
+    id: 'builder',
+    label: 'A builder',
+    note: 'What these figures are priced at.',
+  },
+  {
+    id: 'tradesDirect',
+    label: 'Trades direct',
+    note: 'Cheaper because you are the project manager.',
+  },
+  {
+    id: 'diy',
+    label: 'Mostly DIY',
+    // The operator asked for this to be blunt. It is the one option whose
+    // number flatters the deal by leaving the biggest cost out of it.
+    note: 'Materials only. It assumes your time is free. This is how people get burned.',
+  },
+];
+
+export const DEFAULT_LABOUR = 'builder';
+
+/** R2 — the contingency line. Editable; the note is why 10% may not be enough. */
+export const CONTINGENCY = {
+  label: 'Contingency',
+  unit: '%',
+  default: '10',
+  note: 'Older stock usually wants 15–20%.',
+} as const;
+
+/**
+ * R2 — THE CAVEAT. Said once, where the number is. The operator's voice, and
+ * deliberately not softened: the mid-point is the least useful number on the
+ * page if somebody reads it as a quote.
+ */
+export const REFURB_CAVEAT = {
+  heading: 'Before you trust these',
+  lines: [
+    'These are starting points for a typical property in that region.',
+    'They are not a quote.',
+    'Real cost depends on what you cannot see until the work starts.',
+    'Damp and structural is the one that ruins budgets.',
+    'Get three quotes.',
+  ],
+  /** Only said once the operator has told us whether his figures include VAT.
+   * There is NO VAT toggle on purpose: it is the likeliest way to double-count. */
+  vat: (includes: boolean): string =>
+    includes
+      ? 'These figures include VAT. Check whether your quote does.'
+      : 'These figures exclude VAT. Check whether your quote includes it.',
 } as const;

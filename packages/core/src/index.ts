@@ -55,6 +55,8 @@ export * from './evidence/chips';
 
 // R1 — the refurb total. Maths, so it lives here, not in the component.
 export * from './refurb';
+export * from './refurb/region';
+export * from './refurb/suggest';
 export { scoreCopy } from './score/copy';
 export type { Verdict } from './score/copy';
 

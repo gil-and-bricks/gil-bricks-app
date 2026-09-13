@@ -13,17 +13,20 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { render } from 'preact-render-to-string';
 import { RefurbSection, linesFrom, refurbParamKeys, MODE_PARAM } from './RefurbSection';
 import { REFURB, REFURB_ITEMS, paramFor } from '../../config/refurb';
-import { strategyParams } from './state';
+import { state, strategyParams } from './state';
 
 const html = (params: Record<string, string>, legacy = false): string => {
   strategyParams.value = params;
-  return render(<RefurbSection legacy={legacy} onLegacySeen={() => {}} />);
+  return render(<RefurbSection legacy={legacy} onLegacySeen={() => {}} country={null} hasContingency={false} />);
 };
 
 const TYPED = { [REFURB.fieldKey]: '18000' };
 const ITEMISED = { [MODE_PARAM]: '1', [paramFor('kitchen')]: '6000', [paramFor('rewire')]: '4000', [REFURB.fieldKey]: '10000' };
 
-beforeEach(() => { strategyParams.value = {}; });
+beforeEach(() => {
+  strategyParams.value = {};
+  state.value = { ...state.value, postcode: '', area: '', beds: '' };
+});
 
 describe('nothing is promised that the operator did not write', () => {
   it('offers no suggested figure on any row, and says it is waiting', () => {
@@ -133,9 +136,10 @@ describe('reachable without a mouse, and named for a screen reader', () => {
 });
 
 describe('the params it owns', () => {
-  it('registers the mode flag and one param per item', () => {
-    expect(refurbParamKeys()).toHaveLength(REFURB_ITEMS.length + 1);
-    expect(refurbParamKeys()).toContain(MODE_PARAM);
+  it('registers the mode flag, the region, the labour choice, one param per item and a count per sized item', () => {
+    const counted = REFURB_ITEMS.filter((i) => i.driver === 'perUnit').length;
+    expect(refurbParamKeys()).toHaveLength(REFURB_ITEMS.length + counted + 3);
+    for (const k of [MODE_PARAM, 'rfRegion', 'rfLabour']) expect(refurbParamKeys()).toContain(k);
   });
 
   it('a row is ticked when its param has any value — including a typed zero', () => {

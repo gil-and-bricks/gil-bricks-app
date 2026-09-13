@@ -157,7 +157,9 @@ export function HmoVerdict({ config, comps, valuation }: {
       {/* R1 — AFTER the inputs, BEFORE the answer. The refurb figure is one of
           the verdict's inputs, so the verdict can never render above it. */}
       {features.refurbSection && (
-        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }} />
+        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }}
+          country={comps?.subject.country ?? null}
+          hasContingency={fields.some((f) => f.key === 'contingencyPct')} />
       )}
       {comps && <Article4Flag lat={comps.subject.lat} lng={comps.subject.lng} country={comps.subject.country} />}
       {isSuiGeneris && (

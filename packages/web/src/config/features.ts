@@ -152,6 +152,17 @@ export interface FeatureFlags {
    * while off and picked up again when it is turned back on; nothing is lost. */
   refurbSection: boolean;
 
+  /** Regional refurb suggestions (R2): the inferred region line, ticking a row
+   * filling it with the mid-point for that region and property, the range under
+   * each row and the total, the labour selector, the contingency row where the
+   * strategy applies one, the full working table and the caveat. Needs
+   * `refurbSection` on. It ALSO needs the operator's figures: with
+   * refurbFigures.ts empty — as it ships — none of this renders whatever this
+   * flag says, because a control that cannot do anything is worse than none.
+   * Off: the section is exactly what R1 shipped, a typed total and a tickable
+   * breakdown that fills nothing in. Item params already saved are untouched. */
+  refurbSuggestions: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -249,6 +260,7 @@ export const features: FeatureFlags = {
   brokerFactFind: true,
   brokerEnquiryLink: true,
   refurbSection: true,
+  refurbSuggestions: true,
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,
