@@ -3,6 +3,7 @@
  * nothing personal. Signals drive the live recompute.
  */
 import { signal } from '@preact/signals';
+import { CRITERIA_PARAMS } from '@gil-bricks/core';
 import { criteriaQueryParams } from './criteria';
 
 export interface SubjectState {
@@ -87,6 +88,9 @@ export function parseQuery(search: string): UrlState {
 
 export function toQuery(s: UrlState, extra: Record<string, string> = {}): string {
   const q = new URLSearchParams();
+  // FIRST, so anything the form owns overwrites it below rather than the other
+  // way round: these are the deal's own facts, not a competing source of truth.
+  for (const [k, v] of Object.entries(carried)) q.set(k, v);
   for (const [k, v] of Object.entries(s)) {
     if (v !== '' && v !== (DEFAULTS as unknown as Record<string, string>)[k]) q.set(k, v);
   }
@@ -132,11 +136,39 @@ export interface StrategyFieldSpec {
  * from the URL. Hand-edited links CLAMP to the default (selects must match
  * an option; numbers must parse) — the same contract as parseQuery. Field
  * keys must never collide with UrlState keys (enforced by a test). */
+/**
+ * WHAT ARRIVED WITH THE DEAL AND IS NOT PART OF THE FORM.
+ *
+ * The URL this page writes used to be rebuilt from the form's own state alone —
+ * the property fields, the strategy fields and the D4 criteria. Anything else
+ * that arrived was silently discarded on the FIRST write, before the page had
+ * even been touched. The listing's photographs (`ph`) and its floor plan (`fp`)
+ * are exactly that: they came from the listing, they belong to the deal, and
+ * nobody can retype them. Editing one number threw them away and everything
+ * downstream then correctly rendered nothing, because there was nothing left.
+ *
+ * So they are captured once, at load, and re-emitted on every URL this page
+ * writes — including the one a SAVE stores, so a deal reopened from the
+ * pipeline still has its photographs. Owned keys always win, so this can never
+ * resurrect a stale value for a field the person is editing.
+ */
+let carried: Record<string, string> = {};
+
 export function initStrategyParams(fields: StrategyFieldSpec[]): void {
   const defaults: Record<string, string> = {};
   for (const f of fields) defaults[f.key] = f.default;
   strategyDefaults = defaults;
   const q = typeof window !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams();
+
+  // Everything the writer does NOT own is carried through untouched.
+  const owned = new Set<string>([
+    ...Object.keys(DEFAULTS as unknown as Record<string, string>),
+    ...fields.map((f) => f.key),
+    ...Object.values(CRITERIA_PARAMS),
+  ]);
+  const keep: Record<string, string> = {};
+  for (const [k, v] of q.entries()) if (!owned.has(k) && v !== '') keep[k] = v;
+  carried = keep;
   const out: Record<string, string> = { ...defaults };
   for (const f of fields) {
     const v = q.get(f.key);
