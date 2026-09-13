@@ -57,7 +57,7 @@ export interface RefurbCue {
   costItem: string | null;
   /**
    * The key of a REGULATIONS entry, or NULL where the research says "none
-   * direct". Twelve of the forty are trade experience, not law, and a made-up
+   * direct". Fifteen of the forty are trade experience, not law, and a made-up
    * citation beside one would be worse than no citation at all.
    */
   regulation: string | null;

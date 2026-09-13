@@ -3,9 +3,36 @@
  *
  * Forty visual refurbishment cues for England and Wales, from the operator's
  * research document, current at 13 September 2026. Every regulation reference,
- * confidence level, caveat and date is the research's. The `means` line of each
- * cue is its `tip_text`, VERBATIM — including the lower-case caveats, which are
+ * confidence level and date is the research's, and 36 of the 40 `means` lines
+ * are its `tip_text` VERBATIM — including the lower-case caveats, which are
  * written that way in the source and read correctly after "To be sure:".
+ *
+ * FOUR ARE REWORDED, on the operator's instruction. Two at the opening only,
+ * two more deeply — said precisely, because provenance is this file's contract:
+ *
+ *   #1  fuse-box-rewireable   "The fuse box looks old. That does not always
+ *                             mean…" → "An old fuse box does not always mean…".
+ *   #2  consumer-unit-plastic "This plastic fuse box is legal…" → "A plastic
+ *                             fuse box FITTED UNDER THE OLD RULES is legal…".
+ *       Both asserted the photograph contained the thing. We cannot see a
+ *       photograph. #1 lost only its demonstrative. #2 needed four words more:
+ *       "this plastic fuse box is legal" was true of one already-installed
+ *       board, because Reg 421.1.201 is not retrospective — "a plastic fuse box
+ *       is legal" would have been false of anything fitted since 1 Jan 2016.
+ *
+ *   #19 bedroom-ceiling-stain — WHOLE `means` AND CAVEAT REPLACED, not just the
+ *       opening. "A brown ceiling stain means water got in at some point" was a
+ *       diagnosis nothing supports. The three alternatives it now names —
+ *       nicotine, rust, old adhesive — are the OPERATOR'S, from the instruction
+ *       that ordered this change; they are not in the research and are not
+ *       invented here. Its caveat no longer presupposes water either: it used to
+ *       admit the timing was unknown while taking the cause for granted.
+ *
+ *   #40 no-kitchen-bathroom-photo — WHOLE `means` REPLACED. "expect it to need
+ *       work" told someone to assume a defect in a room nobody has seen, and it
+ *       carried a KITCHEN cost item, so an absent photo could tick a line into a
+ *       budget. The cost item is now null and the wording matches its sibling
+ *       #36, which handled the identical situation correctly from the start.
  *
  * WHAT IS NOT THE RESEARCH'S, so nobody has to guess:
  *   - `look` renders the research's `cue` field ("Old fuse box / rewireable
@@ -15,12 +42,16 @@
  *     actually tap: living_room→living, hallway_stairs→hall, exterior_front and
  *     garage_outbuilding→outside, exterior_rear→outside or garden.
  *   - `costItem` maps onto REFURB_ITEMS: boiler→heating, insulation→decoration,
- *     fire doors→other. Where the research says "cost: none direct" it is null.
+ *     fire doors→other. Five are NULL, and only two of those for the reason you
+ *     would guess: #18 and #39 say "cost: none direct", #21 says "cost: minor"
+ *     and #36 "cost: unknown" — neither of which is a REFURB_ITEMS row — and #40
+ *     had "cost: kitchen/bathroom" taken OFF it on the operator's instruction,
+ *     because a photograph nobody has seen is a question to ask, not a budget
+ *     line. A null means no tick button, never a nothing added to a total.
  *
- * TWO CUES ARE NOT SERVED. See WITHHELD at the bottom: both break the
- * research's OWN delivery rule — "the tip must never assert the photo contains
- * the defect" — and the honesty test catches them. They are kept here in full,
- * with the reason, so the operator can reword and promote them in one edit.
+ * ALL FORTY ARE SERVED. `WITHHELD` at the bottom is empty and stays as the
+ * mechanism: an entry there is an honest "we have this, we are not showing it,
+ * here is why" rather than a silent deletion, and the next paste may need it.
  *
  * FOUR INSTRUMENTS ARE ENGLAND-ONLY and now say so in their name, exactly as
  * the research's own text writes them — "(England) Regulations", "Part P of the
@@ -153,8 +184,28 @@ export const REGULATIONS: Record<string, RegulationRef> = {
  */
 export const CUES: readonly RefurbCue[] = [
   // ---- KITCHEN ------------------------------------------------------------
-  // #1 (old fuse box) is WITHHELD — see the bottom of this file.
-  // #2 (plastic consumer unit) is WITHHELD — see the bottom of this file.
+  {
+    key: 'fuse-box-rewireable',
+    room: 'kitchen',
+    confidence: 'indicative',
+    costItem: 'rewire',
+    regulation: 'bs7671',
+    basis: 'standard',
+    look: 'Look for an old fuse box with rewireable fuses rather than breakers.',
+    means: 'An old fuse box does not always mean a full rewire, but budget for an electrician to test it (an EICR) before you buy.',
+    caveat: 'only an EICR confirms what work is needed.',
+  },
+  {
+    key: 'consumer-unit-plastic',
+    room: 'kitchen',
+    confidence: 'weak',
+    costItem: 'rewire',
+    regulation: 'bs7671-421',
+    basis: 'legal',
+    look: 'Look for a white plastic consumer unit with modern breakers.',
+    means: 'A plastic fuse box fitted under the old rules is legal, but any new one must be metal. Not urgent, but worth noting.',
+    caveat: 'a plastic board fitted when the rules allowed is still legal.',
+  },
   {
     key: 'surface-trunking',
     room: 'kitchen',
@@ -345,8 +396,8 @@ export const CUES: readonly RefurbCue[] = [
     regulation: 'hhsrs',
     basis: 'legal',
     look: 'Look for staining on a bedroom ceiling below a bathroom or the roof.',
-    means: 'A brown ceiling stain means water got in at some point. Ask if it was fixed and when.',
-    caveat: 'cannot tell if fixed or active.',
+    means: 'A brown stain often means water, but it can also be nicotine, rust or old adhesive. Ask what caused it and whether it was fixed.',
+    caveat: 'cannot tell the cause from a photo, or whether it was fixed.',
   },
 
   // ---- HALLWAY & STAIRS ---------------------------------------------------
@@ -584,57 +635,32 @@ export const CUES: readonly RefurbCue[] = [
     key: 'no-kitchen-bathroom-photo',
     room: 'any',
     confidence: 'indicative',
-    costItem: 'kitchen',
+    costItem: null,
     regulation: null,
     basis: 'practitioner',
     look: 'Look for whether the kitchen or the bathroom is missing from the photos.',
-    means: 'If the kitchen or bathroom is missing from the photos, expect it to need work and ask to see it.',
+    means: 'No kitchen or bathroom photo? Not always a bad sign, but ask to see the room before you offer.',
     caveat: 'a genuine signal more often than not, but still just a prompt.',
   },
 ];
 
 /**
- * WITHHELD — in the research, not served, and the reason is the point.
+ * WITHHELD — the mechanism, currently EMPTY.
  *
- * Both tips open by asserting that the thing IS in the photograph. We cannot
- * see a photograph. That is the operator's first rule for this feature, and it
- * is also the research's own delivery rule: "the tip must never assert the
- * photo contains the defect — only 'look for'". Their observations are good
- * ones and nothing else about them fails, so they are kept here whole.
+ * An entry here is an honest "we have this cue, we are not showing it, and here
+ * is why" rather than a silent deletion. Two cues sat here when the library
+ * landed: #1 and #2 both opened by asserting the photograph contained the
+ * thing. The operator reworded their openings and they now ship, so the list is
+ * empty and all forty are served.
  *
- * TO SHIP EITHER: reword only the opening of `means` so it stops asserting
- * ("An old fuse box does not always mean…"), move the entry into CUES, and the
- * honesty test will pass it. Nothing else needs changing.
+ * TO WITHHOLD ONE: move the cue in here with a `reason`. A test proves every
+ * entry really does fail the honesty guard, so nothing can be parked here on
+ * taste alone, and another proves nothing here can reach a user.
  */
 export const WITHHELD: readonly { cue: RefurbCue; reason: string }[] = [
-  {
-    reason: 'opens "The fuse box looks old" — asserts the photo contains it.',
-    cue: {
-      key: 'fuse-box-rewireable',
-      room: 'kitchen',
-      confidence: 'indicative',
-      costItem: 'rewire',
-      regulation: 'bs7671',
-      basis: 'standard',
-      look: 'Look for an old fuse box with rewireable fuses rather than breakers.',
-      means: 'The fuse box looks old. That does not always mean a full rewire, but budget for an electrician to test it (an EICR) before you buy.',
-      caveat: 'only an EICR confirms what work is needed.',
-    },
-  },
-  {
-    reason: 'opens "This plastic fuse box is legal" — asserts the photo contains it.',
-    cue: {
-      key: 'consumer-unit-plastic',
-      room: 'kitchen',
-      confidence: 'weak',
-      costItem: 'rewire',
-      regulation: 'bs7671-421',
-      basis: 'legal',
-      look: 'Look for a white plastic consumer unit with modern breakers.',
-      means: 'This plastic fuse box is legal, but any new one must be metal. Not urgent, but worth noting.',
-      caveat: 'a plastic board fitted when the rules allowed is still legal.',
-    },
-  },
+  // Empty: all forty of the research are served. The mechanism stays because
+  // the next paste may need it, and an entry here is an honest "we have this,
+  // we are not showing it, here is why" rather than a silent deletion.
 ];
 
 /** True once the operator's research is in. Nothing is served until it is. */

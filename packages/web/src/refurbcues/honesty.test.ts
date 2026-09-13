@@ -14,8 +14,10 @@
  *  1. IT DID NOT CATCH AN ASSERTION. "The fuse box looks old" contains none of
  *     the banned phrases, but it still tells someone the photograph has a fuse
  *     box in it, which we cannot know. The guard now catches a sentence that
- *     OPENS by asserting the thing is there. Two of the forty fail on this and
- *     are withheld rather than reworded — see WITHHELD in library.ts.
+ *     OPENS by asserting the thing is there. Two of the forty failed on this
+ *     and were withheld rather than reworded; the operator has since reworded
+ *     their openings, so all forty now ship and WITHHELD is empty. The rule
+ *     that caught them has NOT been relaxed — see the fixtures below.
  *  2. ITS HEDGE VOCABULARY WAS TOO SMALL. It knew "may" and "might" but not
  *     "can mean", "usually", "checked" or "ask". Those are real hedges, so the
  *     list grew and the matching became word-stem based. This is the guard
@@ -59,13 +61,27 @@ const CLAIMS_SIGHT = [
   'we can see', 'we see', 'this photo shows', 'the photo shows', 'the image shows',
   'we have spotted', 'we spotted', 'we detected', 'detected', 'appears to be',
   'looks like it has', 'visible in this', 'shown here', 'as seen',
+  // R3.2 — all verified walking through. Note "you can see" is NOT banned:
+  // a shipped cue honestly says "rot you can see", meaning what the READER can
+  // see on the viewing. Locating the claim in the photograph is the fault.
+  'in the photo', 'in this photo', 'in the photograph', 'in the image',
+  'in these photos', 'in the picture', 'we noticed', 'we can tell', 'visible here',
+  'we have seen', 'we have looked',
 ];
 
 /**
  * The same claim in any number: "these photos show", "the images reveal". The
  * list above could only ever be singular, and one letter defeated it.
  */
-const SIGHT_RE = /\b(photo|photos|image|images|picture|pictures|shot|shots)\s+(show|shows|showed|reveal|reveals|confirm|confirms|prove|proves)\b/;
+const SIGHT_RE = new RegExp(
+  '\\b(photo|photos|photograph|photographs|image|images|picture|pictures|shot|shots)\\s+'
+  // NOT a claim when it is a denial — "photos rarely show the whole roof" and
+  // "a photo cannot tell condensation from a leak" are honest and shipped.
+  + '(?!rarely|never|seldom|barely|hardly|cannot|can\'t|do not|will not|may not)'
+  // one adverb is all it took: "The photo CLEARLY shows…", "These photos ALL show…"
+  + '(?:[a-z]+ly\\s+|all\\s+|already\\s+)?'
+  + '(show|shows|showed|reveal|reveals|confirm|confirms|prove|proves|suggest|suggests|indicate|indicates)\\b',
+);
 
 /**
  * A claim about THIS property. Every tip is general by construction — it is
@@ -74,7 +90,7 @@ const SIGHT_RE = /\b(photo|photos|image|images|picture|pictures|shot|shots)\s+(s
  * follows. The operator's own example of the indefensible was exactly this
  * shape: "This property needs rewiring".
  */
-const ABOUT_THIS_ONE = /\b(this|that)\s+(property|house|home|flat|place|one)\b/;
+const ABOUT_THIS_ONE = /\b(this|that)\s+(property|house|home|flat|place|one|listing|address|kitchen|bathroom|bedroom|room|roof|board|boiler|extension|chimney|wall|window|unit|garden)\b/;
 
 /**
  * Stating a conclusion only a survey, an EICR or a gas check could reach.
@@ -89,7 +105,27 @@ const DIAGNOSES = [
   'is not safe', 'are not safe', 'needs a', 'requires a', 'will need a', 'would fail',
   'is subsiding', 'has rotted', 'have rotted', 'is a fire risk', 'rising damp',
   'must come out', 'does not comply', 'is illegal', 'contains asbestos',
+  // R3.2 — the plural of a banned verdict was never banned, which is the same
+  // one-letter fault the sight rule learned in R3.1. Also the near-synonyms.
+  'are unsafe', 'are dangerous', 'are rotten', 'are damp', 'are a fire risk',
+  'contain asbestos', 'need replacing', 'need rewiring',
+  // NOT banned: 'is a safety worry'. Cue #5 ships "A socket right beside the
+  // sink is a safety worry" and the research calls that placement "a legitimate
+  // EICR/safety concern". A worry is a precaution; "unsafe" and "hazard" are
+  // verdicts on an installation nobody has inspected. If the operator disagrees,
+  // add the phrase here and #5 moves to WITHHELD — the guard decides, not taste.
+  'is a safety hazard', 'are a safety hazard',
+  'is penetrating damp', 'is water damage', 'is asbestos', 'is finished',
+  'needs to be replaced', 'will need rewiring', 'needs a new',
 ];
+
+/**
+ * A verdict is not a verdict when it is hedged. "can contain asbestos" and
+ * "often need replacing" are honest, shipped, and would otherwise be banned by
+ * the list above — so a hedging word immediately before the phrase disarms it,
+ * and a bare "contain asbestos" still fails.
+ */
+const DISARMS = /\b(can|could|may|might|often|usually|sometimes|rarely|never|not|do not|cannot)\s$/;
 
 /**
  * Word STEMS that turn a statement into a prompt to investigate. Matched at a
@@ -111,7 +147,15 @@ const HEDGES = [
  * "This plastic fuse box is legal". The one to three words in the middle are
  * what separate an assertion from a plain reference like "That is cheap".
  */
-const ASSERTS = /^(this|that|these|those|the)\s+(?:[a-z][a-z-]*\s+){1,3}(is|are|was|were|looks|look|has|have)\b/;
+const ASSERTS = /^(this|that|these|those|the)\s+(?:[a-z0-9'’-]+\s+){1,5}(is|are|was|were|looks|look|has|have|shows|show)\b/;
+
+/**
+ * ASSERTS is anchored, so it only ever sees the start of a CLAUSE — and the
+ * sentence splitter only broke on . ! ?. A comma, semicolon, dash or colon hid
+ * an assertion completely: "Worth noting, the fuse box is an old rewireable
+ * one." So clauses are split on those too.
+ */
+const clauses = (s: string): string[] => s.split(/[.!?;:,—]+\s*/).map((x) => x.trim()).filter(Boolean);
 
 const sentences = (s: string): string[] => s.split(/(?<=[.!?])\s+/).map((x) => x.trim()).filter(Boolean);
 const hedged = (s: string): boolean => HEDGES.some((h) => new RegExp(`\\b${h}`, 'i').test(s));
@@ -126,12 +170,17 @@ export function honestyProblems(cue: RefurbCue): string[] {
   if (SIGHT_RE.test(text)) out.push(`${cue.key}: claims sight — "${SIGHT_RE.exec(text)?.[0]}"`);
   if (ABOUT_THIS_ONE.test(text)) out.push(`${cue.key}: speaks about THIS property — "${ABOUT_THIS_ONE.exec(text)?.[0]}"`);
   for (const phrase of DIAGNOSES) {
-    if (new RegExp(`\\b${phrase}\\b`).test(text)) out.push(`${cue.key}: diagnoses — "${phrase}"`);
+    const at = new RegExp(`\\b${phrase}\\b`).exec(text);
+    if (at !== null && !DISARMS.test(text.slice(0, at.index))) {
+      out.push(`${cue.key}: diagnoses — "${phrase}"`);
+    }
   }
-  for (const s of [...sentences(cue.look), ...sentences(cue.means), ...sentences(cue.caveat)]) {
+  for (const s of [...clauses(cue.look), ...clauses(cue.means), ...clauses(cue.caveat)]) {
     if (ASSERTS.test(s.toLowerCase())) out.push(`${cue.key}: asserts the photo contains it — "${s}"`);
   }
-  if (cue.caveat.trim() === '') out.push(`${cue.key}: no caveat`);
+  // A caveat of "." or "n/a" satisfied "not empty" while rendering as a third
+  // of the tip saying nothing. The shortest honest one shipped is 12 characters.
+  if (cue.caveat.trim().length < 10) out.push(`${cue.key}: no real caveat`);
   if (cue.confidence === 'indicative' || cue.confidence === 'weak') {
     if (!hedged(cue.means)) out.push(`${cue.key}: ${cue.confidence} but states it flatly — no hedge in "means"`);
   }
@@ -250,8 +299,95 @@ describe('the guard catches what it claims to catch', () => {
     expect(honestyProblems(fine)).toEqual([]);
   });
 
-  it('CATCHES a dropped caveat', () => {
-    expect(honestyProblems({ ...base, caveat: '   ' }).join(' ')).toContain('no caveat');
+  /**
+   * R3.2 — A SECOND ADVERSARIAL PASS. Every wording below was VERIFIED scoring
+   * zero problems against the R3.1 guard. They are here so the holes cannot
+   * reopen, and because a guard nobody attacks is a guard nobody has tested.
+   */
+  it('CATCHES "photograph" — the synonym that defeated both sight rules', () => {
+    for (const bad of [
+      'The photograph shows an old fuse box with rewireable fuses.',
+      'The photographs reveal a cracked chimney stack.',
+      'The photo clearly shows scorching around the board.',
+      'These photos all show damp staining along the skirting.',
+      'These images suggest a rewireable board behind the door.',
+    ]) {
+      expect(honestyProblems({ ...base, means: `${bad} Ask an electrician to check it.` }), bad).not.toEqual([]);
+    }
+  });
+
+  it('CATCHES a claim located in the photograph', () => {
+    for (const bad of [
+      'In the photo you can see black mould around the shower seal.',
+      'We noticed an old fuse box in the hall.',
+    ]) {
+      expect(honestyProblems({ ...base, look: bad }), bad).not.toEqual([]);
+    }
+  });
+
+  it('but leaves "rot you can see" alone — that is the READER looking, on the viewing', () => {
+    const fine = { ...base, look: 'Look for old timber windows with peeling paint, or rot you can see.' };
+    expect(honestyProblems(fine)).toEqual([]);
+  });
+
+  it('CATCHES an assertion hidden behind a prepositional phrase or a comma', () => {
+    for (const bad of [
+      'The fuse box in the hall is old and tired.',
+      'The fuse box under the stairs is old and tired.',
+      'Worth noting, the fuse box is an old rewireable one.',
+      'Budget for an electrician; the consumer unit is plastic and original.',
+    ]) {
+      expect(honestyProblems({ ...base, means: `${bad} Ask for an EICR.` }).join(' '), bad).toContain('asserts');
+    }
+  });
+
+  it('CATCHES a claim about this kitchen, this roof, this listing', () => {
+    for (const bad of [
+      'You can expect a full rewire in this kitchen.',
+      'This roof will cost about £8,000 to replace.',
+      'In this listing the kitchen is the original one.',
+    ]) {
+      expect(honestyProblems({ ...base, means: `${bad} Ask for quotes.` }).join(' '), bad).toContain('THIS property');
+    }
+  });
+
+  it('CATCHES the PLURAL of a banned verdict — the same one-letter fault, again', () => {
+    for (const bad of [
+      'Fuse boards of that age are unsafe.',
+      'Textured ceilings of that age contain asbestos.',
+      'Walls like that are damp behind the plaster.',
+      'Boilers of that age need replacing now.',
+    ]) {
+      expect(honestyProblems({ ...base, means: `${bad} Ask a surveyor to check.` }), bad).not.toEqual([]);
+    }
+  });
+
+  it('but a HEDGED verdict is not a verdict — both of these are shipped and honest', () => {
+    for (const fine of [
+      'Textured ‘Artex’ ceilings in older homes can contain asbestos. Get it tested before any work.',
+      'Old boilers often need replacing soon. Ask its age and for the gas safety record.',
+    ]) {
+      expect(honestyProblems({ ...base, means: fine }), fine).toEqual([]);
+    }
+  });
+
+  it('CATCHES the cue whose every field was dishonest and scored zero', () => {
+    const bad: RefurbCue = {
+      ...base,
+      look: 'In the photo you can see a rewireable fuse box under the stairs.',
+      means: 'The photograph shows scorching around the fuses. Worth pricing a full rewire at about £6,000.',
+      caveat: 'the photos clearly show the board is past its life, so price it in.',
+    };
+    expect(honestyProblems(bad).length).toBeGreaterThan(2);
+  });
+
+  it('CATCHES a dropped caveat — and one that is there in name only', () => {
+    expect(honestyProblems({ ...base, caveat: '   ' }).join(' ')).toContain('no real caveat');
+    // "not empty" was satisfied by a full stop, which renders as a third of the
+    // tip saying nothing while the build stays green
+    for (const thin of ['.', '—', 'n/a', 'tbc']) {
+      expect(honestyProblems({ ...base, caveat: thin }).join(' '), thin).toContain('no real caveat');
+    }
   });
 
   it('lets CONCLUSIVE and STRONG state the general fact plainly — never diagnose', () => {
@@ -319,6 +455,17 @@ describe('every shipped cue obeys the rules', () => {
     }
   });
 
+  /**
+   * THE COUNTS THE PROSE QUOTES. types.ts and carousel.tsx both state how many
+   * cues rest on trade experience, and docs/FEATURE_FLAGS.md quotes both
+   * numbers. "Twelve" survived in three files after MEES was dropped from three
+   * more cues, because nothing checked it. If this fails, fix the prose.
+   */
+  it('fifteen cues carry no regulation, five carry no cost item', () => {
+    expect(CUES.filter((c) => c.regulation === null)).toHaveLength(15);
+    expect(CUES.filter((c) => c.costItem === null)).toHaveLength(5);
+  });
+
   it('every cue has a real room, and a unique key', () => {
     const seen = new Set<string>();
     for (const c of CUES) {
@@ -326,6 +473,16 @@ describe('every shipped cue obeys the rules', () => {
       expect(seen.has(c.key), `duplicate key ${c.key}`).toBe(false);
       seen.add(c.key);
     }
+  });
+
+  /**
+   * `confidence` is data in the same paste as the wording, and it is the switch
+   * for the hedge rule — set it to 'conclusive' and that rule is skipped. The
+   * research assigns 'conclusive' to NOTHING, so neither do we: a cue cannot
+   * opt itself out of the one rule that still bites once the lists are dodged.
+   */
+  it('no cue declares itself conclusive — the research never does either', () => {
+    for (const c of CUES) expect(c.confidence, c.key).not.toBe('conclusive');
   });
 
   it('the library is in, and covers every room a person can tap', () => {
@@ -383,6 +540,16 @@ describe('every shipped cue obeys the rules', () => {
 });
 
 describe('the withheld cues were withheld FOR CAUSE, and are provably out', () => {
+  /**
+   * Nothing is withheld today: all forty are served. Said out loud, because the
+   * three loops below pass vacuously on an empty list and a reader deserves to
+   * know which of the two situations they are in.
+   */
+  it('right now NOTHING is withheld — all forty ship', () => {
+    expect(WITHHELD).toEqual([]);
+    expect(CUES).toHaveLength(40);
+  });
+
   it('each one actually fails the guard — it is not a matter of taste', () => {
     for (const { cue } of WITHHELD) {
       expect(honestyProblems(cue), cue.key).not.toEqual([]);

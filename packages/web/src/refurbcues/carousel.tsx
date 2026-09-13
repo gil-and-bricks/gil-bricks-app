@@ -120,7 +120,7 @@ export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItem
                 <p class="rc-tip-look">{cue.look}</p>
                 <p class="rc-tip-means">{cue.means}</p>
                 <p class="rc-tip-caveat"><strong>{P.tip.caveatLabel}:</strong> {cue.caveat}</p>
-                {/* The rule behind it, and WHAT KIND of rule — twelve of the forty
+                {/* The rule behind it, and WHAT KIND of rule — fifteen of the forty
                     rest on trade experience alone, and those say so instead. */}
                 {regOf(cue) !== null
                   ? <p class="rc-tip-reg">{P.tip.regulation(regOf(cue)!.name, regOf(cue)!.lastChecked)} · {P.tip.basis[cue.basis]}</p>
