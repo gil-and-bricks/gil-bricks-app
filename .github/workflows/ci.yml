@@ -157,3 +157,17 @@ jobs:
         env:
           CHROME_PATH: /usr/bin/google-chrome
         run: npm run copy-gate -w packages/web
+
+      # The render gate. The copy gate above reads the words on the page; this
+      # one asks whether there is a page at all — no uncaught error, no big
+      # empty box, no loading placeholder still up after six seconds, and a
+      # floor plan tool whose controls are on the screen.
+      #
+      # It runs at DESKTOP as well as phone width, which is the whole point:
+      # 2,170 unit tests and the copy gate were all green while the floor plan
+      # surface was a 1048px black rectangle, because `aspect-ratio: 4/5` only
+      # misbehaves on a wide viewport and nothing ever looked at one.
+      - name: Render gate
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run render-gate -w packages/web

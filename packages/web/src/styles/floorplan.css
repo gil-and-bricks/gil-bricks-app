@@ -15,8 +15,15 @@
 .tp-intro { margin: 0; font-size: .85rem; opacity: .8; }
 .tp-caveat { margin: 0; font-size: .75rem; opacity: .7; }
 
+/* The 4/5 shape came from the EXTENSION, where this lived in a side panel about
+   400px wide — 500px tall, and the controls sat just under it. F1 moved the
+   stylesheet across unchanged, into a card that is the full width of the page:
+   at 838px wide, 4/5 is 1048px tall. The surface became a screen-filling black
+   rectangle with every control pushed below the fold, which reads exactly like
+   a dead tool. The ratio is still right on a phone; it needs a ceiling. */
 .tp-surface {
   position: relative; width: 100%; aspect-ratio: 4 / 5;
+  max-height: min(70vh, 560px);
   border: 1px solid rgba(255,255,255,.15); border-radius: 10px; overflow: hidden;
   background: var(--bg-3);
 }

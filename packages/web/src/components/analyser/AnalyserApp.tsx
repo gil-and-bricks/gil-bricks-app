@@ -310,17 +310,35 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
   );
 }
 
+/**
+ * THE LOADING PLACEHOLDERS — and why they now SAY something.
+ *
+ * These two cards used to be `aria-hidden` with no text at all. That is fine
+ * for the half-second they are normally up, and indefensible for the case that
+ * actually reached the operator: a sold-price fetch that never settles leaves
+ * `busy` true for ever, and the page then shows TWO EMPTY BOX OUTLINES below
+ * the refurb section with nothing in them, no message, and nothing for a screen
+ * reader either. Two blank rectangles are not a loading state; they read as a
+ * broken page, and that is exactly how they were reported.
+ *
+ * So the first card carries the words, the second stays decorative, and the
+ * whole group is a live region.
+ */
 function SkeletonCards() {
   return (
-    <div aria-hidden="true">
-      {[1, 2].map(() => (
-        <section class="glass card">
-          <div class="skeleton sk-title" />
-          <div class="skeleton sk-line" />
-          <div class="skeleton sk-line" />
-          <div class="skeleton sk-line short" />
-        </section>
-      ))}
+    <div class="sk-cards" role="status" aria-live="polite">
+      <section class="glass card">
+        <p class="hint sk-saying">{COPY.analyser.loadingComps}</p>
+        <div class="skeleton sk-line" aria-hidden="true" />
+        <div class="skeleton sk-line" aria-hidden="true" />
+        <div class="skeleton sk-line short" aria-hidden="true" />
+      </section>
+      <section class="glass card" aria-hidden="true">
+        <div class="skeleton sk-title" />
+        <div class="skeleton sk-line" />
+        <div class="skeleton sk-line" />
+        <div class="skeleton sk-line short" />
+      </section>
     </div>
   );
 }

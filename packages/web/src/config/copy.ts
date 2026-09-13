@@ -19,6 +19,8 @@ export const COPY = {
     startSubject: 'Start with the postcode, price and property type.',
     startComps: 'Start with a postcode to see nearby sold prices.',
     outsideEnglandWales: 'We only have sold prices for England and Wales.',
+    /** Said INSIDE the loading placeholders. Two blank cards say nothing. */
+    loadingComps: 'Loading nearby sold prices…',
     loadFailed: 'We couldn’t load sold prices. Try again in a moment.',
     loadFailedTitle: 'Couldn’t load the sales data',
     noVerdictYet: 'No verdict for this strategy yet. The comps and valuation below still work.',
