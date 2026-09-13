@@ -2,6 +2,92 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — R2: regional refurb suggestions
+
+### The research did not arrive, so no figure was invented
+
+- **The brief said "the full specification is in the research I am pasting
+  below". Nothing was pasted** — the message ends at the verification list.
+  There were no base figures, no regional multipliers, no ranges, no labour
+  factors, no VAT basis and no compile date.
+- **So the machine was built and every number left `null`**, exactly as R1 did
+  and for the same reason: a guess at UK refurb costs, shipped under his name,
+  on the one figure that moves a flip most. `refurbFigures.ts` now carries the
+  full R2 shape — items, ten regional multipliers, four labour factors, review
+  date, VAT flag, ONS uprating method — all empty, all documented in place.
+- **While it is empty the page is exactly what R1 shipped**: a typed total, a
+  tickable breakdown, one honest line saying figures are not in yet. No region
+  line, no labour selector, no contingency row, no caveat. A control that cannot
+  do anything is worse than no control, so `suggestionsReady()` gates the lot on
+  "one item priced AND every region multiplied AND every labour factor set".
+  Partial data offers nothing.
+- **Proof it works is in the tests, not in the config.** `RefurbSection.r2.test.tsx`
+  mocks the figures module with arbitrary values and holds 24 behaviours. Its
+  header says in terms that those numbers are not suggestions and are not shipped.
+
+### Region is inferred, and the country outranks the letters
+
+- **Postcode area → one of the ten regions**, with `country` taking precedence:
+  ONSPD knows where the Welsh border actually is and the letters do not, so a
+  Flintshire CH postcode lands in Wales even though CH is otherwise North West.
+  A test holds exactly that case.
+- **The map is an approximation and the code says so.** CH, SY, HR, TD and DG
+  straddle borders. That is why point 1 asked for a way to change it, and why
+  the line reads "Figures for the North West. Change region" rather than
+  claiming certainty. An unmappable postcode shows the picker instead of guessing.
+- 46 tests, including one asserting every region is reachable and every mapped
+  area resolves.
+
+### CONTINGENCY: the brief asked for something that would have double-counted
+
+- **Only flip has a contingency, and its engine already applies it to refurb**
+  (`contingencyPct`, 10% default, in flip's assumptions). BTL, BRRRR and HMO have
+  none at all.
+- **So an unconditional refurb contingency line would have double-counted on
+  flip** — the exact class of silent wrong number the operator overruled the VAT
+  toggle to avoid — **or been a dead input on the other three**, which is the
+  fault R1 existed to remove.
+- **Resolved: the section draws the contingency row only where the strategy
+  actually applies one, bound to the EXISTING `contingencyPct` param.** Flip's
+  engine is untouched, nothing is double-counted, and the working shows the
+  contingency line. On BTL/BRRRR/HMO there is no row, because there is nothing
+  for it to do. **This is a deliberate departure from point 5** and the
+  alternative — adding contingency to three more engines — would have moved the
+  score on every saved deal, which point 10 forbids.
+
+### The rest
+
+- **Ticking fills the row** with the mid-point for this region, this property and
+  this labour choice, already editable, with the range printed under it. Nothing
+  is ever pre-filled unticked.
+- **Rows that cannot be sized refuse rather than guess.** `perSqm` without a
+  floor area says "Add a floor area to size this one"; `beds` without bedrooms
+  says the same about bedrooms. A guessed row would contribute to a total
+  somebody then trusts.
+- **Windows are counted, prefilled from bedrooms, and labelled "A guess from the
+  bedrooms. Change it."** A typed count stops being called a guess.
+- **A rewire is BANDED by bedrooms, not multiplied by them** — bands match
+  numerically ("1-2", "3", "4+"), never as strings.
+- **No VAT toggle**, per the operator's overrule. One flag in his config decides
+  what the caveat tells people to check, and with it unset the caveat says
+  nothing about VAT rather than guessing.
+- **The caveat sits where the number is**, not in a footnote, and is not softened.
+- **The working is a real table** — five columns of the same arithmetic per row —
+  showing base (with × quantity where sized), regional multiplier, labour factor,
+  the row figure, then subtotal, contingency and total.
+- **Uprating documented in config**: ONS Construction Output Price Index, the
+  REPAIR AND MAINTENANCE series specifically (new build tracks different work and
+  would drift these the wrong way), with the five-step annual method and a note
+  that ratios are not uprated.
+
+### Verified
+
+- 1,936 tests (up 95), typecheck clean, all three builds, flags-off green, copy
+  gate passed. Lighthouse over three runs a side: performance 96/95/96 before,
+  95/95/96 after — medians 96 and 95, inside run-to-run variance; accessibility
+  100 and best-practices 96 unchanged. The one point is not claimed as "no
+  change" and not treated as a regression.
+
 ## 2026-09-13 — R1: the itemised refurb section
 
 ### The brief's premise was wrong, and the finding is worse than the premise
