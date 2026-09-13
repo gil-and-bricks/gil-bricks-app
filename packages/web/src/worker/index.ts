@@ -42,6 +42,8 @@ import { ackChainRisk, ackChange, boardRows, boardWindow, dealCounts, listDeaths
 import { BOARD_PAGE, DAILY_CRON, DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, MAX_LIVE_DEALS, PARK_REASON_KEYS, URGENCY, statusForStage } from '../config/pipeline';
 import { datesOn, rankUrgent } from '../lib/deals/urgency';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear, handleDevPreview } from './dev';
+import { withSecurityHeaders } from './lib/securityHeaders';
+import { consume, identityOf, sweepRateLimits, type RateLimitRule } from './lib/rateLimit';
 
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
@@ -386,6 +388,26 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
       ).bind(unsubId, user.email, now),
     );
   }
+  // S1 — THE PIPELINE IS DELETED EXPLICITLY, NOT BY CASCADE.
+  //
+  // Every one of these six tables cascades from users/deals, and D1 does run
+  // with `PRAGMA foreign_keys = 1`, so the cascade works today — this is not a
+  // bug being fixed, it is a promise being made ours. "Delete everything"
+  // currently depends on a pragma the platform sets and we neither control nor
+  // test; a changed default, or one migration that recreated a table without
+  // its FK, would silently leave somebody's entire pipeline behind and nothing
+  // would fail. Deleted here in dependency order, children first, it is true
+  // whether or not anything else enforces it — and a test proves it with
+  // foreign keys switched OFF.
+  const ownDeals = 'SELECT id FROM deals WHERE user_id = ?';
+  stmts.push(
+    env.DB.prepare(`DELETE FROM deal_facts WHERE deal_id IN (${ownDeals})`).bind(user.sub),
+    env.DB.prepare(`DELETE FROM deal_verdicts WHERE deal_id IN (${ownDeals})`).bind(user.sub),
+    env.DB.prepare(`DELETE FROM deal_stage_history WHERE deal_id IN (${ownDeals})`).bind(user.sub),
+    env.DB.prepare(`DELETE FROM deal_changes WHERE deal_id IN (${ownDeals})`).bind(user.sub),
+    env.DB.prepare(`DELETE FROM deal_deaths WHERE deal_id IN (${ownDeals})`).bind(user.sub),
+    env.DB.prepare('DELETE FROM deals WHERE user_id = ?').bind(user.sub),
+  );
   stmts.push(
     // F1/F3: a bridging enquiry is personal data too — deleting the account
     // deletes it, and with it the broker's link, which resolves by row.
@@ -1243,6 +1265,15 @@ async function handleAckChange(request: Request, env: Env, dealId: string, chang
  * Public on purpose — it needs no sign-in, because it reveals nothing that the
  * register's own public website does not already show for the same address.
  */
+/**
+ * S1 — the only limit in the product, on the only endpoint where an anonymous
+ * caller can make us spend a third-party credential. Generous on purpose:
+ * somebody working through a street of properties does perhaps a dozen lookups
+ * in ten minutes, and only MISSES are charged, so re-opening the same property
+ * costs nothing. A script sweeping postcodes hits it almost immediately.
+ */
+const EPC_LOOKUP_LIMIT: RateLimitRule = { bucket: 'epc', limit: 30, windowSeconds: 600 };
+
 async function handleEpcLookup(request: Request, env: Env): Promise<Response> {
   if (!features.epcRegisterLookup) return json({ ok: false, reason: 'unavailable' }, 404);
   const url = new URL(request.url);
@@ -1261,6 +1292,13 @@ async function handleEpcLookup(request: Request, env: Env): Promise<Response> {
   // A cached answer is the same answer, so say so — the figure is not fresher
   // for having cost a round trip.
   if (cached) return json(cached, 200, { 'cache-control': 'private, max-age=300' });
+
+  // A MISS is about to spend our EPC bearer token upstream, so this is where
+  // the limit is charged — never on a hit, which costs the register nothing.
+  const quota = await consume(env.DB, EPC_LOOKUP_LIMIT, identityOf(request), now);
+  if (!quota.allowed) {
+    return json({ ok: false, reason: 'unavailable' }, 429, { 'retry-after': String(quota.retryAfterSeconds) });
+  }
 
   const result = await lookupFromRegister(postcode, subject, env.EPC_BEARER_TOKEN);
   await writeCache(env.DB, key, postcode, result, now).catch(() => undefined);
@@ -1341,6 +1379,14 @@ async function handleDealHistory(request: Request, env: Env, dealId: string): Pr
   if (!features.dealPipeline || !features.verdictChanges) return json({ error: 'not found' }, 404);
   const user = await currentUser(request, env);
   if (!user) return json({ error: 'not signed in' }, 401);
+  // S1 — GATE AT THE HANDLER, like every other id route. `scoreHistory` does
+  // check ownership and returned an empty list, so nothing ever leaked; but the
+  // check lived in ONE place, inside a helper, and this route answered 200
+  // where the other eleven answer 404. A refactor of that helper would have
+  // leaked silently with nothing at the door to stop it. Now it is refused
+  // here, and refused there, and the shape matches the rest of the API.
+  const owned = await getOwnedDeal(env.DB, user.sub, dealId);
+  if (!owned) return json({ error: 'not found' }, 404);
   const points = await scoreHistory(env.DB, user.sub, dealId);
   return json({ points });
 }
@@ -1492,7 +1538,22 @@ async function processOutbox(env: Env, nowMs = Date.now()): Promise<void> {
 }
 
 export default {
+  /**
+   * S1 — ONE EXIT. Every response, from every route and from the static assets,
+   * leaves through here and picks up the security headers on the way out, so a
+   * route added later cannot forget them. Handlers that set a stricter value of
+   * their own (the broker pages' `no-referrer`) keep it.
+   */
   async fetch(request: Request, env: Env): Promise<Response> {
+    return withSecurityHeaders(await route(request, env));
+  },
+
+  async scheduled(event: { cron?: string }, env: Env): Promise<void> {
+    return scheduled(event, env);
+  },
+};
+
+async function route(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
     const method = request.method;
@@ -1566,9 +1627,9 @@ export default {
       return json({ error: 'not found' }, 404);
     }
     return env.ASSETS.fetch(request);
-  },
+}
 
-  async scheduled(event: { cron?: string }, env: Env): Promise<void> {
+async function scheduled(event: { cron?: string }, env: Env): Promise<void> {
     // The daily trigger only stamps staleness (P8): it computes, it never
     // notifies, and this app still sends no email of any kind. Every other
     // trigger is the Kit outbox safety net.
@@ -1588,6 +1649,12 @@ export default {
       // Sweep expired EPC cache rows (E1). Separately guarded: the cache is a
       // convenience, and losing a sweep must never cost the staleness stamp.
       try {
+        await sweepRateLimits(env.DB, Date.now());
+      } catch (err) {
+        clean = false;
+        console.error(`rate limit sweep failed: ${String(err)}`);
+      }
+      try {
         await sweepEpcCache(env.DB, Date.now());
       } catch (err) {
         clean = false;
@@ -1600,5 +1667,4 @@ export default {
     // processOutbox used to be invisible; now it goes stale within 90 minutes.
     await processOutbox(env);
     await stampHeartbeat(env, 'outbox');
-  },
-};
+}

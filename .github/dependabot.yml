@@ -1,0 +1,34 @@
+# S1 — keeping dependencies current without anybody watching.
+#
+# The operator is non-technical and will not be reading audit output. This opens
+# a pull request when something needs updating, so the decision arrives as a
+# thing to click rather than a thing to remember.
+#
+# WEEKLY, GROUPED, AND SMALL. One grouped PR for patch/minor beats fifteen
+# separate ones nobody merges. Majors come on their own, because a major is a
+# decision and deserves to be read.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      # Everything safe, in one PR a week. CI proves it before it can merge.
+      safe-updates:
+        patterns: ['*']
+        update-types: ['minor', 'patch']
+    ignore:
+      # Majors of the two build tools are deliberate, hand-tested upgrades:
+      # wrangler changes how the Worker deploys and wxt how the extension builds.
+      - dependency-name: wrangler
+        update-types: ['version-update:semver-major']
+      - dependency-name: wxt
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

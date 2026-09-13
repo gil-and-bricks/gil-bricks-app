@@ -292,8 +292,12 @@ describe('a verdict change (P6) is stored with the fact that caused it', () => {
     const res = await worker.fetch(new Request(`https://s.test/api/deals/${DEAL}/history`, { headers: await authed() }), env());
     const { points } = await res.json() as { points: { score: number }[] };
     expect(points.map((p) => p.score)).toEqual([6.8]);
+    // S1: this used to answer 200 with an empty list. It now refuses outright,
+    // like every other id route, so the ownership check is at the door as well
+    // as inside the helper.
     const theirs = await worker.fetch(new Request(`https://s.test/api/deals/${OTHER}/history`, { headers: await authed() }), env());
-    expect((await theirs.json() as { points: unknown[] }).points).toEqual([]);
+    expect(theirs.status).toBe(404);
+    expect(await theirs.text()).not.toContain('score');
   });
 
   it('with the flag off nothing is announced and both routes are gone', async () => {

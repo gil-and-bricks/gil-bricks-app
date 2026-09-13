@@ -52,6 +52,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm test -w packages/extension
 
+      # S1 — PRODUCTION dependencies only. `npm audit` over everything is mostly
+      # build-tool noise nobody acts on, and a gate people ignore is not a gate.
+      # This fails only on what actually ships to a user's browser or runs in the
+      # Worker, which is the set worth waking up for.
+      - name: Audit — production dependencies
+        if: ${{ !cancelled() }}
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Typecheck — all three packages
         if: ${{ !cancelled() }}
         run: npm run typecheck
