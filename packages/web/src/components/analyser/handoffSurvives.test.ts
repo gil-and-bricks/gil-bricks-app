@@ -13,6 +13,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { features } from '../../config/features';
+import { READ_ONCE } from './arrival';
 import { CRITERIA_PARAMS, FLOORPLAN_PARAM, PHOTOS_PARAM, MEASURED_PARAMS } from '@gil-bricks/core';
 
 /** A handoff with every field the extension can send, all at once. */
@@ -60,13 +61,27 @@ async function loadWith(query: string) {
 const FULL = new URLSearchParams(ARRIVING).toString();
 
 /**
- * What must survive. The D4 criteria are emitted only when their own flag is
- * on — that flag IS the switch, so with it off their absence is the feature
- * working, not a parameter being lost. Everything else must always survive.
+ * What must survive, and what must NOT.
+ *
+ * Two exceptions, both deliberate and both worth naming so nobody later
+ * "fixes" them:
+ *
+ *  - READ_ONCE (arrival.ts) is stripped on purpose, by AnalyserApp, the moment
+ *    it is captured. A link copied before the first edit must never tell a
+ *    stranger which deal it came from or that their numbers are evidenced.
+ *    Those values live in memory for this view; their absence from the address
+ *    is the privacy feature working.
+ *  - The D4 criteria are emitted only when their own flag is on. That flag IS
+ *    the switch, so with it off their absence is not a loss either.
+ *
+ * Everything else came from the listing, cannot be retyped, and must survive.
  */
+const readOnce: string[] = [...READ_ONCE];
 const mustSurvive = (): string[] => {
   const criteria: string[] = Object.values(CRITERIA_PARAMS);
-  return Object.keys(ARRIVING).filter((k) => features.criteriaHandoff || !criteria.includes(k));
+  return Object.keys(ARRIVING)
+    .filter((k) => !readOnce.includes(k))
+    .filter((k) => features.criteriaHandoff || !criteria.includes(k));
 };
 
 describe('a handoff survives being edited', () => {
@@ -109,6 +124,18 @@ describe('a handoff survives being edited', () => {
     const { written, update } = await loadWith(FULL);
     update({ price: '105000' });
     expect(written().get('price')).toBe('105000');
+  });
+
+  it('but the read-once markers are deliberately NOT carried — that is the privacy rule', async () => {
+    const { written, updateStrategy } = await loadWith(FULL);
+    updateStrategy({ gdv: '131000' });
+    // they are still in `written` here because this drives the writer directly;
+    // AnalyserApp deletes them from the address on arrival. What matters is that
+    // nobody has quietly added them to the must-survive set.
+    for (const k of readOnce) {
+      expect(mustSurvive(), `${k} must never be required to survive`).not.toContain(k);
+    }
+    expect(written().get('gdv')).toBe('131000');
   });
 
   it('and an unknown future parameter is carried too, without anyone adding it here', async () => {
