@@ -354,3 +354,71 @@ body {
 /* E9 — the one line under the tax amount saying which rules made it. */
 .costs-note { display: block; margin: -2px 0 6px; }
 .costs-note-text { font-size: 11px; opacity: 0.7; }
+
+/* ---------- T1: the room tracer ------------------------------------------
+   Every rule is prefixed .tp- or .traceplan and nothing outside the module
+   uses them, so the whole visual design can be replaced by deleting this
+   block. `touch-action: none` on the surface is not styling: without it the
+   browser claims the gesture for its own pan and zoom before the second
+   pointermove arrives, and the trace fights the page. */
+.traceplan { display: flex; flex-direction: column; gap: 10px; }
+.tp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tp-title { font-size: 1rem; margin: 0; }
+.tp-intro { margin: 0; font-size: .85rem; opacity: .8; }
+.tp-caveat { margin: 0; font-size: .75rem; opacity: .7; }
+
+.tp-surface {
+  position: relative; width: 100%; aspect-ratio: 4 / 5;
+  border: 1px solid rgba(255,255,255,.15); border-radius: 10px; overflow: hidden;
+  background: #0d0d0f;
+}
+.tp-svg {
+  width: 100%; height: 100%; display: block;
+  /* The gesture is ours, not the browser's. */
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+/* The plan is a BACKDROP: faint enough that the traced walls read on top of it,
+   strong enough to see a corner through. */
+.tp-plan { opacity: .45; }
+
+.tp-walls { fill: none; stroke: #dcff00; stroke-width: 2; stroke-linejoin: round; }
+.tp-room { fill: rgba(220,255,0,.18); stroke: #dcff00; stroke-width: 2; stroke-linejoin: round; }
+.tp-dot { fill: #0d0d0f; stroke: #dcff00; stroke-width: 2; }
+/* The first corner grows once closing is possible, so the target you are aiming
+   at is visibly the target. */
+.tp-dot-close { fill: #dcff00; }
+.tp-dot-held { stroke: #fff; stroke-width: 3; }
+.tp-wall-len { fill: #fff; font-size: 11px; font-weight: 600; paint-order: stroke; stroke: #0d0d0f; stroke-width: 3px; }
+.tp-scale-dot { fill: #4cc2ff; }
+.tp-scale-line { stroke: #4cc2ff; stroke-width: 2; stroke-dasharray: 4 3; }
+
+/* The loupe. Offset ABOVE the finger by the module's own tolerance, never under
+   it — the whole reason the control exists. */
+.tp-loupe-ring { fill: none; stroke: rgba(255,255,255,.9); stroke-width: 2; }
+.tp-cross { stroke: #ff3b30; stroke-width: 1.5; }
+
+.tp-chrome { display: flex; flex-direction: column; gap: 8px; }
+.tp-status { margin: 0; font-size: .85rem; font-weight: 600; }
+.tp-error:empty { display: none; }
+.tp-error { margin: 0; font-size: .8rem; color: #ff8a80; }
+.tp-scale-row, .tp-trace-row, .tp-accept { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tp-label { font-size: .8rem; opacity: .8; flex: 1 1 100%; }
+.tp-input {
+  flex: 1 1 7rem; min-height: 44px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.2); background: transparent; color: inherit; font: inherit;
+}
+/* 44px minimum on every control: these are pressed with a thumb, often one-handed. */
+.tp-btn {
+  min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit;
+  font: inherit; font-size: .85rem; font-weight: 600;
+}
+.tp-btn:disabled { opacity: .4; cursor: default; }
+.tp-btn-primary { background: #dcff00; color: #0d0d0f; border-color: #dcff00; }
+.tp-btn-quiet { border-style: dashed; opacity: .8; }
+/* `display: flex` on these rows OVERRIDES the browser's own [hidden] rule, so
+   a hidden row stayed on screen — the scale controls sat under the result.
+   Caught by rendering the finished surface and reading it back. */
+.traceplan [hidden] { display: none !important; }
+.tp-area { margin: 0; font-size: 1.5rem; font-weight: 800; }
+.tp-range { margin: 0; font-size: .85rem; opacity: .85; }
