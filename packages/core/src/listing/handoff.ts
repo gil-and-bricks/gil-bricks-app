@@ -49,6 +49,20 @@ export const CRITERIA_PARAMS = {
   minProfit: 'minProfit',
 } as const;
 
+/**
+ * F1 — THE FLOOR PLAN'S IMAGE URL, carried like every other field.
+ *
+ * The web app renders it as a backdrop with `<img src>` pointing at the
+ * PORTAL'S OWN SERVER, exactly as the extension did and exactly as the listing
+ * page itself does. We never fetch it, never hold its bytes and never store it:
+ * what travels is an address, the same length as any other query parameter, and
+ * what is kept afterwards is the user's own geometry.
+ *
+ * It rides in the handoff so the plan arrives with the deal at NO extra tap —
+ * the whole point of the handoff is that nothing has to be done twice.
+ */
+export const FLOORPLAN_PARAM = 'fp';
+
 /** The measurement params, likewise. */
 export const MEASURED_PARAMS = { roomSizeFailures: 'roomFails', roomsMeasured: 'roomsMeasured' } as const;
 
@@ -133,6 +147,12 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
       set(MEASURED_PARAMS.roomsMeasured, String(h.measured.roomsMeasured));
     }
   }
+
+  // F1 — the floor plan's address on the portal's server, if the listing had
+  // one. Only ever an https URL; a blob:/data: URL would mean bytes we were
+  // holding, which is the thing this product must never do with their image.
+  const fp = listing.floorPlanImageUrls.status === 'found' ? listing.floorPlanImageUrls.value?.[0] : undefined;
+  if (typeof fp === 'string' && /^https:\/\//i.test(fp.trim())) set(FLOORPLAN_PARAM, fp.trim());
 
   // Auction marker (P4): the listing was an auction. Carried as metadata (like `src`)
   // so the analyser save can flag the deal and the board warns about the legal pack at

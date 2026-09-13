@@ -406,6 +406,8 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     env.DB.prepare(`DELETE FROM deal_stage_history WHERE deal_id IN (${ownDeals})`).bind(user.sub),
     env.DB.prepare(`DELETE FROM deal_changes WHERE deal_id IN (${ownDeals})`).bind(user.sub),
     env.DB.prepare(`DELETE FROM deal_deaths WHERE deal_id IN (${ownDeals})`).bind(user.sub),
+    // F1 — the floor plans drawn for those deals go with them.
+    env.DB.prepare('DELETE FROM deal_floorplans WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM deals WHERE user_id = ?').bind(user.sub),
   );
   stmts.push(
@@ -1025,6 +1027,63 @@ async function handleBrokerEnquiry(request: Request, env: Env, url: URL): Promis
   return html(enquiryDetailsPage(row));
 }
 
+
+/**
+ * F1 — THE DEAL'S FLOOR PLAN. Geometry in, geometry out; never an image.
+ *
+ * The body is the SavedPlan shape from src/floorplan/plan.ts. It is stored as
+ * opaque JSON because the shape is the module's to own and change — but it is
+ * SIZE-CAPPED and SHAPE-CHECKED here, because "opaque" must not mean "anything
+ * the client feels like storing". In particular a data: or blob: URL inside the
+ * JSON would be image bytes arriving by the back door, and is refused outright.
+ */
+const MAX_PLAN_BYTES = 64 * 1024;
+
+function looksLikeGeometry(raw: string): boolean {
+  if (raw.length > MAX_PLAN_BYTES) return false;
+  // The one thing that must never be storable: anything that could carry pixels.
+  if (/data:|blob:|filesystem:|base64|https?:\/\//i.test(raw)) return false;
+  try {
+    const v = JSON.parse(raw) as { v?: unknown; levels?: unknown };
+    return v !== null && typeof v === 'object' && v.v === 1 && Array.isArray(v.levels);
+  } catch {
+    return false;
+  }
+}
+
+async function handleGetFloorPlan(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.floorPlan) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const owned = await getOwnedDeal(env.DB, user.sub, dealId);
+  if (!owned) return json({ error: 'not found' }, 404);
+  const row = await env.DB.prepare('SELECT geometry_json FROM deal_floorplans WHERE deal_id = ? AND user_id = ?')
+    .bind(dealId, user.sub).first<{ geometry_json: string }>();
+  return json({ plan: row?.geometry_json ?? null });
+}
+
+async function handlePutFloorPlan(request: Request, env: Env, dealId: string): Promise<Response> {
+  if (!features.floorPlan) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const owned = await getOwnedDeal(env.DB, user.sub, dealId);
+  if (!owned) return json({ error: 'not found' }, 404);
+  let body: { plan?: unknown };
+  try {
+    body = (await request.json()) as { plan?: unknown };
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const raw = typeof body.plan === 'string' ? body.plan : JSON.stringify(body.plan ?? null);
+  if (!looksLikeGeometry(raw)) return json({ error: 'bad request' }, 400);
+  const now = new Date().toISOString();
+  await env.DB.prepare(
+    `INSERT INTO deal_floorplans (deal_id, user_id, geometry_json, updated_at) VALUES (?, ?, ?, ?)
+     ON CONFLICT(deal_id) DO UPDATE SET geometry_json = excluded.geometry_json, updated_at = excluded.updated_at`,
+  ).bind(dealId, user.sub, raw, now).run();
+  return json({ ok: true });
+}
+
 /** P4: move a deal to another progress stage (skipping allowed — it's the user's own
  * money). Writes deal_stage_history + updates the card's stage/status. Pipeline-only. */
 async function handleMoveDeal(request: Request, env: Env, dealId: string): Promise<Response> {
@@ -1558,9 +1617,11 @@ async function route(request: Request, env: Env): Promise<Response> {
     const { pathname } = url;
     const method = request.method;
 
-    // State-changing POSTs must come from our own pages (Sec-Fetch-Site is
+    // State-changing requests must come from our own pages (Sec-Fetch-Site is
     // set by every modern browser; requests without it — curl, tests — pass).
-    if (method === 'POST') {
+    // F1 added PUT, so the guard names every method that writes rather than
+    // just the one that happened to exist when it was written.
+    if (method === 'POST' || method === 'PUT' || method === 'DELETE' || method === 'PATCH') {
       const site = request.headers.get('Sec-Fetch-Site');
       if (site !== null && site !== 'same-origin' && site !== 'none') {
         return json({ error: 'cross-site request refused' }, 403);
@@ -1621,6 +1682,10 @@ async function route(request: Request, env: Env): Promise<Response> {
       if (rv && method === 'POST') return handleReviveDeal(request, env, rv[1]);
       const ca = /^\/api\/deals\/([0-9a-f-]{36})\/chain-ack$/.exec(pathname);
       if (ca && method === 'POST') return handleChainAck(request, env, ca[1]);
+      // F1 — the deal's floor plan. Geometry only, both ways.
+      const fp = /^\/api\/deals\/([0-9a-f-]{36})\/floorplan$/.exec(pathname);
+      if (fp && method === 'GET') return handleGetFloorPlan(request, env, fp[1]);
+      if (fp && method === 'PUT') return handlePutFloorPlan(request, env, fp[1]);
     }
 
     if (pathname.startsWith('/auth/') || pathname.startsWith('/api/')) {

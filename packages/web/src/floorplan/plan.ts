@@ -1,5 +1,5 @@
 /**
- * TRACEPLAN — THE STATE MACHINE. No DOM, no SVG, no image, no strings.
+ * FLOOR PLAN — THE STATE MACHINE. No DOM, no SVG, no image, no strings.
  *
  * T2 REVERSED THE ORDER. T1 asked for the scale first and stopped dead on the
  * majority of real plans, which carry no printed dimension. You now TRACE
@@ -17,10 +17,11 @@
  * change what you see and never what you traced. Finger tolerances are compared
  * in SCREEN pixels, because those are about hands.
  */
-import { TRACEPLAN_LEVELS, TRACEPLAN_TOLERANCES as T } from './config';
+import { FLOORPLAN_LEVELS, FLOORPLAN_TOLERANCES as T } from './config';
 import {
-  areaReading, closesRoom, distance, hitPoint, metresPerPixel, scaleFromKnownArea,
-  shoelaceArea, toImage, toScreen, totalPx2, type AreaReading, type Pt, type ViewTransform,
+  areaReading, closesRoom, distance, hitPoint, metresPerPixel, moveWall, scaleFromKnownArea,
+  shoelaceArea, splitPolygon, toImage, toScreen, totalPx2,
+  type AreaReading, type Pt, type ViewTransform,
 } from './geometry';
 
 export interface Room { id: string; name: string; points: Pt[] }
@@ -70,7 +71,7 @@ const id = (prefix: string): string => `${prefix}${++seq}`;
 export function initialState(known: { sqm: number; source: string } | null = null): TracerState {
   return {
     phase: 'trace',
-    levels: [{ id: id('l'), name: TRACEPLAN_LEVELS[0], rooms: [] }],
+    levels: [{ id: id('l'), name: FLOORPLAN_LEVELS[0], rooms: [] }],
     activeLevel: 0,
     draft: [],
     dragging: null,
@@ -244,7 +245,7 @@ export function selectLevel(s: TracerState, index: number): TracerState {
 /** Add the next unused standard level, or a numbered one once they run out. */
 export function addLevel(s: TracerState): TracerState {
   const used = new Set(s.levels.map((l) => l.name));
-  const next = TRACEPLAN_LEVELS.find((n) => !used.has(n)) ?? `Level ${s.levels.length + 1}`;
+  const next = FLOORPLAN_LEVELS.find((n) => !used.has(n)) ?? `Level ${s.levels.length + 1}`;
   const levels = [...s.levels, { id: id('l'), name: next, rooms: [] }];
   return { ...s, levels, activeLevel: levels.length - 1, draft: [], error: null };
 }
@@ -341,4 +342,118 @@ export function lastWallMetres(s: TracerState): number | null {
   const mpp = s.calibration.metresPerPx;
   if (mpp === null || s.draft.length < 2) return null;
   return distance(s.draft[s.draft.length - 2], s.draft[s.draft.length - 1]) * mpp;
+}
+
+// --- F1: partitions, wall moves, and saving --------------------------------
+
+/**
+ * F1 — SPLIT A ROOM WITH A PARTITION. Two taps on opposite walls; the room
+ * becomes two rooms, both measured at once. This is the question most of these
+ * drawings are made to answer, so it is two taps and no dialog.
+ */
+export function partition(s: TracerState, roomId: string, p1: Pt, p2: Pt, failed: string): TracerState {
+  const level = activeLevel(s);
+  const room = level.rooms.find((r) => r.id === roomId);
+  if (room === undefined) return { ...s, error: failed };
+  const halves = splitPolygon(room.points, p1, p2);
+  if (halves === null) return { ...s, error: failed };
+  const [a, b] = halves;
+  const rooms = level.rooms.flatMap((r) => (r.id !== roomId ? [r] : [
+    { ...r, points: a },
+    { id: id('r'), name: `${r.name} B`, points: b },
+  ]));
+  return {
+    ...s,
+    levels: s.levels.map((lv, i) => (i === s.activeLevel ? { ...lv, rooms } : lv)),
+    error: null,
+  };
+}
+
+/** Which room a point is inside, if any. Ray casting; no library. */
+export function roomAt(s: TracerState, img: Pt): Room | null {
+  for (const room of activeLevel(s).rooms) {
+    let inside = false;
+    const pts = room.points;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const a = pts[i];
+      const b = pts[j];
+      if ((a.y > img.y) !== (b.y > img.y)
+        && img.x < ((b.x - a.x) * (img.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    if (inside) return room;
+  }
+  return null;
+}
+
+/** F1 — move a whole wall, so the room stays square. */
+export function nudgeWall(s: TracerState, roomId: string, edge: number, dx: number, dy: number): TracerState {
+  return {
+    ...s,
+    levels: s.levels.map((lv, i) => (i !== s.activeLevel ? lv : {
+      ...lv,
+      rooms: lv.rooms.map((r) => (r.id !== roomId ? r : { ...r, points: moveWall(r.points, edge, dx, dy) })),
+    })),
+  };
+}
+
+/**
+ * F1 — THE SAVED SHAPE. Geometry only: points, names, levels and how it was
+ * sized. No image, no URL, nothing from which a picture could be rebuilt. This
+ * is what goes in D1 and what comes back when the deal is reopened, which is
+ * the whole reason the plan is stored as geometry rather than as pixels.
+ */
+export interface SavedPlan {
+  v: 1;
+  levels: { name: string; rooms: { name: string; points: Pt[] }[] }[];
+  /** Metres per image pixel, so the drawing reads the same size when reopened. */
+  mpp: number | null;
+  sizedBy: CalibrationKind;
+  knownSqm?: number;
+  knownSource?: string;
+  dimensionMetres?: number;
+}
+
+export function toSaved(s: TracerState): SavedPlan {
+  return {
+    v: 1,
+    levels: s.levels.map((lv) => ({
+      name: lv.name,
+      rooms: lv.rooms.map((r) => ({ name: r.name, points: r.points.map((p) => ({ x: p.x, y: p.y })) })),
+    })),
+    mpp: s.calibration.metresPerPx,
+    sizedBy: s.calibration.kind,
+    ...(s.calibration.knownSqm === undefined ? {} : { knownSqm: s.calibration.knownSqm }),
+    ...(s.calibration.knownSource === undefined ? {} : { knownSource: s.calibration.knownSource }),
+    ...(s.calibration.dimensionMetres === undefined ? {} : { dimensionMetres: s.calibration.dimensionMetres }),
+  };
+}
+
+/**
+ * Restore a saved plan. The BACKDROP IS NOT NEEDED: every room is stored in the
+ * same image-pixel space it was drawn in, and the scale travels with it, so the
+ * drawing renders and measures identically with no picture behind it at all.
+ */
+export function fromSaved(saved: SavedPlan, known: { sqm: number; source: string } | null): TracerState {
+  const base = initialState(known);
+  if (saved.v !== 1 || !Array.isArray(saved.levels) || saved.levels.length === 0) return base;
+  return {
+    ...base,
+    levels: saved.levels.map((lv) => ({
+      id: id('l'),
+      name: String(lv.name ?? '').slice(0, 40) || FLOORPLAN_LEVELS[0],
+      rooms: (lv.rooms ?? []).map((r) => ({
+        id: id('r'),
+        name: String(r.name ?? '').slice(0, 60) || 'Room',
+        points: (r.points ?? []).filter((p) => Number.isFinite(p?.x) && Number.isFinite(p?.y))
+          .map((p) => ({ x: Number(p.x), y: Number(p.y) })),
+      })).filter((r) => r.points.length >= 3),
+    })),
+    calibration: {
+      kind: saved.sizedBy ?? 'none',
+      metresPerPx: typeof saved.mpp === 'number' && saved.mpp > 0 ? saved.mpp : null,
+      knownSqm: saved.knownSqm,
+      knownSource: saved.knownSource,
+      dimensionMetres: saved.dimensionMetres,
+    },
+  };
 }

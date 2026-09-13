@@ -1,5 +1,5 @@
 /**
- * TRACEPLAN — THE MATHS. Pure functions, no DOM, no state, no strings.
+ * FLOOR PLAN — THE MATHS. Pure functions, no DOM, no state, no strings.
  *
  * Everything here works in TWO coordinate systems and never confuses them:
  *   - IMAGE pixels: where a corner sits on the floorplan bitmap. Zoom and pan
@@ -187,4 +187,79 @@ export function totalPx2(polygons: readonly (readonly Pt[])[]): number {
  */
 export function needsMoreZoom(viewScale: number, minScale: number): boolean {
   return viewScale < minScale;
+}
+
+/**
+ * F1 — SPLITTING A ROOM WITH A PARTITION.
+ *
+ * The question most of these drawings exist to answer is "does another bedroom
+ * fit". A partition is two points on opposite walls of a room: the polygon is
+ * cut along that line into two, and both halves are measured immediately, so
+ * the answer arrives while the stud wall is still imaginary.
+ *
+ * HOW IT CUTS. Each cut point is projected onto the nearest EDGE of the polygon
+ * (not the nearest corner), because a partition lands in the middle of a wall,
+ * not at a corner. Walking the ring from one cut to the other gives one half;
+ * walking the other way gives the other. Refuses rather than guesses when the
+ * two points land on the same edge — that is a nick, not a partition.
+ */
+export interface EdgeHit { edge: number; point: Pt; t: number }
+
+/** The closest point on segment a→b to p, and how far along it lies (0..1). */
+export function projectOnSegment(p: Pt, a: Pt, b: Pt): { point: Pt; t: number } {
+  const vx = b.x - a.x;
+  const vy = b.y - a.y;
+  const len2 = vx * vx + vy * vy;
+  if (len2 === 0) return { point: a, t: 0 };
+  const t = Math.min(Math.max(((p.x - a.x) * vx + (p.y - a.y) * vy) / len2, 0), 1);
+  return { point: { x: a.x + vx * t, y: a.y + vy * t }, t };
+}
+
+/** Which wall of the polygon a point is nearest, and where on it. */
+export function nearestEdge(poly: readonly Pt[], p: Pt): EdgeHit | null {
+  if (poly.length < 3) return null;
+  let best: EdgeHit | null = null;
+  let bestD = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const { point, t } = projectOnSegment(p, poly[i], poly[(i + 1) % poly.length]);
+    const d = distance(p, point);
+    if (d < bestD) { bestD = d; best = { edge: i, point, t }; }
+  }
+  return best;
+}
+
+/**
+ * Cut a polygon along the line between two points on its walls. Returns the two
+ * halves, or null when the cut is not a real one.
+ */
+export function splitPolygon(poly: readonly Pt[], p1: Pt, p2: Pt): [Pt[], Pt[]] | null {
+  const a = nearestEdge(poly, p1);
+  const b = nearestEdge(poly, p2);
+  if (a === null || b === null || a.edge === b.edge) return null;
+  const [first, second] = a.edge < b.edge ? [a, b] : [b, a];
+  // One half: from the first cut, round to the second, closing across the cut.
+  const left: Pt[] = [first.point];
+  for (let i = first.edge + 1; i <= second.edge; i++) left.push(poly[i % poly.length]);
+  left.push(second.point);
+  // The other half: from the second cut, round the rest of the ring, back.
+  const right: Pt[] = [second.point];
+  for (let i = second.edge + 1; i <= first.edge + poly.length; i++) right.push(poly[i % poly.length]);
+  right.push(first.point);
+  if (left.length < 3 || right.length < 3) return null;
+  if (shoelaceArea(left) <= 0 || shoelaceArea(right) <= 0) return null;
+  return [left, right];
+}
+
+/**
+ * F1 — MOVING A WHOLE WALL, rather than one corner at a time. Both ends of the
+ * chosen edge move together along the wall's own normal, so the room stays
+ * square instead of turning into a trapezium — which is what happens when
+ * somebody drags one corner to "make the room bigger".
+ */
+export function moveWall(poly: readonly Pt[], edge: number, dx: number, dy: number): Pt[] {
+  const n = poly.length;
+  if (n < 3 || edge < 0 || edge >= n) return [...poly];
+  const i = edge;
+  const j = (edge + 1) % n;
+  return poly.map((p, k) => (k === i || k === j ? { x: p.x + dx, y: p.y + dy } : p));
 }

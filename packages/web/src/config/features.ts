@@ -163,6 +163,16 @@ export interface FeatureFlags {
    * breakdown that fills nothing in. Item params already saved are untouched. */
   refurbSuggestions: boolean;
 
+  /** The floor plan (F1): a "Floor plan" section on a saved deal with a
+   * **Reconfigure** action, where the layout is redrawn over the agent's plan
+   * (carried from the extension as a URL, never fetched or stored by us) to
+   * test whether another room fits. Rooms are named and measured, several
+   * levels are handled on one image, the scale comes from a printed dimension
+   * or the EPC total, and the geometry — never any image — is saved with the
+   * deal, printable and shareable. Off: no section, no route, no module code
+   * runs, and any geometry already saved stays in D1 untouched. */
+  floorPlan: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -261,6 +271,7 @@ export const features: FeatureFlags = {
   brokerEnquiryLink: true,
   refurbSection: true,
   refurbSuggestions: true,
+  floorPlan: true,
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,

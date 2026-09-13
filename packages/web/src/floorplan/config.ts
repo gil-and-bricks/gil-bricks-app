@@ -1,5 +1,5 @@
 /**
- * TRACEPLAN — EVERY WORD AND EVERY NUMBER THE FEATURE USES.
+ * FLOOR PLAN — EVERY WORD AND EVERY NUMBER THE FEATURE USES.
  *
  * One file, so the module can be reworded or re-tuned without opening any other,
  * and so a reader can see the whole of what it says in one place.
@@ -10,7 +10,7 @@
  * overruled without touching logic. See docs/DECISIONS_LOG.md (T1).
  */
 
-export const TRACEPLAN_TOLERANCES = {
+export const FLOORPLAN_TOLERANCES = {
   /**
    * How far above the finger the loupe sits, in CSS px, measured to the near
    * edge. An adult fingertip covers roughly 45-50px on a phone; 72 clears it
@@ -86,7 +86,7 @@ export const TRACEPLAN_TOLERANCES = {
  * OCR was cut on this project because agent plans are not reliably readable,
  * and a wrongly-detected level is worse than a question.
  */
-export const TRACEPLAN_LEVELS: readonly string[] = [
+export const FLOORPLAN_LEVELS: readonly string[] = [
   'Ground floor', 'First floor', 'Second floor', 'Loft', 'Basement',
 ];
 
@@ -98,11 +98,25 @@ export const AREA_SOURCE_LABELS: Record<string, string> = {
   manual: 'you',
 };
 
-export const TRACEPLAN_COPY = {
-  title: 'Trace a room',
-  /** Said once, at the top. What this is and what it is not. */
-  intro: 'Tap each corner of one room. We work out its size.',
-  imageNote: 'The plan stays on your phone. Only the measurement is kept.',
+export const FLOORPLAN_COPY = {
+  /**
+   * F1 — THE NAMES. "Tracing" is the chore, not the point: the point is
+   * redrawing a layout to see whether it holds another bedroom, to move rooms
+   * about, or just to keep a clean copy of the plan with the deal.
+   */
+  section: 'Floor plan',
+  title: 'Reconfigure',
+  /** Said once, at the top. What this is for, not how it works. */
+  intro: 'Redraw the layout to test a room, or keep a clean copy with the deal.',
+  imageNote: 'The plan image stays on the agent’s server. We only keep your drawing.',
+  /** F1 — no plan came over with the listing. Honest, and not a dead end. */
+  noBackdrop: 'No floor plan came with this listing. You can still draw one.',
+  /** F1 — the backdrop was there but the agent’s server would not serve it. */
+  backdropFailed: 'The plan image would not load. Your drawing is unaffected.',
+  open: 'Reconfigure the plan',
+  saving: 'Saving…',
+  saved: 'Saved with this deal.',
+  saveFailed: 'That did not save. Your drawing is still on screen.',
 
   /**
    * T2 — CALIBRATION COMES AFTER TRACING, not before. Over half of UK agent
@@ -183,6 +197,11 @@ export const TRACEPLAN_COPY = {
     close: 'Close room',
     undo: 'Undo',
     restart: 'Start again',
+    /** F1 — a partition splits a room in two, to test a layout change. */
+    partition: 'Add a partition',
+    partitionHint: 'Tap two points on opposite walls to split a room.',
+    partitionDone: 'Split.',
+    partitionFailed: 'That did not cross a room. Try two points on opposite walls.',
     /** The live wall length while placing. */
     wall: (metres: string): string => `${metres} m`,
   },
@@ -203,10 +222,38 @@ export const TRACEPLAN_COPY = {
     again: 'Trace another room',
     /** T2 — a room is added to the level, not replaced. */
     added: (name: string): string => `${name} added.`,
+    /**
+     * F1 — against the HMO single-adult minimum the product already uses. Said
+     * per room, quietly, because it is the question most of these drawings are
+     * being made to answer.
+     */
+    hmoPass: 'Over the HMO single-adult minimum.',
+    hmoFail: 'Under the HMO single-adult minimum.',
   },
 
   /** Nothing is stored this sprint, and the screen says so rather than implying it. */
   nothingSaved: 'Nothing is saved yet. Write the number down if you need it.',
   close: 'Close',
-  unavailable: 'This listing has no floor plan to trace.',
+  unavailable: 'No floor plan to work from.',
+
+  /** F1 — the print sheet, which is the thing a builder actually receives. */
+  print: {
+    open: 'Print or save as PDF',
+    title: 'Floor plan',
+    /** Said on the sheet itself, so a printout can never pass as a survey. */
+    caveat: 'Drawn by hand from the agent’s plan. Sizes are estimates, not a survey.',
+    levelHeading: (name: string): string => name,
+    totalLine: (sqm: string): string => `Total ${sqm} m²`,
+    dated: (when: string): string => `Drawn ${when}`,
+    /** Where the size came from, carried onto the sheet. */
+    sizedBy: (how: string): string => `Sized from ${how}.`,
+  },
+
+  share: {
+    button: 'Share on WhatsApp',
+    /** The message. Our numbers only — never the agent's image. */
+    message: (address: string, total: string, rooms: string): string =>
+      `${address} — floor plan\n\nTotal ${total} m²\n${rooms}\n\nDrawn from the agent's plan. Estimates, not a survey.`,
+    room: (name: string, sqm: string): string => `${name}: ${sqm} m²`,
+  },
 } as const;

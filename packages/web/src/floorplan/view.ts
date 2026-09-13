@@ -1,5 +1,5 @@
 /**
- * TRACEPLAN — THE SURFACE AND ITS CONTROLS. Hand-rolled SVG, no library.
+ * FLOOR PLAN — THE SURFACE AND ITS CONTROLS. Hand-rolled SVG, no library.
  *
  * WHY SVG: stays in the DOM for accessibility semantics, stays crisp under
  * pinch-zoom, and holds a fixed box from first paint so nothing below shifts.
@@ -15,14 +15,17 @@
  * THE IMAGE IS A URL THE BROWSER ALREADY HAS: `<image href>` at the portal's own
  * CDN, exactly as the listing page loaded it. Never read, never copied.
  */
-import { AREA_SOURCE_LABELS, TRACEPLAN_COPY as C, TRACEPLAN_TOLERANCES as T } from './config';
-import { loupePosition, needsMoreZoom, toScreen, type Pt } from './geometry';
+import { HMO_MIN_SQM } from '@gil-bricks/core';
+
+import { AREA_SOURCE_LABELS, FLOORPLAN_COPY as C, FLOORPLAN_TOLERANCES as T } from './config';
+import { loupePosition, needsMoreZoom, toImage, toScreen, type Pt } from './geometry';
 import {
   activeLevel, addLevel, backToTrace, beginScale, clearDraft, commitRoom, draftScreen, grab,
-  initialState, lastWallMetres, levelSqm, moveHeld, pan, propertySqm, release, renameLevel,
-  renameRoom, roomReading, roomScreens, selectLevel, tapScale, tapTrace, tracedRooms, undo,
-  useDimension, useKnownRoom, useKnownTotal, useNothing, zoomAbout, type TracerState,
-} from './tracer';
+  initialState, lastWallMetres, levelSqm, moveHeld, pan, partition, propertySqm, release,
+  renameLevel, renameRoom, roomAt, roomReading, roomScreens, selectLevel, tapScale, tapTrace,
+  tracedRooms, undo, useDimension, useKnownRoom, useKnownTotal, useNothing, zoomAbout,
+  type TracerState,
+} from './plan';
 
 const NS = 'http://www.w3.org/2000/svg';
 const svgEl = <K extends keyof SVGElementTagNameMap>(t: K): SVGElementTagNameMap[K] => document.createElementNS(NS, t);
@@ -43,16 +46,31 @@ const btn = (cls: string, text: string): HTMLButtonElement => {
 const one = (n: number): string => n.toFixed(1);
 
 export interface SurfaceOptions {
+  /** The agent's own URL, or '' when the listing carried no plan. */
   imageUrl: string;
   known: { sqm: number; source: string } | null;
+  /** F1 — a plan already saved for this deal, reopened. */
+  initial?: TracerState | null;
   onChange: (state: TracerState) => void;
+  /** F1 — the agent's server would not serve the image. Drawing is unaffected. */
+  onBackdropError?: () => void;
 }
 
-export function createSurface(opts: SurfaceOptions): {
-  element: HTMLElement; destroy: () => void;
-  state: () => TracerState; apply: (fn: (s: TracerState) => TracerState) => void;
-} {
-  let state = initialState(opts.known);
+export interface Surface {
+  element: HTMLElement;
+  destroy: () => void;
+  state: () => TracerState;
+  apply: (fn: (s: TracerState) => TracerState) => void;
+  /** F1 — arm the partition tool. Two taps, then it disarms itself. */
+  beginPartition: () => void;
+  partitionArmed: () => boolean;
+}
+
+export function createSurface(opts: SurfaceOptions): Surface {
+  let state = opts.initial ?? initialState(opts.known);
+  /** F1 — partition mode: two taps on opposite walls split a room. */
+  let partitionMode = false;
+  let partitionFirst: Pt | null = null;
   const host = el('div', 'tp-surface');
   const svg = svgEl('svg');
   attr(svg, { class: 'tp-svg', role: 'application', 'aria-label': C.title, tabindex: 0 });
@@ -60,7 +78,18 @@ export function createSurface(opts: SurfaceOptions): {
 
   const imageLayer = svgEl('g');
   const plan = svgEl('image');
-  attr(plan, { href: opts.imageUrl, x: 0, y: 0, class: 'tp-plan', preserveAspectRatio: 'xMidYMid meet' });
+  attr(plan, { x: 0, y: 0, class: 'tp-plan', preserveAspectRatio: 'xMidYMid meet' });
+  // F1 — THE BACKDROP IS SCAFFOLDING, NOT THE ARTIFACT. If the agent's server
+  // will not serve it — a changed URL, hotlink blocking, no plan at all — the
+  // drawing surface still works and every saved room still renders, because
+  // what we keep is geometry in its own coordinate space, not pixels.
+  if (opts.imageUrl !== '') {
+    attr(plan, { href: opts.imageUrl });
+    plan.addEventListener('error', () => {
+      plan.removeAttribute('href');
+      opts.onBackdropError?.();
+    });
+  }
   imageLayer.append(plan);
   const shapes = svgEl('g');
   const loupe = svgEl('g');
@@ -76,7 +105,8 @@ export function createSurface(opts: SurfaceOptions): {
   defs.append(clip);
   svg.append(defs);
   const loupeImg = svgEl('image');
-  attr(loupeImg, { href: opts.imageUrl, 'clip-path': `url(#${clipId})`, preserveAspectRatio: 'xMidYMid meet' });
+  attr(loupeImg, { 'clip-path': `url(#${clipId})`, preserveAspectRatio: 'xMidYMid meet' });
+  if (opts.imageUrl !== '') attr(loupeImg, { href: opts.imageUrl });
   const loupeRing = svgEl('circle');
   attr(loupeRing, { class: 'tp-loupe-ring' });
   const crossH = svgEl('line');
@@ -237,6 +267,17 @@ export function createSurface(opts: SurfaceOptions): {
     touchPoint = null;
     if (wasNavigating || at === null) { set(release); return; }
     if (state.dragging !== null) { set(release); return; }
+    if (partitionMode && state.phase === 'trace') {
+      const img = toImage(at, state.view);
+      if (partitionFirst === null) { partitionFirst = img; draw(); return; }
+      const room = roomAt(state, partitionFirst) ?? roomAt(state, img);
+      const first = partitionFirst;
+      partitionFirst = null;
+      partitionMode = false;
+      set((s) => (room === null ? { ...s, error: C.trace.partitionFailed }
+        : partition(s, room.id, first, img, C.trace.partitionFailed)));
+      return;
+    }
     set((s) => (s.phase === 'scale' ? tapScale(s, at) : tapTrace(s, at)));
   };
 
@@ -267,11 +308,14 @@ export function createSurface(opts: SurfaceOptions): {
     },
     state: () => state,
     apply: set,
+    /** F1 — arm the partition tool. Two taps, then it disarms itself. */
+    beginPartition: () => { partitionMode = true; partitionFirst = null; set((s) => ({ ...s, error: null })); },
+    partitionArmed: () => partitionMode,
   };
 }
 
 /** The controls and readouts. Every string from config. */
-export function createChrome(surface: ReturnType<typeof createSurface>): {
+export function createChrome(surface: Surface): {
   element: HTMLElement; sync: (s: TracerState) => void;
 } {
   const box = el('div', 'tp-chrome');
@@ -296,8 +340,10 @@ export function createChrome(surface: ReturnType<typeof createSurface>): {
   const undoBtn = btn('tp-btn', C.trace.undo);
   const closeBtn = btn('tp-btn', C.trace.close);
   const clearBtn = btn('tp-btn', C.trace.restart);
+  const partBtn = btn('tp-btn', C.trace.partition);
   const sizeBtn = btn('tp-btn tp-btn-primary', C.scale.set);
-  traceRow.append(undoBtn, closeBtn, clearBtn, sizeBtn);
+  traceRow.append(undoBtn, closeBtn, partBtn, clearBtn, sizeBtn);
+  const partHint = el('p', 'tp-caveat tp-part-hint', C.trace.partitionHint);
 
   const roomList = el('div', 'tp-room-list');
   const totals = el('div', 'tp-totals');
@@ -348,12 +394,13 @@ export function createChrome(surface: ReturnType<typeof createSurface>): {
   const backBtn = btn('tp-btn tp-btn-quiet', C.scale.redo);
   scalePanel.append(scaleHead, scalePrompt, optionRow, dimBox, roomBox, sizedBy, sizedCaveat, backBtn);
 
-  box.append(zoomNote, levelWhy, levelBar, status, err, traceRow, roomList, totals, scalePanel);
+  box.append(zoomNote, levelWhy, levelBar, status, err, traceRow, partHint, roomList, totals, scalePanel);
 
   // --- wiring ----------------------------------------------------------------
   undoBtn.addEventListener('click', () => surface.apply(undo));
   closeBtn.addEventListener('click', () => surface.apply(commitRoom));
   clearBtn.addEventListener('click', () => surface.apply(clearDraft));
+  partBtn.addEventListener('click', () => surface.beginPartition());
   sizeBtn.addEventListener('click', () => surface.apply((s) => (tracedRooms(s).length === 0
     ? { ...s, error: C.scale.needTrace } : beginScale(s))));
   backBtn.addEventListener('click', () => surface.apply(backToTrace));
@@ -399,6 +446,8 @@ export function createChrome(surface: ReturnType<typeof createSurface>): {
     levelBar.hidden = s.phase !== 'trace';
 
     traceRow.hidden = s.phase !== 'trace';
+    partHint.hidden = !surface.partitionArmed();
+    partBtn.disabled = activeLevel(s).rooms.length === 0;
     scalePanel.hidden = s.phase !== 'scale';
     closeBtn.disabled = s.draft.length < T.minPoints;
     undoBtn.disabled = s.draft.length === 0 && activeLevel(s).rooms.length === 0;
@@ -417,6 +466,12 @@ export function createChrome(surface: ReturnType<typeof createSurface>): {
       const r = roomReading(s, room);
       row.append(input, el('span', 'tp-room-area', r === null ? '' : C.result.area(one(r.sqm))));
       roomList.append(row);
+      // F1 — the question most of these drawings are made to answer, said
+      // quietly under the room it is about. The threshold is the product's own.
+      if (r !== null) {
+        const ok = r.sqm >= HMO_MIN_SQM.oneAdultOver10;
+        roomList.append(el('p', `tp-hmo${ok ? ' is-ok' : ' is-under'}`, ok ? C.result.hmoPass : C.result.hmoFail));
+      }
     }
     roomList.hidden = activeLevel(s).rooms.length === 0;
 

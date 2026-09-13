@@ -71,10 +71,6 @@ interface FloorPlanState {
 
 /** The web app, from the ONE shared source (golden rule 4). */
 import { lookupEpcArea } from '../../src/epcLookup';
-/* T1 — the tracer, reached ONLY through its public door. Nothing here knows
-   what is inside src/traceplan/, which is what makes it replaceable. */
-import { mountTraceplan, type TracedPlan } from '../../src/traceplan';
-import { extensionFeatures } from '../../src/features';
 
 const WEB_BASE = coreConfig.appBaseUrl;
 const STRATEGIES: { id: StrategyId; label: string }[] = [
@@ -321,7 +317,7 @@ function soldText(p: ScoreListingResult['priceVsSold']): { pill: string; label: 
 }
 
 export interface PanelView {
-  screen: 'triage' | 'settings' | 'measure' | 'trace';
+  screen: 'triage' | 'settings' | 'measure';
   listing: NormalisedListing;
   strategy: StrategyId;
   result: ScoreListingResult;
@@ -382,11 +378,6 @@ export interface PanelHandlers {
    * as the floor area, record a measured room area for the HMO check. */
   onAcceptFloorArea?: (sqm: number) => void;
   onOpenMeasure?: () => void;
-  /** T1 — open the room tracer. Absent when the flag is off. */
-  onOpenTrace?: () => void;
-  onCloseTrace?: () => void;
-  /** T2 — the plan the user accepted. Names and numbers; nothing else. */
-  onTracedPlan?: (plan: TracedPlan) => void;
   onRecordRoom?: (areaSqm: number) => void;
 }
 
@@ -805,14 +796,6 @@ function floorPlanCard(view: PanelView, h: PanelHandlers): HTMLElement | null {
   open.type = 'button';
   if (h.onOpenMeasure) open.addEventListener('click', () => h.onOpenMeasure!());
   box.append(open);
-  // T1 — behind its own flag. With it off nothing below renders and the card is
-  // exactly what it was.
-  if (extensionFeatures.traceplan && h.onOpenTrace) {
-    const trace = e('button', 'send-btn', 'Trace a room →') as HTMLButtonElement;
-    trace.type = 'button';
-    trace.addEventListener('click', () => h.onOpenTrace!());
-    box.append(trace);
-  }
   box.append(e('p', 'fp-foot', 'The plan image stays on your device — nothing is uploaded.'));
   return box;
 }
@@ -1266,7 +1249,7 @@ interface Ctx {
   url: string;
   listing: NormalisedListing | null;
   failure: FailureState | null;
-  screen: 'triage' | 'settings' | 'measure' | 'trace';
+  screen: 'triage' | 'settings' | 'measure';
   strategy: StrategyId;
   rent: string;
   listingUnknowns: Record<string, string>;
@@ -1501,15 +1484,6 @@ function draw(ctx: Ctx): void {
     onToggleSignals: (open) => { ctx.signalsOpen = open; },
     onAcceptFloorArea: (sqm) => { ctx.floorplan.acceptedSqm = sqm; ctx.screen = 'triage'; draw(ctx); },
     onOpenMeasure: () => { ctx.floorplan.open = true; ctx.screen = 'measure'; draw(ctx); },
-    ...(extensionFeatures.traceplan
-      ? {
-        onOpenTrace: () => { ctx.screen = 'trace'; draw(ctx); },
-        onCloseTrace: () => { ctx.screen = 'triage'; draw(ctx); },
-        // T1 stores nothing (that is next sprint). The room is shown and the
-        // panel returns; saying so beats pretending it was kept.
-        onTracedPlan: () => { ctx.screen = 'triage'; draw(ctx); },
-      }
-      : {}),
     onRecordRoom: (areaSqm) => { ctx.floorplan.measuredRooms = [...ctx.floorplan.measuredRooms, areaSqm]; },
     onSend: () => {
       const url = buildAnalyserUrl(WEB_BASE, ctx.listing!, {
@@ -1526,7 +1500,6 @@ function draw(ctx: Ctx): void {
   };
   if (ctx.screen === 'settings') renderSettings(view, handlers);
   else if (ctx.screen === 'measure') renderMeasure(view, handlers);
-  else if (ctx.screen === 'trace' && extensionFeatures.traceplan) renderTrace(view, handlers);
   else renderTriage(view, handlers);
 }
 
@@ -1735,31 +1708,3 @@ export function __mountForTest(
   draw(ctx);
 }
 
-/**
- * T1 — the tracer screen. This function is the ENTIRE contact surface between
- * the panel and the tracer: it hands the module a container and the plan's URL,
- * and receives a name and three numbers back. It knows nothing else about it.
- */
-export function renderTrace(view: PanelView, h: PanelHandlers = {}): void {
-  const app = document.getElementById('app');
-  if (!app) return;
-  app.textContent = '';
-  const card = e('section', 'glass card');
-  app.append(card);
-  const back = e('button', 'settings-link', '← Back') as HTMLButtonElement;
-  back.type = 'button';
-  back.addEventListener('click', () => h.onCloseTrace?.());
-  card.append(back);
-  mountTraceplan({
-    container: card,
-    imageUrl: view.floorplan?.imageUrl ?? '',
-    // T2 — the floor area we ALREADY hold, offered as a calibration for the
-    // majority of plans that carry no printed dimension. Numbers going IN are
-    // fine; it is what comes out that the boundary constrains.
-    known: view.floorAreaSqm !== null && view.floorAreaSource !== 'none' && view.floorAreaSource !== 'floorplan'
-      ? { sqm: view.floorAreaSqm, source: view.floorAreaSource }
-      : null,
-    onPlan: (plan: TracedPlan) => h.onTracedPlan?.(plan),
-    onClose: () => h.onCloseTrace?.(),
-  });
-}

@@ -1,0 +1,154 @@
+/* ---------- F1: the floor plan ------------------------------------------
+   Moved wholesale from the extension's stylesheet (T1/T2), unchanged except
+   for the print sheet at the end. Every selector is tp-/fp-/traceplan
+   prefixed, so deleting this file removes the entire visual design of the
+   feature and nothing else. */
+/* ---------- T1: the room tracer ------------------------------------------
+   Every rule is prefixed .tp- or .traceplan and nothing outside the module
+   uses them, so the whole visual design can be replaced by deleting this
+   block. `touch-action: none` on the surface is not styling: without it the
+   browser claims the gesture for its own pan and zoom before the second
+   pointermove arrives, and the trace fights the page. */
+.traceplan { display: flex; flex-direction: column; gap: 10px; }
+.tp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.tp-title { font-size: 1rem; margin: 0; }
+.tp-intro { margin: 0; font-size: .85rem; opacity: .8; }
+.tp-caveat { margin: 0; font-size: .75rem; opacity: .7; }
+
+.tp-surface {
+  position: relative; width: 100%; aspect-ratio: 4 / 5;
+  border: 1px solid rgba(255,255,255,.15); border-radius: 10px; overflow: hidden;
+  background: var(--bg-3);
+}
+.tp-svg {
+  width: 100%; height: 100%; display: block;
+  /* The gesture is ours, not the browser's. */
+  touch-action: none; -webkit-user-select: none; user-select: none;
+}
+/* The plan is a BACKDROP: faint enough that the traced walls read on top of it,
+   strong enough to see a corner through. */
+.tp-plan { opacity: .45; }
+
+.tp-walls { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.tp-room { fill: color-mix(in srgb, var(--accent) 18%, transparent); stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; }
+.tp-dot { fill: var(--bg-3); stroke: var(--accent); stroke-width: 2; }
+/* The first corner grows once closing is possible, so the target you are aiming
+   at is visibly the target. */
+.tp-dot-close { fill: var(--accent); }
+.tp-dot-held { stroke: #fff; stroke-width: 3; }
+.tp-wall-len { fill: #fff; font-size: 11px; font-weight: 600; paint-order: stroke; stroke: var(--bg-3); stroke-width: 3px; }
+.tp-scale-dot { fill: var(--info, #4cc2ff); }
+.tp-scale-line { stroke: var(--info, #4cc2ff); stroke-width: 2; stroke-dasharray: 4 3; }
+
+/* The loupe. Offset ABOVE the finger by the module's own tolerance, never under
+   it — the whole reason the control exists. */
+.tp-loupe-ring { fill: none; stroke: rgba(255,255,255,.9); stroke-width: 2; }
+.tp-cross { stroke: var(--danger, #c00); stroke-width: 1.5; }
+
+.tp-chrome { display: flex; flex-direction: column; gap: 8px; }
+.tp-status { margin: 0; font-size: .85rem; font-weight: 600; }
+.tp-error:empty { display: none; }
+.tp-error { margin: 0; font-size: .8rem; color: var(--danger, #c00); }
+.tp-scale-row, .tp-trace-row, .tp-accept { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tp-label { font-size: .8rem; opacity: .8; flex: 1 1 100%; }
+.tp-input {
+  flex: 1 1 7rem; min-height: 44px; padding: 8px 10px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.2); background: transparent; color: inherit; font: inherit;
+}
+/* 44px minimum on every control: these are pressed with a thumb, often one-handed. */
+.tp-btn {
+  min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit;
+  font: inherit; font-size: .85rem; font-weight: 600;
+}
+.tp-btn:disabled { opacity: .4; cursor: default; }
+.tp-btn-primary { background: var(--accent); color: var(--bg-3); border-color: var(--accent); }
+.tp-btn-quiet { border-style: dashed; opacity: .8; }
+/* `display: flex` on these rows OVERRIDES the browser's own [hidden] rule, so
+   a hidden row stayed on screen — the scale controls sat under the result.
+   Caught by rendering the finished surface and reading it back. */
+.traceplan [hidden] { display: none !important; }
+.tp-area { margin: 0; font-size: 1.5rem; font-weight: 800; }
+.tp-range { margin: 0; font-size: .85rem; opacity: .85; }
+
+/* ---------- T2: levels, the zoom nudge and the calibration chooser ---------
+   Still entirely tp- prefixed, so deleting this block and the T1 one above
+   removes the whole feature's design in two cuts. */
+
+/* The level bar. A row of pressed/unpressed buttons rather than a dropdown:
+   switching storey is the most repeated action in a multi-level trace, and a
+   dropdown costs two taps every time. Scrolls sideways rather than wrapping,
+   so the surface below never moves as levels are added. */
+.tp-levels { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tp-level {
+  flex: 0 0 auto; min-height: 40px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit;
+  font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.tp-level.is-on { background: var(--accent); color: var(--bg-3); border-color: var(--accent); }
+.tp-level-add { border-style: dashed; }
+
+/* The zoom nudge: prominent once, then gone for good. Not a toast — it must not
+   disappear on its own while somebody is reading it. */
+.tp-zoom-note {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.tp-zoom-text { margin: 0; font-size: .85rem; flex: 1 1 12rem; }
+
+/* The four ways to size a plan, stacked so each one's reason can sit with it. */
+.tp-options { display: flex; flex-direction: column; gap: 6px; }
+.tp-options .tp-btn { text-align: left; }
+.tp-scale-panel { display: flex; flex-direction: column; gap: 10px; }
+.tp-subhead { margin: 0; font-size: .95rem; }
+.tp-dim-box, .tp-room-box { display: flex; flex-direction: column; gap: 6px; }
+.tp-sized-by { margin: 0; font-size: .9rem; font-weight: 600; }
+.tp-sized-by:empty { display: none; }
+
+/* The rooms on this level, each renameable in place. */
+.tp-room-list { display: flex; flex-direction: column; gap: 6px; }
+.tp-room-row { display: flex; gap: 8px; align-items: center; }
+.tp-room-name-input { flex: 1 1 auto; }
+.tp-room-area { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.tp-totals { display: flex; flex-direction: column; gap: 2px; }
+.tp-level-total { margin: 0; font-size: .85rem; opacity: .85; font-variant-numeric: tabular-nums; }
+
+/* A finished room's name and area, drawn on the plan itself. */
+.tp-room-name {
+  fill: #fff; font-size: 11px; font-weight: 600;
+  paint-order: stroke; stroke: var(--bg-3); stroke-width: 3px;
+}
+.tp-dot-done { stroke-width: 1.5; }
+
+
+/* ---------- F1: the print sheet ------------------------------------------
+   WHAT A BUILDER RECEIVES. Hidden on screen and shown only to the printer, so
+   Print needs no second page and no round trip — and so what is printed is
+   provably the SAME geometry the screen is showing.
+
+   IT CONTAINS OUR DRAWING AND NOTHING ELSE. The agent's plan is not in this
+   markup and cannot be: the sheet is built from points, names and numbers.
+   Printed white-on-white rather than the app's dark gradient, because a
+   builder prints this and dark backgrounds eat a cartridge. */
+.fp-print { display: none; }
+
+@media print {
+  /* Everything but the sheet goes. */
+  body > *, .analyser > *, .floorplan-card > * { display: none !important; }
+  .floorplan-card, body, .analyser, .shell-body, main { display: block !important; background: #fff !important; }
+  /* Print is deliberately NOT the brand palette: a builder prints this, and a
+     dark gradient empties a cartridge. Plain black on white, on purpose. */
+  .fp-print {
+    display: block !important; background: #fff; color: #111;
+    font: 12pt/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .fp-print-title { font-size: 20pt; margin: 0 0 2mm; }
+  .fp-print-sub { margin: 0 0 1mm; font-size: 10pt; color: #444; }
+  .fp-print-level { page-break-inside: avoid; margin-top: 8mm; }
+  .fp-print-level-name { font-size: 14pt; margin: 0 0 1mm; }
+  .fp-print-svg { width: 100%; max-height: 170mm; }
+  .fp-print-room { fill: #f2f2f2; stroke: #111; stroke-width: 2; stroke-linejoin: round; }
+  .fp-print-label { fill: #111; font-size: 11px; font-weight: 600; }
+  .fp-print-caveat { margin-top: 6mm; font-size: 9pt; color: #444; }
+}

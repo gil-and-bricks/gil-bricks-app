@@ -21,7 +21,11 @@ describe('comparables come BEFORE valuation', () => {
   it('in the section chip strip', () => {
     const ids = ANALYSER_SECTIONS.map((s) => s.id);
     expect(ids.indexOf('sec-comps'), 'comps before valuation').toBeLessThan(ids.indexOf('valuation'));
-    expect(ids.at(-1), 'valuation goes last').toBe('valuation');
+    // F1 added a Floor plan chip after it. What this test is about is that the
+    // EVIDENCE is read before the valuation built on it — so assert that, not
+    // the incidental fact that valuation happened to be last at the time.
+    expect(ids.indexOf('valuation'), 'valuation is the last of the numbers')
+      .toBe(Math.max(...['sec-verdict', 'sec-figures', 'sec-costs', 'sec-comps', 'valuation'].map((x) => ids.indexOf(x))));
   });
 
   it('and on the page itself, which the strip is a map of', () => {

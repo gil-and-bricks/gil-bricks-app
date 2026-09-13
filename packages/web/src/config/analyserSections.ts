@@ -37,6 +37,9 @@ export const ANALYSER_SECTIONS: readonly AnalyserSection[] = [
   // The strip is a map of the page, so this order and the page's must agree.
   { id: 'sec-comps', label: 'Comparables', icon: 'list' },
   { id: 'valuation', label: 'Valuation', icon: 'tag' },
+  // F1 — the floor plan, last: it is the thing you do once the numbers are
+  // settled and you are asking whether the layout can be changed.
+  { id: 'sec-floorplan', label: 'Floor plan', icon: 'home' },
 ];
 
 export const SECTION_STRIP = {

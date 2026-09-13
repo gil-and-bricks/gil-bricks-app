@@ -35,7 +35,7 @@ const ALL_MIGRATIONS = [
   '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql',
   '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql',
   '0019_bridging_factfind.sql', '0020_factfind_consent_record.sql', '0021_change_cash_needed.sql',
-  '0022_epc_cache.sql', '0023_cron_heartbeat.sql', '0024_bridging_enquiry_link.sql',
+  '0022_epc_cache.sql', '0023_cron_heartbeat.sql', '0024_bridging_enquiry_link.sql', '0026_deal_floorplans.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
@@ -254,8 +254,8 @@ describe('the broker links cannot be guessed or replayed', () => {
  */
 describe('deleting the account really deletes everything', () => {
   const USER_TABLES = ['deals', 'deal_facts', 'deal_verdicts', 'deal_stage_history',
-    'deal_changes', 'deal_deaths', 'bridging_enquiries', 'bridging_factfinds',
-    'tool_saves', 'saved_deals', 'users'] as const;
+    'deal_changes', 'deal_deaths', 'deal_floorplans', 'bridging_enquiries',
+    'bridging_factfinds', 'tool_saves', 'saved_deals', 'users'] as const;
 
   const seedEverything = async (): Promise<void> => {
     sqlite.exec('PRAGMA foreign_keys = OFF');
@@ -264,6 +264,7 @@ describe('deleting the account really deletes everything', () => {
     sqlite.prepare("INSERT INTO deal_stage_history (id, deal_id, from_stage, to_stage, at) VALUES ('sh1',?,'worth-a-look','going-to-view',?)").run(DEAL_A, '2026-01-02T00:00:00Z');
     sqlite.prepare("INSERT INTO deal_deaths (id, deal_id, reason_key, note, snapshot_json, at) VALUES ('dd1',?,'numbers-fail','n','{}',?)").run(DEAL_A, '2026-01-03T00:00:00Z');
     sqlite.prepare("INSERT INTO tool_saves (id, user_id, tool, inputs_json, headline, created_at) VALUES ('ts1','userA','equity','{}','£1',?)").run('2026-01-01T00:00:00Z');
+    sqlite.prepare("INSERT INTO deal_floorplans (deal_id, user_id, geometry_json, updated_at) VALUES (?, 'userA', '{\"v\":1,\"levels\":[]}', ?)").run(DEAL_A, '2026-01-01T00:00:00Z');
     sqlite.prepare("INSERT INTO kit_outbox (id, user_id, email, first_name, action, status, created_at) VALUES ('ko1','userA','userA@t.test','A','subscribe','pending',?)").run('2026-01-01T00:00:00Z');
     sqlite.prepare(
       `INSERT INTO bridging_factfinds (id, enquiry_id, user_id, email, phone, applicant_name, buying_ltd,

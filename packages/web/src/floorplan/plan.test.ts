@@ -1,5 +1,5 @@
 /**
- * T2 — THE INTERACTION, as a state machine: trace first, size afterwards, and
+ * F1 — THE INTERACTION, as a state machine: trace first, size afterwards, and
  * levels that never merge into one another.
  */
 import { describe, expect, it } from 'vitest';
@@ -8,8 +8,8 @@ import {
   levelSqm, moveHeld, pan, propertySqm, release, renameLevel, renameRoom, roomReading, selectLevel,
   tapScale, tapTrace, tracedPx2, tracedRooms, undo, useDimension, useKnownRoom, useKnownTotal,
   useNothing, zoomAbout, type TracerState,
-} from '../src/traceplan/tracer.ts';
-import { TRACEPLAN_LEVELS, TRACEPLAN_TOLERANCES as T } from '../src/traceplan/config.ts';
+} from './plan';
+import { FLOORPLAN_LEVELS, FLOORPLAN_TOLERANCES as T } from './config';
 
 const TOO_SHORT = 'too short';
 const NEED = 'need';
@@ -116,7 +116,7 @@ describe('levels on ONE image never merge', () => {
   };
 
   it('starts on the ground floor, named from config', () => {
-    expect(initialState().levels[0].name).toBe(TRACEPLAN_LEVELS[0]);
+    expect(initialState().levels[0].name).toBe(FLOORPLAN_LEVELS[0]);
   });
 
   it('a second level is the next standard UK one, not a number', () => {

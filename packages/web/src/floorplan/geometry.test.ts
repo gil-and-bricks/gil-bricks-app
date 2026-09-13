@@ -1,13 +1,13 @@
 /**
- * T1 — THE MATHS, and the one piece of physical design that is also maths:
+ * F1 — THE MATHS, and the one piece of physical design that is also maths:
  * where the loupe sits relative to the finger.
  */
 import { describe, expect, it } from 'vitest';
 import {
   areaReading, closesRoom, distance, hitPoint, lengthMetres, loupePosition,
   metresPerPixel, perimeter, shoelaceArea, toImage, toScreen,
-} from '../src/traceplan/geometry.ts';
-import { TRACEPLAN_TOLERANCES as T } from '../src/traceplan/config.ts';
+} from './geometry';
+import { FLOORPLAN_TOLERANCES as T } from './config';
 
 describe('the shoelace formula', () => {
   it('a 4×3 rectangle is 12', () => {

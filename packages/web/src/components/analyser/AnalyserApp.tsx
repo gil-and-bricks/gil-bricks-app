@@ -30,6 +30,7 @@ import { CompsModule } from './CompsModule';
 import { ActionBar } from './ActionBar';
 import { features } from '../../config/features';
 import { SECTION_STRIP } from '../../config/analyserSections';
+import { FloorPlanCard } from './FloorPlanCard';
 import { ANALYSER_SHELL } from '../../config/analyserForm';
 
 interface Results {
@@ -284,6 +285,16 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                   <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
                   <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
                 </>
+              )}
+              {/* F1 — the floor plan sits with the deal's own numbers. The
+                  agent's plan arrives as a URL in the handoff; nothing is
+                  fetched or stored by us but the geometry the user draws. */}
+              {features.floorPlan && showVerdict && (
+                <FloorPlanCard
+                  areaSqm={Number(state.value.area) > 0 ? Number(state.value.area) : null}
+                  areaSource={new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('areaSrc') ?? 'none'}
+                  address={[state.value.paon, state.value.postcode].filter((x) => x !== '').join(' ')}
+                />
               )}
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>
