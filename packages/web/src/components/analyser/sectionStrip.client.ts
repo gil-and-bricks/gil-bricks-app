@@ -116,11 +116,18 @@ export function startSectionStrip(): void {
   const schedule = (): void => {
     if (queued) return;
     queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
-      sync();
-      spy();
-    });
+    const run = (): void => { queued = false; sync(); spy(); };
+    /**
+     * requestAnimationFrame NEVER FIRES IN A BACKGROUND TAB, and the sections
+     * arrive after the island hydrates. So in a tab that is not on screen the
+     * strip syncs exactly once — when only the first section exists — hides
+     * every other chip, and stays that way: the strip appears to skip whole
+     * sections, and the ones it skips are the ones that arrived late.
+     *
+     * A timer runs in a hidden tab; an animation frame does not.
+     */
+    if (document.hidden) setTimeout(run, 0);
+    else requestAnimationFrame(run);
   };
 
   sync();
@@ -133,5 +140,8 @@ export function startSectionStrip(): void {
   new MutationObserver(schedule).observe(root, { attributes: true, attributeFilter: ['style'] });
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(schedule).observe(rowEl);
   document.addEventListener('scroll', schedule, { passive: true });
+  // Coming back to the tab is itself a reason to re-check: work that was
+  // deferred while it was hidden has to land the moment it is looked at.
+  document.addEventListener('visibilitychange', schedule);
   window.addEventListener('resize', schedule);
 }

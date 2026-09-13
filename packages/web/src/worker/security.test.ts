@@ -253,13 +253,46 @@ describe('static pages carry the same protections as Worker routes', () => {
   it('and names the same origins as the Worker policy — the two cannot drift', () => {
     const workerCsp = SECURITY_HEADERS['content-security-policy'];
     for (const origin of ['data.police.uk', 'environment.data.gov.uk', 'www.planning.data.gov.uk',
-      'landregistry.data.gov.uk', 'challenges.cloudflare.com', 'youtube-nocookie.com']) {
+      'landregistry.data.gov.uk', 'challenges.cloudflare.com', 'youtube-nocookie.com',
+      'media.rightmove.co.uk', '*.zoocdn.com']) {
       expect(workerCsp, `worker: ${origin}`).toContain(origin);
       expect(headersFile, `_headers: ${origin}`).toContain(origin);
     }
     for (const directive of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) {
       expect(workerCsp, `worker: ${directive}`).toContain(directive);
       expect(headersFile, `_headers: ${directive}`).toContain(directive);
+    }
+  });
+
+  /**
+   * THE POLICY HAS TO PERMIT THE PRODUCT.
+   *
+   * F1's floor plan and R3's photo carousel both rest on the same position: the
+   * image is the PORTAL'S, so the user's own browser renders it from the
+   * portal's server and we never fetch or hold it. Both shipped without anyone
+   * adding those hosts to `img-src`, so every one of those images was blocked —
+   * the floor plan was a black rectangle and the carousel said "That photo
+   * would not load", with the real reason only in the console.
+   *
+   * The boundary tests prove we never FETCH a portal image. Nothing proved the
+   * browser is allowed to DISPLAY one. This does.
+   */
+  it('img-src lets the browser display the portal images the product is built on', () => {
+    const workerCsp = SECURITY_HEADERS['content-security-policy'];
+    const imgSrc = (csp: string): string => (csp.split(';').find((d) => d.trim().startsWith('img-src')) ?? '');
+    for (const host of ['https://media.rightmove.co.uk', 'https://*.zoocdn.com']) {
+      expect(imgSrc(workerCsp), `worker img-src: ${host}`).toContain(host);
+      expect(imgSrc(headersFile), `_headers img-src: ${host}`).toContain(host);
+    }
+  });
+
+  it('but they may ONLY paint pixels — no script, no connection, no frame', () => {
+    const workerCsp = SECURITY_HEADERS['content-security-policy'];
+    for (const directive of ['script-src', 'connect-src', 'frame-src', 'default-src']) {
+      const d = workerCsp.split(';').find((x) => x.trim().startsWith(directive)) ?? '';
+      for (const host of ['rightmove', 'zoocdn']) {
+        expect(d, `${directive} must not name ${host}`).not.toContain(host);
+      }
     }
   });
 

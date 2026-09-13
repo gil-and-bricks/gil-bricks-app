@@ -38,13 +38,36 @@ const CONNECT = [
   'https://challenges.cloudflare.com',
 ].join(' ');
 
+/**
+ * THE PORTALS' OWN IMAGE SERVERS.
+ *
+ * F1 and R3 both rest on one position: the agent's floor plan and the listing's
+ * photographs are THEIR copyright, so we never fetch them, never hold their
+ * bytes and never store them — the user's own browser renders them from the
+ * portal's server with `<img src>`, exactly as the listing page it already
+ * loaded does. What travels through our handoff is an address.
+ *
+ * Both features shipped without this line, so the policy that was written
+ * before either of them existed blocked every one of those images. The floor
+ * plan was a black rectangle and every photo read "That photo would not load",
+ * with the real reason only in the console.
+ *
+ * This is `img-src` ONLY. These hosts may paint pixels; they may not run a
+ * script, open a connection or frame anything — and nothing here weakens the
+ * rule that we make no request to a portal ourselves.
+ */
+const PORTAL_IMAGES = [
+  'https://media.rightmove.co.uk',
+  'https://*.zoocdn.com',
+].join(' ');
+
 const CSP = [
   "default-src 'self'",
   // See the note above: not yet an XSS backstop, and deliberately labelled.
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   // Google avatars load straight from Google on signed-in pages.
-  "img-src 'self' data: blob: https://*.googleusercontent.com https://pub-ed7263f454104eb1a02055393ee15800.r2.dev",
+  `img-src 'self' data: blob: https://*.googleusercontent.com https://pub-ed7263f454104eb1a02055393ee15800.r2.dev ${PORTAL_IMAGES}`,
   "font-src 'self' data:",
   `connect-src ${CONNECT}`,
   // Turnstile's widget, and the click-to-load YouTube embed.

@@ -33,9 +33,25 @@ if (process.env.CI === 'true' && process.argv[2] === undefined && process.env.BA
 }
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
+/**
+ * A handoff exactly as the extension builds one: the listing's photographs and
+ * its floor plan as ADDRESSES on the portal's own server. Both features are
+ * built on the browser being allowed to render these, and both shipped with a
+ * Content-Security-Policy that blocked them — which is not a crash, not a
+ * console error the page can see, and invisible to every test that does not
+ * load a real portal URL in a real browser. So the gate loads one.
+ */
+const PORTAL = {
+  ph: ['https://media.rightmove.co.uk/92k/91234/1/a_max_476x358.jpeg',
+       'https://media.rightmove.co.uk/92k/91234/1/b_max_476x358.jpeg'].join(' '),
+  fp: 'https://media.rightmove.co.uk/92k/91234/1/flp_max_600x600.jpeg',
+};
+const withPortalImages = (path) =>
+  `${path}&ph=${encodeURIComponent(PORTAL.ph)}&fp=${encodeURIComponent(PORTAL.fp)}`;
+
 /** The same real deals the copy gate uses, so both gates see one product. */
 const PAGES = [
-  ['/buy-to-let/analyser?postcode=SA1+6HW&price=75000&type=S&rent=650', 'btl'],
+  [withPortalImages('/buy-to-let/analyser?postcode=SA1+6HW&price=75000&type=S&rent=650'), 'btl'],
   ['/flip/analyser?postcode=SA1+6HW&price=75000&type=S&refurbCost=15000&gdv=120000', 'flip'],
   ['/brrrr/analyser?postcode=SA1+6HW&price=75000&type=S&rent=650&refurbCost=15000&arv=110000', 'brrrr'],
   ['/hmo/analyser?postcode=SA1+6HW&price=75000&type=S&rooms=5&roomRent=450', 'hmo'],
@@ -60,8 +76,15 @@ for (const [vpName, viewport, isMobile] of VIEWPORTS) {
     const where = `${name}/${vpName}`;
     const page = await ctx.newPage();
     const thrown = [];
+    const blocked = new Set();
     page.on('pageerror', (e) => thrown.push(String(e.message ?? e)));
-    page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) thrown.push(m.text()); });
+    page.on('console', (m) => {
+      const t = m.text();
+      // A CSP refusal is its own class of fault: the page is fine, the feature
+      // is simply not allowed to happen. Collected separately so it is named.
+      if (/Content Security Policy/.test(t)) { blocked.add((t.match(/'(https?:\/\/[^']+)'/) ?? [])[1] ?? t.slice(0, 90)); return; }
+      if (m.type() === 'error' && !/Failed to load resource/.test(t)) thrown.push(t);
+    });
 
     await page.goto(`${B}${path}`, { waitUntil: 'load' });
     // Let the sold-price fetch settle, success or failure — the sections below
@@ -70,6 +93,25 @@ for (const [vpName, viewport, isMobile] of VIEWPORTS) {
     console.log(`${where}`);
 
     if (thrown.length > 0) note(where, `threw: ${thrown[0].slice(0, 160)}`);
+    for (const b of [...blocked].slice(0, 3)) note(where, `blocked by our own Content-Security-Policy: ${b}`);
+
+    /**
+     * THE CAROUSEL IS WIRED TO THE PORTAL. The URLs above are synthetic, so
+     * they 404 — that is the portal's answer and not a fault of ours, and the
+     * carousel correctly says "That photo would not load". What must NOT happen
+     * is the request never leaving the browser, which is what a CSP refusal
+     * looks like and is exactly how this shipped: no photos, no floor plan
+     * backdrop, and the only explanation in a console nobody reads.
+     *
+     * So the signal that matters is the CSP REFUSAL collected above, which is
+     * emitted whether or not the URL exists, and which caught this exact fault
+     * on the deployed site before it was fixed. "Would not load" on a synthetic
+     * URL is not asserted, because a 404 is the portal's answer, not ours.
+     */
+    if (/ph=/.test(path)) {
+      const wired = await page.evaluate(() => document.querySelectorAll('.rc-photo, .rc-failed').length);
+      if (wired === 0) note(where, 'the photo carousel rendered no image at all');
+    }
 
     // ---- 2. big empty boxes ------------------------------------------------
     const empties = await page.evaluate((minArea) => {
