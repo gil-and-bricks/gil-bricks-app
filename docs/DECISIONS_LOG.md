@@ -2,6 +2,69 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — L1: the page reads in the order it is built in
+
+### Refurb is its own card, and the verdict moved to the bottom
+
+    Property → Your numbers → Refurb → Floor plan → Verdict → Figures
+    → Costs → Comparables → Valuation
+
+- Refurb was a block NESTED inside a card titled "<Strategy> verdict", so rent,
+  deposit, mortgage rate, assumptions and a whole photo carousel lived in one
+  box named after the answer. R1's ordering was right and its nesting was not.
+- The four verdict components now share ONE shell (`VerdictShell`) that emits
+  the inputs card, the refurb card, the floor plan and the verdict card as
+  siblings. One place, four call sites, instead of the same markup four times.
+- **The 1024px verdict-card split went with it.** Inputs are no longer in that
+  card, so splitting it would leave an empty column beside the answer — the
+  exact fault D1 removed once already. The 1100px sidebar is untouched. This
+  only works because the sticky bar already keeps the score and the headline on
+  screen the whole way down; the verdict card is the detail, never the only
+  place the answer exists.
+
+### The photos
+
+Desktop 750→838px; phone **204→340px**, 87% of the viewport. Two things were
+taking it: the arrows FLANKED the photo, costing 88px of a 390px screen, and the
+card's own padding cost another 48. The arrows now sit over the photo and on a
+phone the photo runs to the card's edges. `object-fit` is `contain`, not
+`cover`: cropping to fill a box can remove the very thing you are looking for.
+Clicking one opens a real `<dialog>` — Escape and focus trapping for free, still
+an `<img src>` at the portal's URL, still no bytes of ours.
+
+### What was making the strip jump
+
+`.strip-chip[hidden]` was `display: none`, so the strip shrink-wrapped whatever
+had mounted so far and resized twice on every load as the sections arrived:
+**26px → 170px → 350px** on a 1440px screen, the rail growing under you while
+you read. `visibility: hidden` reserves the box, so the size is decided once at
+first paint — measured after: one height for the whole load, at both widths.
+
+It was NOT the scrollspy and NOT a per-frame re-sync, both of which were
+offered as hypotheses and both of which I instrumented over a full scroll at
+both widths: zero moves, zero resizes, zero redundant writes, and exactly nine
+active-chip changes for nine sections, which is correct.
+
+### Smaller things found by walking it
+
+- The `i` tooltip buttons were 17x17, under WCAG 2.5.8's 24x24. The visible dot
+  stays small — it must not shout over the label beside it — and the press
+  target is now 24x24 around it.
+- The comparables table "overflowing" at 1440px was a FALSE POSITIVE in my own
+  audit: it sits in a `table-wrap` scroller and the page never scrolls sideways.
+- The render gate then flagged the photo itself as an "empty box", because a
+  synthetic URL 404s and an `<img>` has no text by nature. Media elements are
+  now excluded from that check — a 404 is the remote server's answer, not our
+  layout.
+
+### The one that needs a decision
+
+**On a phone the page is 21.7 screens, and the comparables section alone is
+11,851px of it — fourteen screens.** Desktop is 6.7 screens total. Thirty-five
+comparables render as cards on a phone. The strip lets you jump past them, but
+nothing caps the list. Not changed: how many is the right number is the
+operator's call, not mine.
+
 ## 2026-09-13 — B2: our own CSP was blocking the portals' images
 
 B1 fixed the floor plan surface's HEIGHT and left the real fault untouched. The

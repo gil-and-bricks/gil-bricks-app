@@ -127,6 +127,9 @@ for (const [vpName, viewport, isMobile] of VIEWPORTS) {
         if (r.width * r.height < minArea) continue;
         if (!boxy(getComputedStyle(el))) continue;
         if ((el.innerText ?? '').trim() !== '') continue;
+        // A media element is not an empty box: an <img> has no text by nature,
+        // and one whose src 404s is the remote server's answer, not our layout.
+        if (/^(IMG|SVG|CANVAS|VIDEO|IFRAME|INPUT|SELECT|TEXTAREA|HR|BR)$/.test(el.tagName)) continue;
         if (el.querySelector('img,svg,canvas,video,input,button,select,textarea,a')) continue;
         found.push({ tag: el.tagName, cls: (el.className ?? '').toString().slice(0, 50), w: Math.round(r.width), h: Math.round(r.height) });
       }
