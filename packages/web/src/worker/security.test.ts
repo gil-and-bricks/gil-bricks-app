@@ -229,3 +229,45 @@ describe('the EPC lookup is rate limited, and only where it costs us', () => {
     expect(d.calls.size).toBe(0);
   });
 });
+
+/**
+ * S1 — THE STATIC PAGES ARE COVERED TOO.
+ *
+ * `run_worker_first` in wrangler.jsonc lists four path prefixes; every other
+ * page is served by Cloudflare's asset layer without the Worker running, so the
+ * Worker's wrapper cannot reach them. `public/_headers` covers those. Both must
+ * exist and must agree — this is what stops one being updated without the other.
+ */
+describe('static pages carry the same protections as Worker routes', () => {
+  const headersFile = readFileSync(join(REPO, 'packages/web/public/_headers'), 'utf8');
+  const wrangler = readFileSync(join(REPO, 'packages/web/wrangler.jsonc'), 'utf8');
+
+  it('_headers applies them to every path', () => {
+    expect(headersFile).toMatch(/^\/\*$/m);
+    for (const h of ['Content-Security-Policy', 'X-Content-Type-Options', 'X-Frame-Options',
+      'Referrer-Policy', 'Permissions-Policy', 'Strict-Transport-Security']) {
+      expect(headersFile, h).toContain(h);
+    }
+  });
+
+  it('and names the same origins as the Worker policy — the two cannot drift', () => {
+    const workerCsp = SECURITY_HEADERS['content-security-policy'];
+    for (const origin of ['data.police.uk', 'environment.data.gov.uk', 'www.planning.data.gov.uk',
+      'landregistry.data.gov.uk', 'challenges.cloudflare.com', 'youtube-nocookie.com']) {
+      expect(workerCsp, `worker: ${origin}`).toContain(origin);
+      expect(headersFile, `_headers: ${origin}`).toContain(origin);
+    }
+    for (const directive of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) {
+      expect(workerCsp, `worker: ${directive}`).toContain(directive);
+      expect(headersFile, `_headers: ${directive}`).toContain(directive);
+    }
+  });
+
+  it('every Worker-served prefix really is listed as run_worker_first', () => {
+    // If a prefix were dropped here, its route would be swallowed by the asset
+    // layer and the Worker's headers (and the route itself) would never run.
+    for (const prefix of ['/auth/*', '/api/*', '/dev/*', '/broker/*']) {
+      expect(wrangler, prefix).toContain(prefix);
+    }
+  });
+})
