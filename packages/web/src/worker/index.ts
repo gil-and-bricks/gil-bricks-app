@@ -408,6 +408,8 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     env.DB.prepare(`DELETE FROM deal_deaths WHERE deal_id IN (${ownDeals})`).bind(user.sub),
     // F1 — the floor plans drawn for those deals go with them.
     env.DB.prepare('DELETE FROM deal_floorplans WHERE user_id = ?').bind(user.sub),
+    // R3 — and which pointers they were shown.
+    env.DB.prepare('DELETE FROM refurb_cue_seen WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM deals WHERE user_id = ?').bind(user.sub),
   );
   stmts.push(
@@ -1084,6 +1086,49 @@ async function handlePutFloorPlan(request: Request, env: Env, dealId: string): P
   return json({ ok: true });
 }
 
+
+/**
+ * R3 — WHICH REFURB POINTERS THIS PERSON HAS SEEN.
+ *
+ * Read once per session, written once in a batch. Cue KEYS only: no photo, no
+ * URL, no property. The cap is the library's size, so this cannot grow without
+ * bound however many deals somebody analyses.
+ */
+const MAX_CUE_KEYS = 200;
+
+async function handleGetCuesSeen(request: Request, env: Env): Promise<Response> {
+  if (!features.refurbPhotos) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const rows = await env.DB.prepare('SELECT cue_key FROM refurb_cue_seen WHERE user_id = ?')
+    .bind(user.sub).all<{ cue_key: string }>();
+  return json({ seen: rows.results.map((r) => r.cue_key) });
+}
+
+async function handlePostCuesSeen(request: Request, env: Env): Promise<Response> {
+  if (!features.refurbPhotos) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: { keys?: unknown };
+  try {
+    body = (await request.json()) as { keys?: unknown };
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  // A cue key is a short slug. Anything else — a URL, a data URI, an essay — is
+  // not a key and is refused rather than stored.
+  const keys = (Array.isArray(body.keys) ? body.keys : [])
+    .filter((k): k is string => typeof k === 'string' && /^[a-z0-9][a-z0-9-]{0,63}$/.test(k))
+    .slice(0, MAX_CUE_KEYS);
+  if (keys.length === 0) return json({ ok: true, stored: 0 });
+  const now = new Date().toISOString();
+  // ONE batch, however many keys — the whole point of flushing at the end.
+  await env.DB.batch(keys.map((k) => env.DB.prepare(
+    'INSERT INTO refurb_cue_seen (user_id, cue_key, seen_at) VALUES (?, ?, ?) ON CONFLICT(user_id, cue_key) DO NOTHING',
+  ).bind(user.sub, k, now)));
+  return json({ ok: true, stored: keys.length });
+}
+
 /** P4: move a deal to another progress stage (skipping allowed — it's the user's own
  * money). Writes deal_stage_history + updates the card's stage/status. Pipeline-only. */
 async function handleMoveDeal(request: Request, env: Env, dealId: string): Promise<Response> {
@@ -1655,6 +1700,9 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (pathname === '/api/deals' && method === 'POST') return handleSaveDeal(request, env);
     if (pathname === '/api/deals' && method === 'GET') return handleListDeals(request, env);
     if (pathname === '/api/epc' && method === 'GET') return handleEpcLookup(request, env);
+    // R3 — the refurb pointers this person has already been shown.
+    if (pathname === '/api/refurb-cues/seen' && method === 'GET') return handleGetCuesSeen(request, env);
+    if (pathname === '/api/refurb-cues/seen' && method === 'POST') return handlePostCuesSeen(request, env);
     if (pathname === '/api/health' && method === 'GET') return handleHealth(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
     if (pathname === '/api/deals/dead' && method === 'GET') return handleTerminalPage(request, env, url, 'dead');

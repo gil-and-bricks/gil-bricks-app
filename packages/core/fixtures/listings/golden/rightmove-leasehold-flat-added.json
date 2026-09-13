@@ -58,6 +58,12 @@
     "value": null,
     "status": "missing"
   },
+  "photoUrls": {
+    "value": [
+      "https://media.rightmove.co.uk/property-photo/d0374a023/89106294/d0374a023b401730f941bdf9d0842556.jpeg"
+    ],
+    "status": "found"
+  },
   "newBuild": {
     "value": false,
     "status": "found"

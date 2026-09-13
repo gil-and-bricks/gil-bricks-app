@@ -60,6 +60,28 @@
     ],
     "status": "found"
   },
+  "photoUrls": {
+    "value": [
+      "https://media.rightmove.co.uk/property-photo/73f3ac459/167112923/73f3ac459f06662c8bca48b800e2b85b.jpeg",
+      "https://media.rightmove.co.uk/property-photo/52bd2a325/167112923/52bd2a32572dead8c1c568ef2a4cc8eb.jpeg",
+      "https://media.rightmove.co.uk/property-photo/b3a468414/167112923/b3a46841418aaaa3110b4834de5441e7.jpeg",
+      "https://media.rightmove.co.uk/property-photo/167d966cc/167112923/167d966cc68e377bc91185eafbdb075b.jpeg",
+      "https://media.rightmove.co.uk/property-photo/8096d97a8/167112923/8096d97a82c799f1484c4651701f1897.jpeg",
+      "https://media.rightmove.co.uk/property-photo/92d92d44c/167112923/92d92d44cd1ac89c186e7a19e8c05d51.jpeg",
+      "https://media.rightmove.co.uk/property-photo/c07490ed0/167112923/c07490ed029700f2d1643b9b91a5c46a.jpeg",
+      "https://media.rightmove.co.uk/property-photo/c06b23baf/167112923/c06b23baf952bde07d4daac1f17d18bc.jpeg",
+      "https://media.rightmove.co.uk/property-photo/cbcb8d844/167112923/cbcb8d844f1175b43beb71bd69eaf3e4.jpeg",
+      "https://media.rightmove.co.uk/property-photo/72f1f688f/167112923/72f1f688f916030489e56b9e34e0360a.jpeg",
+      "https://media.rightmove.co.uk/property-photo/b34a6b049/167112923/b34a6b049ed7669aea64832a67e2d5bf.jpeg",
+      "https://media.rightmove.co.uk/property-photo/cfa76e4a7/167112923/cfa76e4a785ea2f7527a9225c22d978a.jpeg",
+      "https://media.rightmove.co.uk/property-photo/8db61786d/167112923/8db61786d1c2487cf65ed1550d603145.jpeg",
+      "https://media.rightmove.co.uk/property-photo/c30e6ac9c/167112923/c30e6ac9c15f6d8a2f5844ad8752033d.jpeg",
+      "https://media.rightmove.co.uk/property-photo/e03dfaaad/167112923/e03dfaaad329a5a7cbf82b48bf770aa5.jpeg",
+      "https://media.rightmove.co.uk/property-photo/f4ecd4a72/167112923/f4ecd4a7271736c69fffda8db1470232.jpeg",
+      "https://media.rightmove.co.uk/property-photo/dabff0e19/167112923/dabff0e199536992f48c2300465c62dc.jpeg"
+    ],
+    "status": "found"
+  },
   "newBuild": {
     "value": false,
     "status": "found"

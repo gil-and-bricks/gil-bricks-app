@@ -17,6 +17,7 @@ const listing = (fp: unknown): NormalisedListing => ({
   askingPrice: found(150000), propertyType: found('Terraced'), tenure: found('FREEHOLD'),
   bedrooms: found(3), bathrooms: found(1), floorAreaSqm: missing(), floorAreaSqmRange: missing(),
   floorPlanImageUrls: fp === null ? missing<string[]>() : found(fp as string[]),
+  photoUrls: missing<string[]>(),
   newBuild: found(false), listingUpdate: missing(), firstVisibleDate: missing(),
   description: found('x'), isAuction: missing(),
 }) as NormalisedListing;

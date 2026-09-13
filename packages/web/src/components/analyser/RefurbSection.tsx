@@ -31,6 +31,9 @@ import { Accordion } from './Accordion';
 import { state, strategyParams, updateStrategy } from './state';
 import { markEdited } from './provenance';
 import { features } from '../../config/features';
+/* R3 — the photo carousel, reached ONLY through its door. */
+import { PhotoCarousel, flushSeen, loadSeen, photosFromParam } from '../../refurbcues';
+import { REFURB_PHOTOS } from '../../config/refurb';
 
 export const MODE_PARAM = 'rfList';
 export const REGION_PARAM = 'rfRegion';
@@ -89,6 +92,37 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
   const tickedCount = lines.filter((l) => l.ticked).length;
   const [open, setOpen] = useState(false);
   const [pickingRegion, setPickingRegion] = useState(false);
+  /**
+   * R3 — the seen-set, read ONCE for the session and written ONCE at the end.
+   * A read per photo or a write per tip would be a request every few seconds
+   * from every user; the free tier would survive it and it would still be wrong.
+   */
+  const [seen, setSeen] = useState<ReadonlySet<string>>(new Set());
+  const addedCues = useRef<Set<string>>(new Set());
+  const photos = features.refurbPhotos
+    ? photosFromParam(typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('ph'))
+    : [];
+
+  useEffect(() => {
+    if (!features.refurbPhotos) return;
+    let live = true;
+    void loadSeen(async () => {
+      const res = await fetch('/api/refurb-cues/seen', { credentials: 'same-origin' });
+      if (!res.ok) return null;
+      return ((await res.json()) as { seen?: string[] }).seen ?? null;
+    }).then(({ seen: s }) => { if (live) setSeen(s); });
+    const flush = (): void => {
+      void flushSeen(addedCues.current, new Set([...seen, ...addedCues.current]), async (keys) => {
+        await fetch('/api/refurb-cues/seen', {
+          method: 'POST', credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ keys }),
+        });
+      });
+    };
+    window.addEventListener('pagehide', flush);
+    return () => { live = false; window.removeEventListener('pagehide', flush); flush(); };
+  }, []);
   const focusNext = useRef<string | null>(null);
 
   // ---- R2: what we know about this property, and what we can offer ----------
@@ -219,6 +253,26 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
         )}
       </div>
 
+      {/* R3 — the listing's photos, one at a time, with the SAME checkboxes
+          underneath. Collapsing them leaves exactly the list that was here
+          before, which is the promise: a new way in, not a replacement. */}
+      {features.refurbPhotos && photos.length > 0 && (
+        <PhotoCarousel
+          photos={photos}
+          seen={seen}
+          onCueShown={(k) => { addedCues.current.add(k); }}
+          tickedItems={new Set(lines.filter((l) => l.ticked).map((l) => l.key))}
+          onTickItem={(itemKey) => {
+            // The loop: you see it, you tick it, the total moves, the deal re-scores.
+            const sug = suggestionOf(itemKey);
+            const filled = sug !== null && isSuggestion(sug) && sug.band.mid !== null ? sug.band.mid : 0;
+            writeLines(
+              (from) => from.map((l) => (l.key === itemKey ? { ...l, ticked: true, amount: filled } : l)),
+              { [paramFor(itemKey)]: String(filled) },
+            );
+          }}
+        />
+      )}
       <button type="button" class="refurb-toggle" aria-expanded={open} aria-controls="refurb-list" onClick={() => setOpen(!open)}>
         {open ? REFURB.copy.breakdownOpen : REFURB.copy.breakdown}
         {tickedCount > 0 && <span class="refurb-count"> · {REFURB.copy.sumLine(tickedCount, fmtMoney(sum))}</span>}

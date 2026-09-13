@@ -61,6 +61,37 @@
     ],
     "status": "found"
   },
+  "photoUrls": {
+    "value": [
+      "https://media.rightmove.co.uk/property-photo/ecd2d5a69/88376352/ecd2d5a694845d567fabccdd25483495.jpeg",
+      "https://media.rightmove.co.uk/property-photo/952fc5629/88376352/952fc562964a28860e87fb2a149c8069.jpeg",
+      "https://media.rightmove.co.uk/property-photo/b7ca26295/88376352/b7ca262957731c0f84c47a5a7c8a5fcd.jpeg",
+      "https://media.rightmove.co.uk/property-photo/ef08d184f/88376352/ef08d184f1a1a8065a0654ce74f6679a.jpeg",
+      "https://media.rightmove.co.uk/property-photo/946b421a1/88376352/946b421a1bc5f23a305d4bb8989449ea.jpeg",
+      "https://media.rightmove.co.uk/property-photo/f0e46bbb1/88376352/f0e46bbb1ddb2fe8f402abdc58547f6b.jpeg",
+      "https://media.rightmove.co.uk/property-photo/6d7f09321/88376352/6d7f09321ccc9ca70f259efb7a2e927f.jpeg",
+      "https://media.rightmove.co.uk/property-photo/9668552c8/88376352/9668552c8c2bd31c975dedc55a5a59ad.jpeg",
+      "https://media.rightmove.co.uk/property-photo/2907765cc/88376352/2907765ccb8ed39e1d03a9c410bb146d.jpeg",
+      "https://media.rightmove.co.uk/property-photo/4dbe8f81e/88376352/4dbe8f81ef9eeb8fcbe8eeba7a1f9ed9.jpeg",
+      "https://media.rightmove.co.uk/property-photo/404875d57/88376352/404875d571071091ec02318d0b768778.jpeg",
+      "https://media.rightmove.co.uk/property-photo/e0afef193/88376352/e0afef193eb9d18f6f4e6b93314446f8.jpeg",
+      "https://media.rightmove.co.uk/property-photo/b9ab4e322/88376352/b9ab4e322ddf88fe66ec34842b5b03f5.jpeg",
+      "https://media.rightmove.co.uk/property-photo/a07cb7496/88376352/a07cb74960ded7e7d934c229bbce49c8.jpeg",
+      "https://media.rightmove.co.uk/property-photo/d9c345c95/88376352/d9c345c95de9cd798e08de8a2cd2c222.jpeg",
+      "https://media.rightmove.co.uk/property-photo/49ea4a7c2/88376352/49ea4a7c21400564d869022be9458f1f.jpeg",
+      "https://media.rightmove.co.uk/property-photo/770a90518/88376352/770a905188e547a25b7f59dfd9889056.jpeg",
+      "https://media.rightmove.co.uk/property-photo/24655fe6c/88376352/24655fe6c37cb89876bf16c05298742b.jpeg",
+      "https://media.rightmove.co.uk/property-photo/919480daf/88376352/919480daf775f1268d9c733186bae9be.jpeg",
+      "https://media.rightmove.co.uk/property-photo/9931fadcc/88376352/9931fadcc1645c253254d9c9ee763aad.jpeg",
+      "https://media.rightmove.co.uk/property-photo/f18adbd47/88376352/f18adbd4752eac656a51b3418e039c4a.jpeg",
+      "https://media.rightmove.co.uk/property-photo/c9951863f/88376352/c9951863f2158d940e9c37d4947611a6.jpeg",
+      "https://media.rightmove.co.uk/property-photo/354a45f59/88376352/354a45f5978317d2eb8f6bb7c2deb317.jpeg",
+      "https://media.rightmove.co.uk/property-photo/63be7ed99/88376352/63be7ed99ed976f7cdae32e59e7b57e9.jpeg",
+      "https://media.rightmove.co.uk/property-photo/13b880176/88376352/13b8801768c5b551a5727a7006fdb242.jpeg",
+      "https://media.rightmove.co.uk/property-photo/a557fdfc1/88376352/a557fdfc10a397ec7695bff96152306e.jpeg"
+    ],
+    "status": "found"
+  },
   "newBuild": {
     "value": false,
     "status": "found"

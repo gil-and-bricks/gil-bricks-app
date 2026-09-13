@@ -173,6 +173,16 @@ export interface FeatureFlags {
    * runs, and any geometry already saved stays in D1 untouched. */
   floorPlan: boolean;
 
+  /** The refurb photo carousel (R3): the listing's own photographs, carried in
+   * the handoff as URLs on the portal's server and rendered one at a time above
+   * the refurb checkboxes, with one regulation-backed pointer beside each. The
+   * pointer never claims to have seen anything — it says what to look for and
+   * what it might mean — and tapping it ticks the cost item it implicates.
+   * Pointers never repeat for a person, across sessions and properties. Off:
+   * the refurb section is exactly the itemised list it is today, `ph` in a
+   * handoff URL is ignored, and no cue code runs. */
+  refurbPhotos: boolean;
+
   /** The post-answer capture path on the tools (T3): the offer to email the
    * breakdown, by Google sign-in or a typed address. It NEVER gates the answer;
    * off = no offer block at all, and the tools make no server call. Each tool
@@ -272,6 +282,7 @@ export const features: FeatureFlags = {
   refurbSection: true,
   refurbSuggestions: true,
   floorPlan: true,
+  refurbPhotos: true,
   dealFacts: true,
   verdictChanges: true,
   evidenceChips: true,

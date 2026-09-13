@@ -35,7 +35,7 @@ const MIGRATIONS = [
   '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0009_bridging_enquiries.sql',
   '0010_tool_saves.sql', '0011_outbox_fields.sql', '0019_bridging_factfind.sql',
   '0013_deal_changes.sql', '0016_deal_deaths.sql',
-  '0020_factfind_consent_record.sql', '0024_bridging_enquiry_link.sql', '0026_deal_floorplans.sql',
+  '0020_factfind_consent_record.sql', '0024_bridging_enquiry_link.sql', '0026_deal_floorplans.sql', '0027_refurb_cue_seen.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {

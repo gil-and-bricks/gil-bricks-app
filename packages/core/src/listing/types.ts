@@ -56,6 +56,13 @@ export interface NormalisedListing {
    * shows the range instead of presenting the top as fact (E7 bug 5a). */
   floorAreaSqmRange: Field<{ minSqm: number; maxSqm: number }>;
   floorPlanImageUrls: Field<string[]>;
+  /**
+   * R3 — the listing's own photographs, as URLs on the PORTAL'S server. Read
+   * from the same embedded page model the price and the floor plan come from,
+   * while the user is on that page. Never fetched, never stored: an address is
+   * carried, and the browser renders it exactly as the listing page does.
+   */
+  photoUrls: Field<string[]>;
   newBuild: Field<boolean>;
   listingUpdate: Field<ListingUpdate>;
   firstVisibleDate: Field<string>;

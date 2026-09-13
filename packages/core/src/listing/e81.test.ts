@@ -13,7 +13,7 @@ const listing = (price: number, over: Partial<NormalisedListing> = {}): Normalis
   listingId: found('e1'), url: found('x'), postcode: found('SA1 2HG'), outcode: found('SA1'),
   address: found({ paon: '9', street: 'Earl Street' }), askingPrice: found(price), propertyType: found('Terraced'),
   tenure: found('FREEHOLD'), bedrooms: found(2), bathrooms: found(1), floorAreaSqm: found(70), floorAreaSqmRange: missing(),
-  floorPlanImageUrls: missing(), newBuild: found(false), listingUpdate: missing(), firstVisibleDate: missing(),
+  floorPlanImageUrls: missing(), photoUrls: missing(), newBuild: found(false), listingUpdate: missing(), firstVisibleDate: missing(),
   description: found('A terrace.'), isAuction: unavailable(), ...over,
 });
 const sector = (over: Partial<SectorFile['stats']> = {}): SectorFile => ({ schemaVersion: 1, sector: 'SA1 2', country: 'W92000004', updatedAt: 'x', sales: [], stats: { count: 20, typicalPrice: 90000, typicalPpsqm: 1300, p10Price: 60000, p90Price: 130000, ...over } }) as SectorFile;

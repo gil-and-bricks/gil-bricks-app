@@ -214,3 +214,62 @@ export const REFURB_CAVEAT = {
       ? 'These figures include VAT. Check whether your quote does.'
       : 'These figures exclude VAT. Check whether your quote includes it.',
 } as const;
+
+/**
+ * R3 — THE PHOTO CAROUSEL'S OWN WORDS.
+ *
+ * The section's job changes: instead of a list of items to tick in the
+ * abstract, it is the listing's photographs one at a time with the costs
+ * underneath — which is how people actually assess a refurb. The list itself is
+ * unchanged and is always one tap away.
+ */
+export const REFURB_PHOTOS = {
+  heading: 'The listing’s photos',
+  /** Said once, where the photos are. The whole honesty position, in one place. */
+  caveat: 'Photos are wide-angle, staged, chosen by the agent and sometimes old. This is a list of things to check, not a survey.',
+  /** The control that collapses the photos and leaves the plain list. */
+  hide: 'Hide photos',
+  show: 'Show photos',
+  /** Where we are in the reel. */
+  counter: (n: number, total: number): string => `${n} of ${total}`,
+  prev: 'Previous photo',
+  next: 'Next photo',
+  none: 'This listing came with no photos. The list below still works.',
+  failed: 'That photo would not load.',
+
+  /** R3 — the room is TAPPED, never detected. Said plainly. */
+  roomLabel: 'What room is this?',
+  roomHint: 'Tap a room and we will show pointers for it.',
+  roomNames: {
+    kitchen: 'Kitchen',
+    bathroom: 'Bathroom',
+    bedroom: 'Bedroom',
+    living: 'Living room',
+    hall: 'Hall',
+    loft: 'Loft',
+    outside: 'Outside',
+    garden: 'Garden',
+  } as Record<string, string>,
+
+  /** The pointer beside a photo. One, never two. */
+  tip: {
+    heading: 'What to look for',
+    /** The cost item it implicates, as a one-tap tick. */
+    tick: (item: string): string => `Add ${item}`,
+    ticked: (item: string): string => `${item} ticked.`,
+    /** What it would actually take to know. Always shown with the tip. */
+    caveatLabel: 'To be sure',
+    /** Named so nobody has to take our word for the rule behind it. */
+    regulation: (name: string, checked: string): string => `${name} · checked ${checked}`,
+    /** Confidence, said in the user's language rather than ours. */
+    confidence: {
+      conclusive: 'Usually clear from a photo',
+      indicative: 'Worth investigating',
+      weak: 'A weak signal only',
+    } as Record<string, string>,
+    /** Every pointer for this room has been shown to this person already. */
+    exhausted: 'You have seen every pointer we have for this room.',
+    /** The library is not in yet — said honestly rather than left blank. */
+    none: 'No pointers yet.',
+  },
+} as const;

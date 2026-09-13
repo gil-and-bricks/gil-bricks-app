@@ -79,6 +79,42 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
   const pageUrl = url ?? (typeof ld.mainEntityOfPage === 'string' ? ld.mainEntityOfPage : undefined) ?? getMeta(doc, config.zoopla.fallback.meta.url);
   const listingId = zooplaIdFromUrl(pageUrl) ?? (valueAfter(flight, p.listingId) != null ? String(valueAfter(flight, p.listingId)) : null);
 
+  /**
+   * R3 — Zoopla's own photographs.
+   *
+   * Zoopla gives FILENAMES, not URLs — the same shape it already gives for
+   * floor plans. The page itself serves them from `lid.zoocdn.com/u/<w>/<h>/`,
+   * which is visible in the page's own preload link, so the prefix is READ FROM
+   * THE PAGE rather than assumed: if Zoopla ever moves its CDN, the page moves
+   * with it and this follows. Where the page shows no such link we fall back to
+   * the size it was last seen using, and if that is ever wrong the result is a
+   * photo that does not load — which the carousel already handles honestly.
+   */
+  const imagesRaw = valueAfter(flight, 'propertyImage') as Array<{ filename?: string }> | undefined;
+  /**
+   * The prefix is READ FROM THE PAGE and nowhere else. There is deliberately NO
+   * hardcoded fallback: writing one would be guessing at somebody else's CDN
+   * layout, and a guess that goes stale shows broken photos rather than none.
+   * If the page does not show us where it serves its own images from, we carry
+   * no photos for that listing and say so — which is also why this file names
+   * no external host, as the extension's output guard requires.
+   */
+  let zoocdnPrefix: string | null = null;
+  try {
+    const head = doc.head?.innerHTML ?? '';
+    const seen = /https:\/\/li[a-z]\.zoocdn\.com\/u\/\d+\/\d+\//i.exec(head);
+    if (seen) [zoocdnPrefix] = seen;
+  } catch {
+    zoocdnPrefix = null;
+  }
+  const zooplaPhotos = Array.isArray(imagesRaw)
+    ? imagesRaw
+      .map((i) => i?.filename)
+      .filter((f): f is string => typeof f === 'string' && f !== '')
+      .map((f) => (/^https:\/\//i.test(f) ? f : (zoocdnPrefix === null ? '' : `${zoocdnPrefix}${f}`)))
+      .filter((u) => /^https:\/\//i.test(u))
+    : [];
+
   const fpFilenames = Array.isArray(floorPlan?.image)
     ? floorPlan!.image.map((im: any) => im?.filename).filter((f: unknown): f is string => typeof f === 'string')
     : [];
@@ -120,6 +156,7 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
     floorAreaSqmRange: missing<{ minSqm: number; maxSqm: number }>(),
     // Zoopla gives floor-plan image FILENAMES (not absolute URLs) in the flight.
     floorPlanImageUrls: fieldOf(fpFilenames),
+    photoUrls: fieldOf(zooplaPhotos),
     newBuild: typeof listingCondition === 'string' ? found(listingCondition === 'new') : missing<boolean>(),
     listingUpdate: fieldOf(update),
     firstVisibleDate: fieldOf(typeof publishedOn === 'string' ? toIsoDate(publishedOn) ?? publishedOn : null),
@@ -165,6 +202,7 @@ function fromFallback(doc: Document, config: ExtractorConfig, url?: string): Nor
     floorAreaSqm: missing<number>(),
     floorAreaSqmRange: missing<{ minSqm: number; maxSqm: number }>(),
     floorPlanImageUrls: missing<string[]>(),
+    photoUrls: missing<string[]>(),
     newBuild: missing<boolean>(),
     listingUpdate: missing(),
     firstVisibleDate: fieldOf(typeof ld.datePosted === 'string' ? toIsoDate(ld.datePosted) ?? ld.datePosted : null),

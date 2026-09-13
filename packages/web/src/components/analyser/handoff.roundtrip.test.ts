@@ -36,7 +36,7 @@ const listing: NormalisedListing = {
   bathrooms: found(2),
   floorAreaSqm: missing(),
   floorAreaSqmRange: missing(),
-  floorPlanImageUrls: missing(),
+  floorPlanImageUrls: missing(), photoUrls: missing(),
   newBuild: found(false),
   listingUpdate: missing(),
   firstVisibleDate: missing(),

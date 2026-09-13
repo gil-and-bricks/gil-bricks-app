@@ -75,6 +75,11 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
 
   const floorplans = getPath(pd, p.floorplans) as Array<{ url?: string }> | undefined;
   const fpUrls = Array.isArray(floorplans) ? floorplans.map((f) => f?.url).filter((u): u is string => !!u) : [];
+  // R3 — the listing's photos, from the same embedded model, the same way.
+  const images = getPath(pd, (p as { images?: string }).images ?? 'images') as Array<{ url?: string; srcUrl?: string }> | undefined;
+  const photoUrls = Array.isArray(images)
+    ? images.map((i) => i?.url ?? i?.srcUrl).filter((u): u is string => typeof u === 'string' && /^https:\/\//i.test(u))
+    : [];
   const fa = rightmoveFloorArea(getPath(pd, p.sizings));
 
   const update = parseListingUpdate(getPath(pd, p.listingUpdateReason));
@@ -103,6 +108,7 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
     floorAreaSqm: fieldOf(fa?.midSqm ?? null),
     floorAreaSqmRange: fa?.isRange ? found({ minSqm: fa.minSqm, maxSqm: fa.maxSqm }) : missing<{ minSqm: number; maxSqm: number }>(),
     floorPlanImageUrls: fieldOf(fpUrls),
+    photoUrls: fieldOf(photoUrls),
     newBuild: newBuildSignal ? found(isNew) : missing<boolean>(),
     listingUpdate: fieldOf(update),
     // Rightmove records first-live only via an "Added on" reason; a "Reduced"
@@ -145,6 +151,7 @@ function fromFallback(doc: Document, config: ExtractorConfig, url?: string): Nor
     floorAreaSqm: missing<number>(),
     floorAreaSqmRange: missing<{ minSqm: number; maxSqm: number }>(),
     floorPlanImageUrls: missing<string[]>(),
+    photoUrls: missing<string[]>(),
     newBuild: missing<boolean>(),
     listingUpdate: missing(),
     firstVisibleDate: missing<string>(),

@@ -63,6 +63,18 @@ export const CRITERIA_PARAMS = {
  */
 export const FLOORPLAN_PARAM = 'fp';
 
+/**
+ * R3 — THE LISTING'S PHOTOS, carried the same way and for the same reason: the
+ * web app renders them with `<img src>` from the PORTAL'S server, exactly as the
+ * listing page does. Addresses travel; bytes never do.
+ *
+ * CAPPED, because a handoff is a URL. Twelve photos is more than anyone assesses
+ * a refurb from, and keeps the query string comfortably inside what every
+ * browser and server handles.
+ */
+export const PHOTOS_PARAM = 'ph';
+export const MAX_HANDOFF_PHOTOS = 12;
+
 /** The measurement params, likewise. */
 export const MEASURED_PARAMS = { roomSizeFailures: 'roomFails', roomsMeasured: 'roomsMeasured' } as const;
 
@@ -153,6 +165,11 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
   // holding, which is the thing this product must never do with their image.
   const fp = listing.floorPlanImageUrls.status === 'found' ? listing.floorPlanImageUrls.value?.[0] : undefined;
   if (typeof fp === 'string' && /^https:\/\//i.test(fp.trim())) set(FLOORPLAN_PARAM, fp.trim());
+
+  // R3 — the listing's own photographs, as addresses on the portal's server.
+  const photos = listing.photoUrls.status === 'found' ? listing.photoUrls.value ?? [] : [];
+  const usable = photos.filter((u) => typeof u === 'string' && /^https:\/\//i.test(u.trim())).slice(0, MAX_HANDOFF_PHOTOS);
+  if (usable.length > 0) set(PHOTOS_PARAM, usable.join(' '));
 
   // Auction marker (P4): the listing was an auction. Carried as metadata (like `src`)
   // so the analyser save can flag the deal and the board warns about the legal pack at

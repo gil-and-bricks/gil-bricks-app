@@ -86,6 +86,7 @@ export const FALLBACK_CONFIG: ExtractorConfig = {
       bathrooms: 'bathrooms',
       sizings: 'sizings',
       floorplans: 'floorplans',
+      images: 'images',
       description: 'text.description',
       listingUpdateReason: 'listingHistory.listingUpdateReason',
       tags: 'tags',

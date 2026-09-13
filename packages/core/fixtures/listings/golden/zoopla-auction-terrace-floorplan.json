@@ -61,6 +61,28 @@
     ],
     "status": "found"
   },
+  "photoUrls": {
+    "value": [
+      "https://lid.zoocdn.com/u/480/360/c2e69b52e17247af35b13e6b6dfd60294e6db164.jpg",
+      "https://lid.zoocdn.com/u/480/360/bf70d4f8f995905b705848a7ea31ed8a378debbd.jpg",
+      "https://lid.zoocdn.com/u/480/360/97bd5224f62d7f677591eb4c3de48dbd21a94d13.jpg",
+      "https://lid.zoocdn.com/u/480/360/749f0fd7175fdf4c90a9599cf1829f24f8ac44f0.jpg",
+      "https://lid.zoocdn.com/u/480/360/3aa98abfabf988ff701143b0a8655a9fc2302e8a.jpg",
+      "https://lid.zoocdn.com/u/480/360/9c696ea161d92e0290cde69f4a3f9ed8158d12aa.jpg",
+      "https://lid.zoocdn.com/u/480/360/53496d6e162850b32e2846bf5e046d27b23c7608.jpg",
+      "https://lid.zoocdn.com/u/480/360/2c40432c15953a6099a9ec80a887afbf86568fe1.jpg",
+      "https://lid.zoocdn.com/u/480/360/13b3e43795aa0b457ea7441cb44e52d52a537910.jpg",
+      "https://lid.zoocdn.com/u/480/360/60ba22f7897537f1d99fa1f7ad75f22aa60c3a5f.jpg",
+      "https://lid.zoocdn.com/u/480/360/49eb26a3ef0fdefcdff63d5188d694b32538c3e4.jpg",
+      "https://lid.zoocdn.com/u/480/360/224f583cb388b8706996a7d4e80b0f2b745735a4.jpg",
+      "https://lid.zoocdn.com/u/480/360/dfab03a5500eb6c1e54309239972878cb2c6b28a.jpg",
+      "https://lid.zoocdn.com/u/480/360/3749ea79b8f6c5cc947cbaf24815194698071f97.jpg",
+      "https://lid.zoocdn.com/u/480/360/3e3f80fd8cec198f071f2d61ed5eff37db05d1cc.jpg",
+      "https://lid.zoocdn.com/u/480/360/0b7676f2071656e696329966265053ca58ed949e.jpg",
+      "https://lid.zoocdn.com/u/480/360/de41c9cee89194baa03e9baffb158263e4515180.jpg"
+    ],
+    "status": "found"
+  },
   "newBuild": {
     "value": false,
     "status": "found"
