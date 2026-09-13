@@ -2,6 +2,89 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — T2: scale without dimensions, and levels on one image
+
+### The scale step was a dead end, so the order was reversed
+
+- T1 asked for a printed dimension FIRST. Over half of UK agent plans carry
+  none, so the tool stopped before anything could be drawn — which is what the
+  operator hit on the first real listing he opened.
+- **You now trace first and size afterwards**, from whichever of four things is
+  actually available: a printed dimension (kept, still the most accurate), the
+  **EPC total floor area we already hold**, a room whose size the user knows, or
+  nothing at all. Whichever is used is named on screen.
+- **The EPC solve is `scale = √(known area ÷ traced unscaled area)`**, because
+  area goes as the square of length. It is solved against **every level
+  together**, since the EPC figure covers the whole dwelling, and the screen
+  says so.
+- **It is honest about what that buys.** An area-solved scale fits the TOTAL
+  exactly by construction, which looks authoritative; it does nothing for the
+  distribution between rooms, and a sloppy wall now pushes its error onto its
+  neighbours. The copy says: *"This makes the total match. Individual rooms
+  still carry tracing error."*
+- **"Nothing" is a real answer.** The shapes stay, the areas are absent, and the
+  screen says *"Not measured"* rather than inventing a number.
+
+### Levels are first-class, and never detected
+
+- A UK plan nearly always puts ground, first and sometimes a loft on ONE image.
+  Tracing across them merged two storeys into one floorplan and produced a
+  nonsense total — worse than no answer.
+- A level owns its rooms; only the active level's rooms are drawn; the property
+  total is the sum. Names come from config (**Ground floor, First floor, Second
+  floor, Loft, Basement**) and any can be renamed.
+- **Nothing is read from the image.** OCR was cut on this project because agent
+  plans are not reliably readable, and a wrongly-detected level is worse than a
+  question.
+- Switching level clears the draft, so half a room cannot land on the wrong floor.
+
+### The two flagged problems, and what they cost to fix
+
+- **The zoom nudge.** Shown once, prominently, only while actually zoomed out
+  past 2×, and dismissed for good by dismissing it OR by zooming. Not a toast:
+  it must not vanish while somebody is reading it.
+- **Mid-trace adjusting is now allowed**, which T1 refused. T1's reason was real
+  — a near-tap grabbing a neighbour deforms the room — but the cure (undo
+  everything back to the fumble) was worse. The fix is a TIGHTER radius, not a
+  refusal: `adjustRadiusPx` (14) is deliberately smaller than `grabRadiusPx`
+  (22) and smaller than any wall anyone traces, so a deliberate press on a
+  visible dot adjusts while an ordinary tap still places.
+
+### Three bugs found by driving it, not by reasoning
+
+- **Closing became impossible.** Once draft corners could be grabbed, pressing
+  the first corner picked it up and the closing tap was swallowed. Closing now
+  outranks grabbing on that one corner, which is what the growing dot already
+  promised.
+- **Starting the next room dragged the previous one.** Adjacent rooms share a
+  party wall, so the next room starts ON a finished corner — and that press was
+  picking the old corner up. Finished corners are no longer grabbed at all; new
+  corners **snap** onto them instead, which also stops the shared wall being
+  traced twice a few pixels apart and the rooms overlapping. To change a
+  finished room, Undo reopens it as a draft where every corner moves again.
+- Both were found by rendering a realistic two-level trace and reading the
+  numbers back, not by inspection.
+
+### Assessment: phones (asked for, deliberately not built)
+
+- **Android Chrome has no side panel, and no extensions at all on the phone.**
+  This is not a gap that closes: Chrome for Android has never supported
+  extensions, and `chrome.sidePanel` is desktop-only. iOS Safari has extensions
+  but no side panel either. So the extension form of this feature can never run
+  on his phone, in any version.
+- **The honest options, ranked**, are in the sprint report. The short version:
+  the tracer module was built for exactly this — it imports nothing outside
+  itself, holds no Chrome APIs, and speaks to the world through one typed door,
+  so moving it to the web app is a re-host rather than a rewrite. The blocker is
+  not the module, it is the IMAGE: on the web the plan is not already in the
+  browser, and fetching it ourselves is the one thing the copyright constraint
+  forbids. That is a product decision, not an engineering one, and it is his.
+
+### Verified
+
+- 2,100 tests (up 17 net; the T1 suites were rewritten for the new flow),
+  typecheck clean, both builds.
+
 ## 2026-09-13 — T1: the single-room floorplan tracer
 
 ### The specification did not arrive
