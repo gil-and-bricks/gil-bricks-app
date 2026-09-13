@@ -2,6 +2,110 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — R1: the itemised refurb section
+
+### The brief's premise was wrong, and the finding is worse than the premise
+
+- **"Light / Moderate / High silently turns an adjective into pounds" — IT DID
+  NOT.** The dropdown wrote `refurb=light|moderate|heavy` into the URL and
+  **nothing in this codebase ever read it.** Not a calculation, not a verdict,
+  not the Deal Score, not the comparables engine, not the extension handoff. An
+  exhaustive search for any mapping from those words to a number returns only
+  "lighthouse", "flight", "traffic-light" and "highlight". It produced **£0,
+  always, by never being consulted.**
+- **The real refurb figure was, and still is, `refurbCost`** — a separate typed
+  £ field that has always been what the score reads. Visible on flip, BRRRR and
+  HMO; buried in the assumptions accordion on BTL with a default of `0`.
+- **So the fault was not a hidden conversion. It was a dead input sitting next
+  to a live one.** People were answering a question that did nothing, beside a
+  box with no working shown. That is arguably worse than the brief assumed: a
+  hidden formula is at least a formula, whereas this collected an answer and
+  discarded it. The remedy the brief asked for is right either way, and the
+  dropdown is gone rather than kept alongside.
+- **What this changes about the sprint: almost nothing.** Removing the adjective
+  alters no arithmetic anywhere, because it fed none. The itemised total flows
+  into the same `refurbCost` the score already read, which is also why the fact
+  system kept working with no changes at all.
+
+### The section
+
+- **After the inputs, before the verdict, on all four analysers**, as a direct
+  child of the verdict card rather than a sibling card. A sibling would have
+  broken the N4 desktop split, which keys off
+  `.analyser > .glass.card:has(> .verdict-results)` and puts every direct child
+  in the left column. Nested, the refurb section lands in that left column with
+  the inputs and the answer rail stays on the right — proved at 1280px.
+- **`sec-refurb` chip between Inputs and Verdict** in the strip, and a test
+  asserts both the chip order AND the DOM order in all four verdict files. The
+  verdict is downstream of the refurb figure; it must never render above it.
+- **`StrategyInputs` stops drawing `refurbCost`** when the flag is on, so the
+  figure appears exactly once on the page — here, with its arithmetic. With the
+  flag off the generic renderer draws it again, unchanged.
+
+### Nobody is forced through fourteen rows
+
+- **The section opens as one money field and a closed disclosure.** Someone with
+  a builder's quote types it and moves on, exactly as before. That was an
+  explicit requirement and it is also the answer to the 390px problem.
+- **Three modes, decided in core** (`refurbMode`): `typed` (nothing ticked — the
+  figure is whatever was typed), `itemised` (ticked rows agree with the stored
+  total — the list rules), `superseded` (ticked rows DISAGREE with the stored
+  total — something else set it, so the stored figure wins and the list is kept
+  and shown, greyed, with a line saying so).
+- **A row edit writes the row AND the total in one update.** This is the whole
+  mechanism, and the first version got it wrong: writing the sum back in an
+  effect meant the person's own keystroke briefly looked exactly like an outside
+  write, and the section accused a builder's quote that had not happened. Caught
+  by driving it in a real browser at 390px, not by a unit test. Written together,
+  the two can only disagree because something else moved the total.
+- **Unticking the last row hands the figure back and KEEPS the number**, rather
+  than dropping the deal to £0.
+
+### 390px
+
+- Fourteen rows with a label and a money box each is ~1,000px of scrolling
+  between the inputs and the answer. Three things keep it small: the disclosure
+  is closed by default; an unticked row is a single 48px line; **the money box
+  exists only on a ticked row**, so the list grows with what you actually use.
+- **The whole row is the tick target** (the label wraps the checkbox) and
+  ticking moves focus into that row's box — typing a figure is one tap away,
+  one-handed, anywhere across the screen. Measured: 0 tap targets under 44px.
+
+### The figures are the operator's, and there are none yet
+
+- **Every figure in `src/config/refurbFigures.ts` is `null`.** There is no
+  honest source for UK refurb costs in this product, and a guess shipped under
+  his name on the number that moves a flip most is not worth the convenience.
+  The section says "Suggested figures are not in yet. Type your own for now."
+  and does not name him at all while it has nothing of his.
+- **Five tests hold that**, including one that greps the figures table for any
+  digit and one that asserts every item key has a slot and vice versa, so an
+  item cannot be renamed without its figure following.
+
+### Old deals
+
+- **Their figure carries over by construction** — `refurbCost` is the same key
+  it always was, so nothing migrates and nothing can be lost. What needed saying
+  is that the list is empty rather than broken, so a URL still carrying the dead
+  `refurb=` adjective raises `legacyRefurbLevel` and the section says once, with
+  a dismiss, that the deal's refurb was one figure and it carried over.
+- The note is keyed to the **legacy param specifically**, not to "has a total
+  and no items", which would fire for every new person who types a figure.
+
+### Facts
+
+- **Untouched, and that is the point.** `builder-quote` already replaced
+  `refurbCost` for all four strategies; because the list writes its sum into
+  that same param, the quote still wins with no changes to the fact system.
+  What is new is that it now supersedes VISIBLY: 12 tests assert the quote moves
+  the score AND that every itemised row survives in the params afterwards.
+
+### Verified
+
+- 1,841 tests (up 55), typecheck clean, all three builds, flags-off suite green,
+  copy gate passed. Lighthouse measured against a worktree of the previous
+  commit: performance 95→95, accessibility 100→100, best-practices 96→96.
+
 ## 2026-09-13 — F3: the broker's enquiry link
 
 ### The fault
