@@ -2,6 +2,91 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — F1: the floor plan moves to the web app
+
+### It moved, and it was renamed
+
+- **"Tracing" was the chore, not the point.** The section is **Floor plan** and
+  the action inside it **Reconfigure**: redrawing a layout to see whether another
+  bedroom fits, to move rooms about, or to keep a clean measured copy with the
+  deal. Names in config.
+- The module moved wholesale from `packages/extension/src/traceplan/` to
+  `packages/web/src/floorplan/`. **Nothing was left behind in the extension**
+  except what the handoff needs — its own flags file and `docs/EXTENSION_FLAGS.md`
+  went with it, because the one flag they existed for is gone.
+
+### The handoff costs nothing extra
+
+- The plan's **image URL** rides in the handoff as `fp`, beside the price and the
+  beds, so it arrives with the listing at **no extra tap**. Only an `https` URL
+  is ever carried: a `blob:` or `data:` URL would be bytes we were holding.
+- A listing with no plan carries none, and the section says so plainly and lets
+  the user draw anyway.
+
+### The image still never reaches our servers — and now the server refuses it too
+
+- The backdrop is `<img>` at the **portal's own CDN**, exactly as the listing page
+  loads it. The module makes **no network call at all** (asserted), and the one
+  component that mounts it may only `fetch` our own `/api/` (asserted).
+- Every capture API is banned in the module AND in the mount: `getImageData`,
+  `toDataURL`, `toBlob`, `drawImage`, `createImageBitmap`, `OffscreenCanvas`,
+  `captureStream`, `transferToImageBitmap`.
+- **New in F1: the SERVER refuses image-shaped payloads.** `looksLikeGeometry`
+  rejects anything containing `data:`, `blob:`, `filesystem:`, `base64` or any
+  `http(s)://`, caps the body at 64 KB and requires the versioned shape. Without
+  that, a client could have posted a data URI into the geometry column and the
+  promise would have been kept only by the client's good manners.
+- The print markup contains **no `<img>` and no `<image>`** — asserted — and the
+  share message is checked for URLs, portal names and image extensions.
+
+### Geometry, not pixels — which is what makes the rest work
+
+- `deal_floorplans` (migration 0026) stores points, walls, rooms, names, levels
+  and the scale. One row per deal, cascading with it, and deleted explicitly on
+  account deletion alongside everything else (S1's rule).
+- **A saved plan reopens and renders with no backdrop at all**, because every
+  room is stored in its own coordinate space with the scale beside it. That is
+  the entire reason for storing geometry, and it is what makes the answer to
+  "what if the portal changes its URLs" be "nothing of yours is lost".
+
+### Judgment calls
+
+- **The module may import `@gil-bricks/core`.** T1's isolation test banned every
+  outside import; F1 relaxes it to the shared maths package only. The purpose of
+  the rule is that the module can be deleted in one cut, and depending on the
+  package every surface already ships does not threaten that — while
+  re-implementing the HMO minimum locally would have put a second copy of a
+  product rule in a corner nobody maintains.
+- **`view.ts` is re-exported through `index.ts`** rather than imported directly
+  by the host, so "one typed interface" is true rather than nearly true.
+- **The print sheet is deliberately NOT the brand palette.** Lime on a dark
+  gradient is right on screen and wrong on paper: a builder prints this, and a
+  dark background empties a cartridge. Black on white, and the stylesheet says so.
+- **The PUT guard.** Adding the first PUT route revealed the cross-site check
+  named only POST. It now names POST, PUT, DELETE and PATCH — a guard that lists
+  methods by accident of history is a guard waiting to be walked past.
+- **`sec-floorplan` goes after `valuation`** in the chip strip: you settle the
+  numbers, then ask whether the layout can change. A test that incidentally
+  asserted "valuation is last" was rewritten to assert what it was really about
+  — evidence before the valuation built on it.
+
+### Free-tier arithmetic
+
+- A three-bed, two-level plan with six rooms is **~1.2 KB of JSON**; a ten-room
+  plan about 2 KB. D1's free tier is **5 GB**, so the storage ceiling is over
+  **two million plans** — this line item cannot become a cost.
+- **No image is stored**, so R2 is not involved and there is no egress: the
+  backdrop is served by the portal to the user's browser, as it already was.
+- Writes: one row per save, well inside D1's 100k writes/day free allowance.
+- **No new service and no new dependency** — the drawing is hand-rolled SVG, as
+  it was in the extension.
+
+### Verified
+
+- 2,094 tests, typecheck clean, all builds, flags-off green, copy gate passed.
+  Lighthouse over three runs a side: performance 95/95/96 before, 95/95/95
+  after; accessibility 100 throughout.
+
 ## 2026-09-13 — T2: scale without dimensions, and levels on one image
 
 ### The scale step was a dead end, so the order was reversed
