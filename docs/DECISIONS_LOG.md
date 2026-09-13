@@ -2,6 +2,90 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — R3: listing photos and regulation-backed pointers
+
+### The research document did not arrive, and this time it could not be worked around
+
+- The brief said "I am pasting a research document below with a library of 40
+  visual refurbishment cues, each tied to a real UK regulation". **Nothing was
+  pasted** — the message ended with a link to a chat artifact this session cannot
+  open (tried; it is not a published artifact and `action: list` shows none).
+- **This is not T1's missing tolerances.** Those were engineering choices anyone
+  could make defensibly. These are FACTUAL CLAIMS ABOUT UK REGULATIONS attached
+  to advice with financial and safety consequences — the operator's own words
+  were that a wrong one "could cost someone a deal or thousands of pounds".
+  Inventing forty, with invented regulation references and invented confidence
+  levels, would be the most damaging thing this product could ship.
+- **So the entire machine was built and `src/refurbcues/library.ts` ships EMPTY**,
+  fully shaped and documented, with a worked example of the exact structure.
+  Pasting the library in switches the pointers on; nothing else changes.
+- While it is empty the carousel still works: photos, room tagging, the
+  checkboxes, the caveat. Each photo simply carries no pointer, and says so.
+
+### The photos were not in the product at all, so they had to be extracted
+
+- `NormalisedListing` had **no photo field** — only the floor plan. Photos are
+  now read from the same embedded page model, by the same mechanism, on both
+  portals. Verified against the real fixtures: Rightmove yields absolute URLs,
+  Zoopla yields filenames.
+- **Zoopla's CDN prefix is READ FROM THE PAGE and there is deliberately no
+  fallback.** A hardcoded `lid.zoocdn.com/u/480/360/` was written first and then
+  removed: the extension's own output guard caught it as an external host, and
+  the guard was right — writing a prefix is guessing at somebody else's CDN
+  layout, and a stale guess shows broken photos rather than none. If a Zoopla
+  page does not show where it serves its own images from, that listing carries no
+  photos. Honest, and it keeps the extension naming no external host.
+
+### The image position is F1's, unchanged and re-proved
+
+- Photos ride in the handoff as `ph` (space-separated, **capped at 12** — a
+  handoff is a URL), and render with `<img src>` at the portal's own server.
+- Every capture API is banned in the module; the module makes **no network call
+  at all**; the hosting section may only `fetch` our own `/api/`; only https is
+  accepted on the way in AND on the way out; and the server stores **cue keys
+  only**, validated against `^[a-z0-9][a-z0-9-]{0,63}$` so a URL cannot be
+  stored even by a hand-made request. `referrerPolicy="no-referrer"` on the
+  image, so the portal is not told which deal is being looked at.
+
+### Never repeating a pointer
+
+- The seen-set is **by person, not by property** — the promise is "never show ME
+  this twice", so a cue used on deal one never returns on deal ten. A test walks
+  ten deals × three photos and asserts every pointer was shown exactly once.
+- `localStorage` signed out, D1 (migration 0027) signed in, **merged on sign-in**
+  by union: taking only the server's set would repeat everything seen signed
+  out; taking only the local set would forget what another device showed.
+- **Read once per session, written once in a batch.** The brief was specific and
+  right: a read per photo or a write per tip is a request every few seconds from
+  every user. The free tier would survive it and it would still be wrong.
+- When a room's pointers run out the screen says so rather than recycling.
+
+### The honesty guardrail
+
+- `honesty.test.ts` fails the build on any cue that claims sight ("we can see",
+  "this photo shows", "detected", "appears to be"), diagnoses ("needs rewiring",
+  "is unsafe", "has damp"), drops its caveat, or states a non-conclusive cue
+  flatly with no hedge.
+- **The guard is itself tested against fixtures** that deliberately break each
+  rule, so it cannot pass vacuously on an empty library — which matters
+  enormously here, because the library IS empty.
+- The whole honesty position — wide-angle, staged, agent-chosen, sometimes old,
+  not a survey — is one line on the page beside the photos, not in a tooltip.
+
+### Free-tier arithmetic
+
+- `refurb_cue_seen` is **bounded by the library, not by usage**: at most one row
+  per cue per user. Forty cues is forty rows per person for ever, whether they
+  analyse one deal or a thousand. At ~40 bytes a row that is ~1.6 KB per user;
+  D1's 5 GB free tier is millions of users before it registers.
+- **Writes: one batch per session**, not one per tip. **Reads: one per session.**
+- **No image is stored and none is fetched by us**, so there is no R2 and no
+  egress: the portal serves its photos to the user's browser, as it already did.
+
+### Verified
+
+- 2,140 tests, typecheck clean, all builds, flags-off green, copy gate passed.
+
 ## 2026-09-13 — F1: the floor plan moves to the web app
 
 ### It moved, and it was renamed
