@@ -2,6 +2,62 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — R2.1: the operator's figures land
+
+- **The research arrived and is in `refurbFigures.ts`.** Thirteen items with
+  ranges, a three-band rewire, ten regional multipliers (South West = 1.0, the
+  national mean), four labour factors, VAT = included, reviewed 2026-09-01. The
+  feature switches itself on because `suggestionsReady()` now passes.
+
+### The range was checked, not accepted — and it holds
+
+- **Asked to verify that summing the low and high columns does not produce a
+  total narrower than ±30-40%. It does not, and cannot.** Summing extremes is a
+  LINEAR operation, so the total's proportional spread is the mid-weighted
+  average of the item spreads. It preserves; it never compresses.
+- Measured on four baskets, at the shipped figures:
+  - full refurb **−39.1% / +73.8%**
+  - light refurb (kitchen, bathroom, decoration, flooring) **−35.3% / +85.2%**
+  - the worked example **−31.7% / +78.9%**
+  - the tightest basket the list can produce (rewire + flooring + plastering)
+    **−31.4% / +34.1%**
+- **Nothing needed widening.** The narrowest realistic basket still clears ±30%,
+  and the upside is far wider than the downside — which is right: refurbs
+  overrun, they do not come in at half price.
+- **The method is the conservative one.** Summing the lows and summing the highs
+  assumes everything goes wrong together. Treating the items as independent
+  would have narrowed the band considerably. The wider presentation was kept.
+- **Guarded by tests, so it cannot silently rot.** `refurb.test.ts` now fails the
+  build if any of those four baskets stops spreading ±30%, and asserts the
+  upside stays wider than the downside. Narrowing an item's range later breaks
+  the build rather than quietly overstating the page's confidence.
+
+### The provenance is recorded beside the figures
+
+- The operator asked for this and was right to. The header of `refurbFigures.ts`
+  now says in terms that these are **commercial cost guides** (Checkatrade,
+  MyBuilder, MyJobQuote, FMB) whose publishers **make money when work is
+  commissioned**, that some are now **generated from past job data, partly by
+  AI**, that they are **not a survey, not a sample and not traceable**, and that
+  **the mid-point is the least reliable number on the page while the range is
+  the honest part**. It ends by saying they are fine as a starting point, not
+  fine as evidence, and not to be quietly hardened into "our figures" later.
+- A test asserts all four source names AND the warning phrases are present, so
+  the caveat cannot be deleted while the numbers stay.
+
+### One thing added that was not asked for
+
+- **The plumbing row now says "Not the boiler — that is the next row."** The
+  research specified plumbing EXCLUDING the boiler, and there is a separate
+  boiler row. Without that line the two are silently double-counted by anyone
+  ticking both — about £3,000 on a mid-point, which is the kind of error this
+  whole section exists to stop.
+
+### Verified
+
+- 1,946 tests (up 10), typecheck clean, all builds, flags-off green, copy gate
+  passed.
+
 ## 2026-09-13 — R2: regional refurb suggestions
 
 ### The research did not arrive, so no figure was invented
