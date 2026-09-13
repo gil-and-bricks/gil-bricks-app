@@ -1,186 +1,285 @@
 /**
- * T1 — THE INTERACTION, as a state machine. Every "what happens when I tap
- * there" answered without a browser or a finger.
+ * T2 — THE INTERACTION, as a state machine: trace first, size afterwards, and
+ * levels that never merge into one another.
  */
 import { describe, expect, it } from 'vitest';
 import {
-  closeRoom, grab, initialState, lastWallMetres, moveHeld, pan, reading, redoScale,
-  release, restart, screenPoints, setScale, tapScale, tapTrace, undo, zoomAbout,
+  addLevel, backToTrace, beginScale, clearDraft, commitRoom, grab, initialState, lastWallMetres,
+  levelSqm, moveHeld, pan, propertySqm, release, renameLevel, renameRoom, roomReading, selectLevel,
+  tapScale, tapTrace, tracedPx2, tracedRooms, undo, useDimension, useKnownRoom, useKnownTotal,
+  useNothing, zoomAbout, type TracerState,
 } from '../src/traceplan/tracer.ts';
-import { TRACEPLAN_TOLERANCES as T } from '../src/traceplan/config.ts';
+import { TRACEPLAN_LEVELS, TRACEPLAN_TOLERANCES as T } from '../src/traceplan/config.ts';
 
 const TOO_SHORT = 'too short';
-/** A calibrated tracer: 250 px of plan = 5 m, so 0.02 m per px. */
-const calibrated = () => {
-  let s = initialState();
-  s = tapScale(s, { x: 0, y: 0 });
-  s = tapScale(s, { x: 250, y: 0 });
-  return setScale(s, 5, TOO_SHORT);
-};
-/** A closed 5 m × 4 m room. */
-const room = () => {
-  let s = calibrated();
-  for (const p of [{ x: 0, y: 0 }, { x: 250, y: 0 }, { x: 250, y: 200 }, { x: 0, y: 200 }]) s = tapTrace(s, p);
-  return tapTrace(s, { x: 0, y: 0 });
+const NEED = 'need';
+/** Trace a w×h rectangle (image px) on the active level. */
+const traceRect = (s: TracerState, x: number, y: number, w: number, h: number): TracerState => {
+  for (const p of [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }]) s = tapTrace(s, p);
+  return tapTrace(s, { x, y });
 };
 
-describe('setting the scale', () => {
-  it('takes two taps, then the typed length, then moves on to tracing', () => {
-    const s = calibrated();
+describe('you trace FIRST — the scale step no longer blocks the door', () => {
+  it('opens straight into tracing, with no scale demanded', () => {
+    const s = initialState();
     expect(s.phase).toBe('trace');
-    expect(s.metresPerPx).toBeCloseTo(0.02, 6);
-    expect(s.scaleMetres).toBe(5);
+    expect(s.calibration.kind).toBe('none');
   });
 
-  it('refuses a reference too short, and SAYS so instead of guessing', () => {
-    let s = initialState();
+  it('a room can be drawn with no scale at all', () => {
+    const s = traceRect(initialState(), 0, 0, 250, 200);
+    expect(tracedRooms(s)).toHaveLength(1);
+    expect(tracedPx2(s)).toBe(50_000);
+    // ...and has no area, because nothing has said how big it is
+    expect(roomReading(s, tracedRooms(s)[0])).toBeNull();
+    expect(propertySqm(s)).toBeNull();
+  });
+
+  it('sizing is refused until something is traced', () => {
+    expect(beginScale(initialState()).phase).toBe('trace');
+  });
+});
+
+describe('the four ways to size it', () => {
+  const traced = () => beginScale(traceRect(initialState({ sqm: 80, source: 'epc-register' }), 0, 0, 250, 200));
+
+  it('a printed dimension, when the plan has one', () => {
+    let s = traced();
     s = tapScale(s, { x: 0, y: 0 });
-    s = tapScale(s, { x: T.minScalePx - 5, y: 0 });
-    s = setScale(s, 5, TOO_SHORT);
-    expect(s.phase).toBe('scale');
-    expect(s.metresPerPx).toBeNull();
+    s = tapScale(s, { x: 250, y: 0 });
+    s = useDimension(s, 5, TOO_SHORT);
+    expect(s.calibration.kind).toBe('dimension');
+    expect(s.calibration.metresPerPx).toBeCloseTo(0.02, 6);
+    expect(propertySqm(s)).toBe(20);
+  });
+
+  it('THE EPC TOTAL — the fallback for the majority of plans with no dimension', () => {
+    const s = useKnownTotal(traced(), NEED);
+    expect(s.calibration.kind).toBe('epc');
+    // scale = sqrt(80 / 50000); the traced total then equals the EPC figure
+    expect(s.calibration.metresPerPx).toBeCloseTo(Math.sqrt(80 / 50_000), 9);
+    expect(propertySqm(s)).toBe(80);
+  });
+
+  it('and it names the figure and where it came from', () => {
+    const s = useKnownTotal(traced(), NEED);
+    expect(s.calibration.knownSqm).toBe(80);
+    expect(s.calibration.knownSource).toBe('epc-register');
+  });
+
+  it('a room whose size the user knows', () => {
+    const before = traced();
+    const s = useKnownRoom(before, tracedRooms(before)[0].id, 20, NEED);
+    // that room's own area becomes exactly what they said
+    expect(s.calibration.kind).toBe('room');
+    expect(propertySqm(s)).toBe(20);
+    expect(roomReading(s, tracedRooms(s)[0])!.sqm).toBe(20);
+  });
+
+  it('or nothing at all, which is a real answer and says so', () => {
+    const s = useNothing(traced());
+    expect(s.calibration.kind).toBe('none');
+    expect(s.calibration.metresPerPx).toBeNull();
+    expect(propertySqm(s)).toBeNull();
+    // the shapes survive — only the areas are absent
+    expect(tracedRooms(s)).toHaveLength(1);
+  });
+
+  it('a dimension too short to measure from is refused with a reason', () => {
+    let s = traced();
+    s = tapScale(s, { x: 0, y: 0 });
+    s = tapScale(s, { x: 10, y: 0 });
+    s = useDimension(s, 5, TOO_SHORT);
+    expect(s.calibration.kind).toBe('none');
     expect(s.error).toBe(TOO_SHORT);
   });
 
-  it('a third tap starts the reference again rather than adding a third end', () => {
-    let s = initialState();
-    s = tapScale(s, { x: 0, y: 0 });
-    s = tapScale(s, { x: 250, y: 0 });
-    s = tapScale(s, { x: 90, y: 90 });
-    expect(s.scalePoints).toHaveLength(1);
+  it('the EPC option is simply absent when we hold no figure', () => {
+    expect(initialState(null).known).toBeNull();
+    expect(useKnownTotal(beginScale(traceRect(initialState(null), 0, 0, 250, 200)), NEED).calibration.kind).toBe('none');
   });
 
-  it('the scale can be redone later without losing the tracer', () => {
-    const s = redoScale(room());
-    expect(s.phase).toBe('scale');
-    expect(s.metresPerPx).toBeNull();
-  });
-});
-
-describe('placing corners', () => {
-  it('each tap adds one, and the live wall length reads in metres', () => {
-    let s = calibrated();
-    s = tapTrace(s, { x: 0, y: 0 });
-    s = tapTrace(s, { x: 250, y: 0 });
-    expect(s.points).toHaveLength(2);
-    expect(lastWallMetres(s)).toBeCloseTo(5, 6);
-  });
-
-  it('tapping the first corner closes the room — once there are enough', () => {
-    const s = room();
-    expect(s.closed).toBe(true);
-    expect(s.phase).toBe('done');
-    expect(s.points).toHaveLength(4);
-  });
-
-  it('but an early tap near the first corner places a corner, it does not close', () => {
-    let s = calibrated();
-    s = tapTrace(s, { x: 100, y: 100 });
-    s = tapTrace(s, { x: 105, y: 100 });
-    expect(s.closed).toBe(false);
-    expect(s.points).toHaveLength(2);
-  });
-
-  it('and WHILE OPEN a tap near a placed corner places, never drags it', () => {
-    // Tracing is building. If a near-tap grabbed, a genuine tight corner would
-    // silently drag the previous one and the room would deform under you.
-    let s = calibrated();
-    s = tapTrace(s, { x: 100, y: 100 });
-    s = tapTrace(s, { x: 260, y: 100 });
-    s = tapTrace(s, { x: 262, y: 103 });
-    expect(s.dragging).toBeNull();
-    expect(s.points).toHaveLength(3);
-  });
-
-  it('grabbing does nothing at all until the room is closed', () => {
-    let s = calibrated();
-    s = tapTrace(s, { x: 100, y: 100 });
-    expect(grab(s, { x: 100, y: 100 }).dragging).toBeNull();
-  });
-
-  it('the area only exists once the room is closed', () => {
-    let s = calibrated();
-    for (const p of [{ x: 0, y: 0 }, { x: 250, y: 0 }, { x: 250, y: 200 }]) s = tapTrace(s, p);
-    expect(reading(s)).toBeNull();
-    expect(reading(closeRoom(s))).not.toBeNull();
-  });
-
-  it('and reads 20 m² for a 5 × 4 room, with its range', () => {
-    const r = reading(room());
-    expect(r?.sqm).toBe(20);
-    expect(r?.lowSqm).toBe(18);
-    expect(r?.highSqm).toBe(22);
-  });
-});
-
-describe('correcting a mistake', () => {
-  it('undo removes the last corner', () => {
-    let s = calibrated();
-    s = tapTrace(s, { x: 0, y: 0 });
-    s = tapTrace(s, { x: 250, y: 0 });
-    expect(undo(s).points).toHaveLength(1);
-  });
-
-  it('undo after closing REOPENS the room — that is what it obviously means', () => {
-    const s = undo(room());
-    expect(s.closed).toBe(false);
+  it('you can go back and size it a different way', () => {
+    const s = backToTrace(useKnownTotal(traced(), NEED));
     expect(s.phase).toBe('trace');
-    expect(s.points).toHaveLength(4);
-  });
-
-  it('undo on an empty trace does nothing rather than erroring', () => {
-    expect(undo(calibrated()).points).toEqual([]);
-  });
-
-  it('a placed corner can be grabbed and dragged, and the area follows', () => {
-    let s = room();
-    const before = reading(s)!.sqm;
-    s = grab(s, { x: 250, y: 200 });
-    expect(s.dragging).toBe(2);
-    s = moveHeld(s, { x: 125, y: 200 });
-    s = release(s);
-    expect(s.dragging).toBeNull();
-    expect(reading(s)!.sqm).toBeLessThan(before);
-  });
-
-  it('start again clears the corners but KEEPS the scale — it was set separately', () => {
-    const s = restart(room());
-    expect(s.points).toEqual([]);
-    expect(s.closed).toBe(false);
-    expect(s.metresPerPx).toBeCloseTo(0.02, 6);
   });
 });
 
-describe('zoom and pan', () => {
-  it('panning moves what you see, never what you traced', () => {
-    const s = pan(room(), 40, -25);
-    expect(s.points[1]).toEqual({ x: 250, y: 0 });
-    expect(reading(s)!.sqm).toBe(20);
-    expect(screenPoints(s)[1]).toEqual({ x: 290, y: -25 });
+describe('levels on ONE image never merge', () => {
+  const twoLevels = (): TracerState => {
+    // ground: 250 × 200 on the left of the image; first: 250 × 160 on the right
+    let s = initialState({ sqm: 90, source: 'epc-register' });
+    s = traceRect(s, 0, 0, 250, 200);
+    s = addLevel(s);
+    s = traceRect(s, 400, 0, 250, 160);
+    return s;
+  };
+
+  it('starts on the ground floor, named from config', () => {
+    expect(initialState().levels[0].name).toBe(TRACEPLAN_LEVELS[0]);
   });
 
-  it('pinching keeps the plan under the fingers put', () => {
-    const centre = { x: 180, y: 300 };
-    const s = zoomAbout(initialState(), centre, 2);
-    // the point under the pinch is still under the pinch
-    const before = { x: (centre.x - 0) / 1, y: (centre.y - 0) / 1 };
-    const after = { x: before.x * s.view.scale + s.view.tx, y: before.y * s.view.scale + s.view.ty };
-    expect(after.x).toBeCloseTo(centre.x, 6);
-    expect(after.y).toBeCloseTo(centre.y, 6);
+  it('a second level is the next standard UK one, not a number', () => {
+    expect(addLevel(initialState()).levels[1].name).toBe('First floor');
   });
 
-  it('zoom is clamped at both ends', () => {
+  it('each level keeps its OWN rooms', () => {
+    const s = twoLevels();
+    expect(s.levels).toHaveLength(2);
+    expect(s.levels[0].rooms).toHaveLength(1);
+    expect(s.levels[1].rooms).toHaveLength(1);
+  });
+
+  it('and its own total', () => {
+    const s = useKnownTotal(beginScale(twoLevels()), NEED);
+    const ground = levelSqm(s, 0) as number;
+    const first = levelSqm(s, 1) as number;
+    expect(ground).toBeGreaterThan(first); // 50,000 px² vs 40,000 px²
+    expect(Math.round((ground + first) * 10) / 10).toBe(90);
+  });
+
+  it('THE PROPERTY TOTAL IS THE SUM, and that is what the EPC is solved against', () => {
+    const s = useKnownTotal(beginScale(twoLevels()), NEED);
+    expect(propertySqm(s)).toBe(90);
+    // proof it used BOTH levels: solving against one alone would not land on 90
+    expect(tracedPx2(s)).toBe(90_000);
+  });
+
+  it('switching level clears the draft, so half a room cannot land on the wrong floor', () => {
     let s = initialState();
-    for (let i = 0; i < 20; i++) s = zoomAbout(s, { x: 0, y: 0 }, 2);
-    expect(s.view.scale).toBe(T.maxZoom);
-    for (let i = 0; i < 40; i++) s = zoomAbout(s, { x: 0, y: 0 }, 0.5);
-    expect(s.view.scale).toBe(T.minZoom);
+    s = tapTrace(s, { x: 10, y: 10 });
+    s = addLevel(s);
+    expect(s.draft).toEqual([]);
+    s = selectLevel(s, 0);
+    expect(s.draft).toEqual([]);
   });
 
-  it('the area is unchanged by any amount of zooming', () => {
-    let s = room();
-    for (let i = 0; i < 5; i++) s = zoomAbout(s, { x: 100, y: 100 }, 1.4);
-    s = pan(s, 60, 60);
-    expect(reading(s)!.sqm).toBe(20);
+  it('a level can be renamed', () => {
+    expect(renameLevel(initialState(), 0, 'Annexe').levels[0].name).toBe('Annexe');
+  });
+
+  it('and a room can be renamed', () => {
+    const s = traceRect(initialState(), 0, 0, 100, 100);
+    const r = tracedRooms(s)[0];
+    expect(renameRoom(s, r.id, 'Lounge').levels[0].rooms[0].name).toBe('Lounge');
+  });
+});
+
+describe('tracing, corner by corner', () => {
+  it('closing on the first corner commits the room and clears the draft', () => {
+    const s = traceRect(initialState(), 0, 0, 100, 100);
+    expect(s.draft).toEqual([]);
+    expect(tracedRooms(s)).toHaveLength(1);
+  });
+
+  it('rooms are auto-named so nothing is ever nameless', () => {
+    let s = traceRect(initialState(), 0, 0, 100, 100);
+    s = traceRect(s, 200, 0, 100, 100);
+    expect(tracedRooms(s).map((r) => r.name)).toEqual(['Room 1', 'Room 2']);
+  });
+
+  it('A CORNER CAN BE ADJUSTED MID-TRACE NOW — a fumble no longer means undo', () => {
+    let s = initialState();
+    s = tapTrace(s, { x: 100, y: 100 });
+    s = tapTrace(s, { x: 300, y: 100 });
+    // a deliberate press ON the dot picks it up
+    s = tapTrace(s, { x: 302, y: 101 });
+    expect(s.dragging).toEqual({ room: null, index: 1 });
+    s = moveHeld(s, { x: 320, y: 120 });
+    s = release(s);
+    expect(s.draft[1]).toEqual({ x: 320, y: 120 });
+    expect(s.draft).toHaveLength(2);
+  });
+
+  it('but an ordinary tap a finger away still PLACES, it does not drag', () => {
+    let s = initialState();
+    s = tapTrace(s, { x: 100, y: 100 });
+    s = tapTrace(s, { x: 300, y: 100 });
+    s = tapTrace(s, { x: 300 + T.adjustRadiusPx + 4, y: 100 });
+    expect(s.dragging).toBeNull();
+    expect(s.draft).toHaveLength(3);
+  });
+
+  it('undo takes back a corner, then the whole last room — as a draft, not a deletion', () => {
+    let s = traceRect(initialState(), 0, 0, 100, 100);
+    expect(tracedRooms(s)).toHaveLength(1);
+    s = undo(s);
+    expect(tracedRooms(s)).toHaveLength(0);
+    expect(s.draft).toHaveLength(4);
+    s = undo(s);
+    expect(s.draft).toHaveLength(3);
+  });
+
+  it('the corner that CLOSES the room is never grabbed instead', () => {
+    // Adding mid-trace adjusting broke closing: pressing the first corner picked
+    // it up, so the closing tap was swallowed and the room could not be finished.
+    let s = initialState();
+    for (const p of [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]) s = tapTrace(s, p);
+    s = grab(s, { x: 0, y: 0 });
+    expect(s.dragging).toBeNull();
+    s = tapTrace(s, { x: 0, y: 0 });
+    expect(tracedRooms(s)).toHaveLength(1);
+  });
+
+  it('but before there are enough corners, the first one is still adjustable', () => {
+    let s = initialState();
+    s = tapTrace(s, { x: 0, y: 0 });
+    s = tapTrace(s, { x: 100, y: 0 });
+    s = grab(s, { x: 0, y: 0 });
+    expect(s.dragging).toEqual({ room: null, index: 0 });
+  });
+
+  it('ADJACENT ROOMS SHARE CORNERS — a new corner snaps onto a finished one', () => {
+    // The party wall between a lounge and a kitchen is traced twice; without
+    // snapping the two copies sit a few pixels apart and the rooms overlap.
+    let s = traceRect(initialState(), 0, 0, 200, 160);
+    s = tapTrace(s, { x: 204, y: 3 });   // near the finished corner at (200, 0)
+    expect(s.draft[0]).toEqual({ x: 200, y: 0 });
+  });
+
+  it('and a finished corner is never picked up by starting the next room on it', () => {
+    let s = traceRect(initialState(), 0, 0, 200, 160);
+    s = grab(s, { x: 200, y: 0 });
+    expect(s.dragging).toBeNull();
+    expect(tracedRooms(s)[0].points[1]).toEqual({ x: 200, y: 0 });
+  });
+
+  it('to change a finished room you Undo it back to a draft, where corners move', () => {
+    let s = traceRect(initialState(), 0, 0, 200, 160);
+    s = undo(s);
+    expect(tracedRooms(s)).toHaveLength(0);
+    expect(s.draft).toHaveLength(4);
+    s = grab(s, { x: 200, y: 160 });
+    expect(s.dragging).toEqual({ room: null, index: 2 });
+    s = release(moveHeld(s, { x: 100, y: 160 }));
+    expect(s.draft[2]).toEqual({ x: 100, y: 160 });
+  });
+
+  it('clearing the draft leaves finished rooms alone', () => {
+    let s = traceRect(initialState(), 0, 0, 100, 100);
+    s = tapTrace(s, { x: 400, y: 400 });
+    s = clearDraft(s);
+    expect(s.draft).toEqual([]);
+    expect(tracedRooms(s)).toHaveLength(1);
+  });
+
+  it('the live wall length appears only once there IS a scale to say it in', () => {
+    let s = initialState();
+    s = tapTrace(s, { x: 0, y: 0 });
+    s = tapTrace(s, { x: 250, y: 0 });
+    expect(lastWallMetres(s)).toBeNull();
+  });
+});
+
+describe('zoom and pan never move what was traced', () => {
+  it('the property total survives any amount of zooming and panning', () => {
+    let s = useKnownTotal(beginScale(traceRect(initialState({ sqm: 80, source: 'epc-register' }), 0, 0, 250, 200)), NEED);
+    for (let i = 0; i < 4; i++) s = zoomAbout(s, { x: 100, y: 100 }, 1.5);
+    s = pan(s, 90, -40);
+    expect(propertySqm(s)).toBe(80);
+  });
+
+  it('zooming marks the nudge as seen — it is advice, not a nag', () => {
+    expect(zoomAbout(initialState(), { x: 0, y: 0 }, 2).zoomPrompted).toBe(true);
   });
 });

@@ -72,37 +72,51 @@ describe('the floorplan image cannot leave the browser', () => {
     expect(isDisplayableImageUrl('https://media.rightmove.co.uk/dir/plan_max_600x600.jpeg')).toBe(true);
   });
 
-  it('the only thing that crosses the boundary is a name and three numbers', async () => {
-    const { roomFrom } = await import('../src/traceplan/index.ts');
-    const { initialState } = await import('../src/traceplan/tracer.ts');
-    const state = {
-      ...initialState(),
-      metresPerPx: 0.02, closed: true, phase: 'done' as const,
-      points: [{ x: 0, y: 0 }, { x: 200, y: 0 }, { x: 200, y: 150 }, { x: 0, y: 150 }],
-    };
-    const room = roomFrom(state, '  Lounge  ');
-    expect(room).not.toBeNull();
-    // EXACTLY these four keys. A fifth is how an image, a URL or the vertices
-    // would one day ride out of here.
-    expect(Object.keys(room ?? {}).sort()).toEqual(['areaHighSqm', 'areaLowSqm', 'areaSqm', 'name']);
-    for (const [k, v] of Object.entries(room ?? {})) {
-      expect(['string', 'number'], `${k} must be a primitive`).toContain(typeof v);
-    }
-    // and nothing that could carry pixels
-    const serialised = JSON.stringify(room);
+  it('the only thing that crosses the boundary is names and numbers', async () => {
+    const { planFrom } = await import('../src/traceplan/index.ts');
+    const t = await import('../src/traceplan/tracer.ts');
+    let s = t.initialState({ sqm: 80, source: 'epc-register' });
+    for (const p of [{ x: 0, y: 0 }, { x: 250, y: 0 }, { x: 250, y: 200 }, { x: 0, y: 200 }]) s = t.tapTrace(s, p);
+    s = t.tapTrace(s, { x: 0, y: 0 });
+    s = t.useKnownTotal(t.beginScale(s), 'need');
+    const plan = planFrom(s);
+    expect(plan).not.toBeNull();
+    // EXACTLY these keys. A fifth is how an image or the vertices would ride out.
+    expect(Object.keys(plan ?? {}).sort()).toEqual(['levels', 'rooms', 'sizedBy', 'totalSqm']);
+    expect(Object.keys(plan!.rooms[0]).sort()).toEqual(['areaHighSqm', 'areaLowSqm', 'areaSqm', 'level', 'name']);
+    for (const v of Object.values(plan!.rooms[0])) expect(['string', 'number']).toContain(typeof v);
+    for (const lv of plan!.levels) expect(Object.keys(lv).sort()).toEqual(['areaSqm', 'name']);
+    expect(typeof plan!.totalSqm).toBe('number');
+
+    // and nothing that could carry pixels or reconstruct the drawing
+    const serialised = JSON.stringify(plan).toLowerCase();
     for (const shape of ['data:', 'blob:', 'http', 'base64', 'href', 'src', 'image', 'points', 'vertices']) {
-      expect(serialised.toLowerCase(), shape).not.toContain(shape);
+      expect(serialised, shape).not.toContain(shape);
     }
+    // no raw coordinate pairs — the polygon must not be reconstructible
+    expect(JSON.stringify(plan), 'an x key').not.toMatch(/"x"\s*:/);
+    expect(JSON.stringify(plan), 'a y key').not.toMatch(/"y"\s*:/);
+  });
+
+  it('the traced VERTICES never leave — only the areas they imply', async () => {
+    const { planFrom } = await import('../src/traceplan/index.ts');
+    const t = await import('../src/traceplan/tracer.ts');
+    let s = t.initialState({ sqm: 80, source: 'epc-register' });
+    // a deliberately recognisable coordinate
+    for (const p of [{ x: 1234, y: 0 }, { x: 1484, y: 0 }, { x: 1484, y: 200 }]) s = t.tapTrace(s, p);
+    s = t.tapTrace(s, { x: 1234, y: 0 });
+    s = t.useKnownTotal(t.beginScale(s), 'need');
+    expect(JSON.stringify(planFrom(s))).not.toContain('1234');
   });
 
   it('the image URL itself is never put in the result', async () => {
-    const { roomFrom } = await import('../src/traceplan/index.ts');
-    const { initialState } = await import('../src/traceplan/tracer.ts');
-    const room = roomFrom({
-      ...initialState(), metresPerPx: 0.02, closed: true, phase: 'done' as const,
-      points: [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }],
-    }, 'Lounge');
-    expect(JSON.stringify(room)).not.toContain('rightmove');
+    const { planFrom } = await import('../src/traceplan/index.ts');
+    const t = await import('../src/traceplan/tracer.ts');
+    let s = t.initialState({ sqm: 40, source: 'epc-register' });
+    for (const p of [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 100 }]) s = t.tapTrace(s, p);
+    s = t.tapTrace(s, { x: 0, y: 0 });
+    s = t.useKnownTotal(t.beginScale(s), 'need');
+    expect(JSON.stringify(planFrom(s))).not.toContain('rightmove');
   });
 });
 
@@ -134,7 +148,7 @@ describe('the module is replaceable wholesale', () => {
 
   it('its public door exports only what the rest of the product may know', async () => {
     const mod = await import('../src/traceplan/index.ts');
-    expect(Object.keys(mod).sort()).toEqual(['isDisplayableImageUrl', 'mountTraceplan', 'roomFrom'].sort());
+    expect(Object.keys(mod).sort()).toEqual(['isDisplayableImageUrl', 'mountTraceplan', 'planFrom'].sort());
   });
 
   it('every one of its strings lives in its own config, not in its code', () => {

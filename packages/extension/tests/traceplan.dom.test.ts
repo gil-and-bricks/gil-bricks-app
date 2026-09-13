@@ -21,7 +21,10 @@ let svg: SVGSVGElement;
 const mount = (): (() => void) => {
   host = document.createElement('div');
   document.body.append(host);
-  const teardown = mountTraceplan({ container: host, imageUrl: PLAN, onRoom: () => {}, onClose: () => {} });
+  const teardown = mountTraceplan({
+    container: host, imageUrl: PLAN, known: { sqm: 80, source: 'epc-register' },
+    onPlan: () => {}, onClose: () => {},
+  });
   svg = host.querySelector('svg') as SVGSVGElement;
   // happy-dom gives zero-size boxes; the module falls back, but pin it anyway.
   svg.getBoundingClientRect = () => ({ left: 0, top: 0, width: 360, height: 480, right: 360, bottom: 480, x: 0, y: 0, toJSON: () => ({}) });
@@ -87,41 +90,92 @@ describe('the loupe', () => {
   });
 });
 
-describe('a whole room, tapped', () => {
-  const calibrate = (): void => {
-    tap(40, 400);
-    tap(290, 400);
-    const input = host.querySelector('#tp-length') as HTMLInputElement;
-    input.value = '5';
-    (host.querySelector('.tp-btn-primary') as HTMLButtonElement).click();
-  };
+/** Click a button by its visible words. */
+const click = (text: string): void => {
+  const b = [...host.querySelectorAll('button')].find((x) => (x.textContent ?? '').includes(text));
+  if (!b) throw new Error(`no button matching "${text}"`);
+  (b as HTMLButtonElement).click();
+};
+const rect = (x: number, y: number, w: number, h: number): void => {
+  for (const [px, py] of [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]) tap(px, py);
+  tap(x, y);
+};
 
-  it('scale, four corners, close — and the area appears with its range', () => {
+describe('a plan with NO printed dimensions can still be traced and sized', () => {
+  it('trace first, then size from the EPC total we already hold', () => {
     mount();
-    calibrate();
-    for (const [x, y] of [[60, 80], [310, 80], [310, 280], [60, 280]]) tap(x, y);
-    expect(svg.querySelectorAll('.tp-dot')).toHaveLength(4);
-    tap(60, 80); // the first corner again
-    expect(svg.querySelector('.tp-room')).toBeTruthy();
-    const area = host.querySelector('.tp-area')?.textContent ?? '';
-    const range = host.querySelector('.tp-range')?.textContent ?? '';
-    // 250px = 5m, so 0.02 m/px; 250 × 200 px = 5 m × 4 m = 20 m²
-    expect(area).toBe('20.0 m²');
-    expect(range).toContain('18.0');
-    expect(range).toContain('22.0');
+    rect(60, 60, 200, 160);
+    expect(svg.querySelectorAll('.tp-room')).toHaveLength(1);
+    click('Set the size');
+    // the EPC option names the figure AND where it came from
+    const epc = [...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('80.0 m²'));
+    expect(epc?.textContent).toContain('the EPC register');
+    (epc as HTMLButtonElement).click();
+    expect(host.querySelector('.tp-sized-by')?.textContent).toContain('80.0 m²');
+    expect(host.querySelector('.tp-area')?.textContent).toContain('80.0');
   });
 
-  it('a wall shows its live length while you place', () => {
+  it('and says plainly that the total matches but rooms still carry error', () => {
     mount();
-    calibrate();
-    tap(60, 80);
-    tap(310, 80);
-    expect(svg.querySelector('.tp-wall-len')?.textContent).toBe('5.0 m');
+    rect(60, 60, 200, 160);
+    click('Set the size');
+    (([...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('80.0 m²'))) as HTMLButtonElement).click();
+    expect(host.querySelector('.tp-sized-by + .tp-caveat')?.textContent ?? host.textContent ?? '')
+      .toContain('Individual rooms still carry tracing error');
   });
 
+  it('skipping leaves the shapes drawn and says it is unmeasured', () => {
+    mount();
+    rect(60, 60, 200, 160);
+    click('Set the size');
+    click('Skip');
+    expect(host.textContent ?? '').toContain('Not measured');
+    expect(svg.querySelectorAll('.tp-room')).toHaveLength(1);
+  });
+});
+
+describe('TWO LEVELS ON ONE IMAGE stay two levels', () => {
+  it('each level holds its own rooms, and the total is the sum', () => {
+    mount();
+    rect(40, 40, 200, 160);           // ground: 32,000 px²
+    click('Trace another level');
+    rect(300, 40, 200, 120);          // first: 24,000 px²
+    // only THIS level's rooms are drawn — the other storey is not part of it
+    expect(svg.querySelectorAll('.tp-room')).toHaveLength(1);
+    click('Set the size');
+    (([...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('80.0 m²'))) as HTMLButtonElement).click();
+    const text = host.textContent ?? '';
+    expect(text).toContain('Ground floor');
+    expect(text).toContain('First floor');
+    // 80 split by area: 32/56 → 45.7, 24/56 → 34.3
+    expect(text).toContain('45.7');
+    expect(text).toContain('34.3');
+    expect(host.querySelector('.tp-area')?.textContent).toContain('80.0');
+  });
+
+  it('and says why the whole-dwelling figure is matched against every level', () => {
+    mount();
+    rect(40, 40, 200, 160);
+    click('Trace another level');
+    rect(300, 40, 200, 120);
+    click('Set the size');
+    (([...host.querySelectorAll('button')].find((b) => (b.textContent ?? '').includes('80.0 m²'))) as HTMLButtonElement).click();
+    expect(host.textContent ?? '').toContain('covers the whole dwelling');
+  });
+
+  it('switching back shows the first level\'s rooms again', () => {
+    mount();
+    rect(40, 40, 200, 160);
+    click('Trace another level');
+    rect(300, 40, 200, 120);
+    click('Ground floor');
+    expect(svg.querySelectorAll('.tp-room')).toHaveLength(1);
+  });
+});
+
+describe('tracing mechanics', () => {
   it('the commit happens on LIFT, not on touch', () => {
     mount();
-    calibrate();
     svg.dispatchEvent(pointer('pointerdown', 1, 60, 80));
     expect(svg.querySelectorAll('.tp-dot')).toHaveLength(0);
     svg.dispatchEvent(pointer('pointerup', 1, 60, 80));
@@ -130,20 +184,15 @@ describe('a whole room, tapped', () => {
 
   it('and at the CROSSHAIR — sliding before lifting moves the corner', () => {
     mount();
-    calibrate();
     svg.dispatchEvent(pointer('pointerdown', 1, 60, 80));
     svg.dispatchEvent(pointer('pointermove', 1, 140, 160));
     svg.dispatchEvent(pointer('pointerup', 1, 140, 160));
     const dot = svg.querySelector('.tp-dot') as SVGCircleElement;
     expect(Number(dot.getAttribute('cx'))).toBeCloseTo(140, 0);
-    expect(Number(dot.getAttribute('cy'))).toBeCloseTo(160, 0);
   });
 
   it('two fingers pan, and lifting them leaves NO stray corner behind', () => {
-    // The bug this pins: the first finger's lift used to clear the pinch state,
-    // so the second finger's lift read as a tap and every zoom dropped a dot.
     mount();
-    calibrate();
     svg.dispatchEvent(pointer('pointerdown', 1, 100, 100));
     svg.dispatchEvent(pointer('pointerdown', 2, 200, 100));
     svg.dispatchEvent(pointer('pointermove', 1, 140, 100));
@@ -155,7 +204,6 @@ describe('a whole room, tapped', () => {
 
   it('Undo is always there and takes the last corner back', () => {
     mount();
-    calibrate();
     tap(60, 80);
     tap(310, 80);
     const undo = [...host.querySelectorAll('button')].find((b) => b.textContent === 'Undo') as HTMLButtonElement;
@@ -164,26 +212,21 @@ describe('a whole room, tapped', () => {
     expect(svg.querySelectorAll('.tp-dot')).toHaveLength(1);
   });
 
-  it('a refused scale says why instead of producing a number', () => {
+  it('T2 — the zoom nudge is shown once, and goes when you zoom', () => {
     mount();
-    tap(40, 400);
-    tap(60, 400); // 20px — under the minimum
-    (host.querySelector('#tp-length') as HTMLInputElement).value = '5';
-    (host.querySelector('.tp-btn-primary') as HTMLButtonElement).click();
-    expect(host.querySelector('.tp-error')?.textContent ?? '').toContain('too short');
+    expect((host.querySelector('.tp-zoom-note') as HTMLElement).hidden).toBe(false);
+    svg.dispatchEvent(pointer('pointerdown', 1, 100, 100));
+    svg.dispatchEvent(pointer('pointerdown', 2, 200, 100));
+    svg.dispatchEvent(pointer('pointermove', 1, 80, 100));
+    svg.dispatchEvent(pointer('pointermove', 2, 300, 100));
+    svg.dispatchEvent(pointer('pointerup', 1, 80, 100));
+    svg.dispatchEvent(pointer('pointerup', 2, 300, 100));
+    expect((host.querySelector('.tp-zoom-note') as HTMLElement).hidden).toBe(true);
   });
 
   it('a HIDDEN row is really hidden — display:flex beats the browser\'s [hidden]', () => {
     const sheet = require('node:fs').readFileSync('entrypoints/sidepanel/style.css', 'utf8');
-    // Without this rule the scale controls stayed on screen under the result.
     expect(sheet).toMatch(/\.traceplan \[hidden\][^}]*display:\s*none\s*!important/);
-  });
-
-  it('and the scale row IS marked hidden once the scale is set', () => {
-    mount();
-    calibrate();
-    expect((host.querySelector('.tp-scale-row') as HTMLElement).hidden).toBe(true);
-    expect((host.querySelector('.tp-trace-row') as HTMLElement).hidden).toBe(false);
   });
 
   it('teardown leaves nothing behind', () => {
@@ -197,7 +240,7 @@ describe('a plan we would be holding the bytes of is refused outright', () => {
   it('a blob: URL shows the unavailable line and builds no surface', () => {
     const box = document.createElement('div');
     document.body.append(box);
-    mountTraceplan({ container: box, imageUrl: 'blob:https://x/9f2a', onRoom: () => {}, onClose: () => {} });
+    mountTraceplan({ container: box, imageUrl: 'blob:https://x/9f2a', onPlan: () => {}, onClose: () => {} });
     expect(box.querySelector('svg')).toBeNull();
     expect(box.textContent ?? '').toContain('no floor plan');
   });

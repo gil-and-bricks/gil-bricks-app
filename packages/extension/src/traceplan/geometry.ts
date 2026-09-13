@@ -138,3 +138,53 @@ export function loupePosition(
   const x = Math.min(Math.max(touch.x, half), Math.max(half, surface.width - half));
   return { x, y: Math.min(Math.max(y, half), Math.max(half, surface.height - half)), below };
 }
+
+/**
+ * T2 — SOLVING THE SCALE FROM A KNOWN AREA, rather than a known length.
+ *
+ * WHY THIS EXISTS. Over half of UK agent floorplans carry no printed dimension
+ * at all, so "tap the ends of a dimension" is a dead end on most real listings.
+ * But we usually already hold the property's total floor area, from the EPC.
+ *
+ * THE ALGEBRA. Area scales with the SQUARE of length. If the traced polygons
+ * cover `tracedPx2` square pixels and the real thing is `knownSqm` square
+ * metres, then
+ *
+ *     knownSqm = tracedPx2 × (metres per pixel)²
+ *     metres per pixel = √(knownSqm ÷ tracedPx2)
+ *
+ * One number, solved once, applied to everything.
+ *
+ * WHAT IT DOES AND DOES NOT BUY. It anchors the TOTAL exactly — by
+ * construction, the traced total will equal the known figure. It does nothing
+ * for the distribution BETWEEN rooms: if a wall was traced sloppily, that room
+ * is still wrong, and now its error is pushed onto its neighbours. The copy has
+ * to say that, because a total that matches its source looks authoritative.
+ */
+export function scaleFromKnownArea(tracedPx2: number, knownSqm: number): number | null {
+  if (!Number.isFinite(tracedPx2) || tracedPx2 <= 0) return null;
+  if (!Number.isFinite(knownSqm) || knownSqm <= 0) return null;
+  return Math.sqrt(knownSqm / tracedPx2);
+}
+
+/** The unscaled area of many polygons, in square image pixels. */
+export function totalPx2(polygons: readonly (readonly Pt[])[]): number {
+  let total = 0;
+  for (const poly of polygons) total += shoelaceArea(poly);
+  return total;
+}
+
+/**
+ * T2 — IS THE PLAN ZOOMED IN ENOUGH TO TRACE ACCURATELY?
+ *
+ * At the zoom a plan first appears at, a room corner is two or three pixels and
+ * a fingertip is fifty. The loupe makes the corner VISIBLE but cannot make the
+ * placement finer than the underlying image allows: every corner carries the
+ * error of one screen pixel, which at 1× is a large share of a small room.
+ *
+ * Rather than nag, this answers a factual question — how much plan is on screen
+ * — so the surface can prompt once, early, and stop.
+ */
+export function needsMoreZoom(viewScale: number, minScale: number): boolean {
+  return viewScale < minScale;
+}

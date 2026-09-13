@@ -73,7 +73,7 @@ interface FloorPlanState {
 import { lookupEpcArea } from '../../src/epcLookup';
 /* T1 — the tracer, reached ONLY through its public door. Nothing here knows
    what is inside src/traceplan/, which is what makes it replaceable. */
-import { mountTraceplan, type TracedRoom } from '../../src/traceplan';
+import { mountTraceplan, type TracedPlan } from '../../src/traceplan';
 import { extensionFeatures } from '../../src/features';
 
 const WEB_BASE = coreConfig.appBaseUrl;
@@ -385,8 +385,8 @@ export interface PanelHandlers {
   /** T1 — open the room tracer. Absent when the flag is off. */
   onOpenTrace?: () => void;
   onCloseTrace?: () => void;
-  /** T1 — a room the user accepted. A name and three numbers; nothing else. */
-  onTracedRoom?: (room: TracedRoom) => void;
+  /** T2 — the plan the user accepted. Names and numbers; nothing else. */
+  onTracedPlan?: (plan: TracedPlan) => void;
   onRecordRoom?: (areaSqm: number) => void;
 }
 
@@ -1507,7 +1507,7 @@ function draw(ctx: Ctx): void {
         onCloseTrace: () => { ctx.screen = 'triage'; draw(ctx); },
         // T1 stores nothing (that is next sprint). The room is shown and the
         // panel returns; saying so beats pretending it was kept.
-        onTracedRoom: () => { ctx.screen = 'triage'; draw(ctx); },
+        onTracedPlan: () => { ctx.screen = 'triage'; draw(ctx); },
       }
       : {}),
     onRecordRoom: (areaSqm) => { ctx.floorplan.measuredRooms = [...ctx.floorplan.measuredRooms, areaSqm]; },
@@ -1753,7 +1753,13 @@ export function renderTrace(view: PanelView, h: PanelHandlers = {}): void {
   mountTraceplan({
     container: card,
     imageUrl: view.floorplan?.imageUrl ?? '',
-    onRoom: (room: TracedRoom) => h.onTracedRoom?.(room),
+    // T2 — the floor area we ALREADY hold, offered as a calibration for the
+    // majority of plans that carry no printed dimension. Numbers going IN are
+    // fine; it is what comes out that the boundary constrains.
+    known: view.floorAreaSqm !== null && view.floorAreaSource !== 'none' && view.floorAreaSource !== 'floorplan'
+      ? { sqm: view.floorAreaSqm, source: view.floorAreaSource }
+      : null,
+    onPlan: (plan: TracedPlan) => h.onTracedPlan?.(plan),
     onClose: () => h.onCloseTrace?.(),
   });
 }

@@ -29,7 +29,7 @@
  */
 import { TRACEPLAN_COPY } from './config';
 import { createChrome, createSurface } from './view';
-import { reading, type TracerState } from './tracer';
+import { levelSqm, propertySqm, roomReading, tracedRooms, type TracerState } from './tracer';
 
 /**
  * THE ONE TYPED INTERFACE. A room the user traced: what they called it, how big
@@ -40,11 +40,27 @@ import { reading, type TracerState } from './tracer';
 export interface TracedRoom {
   /** What the user called it, e.g. "Lounge". Trimmed, never empty. */
   readonly name: string;
+  /** Which storey it is on, e.g. "Ground floor". */
+  readonly level: string;
   /** Area in m², to one decimal place. */
   readonly areaSqm: number;
   /** The honest range around it, same units and precision. */
   readonly areaLowSqm: number;
   readonly areaHighSqm: number;
+}
+
+/**
+ * T2 — the whole traced plan. Still nothing but strings and numbers: one image
+ * of a floorplan goes in, a list of names and areas comes out, and no picture
+ * can be reconstructed from any of it.
+ */
+export interface TracedPlan {
+  readonly rooms: readonly TracedRoom[];
+  readonly levels: readonly { readonly name: string; readonly areaSqm: number }[];
+  /** Every level added together — the figure the EPC was solved against. */
+  readonly totalSqm: number;
+  /** How it was sized, so the caller can say so too. */
+  readonly sizedBy: 'dimension' | 'epc' | 'room' | 'none';
 }
 
 export interface TraceplanOptions {
@@ -56,8 +72,13 @@ export interface TraceplanOptions {
    * holding, and holding them is the thing this module must not do.
    */
   imageUrl: string;
-  /** Called when the user accepts a measurement. Numbers and a name only. */
-  onRoom: (room: TracedRoom) => void;
+  /**
+   * T2 — a total floor area we ALREADY hold, offered as a calibration. Numbers
+   * coming IN are fine; it is what goes out that is constrained.
+   */
+  known?: { sqm: number; source: string } | null;
+  /** Called when the user accepts the plan. Names and numbers only. */
+  onPlan: (plan: TracedPlan) => void;
   /** Called when the user closes the tracer. */
   onClose: () => void;
 }
@@ -76,11 +97,26 @@ export function isDisplayableImageUrl(url: string): boolean {
  * field by field on purpose: spreading state here is exactly how something that
  * should not leave would one day leave.
  */
-export function roomFrom(state: TracerState, name: string): TracedRoom | null {
-  const r = reading(state);
-  const clean = name.trim().slice(0, 60);
-  if (r === null || clean === '') return null;
-  return { name: clean, areaSqm: r.sqm, areaLowSqm: r.lowSqm, areaHighSqm: r.highSqm };
+export function planFrom(state: TracerState): TracedPlan | null {
+  const total = propertySqm(state);
+  if (total === null || tracedRooms(state).length === 0) return null;
+  const rooms: TracedRoom[] = [];
+  for (const level of state.levels) {
+    for (const room of level.rooms) {
+      const r = roomReading(state, room);
+      if (r === null) continue;
+      // Built field by field on purpose: spreading state here is exactly how
+      // something that should not leave would one day leave.
+      rooms.push({
+        name: room.name, level: level.name,
+        areaSqm: r.sqm, areaLowSqm: r.lowSqm, areaHighSqm: r.highSqm,
+      });
+    }
+  }
+  const levels = state.levels
+    .map((lv, i) => ({ name: lv.name, areaSqm: levelSqm(state, i) ?? 0 }))
+    .filter((lv) => lv.areaSqm > 0);
+  return { rooms, levels, totalSqm: total, sizedBy: state.calibration.kind };
 }
 
 /**
@@ -117,41 +153,33 @@ export function mountTraceplan(opts: TraceplanOptions): () => void {
   closeBtn.textContent = TRACEPLAN_COPY.close;
   head.append(title, closeBtn);
 
-  const surface = createSurface({ imageUrl: opts.imageUrl, onChange: (s) => chrome.sync(s) });
+  const surface = createSurface({
+    imageUrl: opts.imageUrl,
+    known: opts.known ?? null,
+    onChange: (st) => { chrome.sync(st); syncAccept(st); },
+  });
   const chrome = createChrome(surface);
 
-  // Naming and accepting live here rather than in the chrome, because this is
-  // the only place allowed to construct the thing that crosses the boundary.
+  // Accepting lives here rather than in the chrome, because this is the only
+  // place allowed to construct the thing that crosses the boundary.
   const accept = document.createElement('div');
   accept.className = 'tp-accept';
-  const nameLabel = document.createElement('label');
-  nameLabel.className = 'tp-label';
-  nameLabel.textContent = TRACEPLAN_COPY.result.nameLabel;
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'tp-input';
-  nameInput.placeholder = TRACEPLAN_COPY.result.namePlaceholder;
-  nameInput.id = 'tp-room-name';
-  nameLabel.setAttribute('for', nameInput.id);
   const useBtn = document.createElement('button');
   useBtn.type = 'button';
   useBtn.className = 'tp-btn tp-btn-primary';
   useBtn.textContent = TRACEPLAN_COPY.result.save;
-  accept.append(nameLabel, nameInput, useBtn);
-
+  accept.append(useBtn);
   useBtn.addEventListener('click', () => {
-    const room = roomFrom(surface.state(), nameInput.value);
-    if (room !== null) opts.onRoom(room);
+    const plan = planFrom(surface.state());
+    if (plan !== null) opts.onPlan(plan);
   });
   closeBtn.addEventListener('click', () => opts.onClose());
 
+  const syncAccept = (st: TracerState): void => { accept.hidden = planFrom(st) === null; };
+
   root.append(head, intro, surface.element, chrome.element, accept, imageNote);
   opts.container.append(root);
-
-  const syncAccept = (s: TracerState): void => { accept.hidden = reading(s) === null; };
   syncAccept(surface.state());
-  const originalSync = chrome.sync;
-  (chrome as { sync: (s: TracerState) => void }).sync = (s: TracerState) => { originalSync(s); syncAccept(s); };
 
   return () => { surface.destroy(); root.remove(); };
 }

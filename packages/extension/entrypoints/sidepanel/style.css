@@ -422,3 +422,53 @@ body {
 .traceplan [hidden] { display: none !important; }
 .tp-area { margin: 0; font-size: 1.5rem; font-weight: 800; }
 .tp-range { margin: 0; font-size: .85rem; opacity: .85; }
+
+/* ---------- T2: levels, the zoom nudge and the calibration chooser ---------
+   Still entirely tp- prefixed, so deleting this block and the T1 one above
+   removes the whole feature's design in two cuts. */
+
+/* The level bar. A row of pressed/unpressed buttons rather than a dropdown:
+   switching storey is the most repeated action in a multi-level trace, and a
+   dropdown costs two taps every time. Scrolls sideways rather than wrapping,
+   so the surface below never moves as levels are added. */
+.tp-levels { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.tp-level {
+  flex: 0 0 auto; min-height: 40px; padding: 6px 12px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit;
+  font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.tp-level.is-on { background: #dcff00; color: #0d0d0f; border-color: #dcff00; }
+.tp-level-add { border-style: dashed; }
+
+/* The zoom nudge: prominent once, then gone for good. Not a toast — it must not
+   disappear on its own while somebody is reading it. */
+.tp-zoom-note {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 12px; border-radius: 10px;
+  background: rgba(220,255,0,.1); border: 1px solid rgba(220,255,0,.3);
+}
+.tp-zoom-text { margin: 0; font-size: .85rem; flex: 1 1 12rem; }
+
+/* The four ways to size a plan, stacked so each one's reason can sit with it. */
+.tp-options { display: flex; flex-direction: column; gap: 6px; }
+.tp-options .tp-btn { text-align: left; }
+.tp-scale-panel { display: flex; flex-direction: column; gap: 10px; }
+.tp-subhead { margin: 0; font-size: .95rem; }
+.tp-dim-box, .tp-room-box { display: flex; flex-direction: column; gap: 6px; }
+.tp-sized-by { margin: 0; font-size: .9rem; font-weight: 600; }
+.tp-sized-by:empty { display: none; }
+
+/* The rooms on this level, each renameable in place. */
+.tp-room-list { display: flex; flex-direction: column; gap: 6px; }
+.tp-room-row { display: flex; gap: 8px; align-items: center; }
+.tp-room-name-input { flex: 1 1 auto; }
+.tp-room-area { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.tp-totals { display: flex; flex-direction: column; gap: 2px; }
+.tp-level-total { margin: 0; font-size: .85rem; opacity: .85; font-variant-numeric: tabular-nums; }
+
+/* A finished room's name and area, drawn on the plan itself. */
+.tp-room-name {
+  fill: #fff; font-size: 11px; font-weight: 600;
+  paint-order: stroke; stroke: #0d0d0f; stroke-width: 3px;
+}
+.tp-dot-done { stroke-width: 1.5; }

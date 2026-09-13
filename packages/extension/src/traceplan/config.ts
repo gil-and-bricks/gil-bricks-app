@@ -51,7 +51,52 @@ export const TRACEPLAN_TOLERANCES = {
   /** Zoom limits for the backdrop. */
   minZoom: 0.5,
   maxZoom: 8,
+  /**
+   * T2 — below this zoom the plan is too small to trace accurately, and the
+   * surface says so once. At 1× a room corner is two or three pixels and a
+   * fingertip is fifty; the loupe makes the corner visible but cannot place it
+   * finer than one screen pixel, which on a small room is several per cent.
+   * 2× is where a corner becomes a thing you can aim at rather than guess.
+   */
+  traceZoomPrompt: 2,
+  /**
+   * T2 — how near a tap must be to a corner to ADJUST it mid-trace rather than
+   * place a new one. Deliberately tighter than `grabRadiusPx`: while tracing,
+   * placing is the common act and adjusting the rare one, so the rare one has to
+   * be asked for precisely. 14 px is about a deliberate press on a visible dot,
+   * and is comfortably smaller than the shortest wall anyone traces.
+   */
+  adjustRadiusPx: 14,
+  /**
+   * T2 — how near a new corner must be to a corner of a FINISHED room to snap
+   * onto it exactly. Adjacent rooms share walls, so this is the normal case,
+   * not an edge case: without it the party wall between a lounge and a kitchen
+   * gets traced twice, a few pixels apart, and the two rooms overlap or gap.
+   * Snapping also removes the thing that made this worse — a press near a
+   * finished corner used to PICK IT UP, so starting the next room on a shared
+   * corner silently dragged the previous room out of shape.
+   */
+  snapRadiusPx: 18,
 } as const;
+
+/**
+ * T2 — THE LEVELS A UK PLAN PUTS ON ONE IMAGE. Agent floorplans nearly always
+ * show ground, first and sometimes a loft side by side on a single picture.
+ * The user says which one they are tracing; nothing is detected from the image.
+ * OCR was cut on this project because agent plans are not reliably readable,
+ * and a wrongly-detected level is worse than a question.
+ */
+export const TRACEPLAN_LEVELS: readonly string[] = [
+  'Ground floor', 'First floor', 'Second floor', 'Loft', 'Basement',
+];
+
+/** Where a total floor area we already hold came from, in words. */
+export const AREA_SOURCE_LABELS: Record<string, string> = {
+  'epc-register': 'the EPC register',
+  'epc-sector': 'a past sale in our data',
+  listing: 'the listing',
+  manual: 'you',
+};
 
 export const TRACEPLAN_COPY = {
   title: 'Trace a room',
@@ -59,20 +104,75 @@ export const TRACEPLAN_COPY = {
   intro: 'Tap each corner of one room. We work out its size.',
   imageNote: 'The plan stays on your phone. Only the measurement is kept.',
 
+  /**
+   * T2 — CALIBRATION COMES AFTER TRACING, not before. Over half of UK agent
+   * plans have no printed dimension, so asking for one first stopped most
+   * people before they could draw anything.
+   */
   scale: {
-    heading: 'First, set the scale',
-    /** Why the longest dimension, in one line. */
-    prompt: 'Tap both ends of the longest printed dimension you can read.',
-    why: 'A longer line gives a more accurate scale.',
-    lengthLabel: 'How long is it, in metres?',
-    lengthPlaceholder: 'e.g. 4.2',
+    heading: 'Now set the size',
+    /** Said before any option is chosen. */
+    prompt: 'Your plan is drawn. Now tell us how big it really is.',
+    /** The four ways, best first. */
+    optionDimension: 'Tap a printed dimension',
+    optionDimensionWhy: 'Most accurate, if the plan shows one.',
+    optionEpc: (sqm: string, source: string): string => `Use ${sqm} m² from ${source}`,
+    optionEpcWhy: 'Anchors the whole property to a figure we already hold.',
+    optionRoom: 'Type a room size I know',
+    optionRoomWhy: 'If you know one room, everything else follows.',
+    optionNone: 'Skip — leave it unmeasured',
+    optionNoneWhy: 'Keeps the shapes. No areas.',
+
     tapFirst: 'Tap one end of the dimension.',
     tapSecond: 'Now tap the other end.',
+    lengthLabel: 'How long is it, in metres?',
+    lengthPlaceholder: 'e.g. 4.2',
+    longest: 'Pick the longest one you can read.',
+    why: 'A longer line gives a more accurate scale.',
     tooShort: 'That is too short to measure from. Pick a longer dimension.',
     needLength: 'Type the real length in metres.',
-    set: 'Set the scale',
-    redo: 'Change the scale',
-    done: (metres: string): string => `Scale set from ${metres} m.`,
+    set: 'Set the size',
+    redo: 'Change how it is sized',
+
+    /** Known-room calibration. */
+    roomPick: 'Which room do you know the size of?',
+    roomArea: 'How big is it, in square metres?',
+    roomAreaPlaceholder: 'e.g. 16',
+    needRoom: 'Pick a room and type its size.',
+
+    /** Named on screen, always, so nobody wonders where the number came from. */
+    usingDimension: (metres: string): string => `Sized from a ${metres} m dimension you tapped.`,
+    usingEpc: (sqm: string, source: string): string => `Sized so the whole property matches ${sqm} m² from ${source}.`,
+    usingRoom: (room: string, sqm: string): string => `Sized from ${room} at ${sqm} m².`,
+    /**
+     * The honest limit of an area-solved scale. It fits the TOTAL exactly by
+     * construction, which looks authoritative; it does nothing for how the
+     * error is shared between rooms.
+     */
+    epcCaveat: 'This makes the total match. Individual rooms still carry tracing error.',
+    /** Nothing chosen. The plan is drawn and says so rather than pretending. */
+    unmeasured: 'Not measured. The shapes are drawn but there are no areas.',
+    needTrace: 'Trace at least one room first.',
+  },
+
+  /** T2 — which storey is being traced. Never guessed from the image. */
+  level: {
+    heading: 'Which level is this?',
+    /** Said once, because one image usually holds several storeys. */
+    why: 'Most plans show every floor on one image. Trace them one at a time.',
+    add: 'Trace another level',
+    rename: 'Rename',
+    renameLabel: 'What is this level called?',
+    current: (name: string): string => `Tracing ${name}`,
+    roomsOn: (n: number, name: string): string => `${name}: ${n} ${n === 1 ? 'room' : 'rooms'}`,
+    /** Why the total is what the EPC is solved against. */
+    totalNote: 'The EPC figure covers the whole dwelling, so it is matched against every level together.',
+  },
+
+  /** T2 — said once, early, and then not again. */
+  zoom: {
+    prompt: 'Pinch to zoom in before you trace. A corner is a few pixels at this size.',
+    dismiss: 'Got it',
   },
 
   trace: {
@@ -94,10 +194,15 @@ export const TRACEPLAN_COPY = {
     range: (low: string, high: string): string => `Somewhere between ${low} and ${high} m²`,
     /** The honesty line. It is not a survey and must not read like one. */
     caveat: 'Traced by hand off a printed plan, so treat it as close, not exact.',
+    /** T2 — the property total, across every level. */
+    propertyTotal: (sqm: string): string => `Whole property: ${sqm} m²`,
+    levelTotal: (name: string, sqm: string): string => `${name}: ${sqm} m²`,
     nameLabel: 'What is this room?',
     namePlaceholder: 'e.g. Lounge',
     save: 'Use this measurement',
     again: 'Trace another room',
+    /** T2 — a room is added to the level, not replaced. */
+    added: (name: string): string => `${name} added.`,
   },
 
   /** Nothing is stored this sprint, and the screen says so rather than implying it. */

@@ -1,68 +1,101 @@
 /**
  * TRACEPLAN — THE STATE MACHINE. No DOM, no SVG, no image, no strings.
  *
- * Every interaction the feature has is a function from (state, event) to state,
- * so the whole of "what happens when I tap there" is testable without a browser
- * or a finger. The view below is then only a drawing of whatever this returns.
+ * T2 REVERSED THE ORDER. T1 asked for the scale first and stopped dead on the
+ * majority of real plans, which carry no printed dimension. You now TRACE
+ * FIRST, in whatever units the image happens to be in, and choose how to size
+ * it afterwards from whatever is actually available.
  *
- * ONE RULE THROUGHOUT: corners are stored in IMAGE pixels. Zoom and pan change
- * what you see, never what you traced. Anything measured against a finger — the
- * close radius, the grab radius — is compared in SCREEN pixels, because those
- * tolerances are about hands, not about the drawing.
+ * T2 ALSO MADE LEVELS FIRST-CLASS. A UK agent plan nearly always puts ground,
+ * first and sometimes a loft on ONE image, side by side. Tracing across them
+ * would merge two storeys into one floorplan and produce a nonsense total —
+ * worse than no answer. So a level owns its rooms, the property total is the
+ * sum of the levels, and the EPC figure is solved against that sum because it
+ * covers the whole dwelling.
+ *
+ * ONE RULE THROUGHOUT: corners are stored in IMAGE pixels, so zoom and pan
+ * change what you see and never what you traced. Finger tolerances are compared
+ * in SCREEN pixels, because those are about hands.
  */
-import { TRACEPLAN_TOLERANCES as T } from './config';
+import { TRACEPLAN_LEVELS, TRACEPLAN_TOLERANCES as T } from './config';
 import {
-  areaReading, closesRoom, distance, hitPoint, metresPerPixel, toImage, toScreen,
-  type AreaReading, type Pt, type ViewTransform,
+  areaReading, closesRoom, distance, hitPoint, metresPerPixel, scaleFromKnownArea,
+  shoelaceArea, toImage, toScreen, totalPx2, type AreaReading, type Pt, type ViewTransform,
 } from './geometry';
 
-/** Where the user is. The screen renders exactly one of these. */
-export type Phase = 'scale' | 'trace' | 'done';
+export interface Room { id: string; name: string; points: Pt[] }
+export interface Level { id: string; name: string; rooms: Room[] }
+
+/** How the plan was sized. `none` is a real, honest answer. */
+export type CalibrationKind = 'none' | 'dimension' | 'epc' | 'room';
+
+export interface Calibration {
+  kind: CalibrationKind;
+  /** The one number everything is measured with. Null until sized. */
+  metresPerPx: number | null;
+  /** For 'dimension': the real length the user typed. */
+  dimensionMetres?: number;
+  /** For 'epc': the figure used and where it came from. */
+  knownSqm?: number;
+  knownSource?: string;
+  /** For 'room': which room, and how big they said it is. */
+  roomId?: string;
+  roomName?: string;
+}
+
+export type Phase = 'trace' | 'scale';
 
 export interface TracerState {
   phase: Phase;
-  /** The two ends of the printed dimension, in image px. */
+  levels: Level[];
+  activeLevel: number;
+  /** The room being traced right now, in image px. */
+  draft: Pt[];
+  /** What a finger is holding: a draft corner, or one of a finished room. */
+  dragging: { room: string | null; index: number } | null;
+  /** The two ends of a printed dimension, while that calibration is chosen. */
   scalePoints: Pt[];
-  /** Metres per image pixel, once calibrated. */
-  metresPerPx: number | null;
-  /** The real length the user typed, kept so the screen can say it back. */
-  scaleMetres: number | null;
-  /** The room's corners, in image px, in the order they were tapped. */
-  points: Pt[];
-  /** True once the polygon is closed. */
-  closed: boolean;
-  /** Index of the corner being dragged, or null. */
-  dragging: number | null;
+  calibration: Calibration;
+  /** A total floor area we already hold, offered as a calibration. */
+  known: { sqm: number; source: string } | null;
   view: ViewTransform;
-  /** Set when the last action could not be done, so the screen can say why. */
+  /** T2 — the zoom nudge is said once and then never again. */
+  zoomPrompted: boolean;
   error: string | null;
 }
 
-export function initialState(): TracerState {
+let seq = 0;
+const id = (prefix: string): string => `${prefix}${++seq}`;
+
+export function initialState(known: { sqm: number; source: string } | null = null): TracerState {
   return {
-    phase: 'scale', scalePoints: [], metresPerPx: null, scaleMetres: null,
-    points: [], closed: false, dragging: null,
-    view: { scale: 1, tx: 0, ty: 0 }, error: null,
+    phase: 'trace',
+    levels: [{ id: id('l'), name: TRACEPLAN_LEVELS[0], rooms: [] }],
+    activeLevel: 0,
+    draft: [],
+    dragging: null,
+    scalePoints: [],
+    calibration: { kind: 'none', metresPerPx: null },
+    known,
+    view: { scale: 1, tx: 0, ty: 0 },
+    zoomPrompted: false,
+    error: null,
   };
 }
 
 const clampZoom = (s: number): number => Math.min(Math.max(s, T.minZoom), T.maxZoom);
 
-/** Pan by a screen-pixel delta. */
 export function pan(s: TracerState, dx: number, dy: number): TracerState {
   return { ...s, view: { ...s.view, tx: s.view.tx + dx, ty: s.view.ty + dy } };
 }
 
-/**
- * Zoom about a fixed screen point — the midpoint between two fingers — so the
- * bit of plan under the pinch stays under the pinch. Zooming about the origin
- * instead makes the image shoot away, which feels broken.
- */
+/** Zoom about the pinch midpoint, so the plan under the fingers stays put. */
 export function zoomAbout(s: TracerState, centre: Pt, factor: number): TracerState {
   const next = clampZoom(s.view.scale * factor);
   const applied = next / s.view.scale;
   return {
     ...s,
+    zoomPrompted: true,
     view: {
       scale: next,
       tx: centre.x - (centre.x - s.view.tx) * applied,
@@ -71,7 +104,170 @@ export function zoomAbout(s: TracerState, centre: Pt, factor: number): TracerSta
   };
 }
 
-/** A tap during the scale phase: first end, then second end. */
+export const activeLevel = (s: TracerState): Level => s.levels[s.activeLevel];
+export const draftScreen = (s: TracerState): Pt[] => s.draft.map((p) => toScreen(p, s.view));
+
+/** Every corner currently on screen for the active level's finished rooms. */
+export function roomScreens(s: TracerState): { room: Room; pts: Pt[] }[] {
+  return activeLevel(s).rooms.map((room) => ({ room, pts: room.points.map((p) => toScreen(p, s.view)) }));
+}
+
+/**
+ * A tap while tracing. In order:
+ *   1. close the room, on the first corner, once there are enough;
+ *   2. ADJUST a corner already placed — T2, see below;
+ *   3. place a new corner.
+ *
+ * T2 CHANGED RULE 2. T1 refused to let a corner be adjusted until the room was
+ * closed, so a fumble halfway round meant undoing everything back to it. The
+ * reason was real — a near-tap grabbing a neighbour would deform the room — but
+ * the cure was worse than the disease. The fix is a TIGHTER radius, not a
+ * refusal: `adjustRadiusPx` is deliberately smaller than `grabRadiusPx`, so a
+ * deliberate press on a visible dot adjusts, while an ordinary tap a finger's
+ * width away still places. It is also smaller than any wall anyone traces, so
+ * the ambiguous case barely exists.
+ */
+export function tapTrace(s: TracerState, screen: Pt): TracerState {
+  if (s.phase !== 'trace') return s;
+  const pts = draftScreen(s);
+  if (pts.length > 0 && closesRoom(screen, pts[0], T.closeRadiusPx, s.draft.length, T.minPoints)) {
+    return commitRoom(s);
+  }
+  const adjust = hitPoint(screen, pts, T.adjustRadiusPx);
+  if (adjust !== null) return { ...s, dragging: { room: null, index: adjust }, error: null };
+  return { ...s, draft: [...s.draft, snapped(s, screen)], error: null };
+}
+
+/**
+ * T2 — a new corner lands EXACTLY on a nearby finished corner if there is one.
+ *
+ * Adjacent rooms share walls: a lounge and a kitchen meet on a party wall, and
+ * both traces want the same two corners. Without snapping that wall is traced
+ * twice a few pixels apart, and the two rooms overlap or leave a sliver — which
+ * then quietly distorts every area solved from their total.
+ */
+export function snapped(s: TracerState, screen: Pt): Pt {
+  for (const { room, pts } of roomScreens(s)) {
+    const i = hitPoint(screen, pts, T.snapRadiusPx);
+    if (i !== null) return room.points[i];
+  }
+  return toImage(screen, s.view);
+}
+
+/**
+ * Press and hold to move a corner. Draft corners use the tight adjust radius;
+ * corners of a finished room use the wider grab radius, because there a touch
+ * on a dot can mean nothing else.
+ *
+ * IT NEVER GRABS THE CORNER THAT CLOSES THE ROOM. Once there are enough corners,
+ * the first one IS the close target and the screen says so by growing it. If a
+ * press picked it up instead, the closing tap would be swallowed as a drag and
+ * the room could not be finished by tapping at all — which is exactly what
+ * happened the moment mid-trace adjusting was added.
+ */
+export function grab(s: TracerState, screen: Pt): TracerState {
+  const draftPts = draftScreen(s);
+  const closable = s.draft.length >= T.minPoints;
+  const draftHit = hitPoint(screen, draftPts, T.adjustRadiusPx);
+  if (draftHit !== null && !(closable && draftHit === 0)) {
+    return { ...s, dragging: { room: null, index: draftHit }, error: null };
+  }
+  if (draftHit === 0 && closable) return s;
+  // A FINISHED room's corner is deliberately NOT grabbed here. Starting the next
+  // room on a shared corner is the commonest thing anyone does on a floorplan,
+  // and picking the old corner up instead dragged the previous room out of
+  // shape. Those corners SNAP (see `snapped`); to change one, Undo reopens the
+  // last room as a draft, where every corner is adjustable again.
+  return s;
+}
+
+export function moveHeld(s: TracerState, screen: Pt): TracerState {
+  if (s.dragging === null) return s;
+  const img = toImage(screen, s.view);
+  if (s.dragging.room === null) {
+    const draft = [...s.draft];
+    draft[s.dragging.index] = img;
+    return { ...s, draft };
+  }
+  const levels = s.levels.map((lv, li) => (li !== s.activeLevel ? lv : {
+    ...lv,
+    rooms: lv.rooms.map((r) => (r.id !== s.dragging!.room ? r
+      : { ...r, points: r.points.map((p, pi) => (pi === s.dragging!.index ? img : p)) })),
+  }));
+  return { ...s, levels };
+}
+
+export const release = (s: TracerState): TracerState => (s.dragging === null ? s : { ...s, dragging: null });
+
+/** Finish the draft and add it to the active level. */
+export function commitRoom(s: TracerState): TracerState {
+  if (s.draft.length < T.minPoints) return s;
+  const level = activeLevel(s);
+  const room: Room = { id: id('r'), name: `Room ${level.rooms.length + 1}`, points: s.draft };
+  const levels = s.levels.map((lv, i) => (i === s.activeLevel ? { ...lv, rooms: [...lv.rooms, room] } : lv));
+  return { ...s, levels, draft: [], dragging: null, error: null };
+}
+
+/**
+ * Undo. Takes back the last draft corner; with an empty draft it takes back the
+ * whole last room, because that is plainly what "undo" means at that moment.
+ */
+export function undo(s: TracerState): TracerState {
+  if (s.draft.length > 0) return { ...s, draft: s.draft.slice(0, -1), dragging: null, error: null };
+  const level = activeLevel(s);
+  if (level.rooms.length === 0) return s;
+  const last = level.rooms[level.rooms.length - 1];
+  const levels = s.levels.map((lv, i) => (i === s.activeLevel ? { ...lv, rooms: lv.rooms.slice(0, -1) } : lv));
+  // Put it back as a draft rather than destroying it: undo after closing almost
+  // always means "I closed it one corner too early".
+  return { ...s, levels, draft: last.points, dragging: null, error: null };
+}
+
+export const clearDraft = (s: TracerState): TracerState => ({ ...s, draft: [], dragging: null, error: null });
+
+export function renameRoom(s: TracerState, roomId: string, name: string): TracerState {
+  const clean = name.trim().slice(0, 60);
+  if (clean === '') return s;
+  return {
+    ...s,
+    levels: s.levels.map((lv) => ({ ...lv, rooms: lv.rooms.map((r) => (r.id === roomId ? { ...r, name: clean } : r)) })),
+  };
+}
+
+// --- levels ----------------------------------------------------------------
+
+export function selectLevel(s: TracerState, index: number): TracerState {
+  if (index < 0 || index >= s.levels.length) return s;
+  return { ...s, activeLevel: index, draft: [], dragging: null, error: null };
+}
+
+/** Add the next unused standard level, or a numbered one once they run out. */
+export function addLevel(s: TracerState): TracerState {
+  const used = new Set(s.levels.map((l) => l.name));
+  const next = TRACEPLAN_LEVELS.find((n) => !used.has(n)) ?? `Level ${s.levels.length + 1}`;
+  const levels = [...s.levels, { id: id('l'), name: next, rooms: [] }];
+  return { ...s, levels, activeLevel: levels.length - 1, draft: [], error: null };
+}
+
+export function renameLevel(s: TracerState, index: number, name: string): TracerState {
+  const clean = name.trim().slice(0, 40);
+  if (clean === '' || index < 0 || index >= s.levels.length) return s;
+  return { ...s, levels: s.levels.map((lv, i) => (i === index ? { ...lv, name: clean } : lv)) };
+}
+
+// --- calibration, which now happens AFTER tracing ---------------------------
+
+export const tracedRooms = (s: TracerState): Room[] => s.levels.flatMap((l) => l.rooms);
+/** Unscaled area of everything traced, in square image pixels. */
+export const tracedPx2 = (s: TracerState): number => totalPx2(tracedRooms(s).map((r) => r.points));
+
+export function beginScale(s: TracerState): TracerState {
+  if (tracedRooms(s).length === 0) return s;
+  return { ...s, phase: 'scale', draft: [], dragging: null, error: null };
+}
+
+export const backToTrace = (s: TracerState): TracerState => ({ ...s, phase: 'trace', scalePoints: [], error: null });
+
 export function tapScale(s: TracerState, screen: Pt): TracerState {
   if (s.phase !== 'scale') return s;
   const img = toImage(screen, s.view);
@@ -79,103 +275,70 @@ export function tapScale(s: TracerState, screen: Pt): TracerState {
   return { ...s, scalePoints: [...s.scalePoints, img], error: null };
 }
 
-/**
- * Commit the typed real length. Refuses a reference too short to calibrate
- * from, and says so instead of returning a confident wrong number.
- */
-export function setScale(s: TracerState, metres: number, tooShortMessage: string): TracerState {
-  if (s.scalePoints.length < 2) return s;
+/** Calibrate from a printed dimension the user tapped the ends of. */
+export function useDimension(s: TracerState, metres: number, tooShort: string): TracerState {
+  if (s.scalePoints.length < 2) return { ...s, error: tooShort };
   const [a, b] = s.scalePoints;
-  const screenA = toScreen(a, s.view);
-  const screenB = toScreen(b, s.view);
-  if (distance(screenA, screenB) < T.minScalePx) return { ...s, error: tooShortMessage };
+  if (distance(toScreen(a, s.view), toScreen(b, s.view)) < T.minScalePx) return { ...s, error: tooShort };
   const mpp = metresPerPixel(a, b, metres, 0);
-  if (mpp === null) return { ...s, error: tooShortMessage };
-  return { ...s, metresPerPx: mpp, scaleMetres: metres, phase: 'trace', error: null };
-}
-
-export function redoScale(s: TracerState): TracerState {
-  return { ...s, phase: 'scale', scalePoints: [], metresPerPx: null, scaleMetres: null, error: null };
-}
-
-/** Screen positions of the corners as they currently appear. */
-export function screenPoints(s: TracerState): Pt[] {
-  return s.points.map((p) => toScreen(p, s.view));
+  if (mpp === null) return { ...s, error: tooShort };
+  return { ...s, calibration: { kind: 'dimension', metresPerPx: mpp, dimensionMetres: metres }, error: null };
 }
 
 /**
- * A tap during tracing means exactly two things, and the order matters:
- *   1. close the room — on the first corner, once there are enough corners;
- *   2. otherwise, place a new corner.
- *
- * IT NEVER GRABS AN EXISTING CORNER WHILE THE ROOM IS OPEN, and that is a
- * deliberate choice rather than an omission. While you are tracing you are
- * BUILDING: a tap near a corner you already placed is a small wall or a fumble,
- * and in both cases you meant to place. If it grabbed instead, a genuine tight
- * corner would silently drag the previous one and the room would deform under
- * you. Adjusting is a separate job and belongs to the closed room, where there
- * is nothing else a touch on a corner could mean.
+ * Calibrate so the WHOLE PROPERTY matches a figure we already hold. Solved
+ * against every level together, because the EPC figure covers the dwelling.
  */
-export function tapTrace(s: TracerState, screen: Pt): TracerState {
-  if (s.phase !== 'trace' || s.closed) return s;
-  const pts = screenPoints(s);
-  if (pts.length > 0 && closesRoom(screen, pts[0], T.closeRadiusPx, s.points.length, T.minPoints)) {
-    return { ...s, closed: true, phase: 'done', error: null };
-  }
-  return { ...s, points: [...s.points, toImage(screen, s.view)], error: null };
+export function useKnownTotal(s: TracerState, needTrace: string): TracerState {
+  if (s.known === null) return s;
+  const px2 = tracedPx2(s);
+  const mpp = scaleFromKnownArea(px2, s.known.sqm);
+  if (mpp === null) return { ...s, error: needTrace };
+  return {
+    ...s,
+    calibration: { kind: 'epc', metresPerPx: mpp, knownSqm: s.known.sqm, knownSource: s.known.source },
+    error: null,
+  };
 }
 
-/**
- * Begin moving a placed corner. ONLY on a closed room — see tapTrace above for
- * why an open trace must not do this.
- */
-export function grab(s: TracerState, screen: Pt): TracerState {
-  if (!s.closed) return s;
-  const i = hitPoint(screen, screenPoints(s), T.grabRadiusPx);
-  return i === null ? s : { ...s, dragging: i, error: null };
+/** Calibrate from one room the user knows the size of. */
+export function useKnownRoom(s: TracerState, roomId: string, sqm: number, needRoom: string): TracerState {
+  const room = tracedRooms(s).find((r) => r.id === roomId);
+  if (room === undefined) return { ...s, error: needRoom };
+  const mpp = scaleFromKnownArea(shoelaceArea(room.points), sqm);
+  if (mpp === null) return { ...s, error: needRoom };
+  return { ...s, calibration: { kind: 'room', metresPerPx: mpp, roomId, roomName: room.name }, error: null };
 }
 
-/** Move the held corner to wherever the crosshair is now. */
-export function moveHeld(s: TracerState, screen: Pt): TracerState {
-  if (s.dragging === null) return s;
-  const next = [...s.points];
-  next[s.dragging] = toImage(screen, s.view);
-  return { ...s, points: next };
+/** Leave it unmeasured, honestly. The shapes are kept; no areas are claimed. */
+export const useNothing = (s: TracerState): TracerState =>
+  ({ ...s, calibration: { kind: 'none', metresPerPx: null }, error: null });
+
+// --- readings ---------------------------------------------------------------
+
+export function roomReading(s: TracerState, room: Room): AreaReading | null {
+  const mpp = s.calibration.metresPerPx;
+  if (mpp === null) return null;
+  return areaReading(room.points, mpp, T.areaTolerancePct);
 }
 
-export function release(s: TracerState): TracerState {
-  return s.dragging === null ? s : { ...s, dragging: null };
+export function levelSqm(s: TracerState, index: number): number | null {
+  const mpp = s.calibration.metresPerPx;
+  if (mpp === null || index < 0 || index >= s.levels.length) return null;
+  const px2 = totalPx2(s.levels[index].rooms.map((r) => r.points));
+  return Math.round(px2 * mpp * mpp * 10) / 10;
 }
 
-/**
- * Undo. Reopens a closed room rather than doing nothing, because "undo" after
- * closing obviously means "I closed it too early".
- */
-export function undo(s: TracerState): TracerState {
-  if (s.closed) return { ...s, closed: false, phase: 'trace', error: null };
-  if (s.points.length === 0) return s;
-  return { ...s, points: s.points.slice(0, -1), dragging: null, error: null };
+/** The property total: every level added together. */
+export function propertySqm(s: TracerState): number | null {
+  const mpp = s.calibration.metresPerPx;
+  if (mpp === null) return null;
+  return Math.round(tracedPx2(s) * mpp * mpp * 10) / 10;
 }
 
-export function closeRoom(s: TracerState): TracerState {
-  if (s.points.length < T.minPoints) return s;
-  return { ...s, closed: true, phase: 'done', dragging: null, error: null };
-}
-
-export function restart(s: TracerState): TracerState {
-  return { ...s, points: [], closed: false, phase: 'trace', dragging: null, error: null };
-}
-
-/** The reading, or null while there is not yet enough to read. */
-export function reading(s: TracerState): AreaReading | null {
-  if (s.metresPerPx === null || !s.closed) return null;
-  return areaReading(s.points, s.metresPerPx, T.areaTolerancePct);
-}
-
-/** The wall being drawn right now, in metres, for the live label. */
+/** The wall being drawn, in metres — only once there is a scale to say it in. */
 export function lastWallMetres(s: TracerState): number | null {
-  if (s.metresPerPx === null || s.points.length < 2) return null;
-  const a = s.points[s.points.length - 2];
-  const b = s.points[s.points.length - 1];
-  return distance(a, b) * s.metresPerPx;
+  const mpp = s.calibration.metresPerPx;
+  if (mpp === null || s.draft.length < 2) return null;
+  return distance(s.draft[s.draft.length - 2], s.draft[s.draft.length - 1]) * mpp;
 }
