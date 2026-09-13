@@ -2,6 +2,91 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-13 — B1: the floor plan was a black screen, and why nothing saw it
+
+Reported as "the analyser is broken": no photos, no pointers, two empty box
+outlines below the refurb section, and earlier a black screen with dead
+controls. Opened the live site and read it rather than reasoning from source.
+
+### There was no crash
+
+No uncaught exception on any analyser, at any width. Every script loaded 200.
+The faults were LAYOUT and STATE, which is why nothing threw and why every test
+stayed green. Three separate things, not one:
+
+- **The black screen was `.tp-surface`.** `width: 100%` with
+  `aspect-ratio: 4 / 5` and no ceiling. That shape came from the EXTENSION,
+  where the tracer lived in a side panel about 400px wide — 500px tall, controls
+  just under it. F1 moved the stylesheet across "unchanged" (the file's own
+  comment says so) into a card that is the full width of the page: at 838px
+  wide, 4/5 is **1048px tall**. The surface became a screen-filling black
+  rectangle with all sixteen controls pushed below the fold. Capped at
+  `min(70vh, 560px)`. Safe to cap: the SVG sets its viewBox from the element's
+  pixel size, so a unit is a pixel and pointer mapping does not depend on the
+  ratio.
+- **The two empty boxes were `SkeletonCards`** — the sold-price loading
+  placeholders, which render directly below the refurb section. They were
+  `aria-hidden` with no text. Fine for the half second they are normally up;
+  indefensible when the fetch never settles, because `busy` stays true and the
+  page then shows two blank outlines with no message and nothing for a screen
+  reader. They now say what they are waiting for.
+- **No photos and no pointers** is not a fault in the web app: the carousel and
+  the cue library both work, verified live. There was no `ph` in the URL, which
+  means the handoff came from an extension build without photo extraction. The
+  zip in `packages/extension/store/` is v0.3.0 from 8 September and contains no
+  `photoUrls`; the current unpacked build at `.output/chrome-mv3` does.
+
+**Not a fault:** the refurb section is nested inside the verdict card by R1's
+own design ("REFURB BEFORE THE VERDICT" — it is an input to the verdict). It is
+a `<section id="sec-refurb">` with its own sidebar jump link, not a separate
+card. That is how it shipped and was signed off; it can have its own card if
+wanted, but it is not a regression.
+
+### Which commit, and why nothing caught it
+
+`68fb5223` (F1, the floor plan moving to the web app) carried the extension's
+`aspect-ratio: 4 / 5` into a full-width card. The ratio itself dates to
+`d116390a` (T1), where it was correct.
+
+**Every browser-based gate this project had ran at 390x844 and nothing else.**
+The copy gate does open all four analysers in a real Chrome with a real deal —
+it simply does it at phone width, where 4/5 is 487px and looks right. A fault
+that grows with the viewport cannot be seen by a gate that only ever looks at
+one width. The unit tests could not see it at all: `happy-dom` has no layout
+engine, so `aspect-ratio` computes to nothing there.
+
+The copy gate also never clicked "Reconfigure the plan", so the tracing surface
+never rendered in any automated run, ever.
+
+### The new gate
+
+`scripts/check-render.mjs`, wired into CI after the copy gate. It opens all four
+analysers with real deals at **desktop and phone**, and asserts: nothing threw;
+no bordered or filled box over 200x200 is completely empty; no loading
+placeholder survives six seconds; and the floor plan **opens**, its surface fits
+inside the viewport, and its controls are on screen.
+
+Proven to bite before it was trusted: with the cap removed it fails all four
+analysers at desktop — "floor plan surface is 1048px tall in a 900px viewport —
+its controls are below the fold" — and passes at phone, which is the whole
+diagnosis in one line of output.
+
+The dist server both gates need is now shared (`scripts/lib/serve-dist.mjs`)
+rather than copied.
+
+### And one more thing, found only by using it
+
+Tracing a room on the live site and sizing it from a known area printed
+**"Sized from Room 1 at 0.0 m²"** under a total that was correct. Two halves of
+one omission: `useKnownRoom` never stored the figure (the Calibration type's own
+comment says "how big they said it is"), and with nothing to print, view.ts was
+stubbed `one((cal.metresPerPx ?? 0) > 0 ? 0 : 0)` — a ternary whose branches are
+both zero, so it could never print anything else.
+
+Every existing test read the AREAS, which were right: `propertySqm` and
+`roomReading` both return 20 for a 20 m² room. None read the SENTENCE. The new
+test reads the sentence, and fails without the fix.
+
 ## 2026-09-13 — R3.2: three cues reworded, and all forty ship
 
 The operator ruled on the three things R3.1 flagged. All were rewords of the
