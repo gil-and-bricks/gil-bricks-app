@@ -25,21 +25,19 @@ export const ANALYSER_SECTIONS: readonly AnalyserSection[] = [
   { id: 'sec-property', label: 'Property', icon: 'home' },
   { id: 'sec-area', label: 'Area', icon: 'pin' },
   { id: 'sec-inputs', label: 'Inputs', icon: 'pencil' },
-  // R1 — REFURB BEFORE THE VERDICT. The refurb figure is an input to the
-  // verdict, so the verdict must never sit above it. The strip is a map of the
-  // page and the page renders it in this order too.
+  // L1 — EVERYTHING THAT FEEDS THE ANSWER COMES BEFORE IT. Refurb and the floor
+  // plan are both things you change about the property; the verdict is what
+  // they produce. The sticky bar keeps the score and the headline on screen the
+  // whole way down, so the answer is never hidden by sitting last.
   { id: 'sec-refurb', label: 'Refurb', icon: 'coins' },
+  { id: 'sec-floorplan', label: 'Floor plan', icon: 'home' },
   { id: 'sec-verdict', label: 'Verdict', icon: 'verdict' },
   { id: 'sec-figures', label: 'Figures', icon: 'chart' },
   { id: 'sec-costs', label: 'Costs', icon: 'coins' },
   // C1 — COMPARABLES BEFORE VALUATION. You work through the evidence and
   // satisfy yourself it is right BEFORE you are shown a valuation built on it.
-  // The strip is a map of the page, so this order and the page's must agree.
   { id: 'sec-comps', label: 'Comparables', icon: 'list' },
   { id: 'valuation', label: 'Valuation', icon: 'tag' },
-  // F1 — the floor plan, last: it is the thing you do once the numbers are
-  // settled and you are asking whether the layout can be changed.
-  { id: 'sec-floorplan', label: 'Floor plan', icon: 'home' },
 ];
 
 export const SECTION_STRIP = {

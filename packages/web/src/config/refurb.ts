@@ -235,6 +235,10 @@ export const REFURB_PHOTOS = {
   prev: 'Previous photo',
   next: 'Next photo',
   none: 'This listing came with no photos. The list below still works.',
+  /** The photo opens full-screen: you cannot spot trunking in a thumbnail. */
+  openFull: 'Open this photo full screen',
+  closeFull: 'Close',
+  fullHint: 'Press Escape to close.',
   failed: 'That photo would not load.',
 
   /** R3 — the room is TAPPED, never detected. Said plainly. */

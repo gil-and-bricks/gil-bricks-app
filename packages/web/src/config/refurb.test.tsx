@@ -6,6 +6,9 @@
  * putting it there is the failure this file exists to catch.
  */
 import { describe, expect, it } from 'vitest';
+import { render } from 'preact-render-to-string';
+import { VerdictShell } from '../components/analyser/VerdictShell';
+import { features } from './features';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { REFURB, REFURB_ITEMS, paramFor } from './refurb';
@@ -57,15 +60,38 @@ describe('the section sits before the verdict', () => {
     expect(ids.indexOf(REFURB.sectionId)).toBeLessThan(ids.indexOf('sec-verdict'));
   });
 
-  it('and the page renders it there too, in all four verdicts', () => {
+  /**
+   * AND THE PAGE RENDERS IT THERE, observed rather than inspected.
+   *
+   * This used to read the four verdict SOURCE files and compare the character
+   * positions of `<StrategyInputs>`, `<RefurbSection>` and `sec-verdict`. That
+   * proves the text is written in that order, not that the page is — and it
+   * broke the moment the ordering moved into one shared shell, which is exactly
+   * the refactor it should have been indifferent to.
+   *
+   * L1 also made refurb its OWN CARD rather than a block nested inside the
+   * verdict card, so the assertion is now: three sibling cards, in this order.
+   */
+  it('and the page renders it there too — its own card, between inputs and the verdict', () => {
+    features.refurbSection = true;
+    const html = render(
+      <VerdictShell config={strategies[0]} country={null} hasContingency={false}>
+        <div id="sec-verdict" />
+      </VerdictShell>,
+    );
+    const inputsAt = html.indexOf('id="sec-inputs-card"');
+    const refurbAt = html.indexOf(`id="${REFURB.sectionId}"`);
+    const verdictAt = html.indexOf('id="sec-verdict"');
+    expect(inputsAt).toBeGreaterThan(-1);
+    expect(refurbAt).toBeGreaterThan(inputsAt);
+    expect(verdictAt).toBeGreaterThan(refurbAt);
+    // its OWN card, not a block inside another one
+    expect(html.slice(refurbAt - 120, refurbAt)).toContain('glass card');
+  });
+
+  it('and all four strategies go through that one shell', () => {
     for (const f of ['BtlVerdict', 'FlipVerdict', 'BrrrrVerdict', 'HmoVerdict']) {
-      const src = read(`../components/analyser/${f}.tsx`);
-      const refurbAt = src.indexOf('<RefurbSection');
-      const inputsAt = src.indexOf('<StrategyInputs');
-      const verdictAt = src.indexOf('id="sec-verdict"');
-      expect(refurbAt, f).toBeGreaterThan(-1);
-      expect(refurbAt, f).toBeGreaterThan(inputsAt);
-      expect(verdictAt, f).toBeGreaterThan(refurbAt);
+      expect(read(`../components/analyser/${f}.tsx`), f).toContain('<VerdictShell');
     }
   });
 });

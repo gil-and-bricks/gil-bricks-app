@@ -85,6 +85,14 @@
 .tip-btn:hover, .tip-btn:focus-visible, .tip-wrap:focus-within .tip-btn {
   border-color: var(--accent); color: var(--accent);
 }
+/* WCAG 2.5.8 Target Size (Minimum) is 24x24 CSS px; the visible dot is 16.8.
+   The dot STAYS small — it must never shout over the label it sits beside — and
+   the thing you actually press grows to 24x24 around it. No layout changes,
+   because the expander is absolutely positioned. */
+.tip-btn::after {
+  content: ''; position: absolute; top: 50%; left: 50%;
+  width: 24px; height: 24px; transform: translate(-50%, -50%);
+}
 .tip-bubble {
   position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
   background: var(--glass-bg-fallback); border: 1px solid var(--glass-border);
@@ -885,13 +893,22 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
    They shared a lime fill and read as the same control (D1), so the current
    section is now tinted-and-outlined and the filled pill means strategy. */
 .strip-chip[aria-current='true'] { color: var(--accent); background: rgba(220, 255, 0, 0.12); border-color: var(--accent); }
-.strip-chip[hidden] { display: none; }
+/* A chip whose section is not on the page YET is invisible, not removed.
+   `display: none` made the strip shrink-to-fit whatever had mounted so far, so
+   it resized twice on every load as the sections arrived — measured at 26px →
+   170px → 350px on a 1440px screen, the rail growing under you while you read.
+   Reserving the box decides the strip's size once, at first paint, and never
+   again. `visibility: hidden` keeps it out of the tab order and the
+   accessibility tree exactly as `hidden` did, so there is still no dead link. */
+.strip-chip[hidden] { visibility: hidden; pointer-events: none; }
 
 /* JS-off honesty note (N2) — quiet, above the form it explains. */
 .noscript-note { border: 1px solid var(--glass-border); border-radius: 12px; padding: var(--space-3); margin-bottom: var(--space-4); }
 
 /* The quiet way back to the inputs after a jump (N2). */
 .back-to-inputs { margin: calc(var(--space-2) * -1) 0 var(--space-4); font-size: var(--text-xs); }
+/* A standalone link in its own paragraph, so 2.5.8 applies to it in full. */
+.back-to-inputs a { display: inline-block; min-height: 24px; padding: 4px 0; }
 .back-to-inputs a { color: var(--text-dim); text-decoration: none; }
 .back-to-inputs a:hover, .back-to-inputs a:focus-visible { color: var(--accent); }
 
@@ -945,39 +962,17 @@ html { scroll-padding-top: calc(var(--sticky-h, 0px) + var(--strip-h, 0px) + var
 .verdict-results { display: contents; }
 
 /* ---------- Desktop layout (N4, features.desktopSplit) ---------------------
-   Pure CSS over the SAME DOM the phone uses: no second route, no second
-   component tree, so URL state, the extension handoff and every mobile
-   behaviour are untouched. Two things change on a wide screen:
-     1. the verdict card splits — inputs and assumptions left, the answer in a
-        sticky rail on the right, so it never scrolls out of sight;
-     2. the section overview becomes a vertical list beside the page. */
-@media (min-width: 1024px) {
-  /* Only split the card once the rail HAS an answer in it: before that the
-     page reserved a 480px empty column beside the inputs (D1). */
-  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 30rem);
-    column-gap: var(--space-6);
-    align-items: start;
-  }
-  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) > * { grid-column: 1; }
-  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) > h2 { grid-column: 1 / -1; }
-  [data-split] .analyser > .glass.card:has(> .verdict-results:not(:empty)) > .verdict-results {
-    display: block;
-    grid-column: 2;
-    grid-row: 2 / span 50;          /* every row the inputs occupy */
-    /* NOT sticky and NOT its own scroller (D1): pinning it clipped the lower
-       figures behind a nested scrollbar people never found. The column simply
-       sits beside the inputs and scrolls with the page. */
-    position: static;
-  }
-  /* The figures keep their own minimum width (13rem) inside the rail — forcing
-     two narrower columns broke the tiles that hold a two-column comparison. */
-  [data-split] .verdict-results .tiles { gap: var(--space-2); margin-top: var(--space-3); }
-  [data-split] .verdict-results .tile { padding: var(--space-2); }
-  [data-split] .verdict-results .tile-value { font-size: var(--text-base); }
-  [data-split] .verdict-results .accordion { margin-top: var(--space-1); }
-}
+   ONE thing changes on a wide screen now: the section overview becomes a
+   vertical list beside the page.
+
+   THE VERDICT CARD USED TO SPLIT HERE — inputs on the left, the answer in a
+   rail on the right — because the answer was at the top of the page and had to
+   stay in view while you scrolled the inputs. L1 removed the reason: the inputs
+   are their own card, the verdict card sits after everything that feeds it, and
+   the sticky bar keeps the score and the headline on screen the whole way down.
+   A two-column split of a card that now holds only the answer would leave an
+   empty column beside it, which is exactly the fault D1 removed once already. */
+
 /* The section overview as a vertical list beside the page. The switcher stacks
    with it: on a wide screen the sidebar IS the navigation. */
 @media (min-width: 1100px) {
@@ -1970,10 +1965,35 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
 .rc-caveat { margin: 0; font-size: var(--text-xs); color: var(--text-dim); }
 
 .rc-stage { display: flex; align-items: center; gap: var(--space-1); }
-.rc-photo {
-  flex: 1 1 auto; min-width: 0; width: 100%; aspect-ratio: 4 / 3;
-  object-fit: cover; border-radius: 10px; background: rgba(255, 255, 255, .04);
+/* AS BIG AS THE LAYOUT HONESTLY ALLOWS. The job is spotting surface trunking, a
+   rewireable fuse box or a single-glazed frame — none of which survives a
+   thumbnail. `contain`, not `cover`: cropping to fill a box can remove the very
+   thing you are looking for. The letterbox is the photo's own shape. */
+.rc-photo-btn {
+  flex: 1 1 auto; min-width: 0; display: block; width: 100%;
+  padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 10px;
 }
+.rc-photo-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.rc-photo {
+  display: block; width: 100%; aspect-ratio: 3 / 2; max-height: min(68vh, 620px);
+  object-fit: contain; border-radius: 10px; background: rgba(255, 255, 255, .04);
+}
+
+/* Full screen. A bigger display of the portal's own image — no bytes of ours. */
+.rc-full {
+  width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh;
+  padding: 0; border: 0; background: rgba(0, 0, 0, .92); color: #fff;
+}
+.rc-full::backdrop { background: rgba(0, 0, 0, .8); }
+.rc-full-img {
+  display: block; width: 100%; height: calc(100dvh - 56px);
+  object-fit: contain; cursor: zoom-out;
+}
+.rc-full-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-3); height: 56px; padding: 0 var(--space-3);
+}
+.rc-full-hint { margin: 0; font-size: var(--text-xs); color: rgba(255, 255, 255, .75); }
 /* 44px minimum: these are pressed with a thumb while the other hand holds the
    phone, which is the whole posture this section is used in. */
 .rc-arrow {

@@ -7,6 +7,7 @@ import { BTL_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { evidenceFromComps } from './soldEvidence';
 import { hasArrivedCriteria, judgedBy } from './criteria';
 import { verdictSnapshot } from './verdictSnapshot';
+import type { ComponentChildren } from 'preact';
 import { useEffect } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
@@ -20,8 +21,8 @@ import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, legacyRefurbLevel } from './state';
-import { RefurbSection, refurbParamKeys } from './RefurbSection';
-import { StrategyInputs } from './StrategyInputs';
+import { refurbParamKeys } from './RefurbSection';
+import { VerdictShell } from './VerdictShell';
 import { MathsAccordion } from './Accordion';
 
 // Thresholds MUST come from config — a missing key fails loudly, never
@@ -34,10 +35,12 @@ function requireThresholds(config: StrategyConfig): { minCashflowGreen: number; 
   return t as { minCashflowGreen: number; minRoiGreen: number; icrBasic: number; icrHigher: number };
 }
 
-export function BtlVerdict({ config, comps, valuation }: {
+export function BtlVerdict({ config, comps, valuation, beforeVerdict }: {
   config: StrategyConfig;
   comps: ComparablesResult | null;
   valuation: Valuation | null;
+  /** L1 — the floor plan, rendered between refurb and the verdict. */
+  beforeVerdict?: ComponentChildren;
 }) {
   const fields = [...config.strategyInputs, ...config.assumptions];
   useEffect(() => {
@@ -121,16 +124,12 @@ export function BtlVerdict({ config, comps, valuation }: {
   }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}|${nextSnapshot.soldEvidence?.estimate ?? ''}` : null]);
 
   return (
-    <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
-      <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
-      {/* R1 — AFTER the inputs, BEFORE the answer. The refurb figure is one of
-          the verdict's inputs, so the verdict can never render above it. */}
-      {features.refurbSection && (
-        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }}
-          country={comps?.subject.country ?? null}
-          hasContingency={fields.some((f) => f.key === 'contingencyPct')} />
-      )}
+    <VerdictShell
+      config={config}
+      country={comps?.subject.country ?? null}
+      hasContingency={fields.some((f) => f.key === 'contingencyPct')}
+      beforeVerdict={beforeVerdict}
+    >
       {!rentOk && <p class="hint">{COPY.verdict.needRent}</p>}
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
@@ -186,7 +185,7 @@ export function BtlVerdict({ config, comps, valuation }: {
         </>
       )}
       </div>
-    </section>
+    </VerdictShell>
   );
 }
 

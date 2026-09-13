@@ -6,6 +6,7 @@ import { FLIP_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { evidenceFromComps } from './soldEvidence';
 import { hasArrivedCriteria, judgedBy } from './criteria';
 import { verdictSnapshot } from './verdictSnapshot';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
@@ -20,8 +21,8 @@ import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, updateStrategy, legacyRefurbLevel } from './state';
-import { RefurbSection, refurbParamKeys } from './RefurbSection';
-import { StrategyInputs } from './StrategyInputs';
+import { refurbParamKeys } from './RefurbSection';
+import { VerdictShell } from './VerdictShell';
 import { MathsAccordion } from './Accordion';
 import { GdvModule } from './GdvModule';
 
@@ -33,10 +34,12 @@ function requireThresholds(config: StrategyConfig): { greenRoi: number; greenPro
   return t as { greenRoi: number; greenProfit: number; amberRoi: number };
 }
 
-export function FlipVerdict({ config, comps, valuation }: {
+export function FlipVerdict({ config, comps, valuation, beforeVerdict }: {
   config: StrategyConfig;
   comps: ComparablesResult | null;
   valuation: Valuation | null;
+  /** L1 — the floor plan, rendered between refurb and the verdict. */
+  beforeVerdict?: ComponentChildren;
 }) {
   const fields = [...config.strategyInputs, ...config.assumptions];
   useEffect(() => {
@@ -134,16 +137,12 @@ export function FlipVerdict({ config, comps, valuation }: {
   }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}|${nextSnapshot.soldEvidence?.estimate ?? ''}` : null]);
 
   return (
-    <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
-      <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
-      {/* R1 — AFTER the inputs, BEFORE the answer. The refurb figure is one of
-          the verdict's inputs, so the verdict can never render above it. */}
-      {features.refurbSection && (
-        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }}
-          country={comps?.subject.country ?? null}
-          hasContingency={fields.some((f) => f.key === 'contingencyPct')} />
-      )}
+    <VerdictShell
+      config={config}
+      country={comps?.subject.country ?? null}
+      hasContingency={fields.some((f) => f.key === 'contingencyPct')}
+      beforeVerdict={beforeVerdict}
+    >
       {valuation && prefilled.current !== null && !diverged.current && (strategyParams.value.gdv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}
@@ -224,7 +223,7 @@ export function FlipVerdict({ config, comps, valuation }: {
         </>
       )}
       </div>
-    </section>
+    </VerdictShell>
   );
 }
 

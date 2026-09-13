@@ -111,6 +111,10 @@ export const ANALYSER_SHELL = {
   dismissArrived: 'Dismiss',
   /** The heading over the property form. */
   propertyHeading: 'The property',
+  /** The heading over the strategy inputs and assumptions (L1). They used to
+   *  sit inside a card titled "<Strategy> verdict", which named the answer over
+   *  a box you were still filling in. */
+  inputsHeading: 'Your numbers',
   /** The strategy switcher's label — the second wording is used off a strategy page. */
   switchStrategy: 'Analyse this as…',
   switchStrategyFromComps: 'Analyse this property as…',

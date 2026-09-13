@@ -219,8 +219,8 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
   const reviewedStale = figuresAreStale(FIGURES_REVIEWED, Date.now(), REFURB.staleAfterMonths);
 
   return (
-    <section class="refurb" id={REFURB.sectionId} aria-labelledby="refurb-h">
-      <h3 id="refurb-h">{REFURB.copy.heading}</h3>
+    <section class="glass card refurb" id={REFURB.sectionId} aria-labelledby="refurb-h">
+      <h2 id="refurb-h">{REFURB.copy.heading}</h2>
       <p class="hint">{REFURB.copy.lead}</p>
 
       {legacy && (

@@ -235,7 +235,23 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           {showVerdict && (() => {
             const Verdict = config?.verdictSlot ? VERDICTS[config.verdictSlot] : undefined;
             if (Verdict && config) {
-              return <Verdict config={config} comps={results.comps} valuation={results.valuation} />;
+              return (
+                <Verdict
+                  config={config}
+                  comps={results.comps}
+                  valuation={results.valuation}
+                  beforeVerdict={features.floorPlan ? (
+                    /* L1 — between refurb and the verdict: the plan is a thing
+                       you change about the property, so it reads with the other
+                       inputs and before the answer they produce. */
+                    <FloorPlanCard
+                      areaSqm={Number(state.value.area) > 0 ? Number(state.value.area) : null}
+                      areaSource={new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('areaSrc') ?? 'none'}
+                      address={[state.value.paon, state.value.postcode].filter((x) => x !== '').join(' ')}
+                    />
+                  ) : undefined}
+                />
+              );
             }
             return (
               <section class="glass card verdict-slot" aria-label={ANALYSER_SHELL.verdictRegionLabel}>
@@ -285,16 +301,6 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                   <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
                   <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
                 </>
-              )}
-              {/* F1 — the floor plan sits with the deal's own numbers. The
-                  agent's plan arrives as a URL in the handoff; nothing is
-                  fetched or stored by us but the geometry the user draws. */}
-              {features.floorPlan && showVerdict && (
-                <FloorPlanCard
-                  areaSqm={Number(state.value.area) > 0 ? Number(state.value.area) : null}
-                  areaSource={new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search).get('areaSrc') ?? 'none'}
-                  address={[state.value.paon, state.value.postcode].filter((x) => x !== '').join(' ')}
-                />
               )}
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />
             </>

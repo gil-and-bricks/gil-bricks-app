@@ -41,6 +41,10 @@ export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItem
   const [index, setIndex] = useState(0);
   const [rooms, setRooms] = useState<Record<number, CueRoom>>({});
   const [failed, setFailed] = useState<Record<number, boolean>>({});
+  /** R3.1 — the photo opened full screen. You cannot spot surface trunking or
+   *  read a fuse box in a card-width thumbnail, which is the whole job here. */
+  const [zoomed, setZoomed] = useState(false);
+  const dialog = useRef<HTMLDialogElement | null>(null);
   /** Cues shown on THIS property, so one photo never repeats another's. */
   const shownHere = useRef<Set<string>>(new Set());
   /** The cue chosen for each photo, held so it does not reshuffle on re-render. */
@@ -52,6 +56,14 @@ export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItem
   const cue = cached !== undefined && cached?.room === (room ?? cached?.room)
     ? cached
     : nextCue(room, seen, shownHere.current);
+
+  /** A real <dialog>: Escape closes it and focus is trapped, both for free. */
+  useEffect(() => {
+    const d = dialog.current;
+    if (d === null) return;
+    if (zoomed && !d.open) d.showModal();
+    if (!zoomed && d.open) d.close();
+  }, [zoomed]);
 
   useEffect(() => {
     if (cue === null) return;
@@ -83,15 +95,22 @@ export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItem
           {failed[index] === true
             ? <p class="hint rc-failed">{P.failed}</p>
             : (
-              <img
-                class="rc-photo"
-                src={photos[index]}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                referrerPolicy="no-referrer"
-                onError={() => setFailed((f) => ({ ...f, [index]: true }))}
-              />
+              <button
+                type="button"
+                class="rc-photo-btn"
+                aria-label={P.openFull}
+                onClick={() => setZoomed(true)}
+              >
+                <img
+                  class="rc-photo"
+                  src={photos[index]}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
+                  onError={() => setFailed((f) => ({ ...f, [index]: true }))}
+                />
+              </button>
             )}
           <button type="button" class="rc-arrow" aria-label={P.next} disabled={index >= photos.length - 1} onClick={() => go(1)}>›</button>
         </div>
@@ -142,6 +161,16 @@ export function PhotoCarousel({ photos, seen, onCueShown, onTickItem, tickedItem
             )}
         </div>
       </div>
+
+      {/* FULL SCREEN. Still the portal's own URL in an <img src> — a bigger
+          display of someone else's image costs us nothing and holds nothing. */}
+      <dialog class="rc-full" ref={dialog} onClose={() => setZoomed(false)} onClick={() => setZoomed(false)}>
+        <img class="rc-full-img" src={photos[index]} alt="" referrerPolicy="no-referrer" />
+        <div class="rc-full-bar">
+          <p class="rc-full-hint">{P.counter(index + 1, photos.length)} · {P.fullHint}</p>
+          <button type="button" class="tp-btn tp-btn-quiet" onClick={() => setZoomed(false)}>{P.closeFull}</button>
+        </div>
+      </dialog>
     </section>
   );
 }

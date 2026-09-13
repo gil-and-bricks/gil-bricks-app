@@ -6,6 +6,7 @@ import { HMO_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { evidenceFromComps } from './soldEvidence';
 import { arrivedRoomSizeFailures, arrivedRoomsMeasured, hasArrivedCriteria, judgedBy } from './criteria';
 import { verdictSnapshot } from './verdictSnapshot';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useState } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
@@ -19,8 +20,8 @@ import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, legacyRefurbLevel } from './state';
-import { RefurbSection, refurbParamKeys } from './RefurbSection';
-import { StrategyInputs } from './StrategyInputs';
+import { refurbParamKeys } from './RefurbSection';
+import { VerdictShell } from './VerdictShell';
 import { Accordion, MathsAccordion } from './Accordion';
 import { Article4Flag } from './Article4Flag';
 
@@ -37,10 +38,12 @@ interface RoomRow {
   occupancy: RoomOccupancy;
 }
 
-export function HmoVerdict({ config, comps, valuation }: {
+export function HmoVerdict({ config, comps, valuation, beforeVerdict }: {
   config: StrategyConfig;
   comps: ComparablesResult | null;
   valuation: Valuation | null;
+  /** L1 — the floor plan, rendered between refurb and the verdict. */
+  beforeVerdict?: ComponentChildren;
 }) {
   const fields = [...config.strategyInputs, ...config.assumptions];
   useEffect(() => {
@@ -150,21 +153,21 @@ export function HmoVerdict({ config, comps, valuation }: {
   }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}|${nextSnapshot.soldEvidence?.estimate ?? ''}|${nextSnapshot.roomSizeFailures ?? ''}` : null]);
 
   return (
-    <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
-      <p class="hint">{COPY.verdict.hmoScope}</p>
-      <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
-      {/* R1 — AFTER the inputs, BEFORE the answer. The refurb figure is one of
-          the verdict's inputs, so the verdict can never render above it. */}
-      {features.refurbSection && (
-        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }}
-          country={comps?.subject.country ?? null}
-          hasContingency={fields.some((f) => f.key === 'contingencyPct')} />
+    <VerdictShell
+      config={config}
+      country={comps?.subject.country ?? null}
+      hasContingency={fields.some((f) => f.key === 'contingencyPct')}
+      beforeVerdict={beforeVerdict}
+      aboveInputs={<p class="hint">{COPY.verdict.hmoScope}</p>}
+      afterInputs={(
+        <>
+          {/* The Article 4 flag is about the AREA, so it reads with the numbers
+              you are setting for this property, not under the answer. */}
+          {comps && <Article4Flag lat={comps.subject.lat} lng={comps.subject.lng} country={comps.subject.country} />}
+          {isSuiGeneris && <p class="field-error" role="alert">{COPY.verdict.hmoSuiGeneris}</p>}
+        </>
       )}
-      {comps && <Article4Flag lat={comps.subject.lat} lng={comps.subject.lng} country={comps.subject.country} />}
-      {isSuiGeneris && (
-        <p class="field-error" role="alert">{COPY.verdict.hmoSuiGeneris}</p>
-      )}
+    >
       {!isSuiGeneris && p.bills === 'no' && (
         <p class="field-hint">{COPY.verdict.hmoBills}</p>
       )}
@@ -259,7 +262,7 @@ export function HmoVerdict({ config, comps, valuation }: {
         </>
       )}
       </div>
-    </section>
+    </VerdictShell>
   );
 }
 

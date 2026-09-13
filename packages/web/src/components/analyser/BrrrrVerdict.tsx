@@ -5,6 +5,7 @@ import { BRRRR_COPY, VERDICT_COPY } from '../../config/verdicts';
 import { evidenceFromComps } from './soldEvidence';
 import { hasArrivedCriteria, judgedBy } from './criteria';
 import { verdictSnapshot } from './verdictSnapshot';
+import type { ComponentChildren } from 'preact';
 import { useEffect, useRef } from 'preact/hooks';
 import type { StrategyConfig } from '@gil-bricks/core';
 import type { ComparablesResult } from '@gil-bricks/core';
@@ -18,8 +19,8 @@ import { features, stickyVerdictActive } from '../../config/features';
 import type { BuyerType } from '@gil-bricks/core';
 import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, updateStrategy, legacyRefurbLevel } from './state';
-import { RefurbSection, refurbParamKeys } from './RefurbSection';
-import { StrategyInputs } from './StrategyInputs';
+import { refurbParamKeys } from './RefurbSection';
+import { VerdictShell } from './VerdictShell';
 import { MathsAccordion } from './Accordion';
 
 function requireThresholds(config: StrategyConfig): { allOutMax: number; minCashflowGreen: number; icrBasic: number; icrHigher: number } {
@@ -30,10 +31,12 @@ function requireThresholds(config: StrategyConfig): { allOutMax: number; minCash
   return t as { allOutMax: number; minCashflowGreen: number; icrBasic: number; icrHigher: number };
 }
 
-export function BrrrrVerdict({ config, comps, valuation }: {
+export function BrrrrVerdict({ config, comps, valuation, beforeVerdict }: {
   config: StrategyConfig;
   comps: ComparablesResult | null;
   valuation: Valuation | null;
+  /** L1 — the floor plan, rendered between refurb and the verdict. */
+  beforeVerdict?: ComponentChildren;
 }) {
   const fields = [...config.strategyInputs, ...config.assumptions];
   useEffect(() => {
@@ -133,16 +136,12 @@ export function BrrrrVerdict({ config, comps, valuation }: {
   }, [headlineForSave, nextSnapshot ? `${nextSnapshot.score}|${nextSnapshot.boardFigure}|${nextSnapshot.headline}|${nextSnapshot.criteriaJson}|${nextSnapshot.lever}|${nextSnapshot.soldEvidence?.estimate ?? ''}` : null]);
 
   return (
-    <section class="glass card" aria-labelledby="verdict-h">
-      <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
-      <StrategyInputs visible={config.strategyInputs} assumptions={config.assumptions} />
-      {/* R1 — AFTER the inputs, BEFORE the answer. The refurb figure is one of
-          the verdict's inputs, so the verdict can never render above it. */}
-      {features.refurbSection && (
-        <RefurbSection legacy={legacyRefurbLevel.value} onLegacySeen={() => { legacyRefurbLevel.value = false; }}
-          country={comps?.subject.country ?? null}
-          hasContingency={fields.some((f) => f.key === 'contingencyPct')} />
-      )}
+    <VerdictShell
+      config={config}
+      country={comps?.subject.country ?? null}
+      hasContingency={fields.some((f) => f.key === 'contingencyPct')}
+      beforeVerdict={beforeVerdict}
+    >
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
       )}
@@ -210,7 +209,7 @@ export function BrrrrVerdict({ config, comps, valuation }: {
         </>
       )}
       </div>
-    </section>
+    </VerdictShell>
   );
 }
 
