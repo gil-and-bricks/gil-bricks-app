@@ -1,19 +1,33 @@
 /**
  * ███ THE OPERATOR'S OWN REFURB FIGURES — THIS FILE IS GIL'S, NOT CLAUDE'S ███
  *
- * R2 RESTRUCTURED THIS FILE and left it empty, for the same reason R1 did.
- * The R2 brief said the regional figures were in "the research I am pasting
- * below". No research arrived in that message — it ends at the verification
- * list. Rather than invent UK refurb costs and ship them under his name on the
- * one number that moves a flip most, the whole machine was built around this
- * file and every value left `null`. Drop the research in here and the feature
- * switches itself on; nothing else needs changing. See docs/DECISIONS_LOG.md (R2).
+ * ── WHERE THESE NUMBERS CAME FROM, AND WHAT THEY ARE NOT ───────────────────
  *
- * WHAT THE PAGE DOES WHILE THIS IS EMPTY: exactly what R1 shipped. A typed
- * total, a breakdown you can tick, no suggestions, and one honest line saying
- * the figures are not in yet. No region line, no labour selector, no
- * contingency row — none of them can do anything without figures, and a control
- * that does nothing is worse than no control.
+ * Commissioned desk research, 2026-09-01, cross-checked across four commercial
+ * UK cost guides: Checkatrade, MyBuilder, MyJobQuote and the FMB. All
+ * supply-and-fit, all for a standard 2-3 bed UK terrace or semi, all INCLUDING
+ * VAT. The baseline region is the South West, which the research puts at the
+ * national mean.
+ *
+ * TREAT THEM AS INDICATIVE, NOT SURVEYED. This is the part a future reader must
+ * not skip:
+ *
+ *   - They are COMMERCIAL COST GUIDES. The businesses publishing them make
+ *     money when people commission work, so there is a standing incentive for
+ *     the headline numbers to look affordable. Nothing here is audited.
+ *   - Some of these guides are now GENERATED from past job data rather than
+ *     compiled by hand, and at least partly by AI. That means the provenance of
+ *     any single figure is weaker than a page of tidy tables implies.
+ *   - They are NOT a survey, NOT a statistical sample, and NOT traceable to a
+ *     source you could re-run. Nobody measured a representative set of UK
+ *     refurbs to produce them.
+ *   - The mid-point is the least reliable number here. The RANGE is the honest
+ *     part, which is why every figure carries one and the page always prints it.
+ *
+ * So: fine as a starting point for somebody who has no quote yet, which is
+ * exactly what the page says they are. Not fine as evidence, not fine to defend
+ * a valuation with, and not fine to quietly harden into "our figures" later.
+ * If they are ever replaced with something better sourced, say so here.
  *
  * ── HOW TO FILL IT IN ───────────────────────────────────────────────────────
  * Whole pounds. No quotes, no commas, no £. Three numbers per item:
@@ -45,26 +59,36 @@ const EMPTY: CostBand = { mid: null, low: null, high: null };
  * refurb.test.ts, so an item cannot be renamed without its figure following.
  */
 export const REFURB_FIGURES: Record<string, CostBand & { bands?: Record<string, CostBand> }> = {
-  ripOut: EMPTY,
-  damp: EMPTY,
-  roof: EMPTY,
+  ripOut: { low: 800, mid: 1600, high: 3000 },
+  damp: { low: 1000, mid: 3000, high: 6000 },
+  roof: { low: 6500, mid: 9500, high: 15000 },
   /** driver 'perUnit' — £ per window. */
-  windows: EMPTY,
+  windows: { low: 450, mid: 700, high: 1200 },
   /**
    * driver 'beds' — a whole-house rewire priced by size, not per bedroom.
-   * Fill in the BANDS, not mid/low/high. Band keys may be "1-2", "3", "4+".
+   * The research gave 2-bed / 3-bed / 4-bed; the bands below carry them, with
+   * 4+ covering anything larger.
    */
-  rewire: { ...EMPTY, bands: { '1-2': EMPTY, '3': EMPTY, '4+': EMPTY } },
-  plumbing: EMPTY,
-  heating: EMPTY,
+  rewire: {
+    ...EMPTY,
+    bands: {
+      '1-2': { low: 3500, mid: 4800, high: 6500 },
+      '3': { low: 4450, mid: 6250, high: 8000 },
+      '4+': { low: 5500, mid: 7500, high: 9500 },
+    },
+  },
+  /** EXCLUDES the boiler — that is its own row, or it is counted twice. */
+  plumbing: { low: 2000, mid: 3500, high: 6000 },
+  heating: { low: 1800, mid: 3000, high: 6000 },
   /** driver 'perSqm' — £ per m². */
-  plastering: EMPTY,
-  kitchen: EMPTY,
-  bathroom: EMPTY,
+  plastering: { low: 30, mid: 45, high: 65 },
+  kitchen: { low: 6000, mid: 10000, high: 20000 },
+  bathroom: { low: 5500, mid: 7000, high: 15000 },
   /** driver 'perSqm' — £ per m². */
-  flooring: EMPTY,
-  decoration: EMPTY,
-  externals: EMPTY,
+  flooring: { low: 30, mid: 45, high: 60 },
+  decoration: { low: 2000, mid: 4000, high: 6000 },
+  externals: { low: 1000, mid: 4000, high: 8000 },
+  /** Deliberately empty: this row is whatever the person types into it. */
   other: EMPTY,
 };
 
@@ -79,16 +103,18 @@ export const REFURB_FIGURES: Record<string, CostBand & { bands?: Record<string, 
  * filled map would quietly offer figures in some regions and not others.
  */
 export const REGION_MULTIPLIERS: Record<RegionId, number | null> = {
-  london: null,
-  'south-east': null,
-  'east-of-england': null,
-  'south-west': null,
-  'east-midlands': null,
-  'west-midlands': null,
-  'yorkshire-humber': null,
-  'north-west': null,
-  'north-east': null,
-  wales: null,
+  london: 1.15,
+  'south-east': 1.08,
+  'east-of-england': 1.04,
+  // The baseline: the research puts the South West at the national mean, so the
+  // figures above are written at South West prices and this must stay 1.0.
+  'south-west': 1.0,
+  'east-midlands': 0.98,
+  'west-midlands': 0.97,
+  'north-west': 0.96,
+  'yorkshire-humber': 0.95,
+  wales: 0.94,
+  'north-east': 0.91,
 };
 
 /**
@@ -105,10 +131,10 @@ export const REGION_MULTIPLIERS: Record<RegionId, number | null> = {
  *                    get burned.
  */
 export const LABOUR_FACTORS: Record<string, number | null> = {
-  mainContractor: null,
-  builder: null,
-  tradesDirect: null,
-  diy: null,
+  mainContractor: 1.12,
+  builder: 1.0,
+  tradesDirect: 0.88,
+  diy: 0.5,
 };
 
 /**
@@ -116,7 +142,7 @@ export const LABOUR_FACTORS: Record<string, number | null> = {
  * Shown on the page. Once they are more than `REFURB.staleAfterMonths` old the
  * page says so, without hiding them.
  */
-export const FIGURES_REVIEWED: string | null = null;
+export const FIGURES_REVIEWED: string | null = '2026-09-01';
 
 /**
  * DO THE FIGURES ABOVE INCLUDE VAT? Set true or false. There is deliberately no
@@ -125,7 +151,7 @@ export const FIGURES_REVIEWED: string | null = null;
  * the caveat tells people to check. Leave it null and the caveat says nothing
  * about VAT rather than guessing.
  */
-export const FIGURES_INCLUDE_VAT: boolean | null = null;
+export const FIGURES_INCLUDE_VAT: boolean | null = true;
 
 /**
  * HOW TO REFRESH THESE WITHOUT RE-RESEARCHING EVERY ITEM.

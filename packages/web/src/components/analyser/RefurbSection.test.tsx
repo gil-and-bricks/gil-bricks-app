@@ -14,6 +14,7 @@ import { render } from 'preact-render-to-string';
 import { RefurbSection, linesFrom, refurbParamKeys, MODE_PARAM } from './RefurbSection';
 import { REFURB, REFURB_ITEMS, paramFor } from '../../config/refurb';
 import { state, strategyParams } from './state';
+import { features } from '../../config/features';
 
 const html = (params: Record<string, string>, legacy = false): string => {
   strategyParams.value = params;
@@ -24,19 +25,23 @@ const TYPED = { [REFURB.fieldKey]: '18000' };
 const ITEMISED = { [MODE_PARAM]: '1', [paramFor('kitchen')]: '6000', [paramFor('rewire')]: '4000', [REFURB.fieldKey]: '10000' };
 
 beforeEach(() => {
+  // Both flags on deliberately, so the flags-off run cannot silently pass these
+  // by rendering a section that is not the one under test.
+  features.refurbSection = true;
+  features.refurbSuggestions = true;
   strategyParams.value = {};
   state.value = { ...state.value, postcode: '', area: '', beds: '' };
 });
 
-describe('nothing is promised that the operator did not write', () => {
-  it('offers no suggested figure on any row, and says it is waiting', () => {
-    const out = html({ [MODE_PARAM]: '1', ...Object.fromEntries(REFURB_ITEMS.map((i) => [paramFor(i.key), '0'])) });
-    expect(out).toContain(REFURB.copy.figuresEmpty);
-    expect(out).not.toContain('refurb-suggest');
+describe('the operator\u2019s figures are in, and the page says whose they are', () => {
+  it('names them as his, and says they are changeable', () => {
+    const out = html({ [MODE_PARAM]: '1' });
+    expect(out).toContain(REFURB.figuresLabel);
+    expect(out).not.toContain(REFURB.copy.figuresEmpty);
   });
 
-  it('and never names the operator while it has none of his figures', () => {
-    expect(html({})).not.toContain('Gil');
+  it('the caveat rides with them, in the same breath as the number', () => {
+    expect(html({ [MODE_PARAM]: '1' })).toContain('They are not a quote.');
   });
 });
 

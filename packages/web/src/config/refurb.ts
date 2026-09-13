@@ -49,7 +49,7 @@ export const REFURB_ITEMS: readonly RefurbItem[] = [
   { key: 'roof', label: 'Roof', driver: 'flat' },
   { key: 'windows', label: 'Windows', driver: 'perUnit' },
   { key: 'rewire', label: 'Full rewire', driver: 'beds' },
-  { key: 'plumbing', label: 'Plumbing', driver: 'flat' },
+  { key: 'plumbing', label: 'Plumbing', hint: 'Not the boiler — that is the next row.', driver: 'flat' },
   { key: 'heating', label: 'Boiler and heating', driver: 'flat' },
   { key: 'plastering', label: 'Plastering', driver: 'perSqm' },
   { key: 'kitchen', label: 'Kitchen', driver: 'flat' },
