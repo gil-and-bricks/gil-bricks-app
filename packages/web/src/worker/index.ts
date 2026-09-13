@@ -1649,7 +1649,26 @@ export default {
    * their own (the broker pages' `no-referrer`) keep it.
    */
   async fetch(request: Request, env: Env): Promise<Response> {
-    return withSecurityHeaders(await route(request, env));
+    /**
+     * A HEAD IS A GET WITHOUT A BODY, and every uptime monitor believes that.
+     *
+     * Every route branch below matches on `method === 'GET'`, so a HEAD never
+     * reached a handler and fell through to the catch-all 404 — including
+     * /api/health, the endpoint whose whole job is to say whether the app is
+     * alive. Any monitor configured for HEAD, which is the usual default, has
+     * been told this site is down since 2026-09-02 while it was fine.
+     *
+     * Answered here, at the single exit, rather than by touching 39 route
+     * branches: the handler runs exactly as it would for a GET, the headers it
+     * produces are the headers a GET would produce, and the body is dropped on
+     * the way out, which is what the spec requires.
+     */
+    const isHead = request.method === 'HEAD';
+    const forRouting = isHead
+      ? new Request(request.url, { method: 'GET', headers: request.headers })
+      : request;
+    const res = withSecurityHeaders(await route(forRouting, env));
+    return isHead ? new Response(null, { status: res.status, headers: res.headers }) : res;
   },
 
   async scheduled(event: { cron?: string }, env: Env): Promise<void> {

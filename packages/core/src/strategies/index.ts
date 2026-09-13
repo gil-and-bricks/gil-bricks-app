@@ -99,8 +99,17 @@ export const strategies: StrategyConfig[] = [
         tip: 'Changes how the profit is taxed — both scenarios are shown either way.',
       },
     ],
-    /** Without these there is no verdict, and the page says so by name. */
-    requiredForVerdict: ['gdv'],
+    /**
+     * Without these there is no verdict, and the page says so by name.
+     *
+     * `refurbCost` is here because a flip with no refurb figure is not a flip
+     * with a cheap refurb — it is a flip nobody has costed. The sale price
+     * pre-fills from our own valuation, so a completely blank form used to
+     * score 9.4/10 GOOD and report a profit, while silently assuming the works
+     * were free. That is the most confident thing this product can say and the
+     * least supported.
+     */
+    requiredForVerdict: ['gdv', 'refurbCost'],
     assumptions: [
       { key: 'bridgeLoanPct', label: 'Bridging loan size', kind: 'number', unit: '% of price', default: '75', tip: 'The share of the price the bridge advances.' },
       { key: 'bridgeRate', label: 'Bridging rate', kind: 'number', unit: '%/month', default: '0.85', tip: 'Bridging is priced monthly.' },

@@ -304,3 +304,33 @@ describe('static pages carry the same protections as Worker routes', () => {
     }
   });
 })
+
+/**
+ * A HEAD IS A GET WITHOUT A BODY (M1).
+ *
+ * Every route branch matches on `method === 'GET'`, so a HEAD fell through to
+ * the catch-all 404 — including /api/health, whose whole job is to say whether
+ * the app is alive. Any monitor set to HEAD, which is the common default, was
+ * told the site was down from 2026-09-02 onwards while it was fine.
+ */
+describe('the Worker answers HEAD the way the whole internet expects', () => {
+  const src = readFileSync(join(REPO, 'packages/web/src/worker/index.ts'), 'utf8');
+
+  it('turns a HEAD into a GET before routing, at the single exit', () => {
+    const fetchBlock = src.slice(src.indexOf('async fetch(request: Request'), src.indexOf('async scheduled('));
+    expect(fetchBlock, 'HEAD must be recognised').toContain("request.method === 'HEAD'");
+    expect(fetchBlock, 'and routed as a GET').toContain("method: 'GET'");
+  });
+
+  it('and returns the GET headers with no body', () => {
+    const fetchBlock = src.slice(src.indexOf('async fetch(request: Request'), src.indexOf('async scheduled('));
+    expect(fetchBlock).toContain('new Response(null,');
+    expect(fetchBlock, 'the status a GET would have given').toContain('status: res.status');
+    expect(fetchBlock, 'and the headers a GET would have given').toContain('headers: res.headers');
+  });
+
+  it('the security headers still go through the one exit, not around it', () => {
+    const fetchBlock = src.slice(src.indexOf('async fetch(request: Request'), src.indexOf('async scheduled('));
+    expect(fetchBlock).toContain('withSecurityHeaders(await route(');
+  });
+});

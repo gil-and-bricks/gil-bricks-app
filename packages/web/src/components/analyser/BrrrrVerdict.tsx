@@ -67,7 +67,8 @@ export function BrrrrVerdict({ config, comps, valuation, beforeVerdict }: {
   }, [valuation]);
 
   const ltvPct = p.ltv === 'custom' ? num('ltvCustom') : (Number(p.ltv) || configDefault('ltv'));
-  const ready = num('rent') > 0 && num('arv') > 0 && Number(s.price) > 0 && ltvPct > 0;
+  const needs = missingForVerdict(config, strategyParams.value);
+  const ready = needs.length === 0 && Number(s.price) > 0 && ltvPct > 0;
 
   let analysis: BrrrrAnalysis | null = null;
   let analysisError: string | null = null;
@@ -141,7 +142,7 @@ export function BrrrrVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
-      missing={missingForVerdict(config, strategyParams.value)}
+      missing={needs}
     >
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>

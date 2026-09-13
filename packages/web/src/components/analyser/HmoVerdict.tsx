@@ -89,7 +89,8 @@ export function HmoVerdict({ config, comps, valuation, beforeVerdict }: {
   const roomSizeFailures = enteredRooms.length > 0 ? typedFailures : carried ?? typedFailures;
 
   const selfManaged = p.mgmt === 'self';
-  const ready = !isSuiGeneris && num('roomRent') > 0 && Number(s.price) > 0;
+  const needs = missingForVerdict(config, strategyParams.value);
+  const ready = !isSuiGeneris && needs.length === 0 && Number(s.price) > 0;
 
   let analysis: HmoAnalysis | null = null;
   let analysisError: string | null = null;
@@ -158,7 +159,7 @@ export function HmoVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
-      missing={missingForVerdict(config, strategyParams.value)}
+      missing={needs}
       aboveInputs={<p class="hint">{COPY.verdict.hmoScope}</p>}
       afterInputs={(
         <>

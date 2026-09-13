@@ -171,3 +171,18 @@ jobs:
         env:
           CHROME_PATH: /usr/bin/google-chrome
         run: npm run render-gate -w packages/web
+
+      # The console gate. Every gate before it checked what the SERVER sends —
+      # the bytes, the words, the size of a box. None listened to the BROWSER,
+      # which is how a Content-Security-Policy that blocked every listing photo
+      # and every floor plan passed twice: the server was sending exactly what
+      # it meant to, and the only evidence was a console line nobody read.
+      #
+      # It loads every built page at two widths and fails on any uncaught
+      # exception, any CSP refusal, any unexplained console error, and any
+      # failed request to our own origin. The gate's server now applies
+      # public/_headers, so a header fault fails here rather than in production.
+      - name: Console gate
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run console-gate -w packages/web

@@ -61,7 +61,9 @@ export function BtlVerdict({ config, comps, valuation, beforeVerdict }: {
     return Number.isFinite(v) && p[k] !== '' && p[k] !== undefined ? v : configDefault(k);
   };
 
-  const rentOk = num('rent') > 0;
+  // Readiness comes from the CONFIG now, not from keys retyped here.
+  const needs = missingForVerdict(config, strategyParams.value);
+  const rentOk = needs.length === 0;
   let analysis: BtlAnalysis | null = null;
   let analysisError: string | null = null;
   // The sold-price band the score rests on — the sector's own distribution,
@@ -129,7 +131,7 @@ export function BtlVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
-      missing={missingForVerdict(config, strategyParams.value)}
+      missing={needs}
     >
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail

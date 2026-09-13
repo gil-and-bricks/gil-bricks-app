@@ -74,7 +74,8 @@ export function FlipVerdict({ config, comps, valuation, beforeVerdict }: {
   }, [p.gdv]);
 
   const isLtd = p.flipAs === 'ltd';
-  const ready = num('gdv') > 0 && Number(s.price) > 0;
+  const needs = missingForVerdict(config, strategyParams.value);
+  const ready = needs.length === 0 && Number(s.price) > 0;
 
   let analysis: FlipAnalysis | null = null;
   let analysisError: string | null = null;
@@ -142,7 +143,7 @@ export function FlipVerdict({ config, comps, valuation, beforeVerdict }: {
       country={comps?.subject.country ?? null}
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
-      missing={missingForVerdict(config, strategyParams.value)}
+      missing={needs}
     >
       {valuation && prefilled.current !== null && !diverged.current && (strategyParams.value.gdv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>
