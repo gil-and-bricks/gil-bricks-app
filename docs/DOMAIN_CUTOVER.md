@@ -6,7 +6,7 @@ this order.
 
 ---
 
-## 1. Google — so sign-in keeps working (DO THIS FIRST)
+## 1. Google — so sign-in keeps working ✅ DONE (verified: no redirect_uri_mismatch)
 
 > **THIS IS BROKEN RIGHT NOW AND I CONFIRMED IT.** I followed the live
 > sign-in redirect from https://proplaunch.ai through to Google and it answers
@@ -61,7 +61,7 @@ back on the site signed in. That is the whole test.
 
 ---
 
-## 2. Cloudflare Turnstile — so new sign-ups can pass the human check
+## 2. Cloudflare Turnstile ✅ DONE (hostname added)
 
 **What breaks without it:** *new account creation* fails with "human check did
 not pass". Returning users are never challenged, so you may not notice.
@@ -88,7 +88,7 @@ needs a human.
 
 ---
 
-## 3. Cloudflare — the Cache Rule that makes the R2 move worth having
+## 3. Cloudflare — the Cache Rule ✅ DONE (deployed; measured DYNAMIC → HIT)
 
 **This is the performance fix.** Without it the bucket is on our own domain but
 Cloudflare still does not cache it: every request goes to the bucket, exactly as

@@ -69,6 +69,52 @@ re-fetched every time and there was nothing for an edge to honour either. It now
 goes up with `public, max-age=86400` — a day, not a year, because the key is
 stable and the content is rebuilt monthly.
 
+### MEASURED, after the Cache Rule went in
+
+The rule was deployed on data.proplaunch.ai (hostname equals, eligible for
+cache) and the JSON objects went **DYNAMIC → MISS → HIT**. TTFB, 15 interleaved
+samples per host so a network wobble hits both:
+
+    manifest.json          115ms -> 51ms   median
+    area-trajectory.json   117ms -> 65ms   median
+    sectors-index.json     123ms -> 141ms  median (25 samples; see below)
+
+`sectors-index.json` is the honest exception: no median win, but a much better
+floor (108ms -> 52ms) and a much better ceiling (322ms -> 184ms). The
+distributions overlap and it would be wrong to call it faster.
+
+**THE TILES ARCHIVE IS STILL NOT EDGE-CACHED, and the reason is its SIZE.** It
+answers BYPASS, not HIT. Two controls settled which of the three candidate
+causes it is:
+
+  * a small object with NO Cache-Control, octet-stream, non-cacheable
+    extension → MISS then HIT. So the missing header is not it, and the rule is
+    genuinely doing the work an extension-based default would not.
+  * a 10MB object, same content-type, the SAME 256KB range requested three
+    times → MISS then HIT. So range requests are not it either.
+  * the 1,144,298,413-byte archive → BYPASS.
+
+Size is the only variable left. That is consistent with Cloudflare's documented
+free-plan ceiling of 512MB per cacheable file; the exact threshold was not
+bisected, because doing so means uploading half a gigabyte to find out.
+
+Getting it under that ceiling is a product decision, not a configuration one —
+maxzoom 14 → 13, or splitting England and Wales into two archives — and both
+change what the map looks like. Not taken unilaterally. Worth remembering that
+the C3 measurement already judged tiles not to be the bottleneck: 69KB and about
+1.3s of a 3.9s map open, against the 6.2s that sectors-index cost, which IS now
+cached.
+
+**It is faster under load even while bypassed.** 150 parallel range requests,
+three rounds each, medians: 1.09 / 1.10 / 1.07s on r2.dev against 0.85 / 0.83 /
+0.84s on the custom domain. Consistent, about 23%. The development endpoint was
+costing something beyond caching.
+
+**And browsers now cache the archive, which they did not before.** It went up
+with no Cache-Control at all; the Cache Rule puts `max-age=14400` on the
+response even though the edge bypasses it. The uploader fix (`max-age=86400`)
+takes over at the next monthly rebuild.
+
 ### Four hosts were written as REGEX SHAPES and no search for the domain found them
 
 `map.test.ts` pinned `/pub-.*\.r2\.dev/`; the extension's two output
