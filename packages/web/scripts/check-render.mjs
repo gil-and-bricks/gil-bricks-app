@@ -204,4 +204,9 @@ if (fails.length > 0) {
   for (const f of fails) console.error(`  - ${f}`);
   process.exit(1);
 }
-console.log('\nRENDER GATE: ALL PASSED — every analyser renders, at both widths, and the floor plan is usable.');
+// The pass line says what was actually asserted. It used to read "every
+// analyser renders", which a reader takes as a promise about the numbers — this
+// gate has never looked at a value, and an analyser printing £NaN would pass it.
+// Whether the numbers move is the input gate's job; whether they are right for
+// a whole journey is the journey gate's.
+console.log('\nRENDER GATE: ALL PASSED — nothing threw, no empty box, no stuck placeholder, floor plan usable. Both widths. NOTE: no value is checked here.');

@@ -22,7 +22,18 @@ const MAX_WORDS = 30;
 // where Chrome lives on the operator's Mac.
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
-const mk = async () => (await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true })).newPage());
+/**
+ * BOTH WIDTHS. This ran at 390x844 only, so every word that appears solely on a
+ * desktop — the whole 1100px side rail, the desktop header nav — was never
+ * measured, and the pass line said "nothing visible runs over 30 words" without
+ * qualification. That is the same fault as the floor-plan gate that only ever
+ * looked at a phone: a check at one width cannot see what the other width shows.
+ */
+const VIEWPORTS = [
+  ['phone', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
+  ['desktop', { viewport: { width: 1440, height: 900 } }],
+];
+const mk = async (opts) => (await (await browser.newContext(opts)).newPage());
 // every VISIBLE paragraph on every surface, measured in the browser
 const PAGES = [
   ['/buy-to-let/analyser?postcode=SA1+6HW&price=75000&type=S&rent=650', 'btl'],
@@ -49,18 +60,19 @@ const PAGES = [
 ];
 let worst = [];
 const broken = [];
+for (const [vpName, vpOpts] of VIEWPORTS) {
 for (const [path, name] of PAGES) {
-  const page = await mk();
+  const page = await mk(vpOpts);
   const errs = []; page.on('pageerror', (e) => errs.push(String(e).slice(0, 120)));
   // A page that 404s or throws measures as "no long blocks" and would pass the
   // gate silently, so the response and the page errors are gates of their own.
   const res = await page.goto(B + path, { waitUntil: 'networkidle', timeout: 60000 });
   const status = res === null ? 0 : res.status();
-  if (status !== 200) broken.push(`${name} ${path} returned HTTP ${status}`);
+  if (status !== 200) broken.push(`${name}@${vpName} ${path} returned HTTP ${status}`);
   await page.waitForTimeout(5000);
   const measured = await page.evaluate(() => document.querySelectorAll('p, li, .hint').length);
-  if (measured === 0) broken.push(`${name} ${path} rendered nothing to measure`);
-  if (errs.length > 0) broken.push(`${name} ${path} threw: ${errs.join(' | ')}`);
+  if (measured === 0) broken.push(`${name}@${vpName} ${path} rendered nothing to measure`);
+  if (errs.length > 0) broken.push(`${name}@${vpName} ${path} threw: ${errs.join(' | ')}`);
   const long = await page.evaluate(() => {
     const count = (t) => (t.trim().match(/[A-Za-z0-9£%.,'’·—-]+/g) || []).length;
     const out = [];
@@ -77,6 +89,7 @@ for (const [path, name] of PAGES) {
   console.log(name, long.length === 0 ? 'no visible block over 30 words' : JSON.stringify(long), 'errs', errs.length ? errs : 0);
   worst = worst.concat(long);
   await page.context().close();
+}
 }
 await browser.close();
 if (broken.length > 0) {

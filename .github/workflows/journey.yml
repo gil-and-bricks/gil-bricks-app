@@ -1,0 +1,79 @@
+# THE JOURNEY GATE, against production, on a schedule.
+#
+# It cannot run on a pull request: the EPC lookup and the auth refusals are
+# Worker routes, and a pull request only has the static build. So it runs
+# against the deployed site, four times a day and on demand, and opens an
+# ASSIGNED issue when the walk a person takes stops working — because the app
+# may never send email (CLAUDE.md rule 6).
+name: journey
+
+on:
+  schedule:
+    - cron: '20 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: journey
+  cancel-in-progress: false
+
+jobs:
+  walk:
+    runs-on: ubuntu-latest
+    # The input gate reloads the page for every input on every analyser and
+    # takes about thirteen minutes; the journey itself takes about three.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Walk the product
+        id: walk
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run journey-gate -w packages/web 2>&1 | tee journey.log
+      # The input gate, here rather than on a pull request because it reloads the
+      # page for every input on every analyser — the only way one input's effect
+      # cannot colour the next — and that costs about thirteen minutes. A dead
+      # input is a structural fault that does not appear between two commits, so
+      # four times a day is the right cadence and a PR is not.
+      - name: Input gate
+        if: always()
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: node packages/web/scripts/check-inputs.mjs 2>&1 | tee -a journey.log
+
+      - name: Say so, loudly, if the walk broke
+        if: failure()
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.existsSync('journey.log') ? fs.readFileSync('journey.log', 'utf8').slice(-4000) : '(no log)';
+            const TITLE = 'The journey gate failed — something a person does is broken';
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'journey',
+            });
+            const body = [
+              'The walk a person takes through the analyser stopped working on the LIVE site.',
+              '',
+              'This gate arrives from a handoff, checks the photos and the floor plan render,',
+              'runs the EPC lookup, edits an input and checks the number moved, checks a',
+              'context-only field leaves it alone, changes strategy, and checks no section is',
+              'empty — at desktop and phone widths.',
+              '',
+              '```', log, '```',
+            ].join('\n');
+            if (open.length > 0) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open[0].number, body });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo, title: TITLE, body,
+                labels: ['journey'], assignees: [context.repo.owner],
+              });
+            }
