@@ -18,6 +18,17 @@ const git = (args: string[]): string =>
   execFileSync('git', args, { cwd: REPO, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 
 /**
+ * A Worker environment with nothing real behind it — module scope, because the
+ * header gates and the HEAD gates both call the real fetch handler and there is
+ * no reason for two copies of it to drift apart.
+ */
+const env = (): Env => ({
+  ASSETS: { fetch: async () => new Response('<html></html>', { headers: { 'content-type': 'text/html' } }) },
+  DB: { prepare: () => ({ bind: () => ({ first: async () => null, all: async () => ({ results: [] }), run: async () => ({ meta: { changes: 0 } }) }) }) },
+  JWT_SECRET: 'test-secret', GOOGLE_CLIENT_SECRET: 'x', TURNSTILE_SECRET: 'x', KIT_API_KEY: 'k',
+}) as unknown as Env;
+
+/**
  * SECRET SHAPES. Deliberately narrow: a pattern that fires on ordinary code is
  * a pattern somebody turns off. Each one is a credential format whose presence
  * in a committed file has no innocent explanation.
@@ -96,12 +107,6 @@ describe('no secret is committed, anywhere in history', () => {
 });
 
 describe('every response carries the security headers', () => {
-  const env = (): Env => ({
-    ASSETS: { fetch: async () => new Response('<html></html>', { headers: { 'content-type': 'text/html' } }) },
-    DB: { prepare: () => ({ bind: () => ({ first: async () => null, all: async () => ({ results: [] }), run: async () => ({ meta: { changes: 0 } }) }) }) },
-    JWT_SECRET: 'test-secret', GOOGLE_CLIENT_SECRET: 'x', TURNSTILE_SECRET: 'x', KIT_API_KEY: 'k',
-  }) as unknown as Env;
-
   const PATHS = ['/', '/api/me', '/api/health', '/broker/factfind', '/broker/enquiry', '/does-not-exist'];
 
   for (const p of PATHS) {
@@ -135,13 +140,82 @@ describe('every response carries the security headers', () => {
     expect(res.headers.get('x-content-type-options')).toBe('nosniff');
   });
 
-  it('the CSP names only origins the app actually talks to', () => {
-    const csp = SECURITY_HEADERS['content-security-policy'];
-    for (const origin of ['data.police.uk', 'environment.data.gov.uk', 'planning.data.gov.uk', 'challenges.cloudflare.com']) {
-      expect(csp, origin).toContain(origin);
+  /**
+   * "ONLY" HAS TO MEAN ONLY (M5).
+   *
+   * What stood here was four `toContain` calls. Every one of them still passed
+   * with `https://evil.example` added to `connect-src`, because containing four
+   * good origins says nothing about the fifth. The word "only" in the title was
+   * unsupported by the assertion underneath it — the exact shape the M4 audit
+   * was asked to find.
+   *
+   * So this compares the SET. Every host named anywhere in the policy is pulled
+   * out and matched against the list below; a new origin fails until somebody
+   * writes it down here, which is the point — adding a host the app talks to is
+   * a decision, not a typo.
+   */
+  /**
+   * PER DIRECTIVE, not one flat set. The first version of this pulled every
+   * host in the policy into a single list and compared that — which caught a
+   * new origin but said NOTHING about what it was allowed to do. Moving
+   * media.rightmove.co.uk out of img-src and into script-src would have left
+   * the set identical and the test green, while handing a portal the right to
+   * run code on our pages. What each host may do is the whole point.
+   */
+  const CSP_EXPECTED: Record<string, string[]> = {
+    'default-src': [],
+    'script-src': ['https://challenges.cloudflare.com'],
+    'style-src': [],
+    'img-src': [
+      'https://*.googleusercontent.com',
+      'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+      'https://media.rightmove.co.uk',
+      'https://*.zoocdn.com',
+    ],
+    'font-src': [],
+    'connect-src': [
+      'https://data.police.uk',
+      'https://environment.data.gov.uk',
+      'https://www.planning.data.gov.uk',
+      'https://landregistry.data.gov.uk',
+      'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+      'https://challenges.cloudflare.com',
+    ],
+    'frame-src': [
+      'https://challenges.cloudflare.com',
+      'https://www.youtube-nocookie.com',
+      'https://www.youtube.com',
+    ],
+    'worker-src': [],
+    'frame-ancestors': [],
+    'object-src': [],
+    'base-uri': [],
+    'form-action': [],
+    'upgrade-insecure-requests': [],
+  };
+
+  /** Directive → the hosts it names. Keywords and bare schemes are not hosts. */
+  const hostsByDirective = (csp: string): Record<string, string[]> => {
+    const out: Record<string, string[]> = {};
+    for (const raw of csp.split(';')) {
+      const parts = raw.trim().split(/\s+/).filter((x) => x !== '');
+      if (parts.length === 0) continue;
+      out[parts[0]] = parts.slice(1)
+        .filter((t) => !t.startsWith("'") && t !== 'data:' && t !== 'blob:')
+        .sort();
     }
-    // and closes the routes that need no script at all
-    for (const directive of ["object-src 'none'", "base-uri 'self'", "form-action 'self'"]) {
+    return out;
+  };
+
+  it('every directive names only the origins that directive needs — and no others', () => {
+    const got = hostsByDirective(SECURITY_HEADERS['content-security-policy']);
+    const want = Object.fromEntries(Object.entries(CSP_EXPECTED).map(([k, v]) => [k, [...v].sort()]));
+    expect(got).toEqual(want);
+  });
+
+  it('and closes the four routes that need no script at all', () => {
+    const csp = SECURITY_HEADERS['content-security-policy'];
+    for (const directive of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) {
       expect(csp, directive).toContain(directive);
     }
   });
@@ -314,23 +388,43 @@ describe('static pages carry the same protections as Worker routes', () => {
  * told the site was down from 2026-09-02 onwards while it was fine.
  */
 describe('the Worker answers HEAD the way the whole internet expects', () => {
-  const src = readFileSync(join(REPO, 'packages/web/src/worker/index.ts'), 'utf8');
-
-  it('turns a HEAD into a GET before routing, at the single exit', () => {
-    const fetchBlock = src.slice(src.indexOf('async fetch(request: Request'), src.indexOf('async scheduled('));
-    expect(fetchBlock, 'HEAD must be recognised').toContain("request.method === 'HEAD'");
-    expect(fetchBlock, 'and routed as a GET').toContain("method: 'GET'");
+  /**
+   * ASKED, NOT GREPPED (M5).
+   *
+   * What stood here sliced index.ts between two character offsets and searched
+   * the text for "request.method === 'HEAD'". No test in the repository ever
+   * sent a HEAD request. It was written two days after a HEAD fault took the
+   * health monitor blind for a fortnight, and it would have passed just as
+   * happily if the conversion had been written and then never wired to the
+   * exit — which is the fault it was supposed to catch.
+   *
+   * These send one.
+   */
+  const headAndGet = async (path: string): Promise<{ head: Response; get: Response }> => ({
+    head: await worker.fetch(new Request(`https://s.test${path}`, { method: 'HEAD' }), env()),
+    get: await worker.fetch(new Request(`https://s.test${path}`), env()),
   });
 
-  it('and returns the GET headers with no body', () => {
-    const fetchBlock = src.slice(src.indexOf('async fetch(request: Request'), src.indexOf('async scheduled('));
-    expect(fetchBlock).toContain('new Response(null,');
-    expect(fetchBlock, 'the status a GET would have given').toContain('status: res.status');
-    expect(fetchBlock, 'and the headers a GET would have given').toContain('headers: res.headers');
+  it.each(['/', '/api/health', '/does-not-exist'])('HEAD %s answers with the status a GET would', async (path) => {
+    const { head, get } = await headAndGet(path);
+    expect(head.status, `${path}: HEAD must not fall through to the 404`).toBe(get.status);
   });
 
-  it('the security headers still go through the one exit, not around it', () => {
-    const fetchBlock = src.slice(src.indexOf('async fetch(request: Request'), src.indexOf('async scheduled('));
-    expect(fetchBlock).toContain('withSecurityHeaders(await route(');
+  it('HEAD /api/health is a 200, which is the whole reason this exists', async () => {
+    const res = await worker.fetch(new Request('https://s.test/api/health', { method: 'HEAD' }), env());
+    expect(res.status).toBe(200);
+  });
+
+  it('and returns no body at all', async () => {
+    const res = await worker.fetch(new Request('https://s.test/api/health', { method: 'HEAD' }), env());
+    expect(await res.text()).toBe('');
+  });
+
+  it('carrying the same headers a GET would carry, security ones included', async () => {
+    const { head, get } = await headAndGet('/api/health');
+    for (const h of Object.keys(SECURITY_HEADERS)) {
+      expect(head.headers.get(h), `HEAD is missing ${h}`).toBe(get.headers.get(h));
+    }
+    expect(head.headers.get('content-type')).toBe(get.headers.get('content-type'));
   });
 });

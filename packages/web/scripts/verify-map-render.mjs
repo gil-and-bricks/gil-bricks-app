@@ -5,11 +5,23 @@
  * (cluster split, pin popup, Details link) don't work.
  *
  * Usage: node scripts/verify-map-render.mjs [baseUrl]  — exits non-zero on failure.
+ *
+ * WIRED UP 2026-09-14 (M5). For months this was the only script in the repo
+ * already doing the right thing — change an input, assert the OUTPUT changed —
+ * and NOTHING CALLED IT. Its Chrome path was hard-coded to a macOS app bundle,
+ * so it could not have run on a runner even if something had. Both fixed: the
+ * browser comes from CHROME_PATH like every other gate, the screenshot folder
+ * is created rather than assumed, and `npm run map-gate` runs it on the
+ * schedule beside the journey.
  */
 import { chromium } from 'playwright-core';
+import { mkdirSync } from 'node:fs';
 
-const BASE = process.argv[2] ?? 'https://gil-bricks-app.gil-782.workers.dev';
-const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const BASE = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+// The screenshots below are evidence, not output anybody depends on — but a
+// missing folder used to throw halfway through and skip every later check.
+mkdirSync('docs/screens', { recursive: true });
 const PC = 'CF37%201HR';
 let failed = false;
 const ok = (c, m) => { console.log(`${c ? 'PASS' : 'FAIL'}: ${m}`); if (!c) failed = true; };
@@ -26,7 +38,7 @@ const basemapFeatures = (page) => page.evaluate(() => {
   return map.queryRenderedFeatures({ layers: ids }).length;
 }).catch(() => -1);
 
-const browser = await chromium.launch({ executablePath: CHROME });
+const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
 
 for (const dev of [
   { name: 'desktop', opts: { viewport: { width: 1280, height: 1000 } } },

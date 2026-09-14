@@ -47,6 +47,28 @@ describe('built manifest matches the spec exactly', () => {
     expect(j.icons).toEqual({ 16: 'icon/16.png', 48: 'icon/48.png', 128: 'icon/128.png' });
   });
 
+  /**
+   * MOVED HERE FROM security.test.ts (M5). Those two assertions lived in a file
+   * that read `.output` WITHOUT owning it, while this one wipes and rebuilds
+   * `.output` in a beforeAll — and vitest runs files in parallel. So they were
+   * racing a deletion, and the `if (manifest === null) return;` that made them
+   * pass in silence was papering over exactly that. The build belongs to this
+   * file; so do the assertions about it.
+   */
+  it('exposes nothing to a web page, and accepts no message from one', () => {
+    const j = m();
+    // A web-accessible resource is loadable BY the page; externally_connectable
+    // lets a page message the extension. Neither exists, so neither is a route in.
+    expect(j.web_accessible_resources ?? null).toBeNull();
+    expect(j.externally_connectable ?? null).toBeNull();
+  });
+
+  it('the content script stays in the isolated world', () => {
+    const scripts = m().content_scripts as { world?: string }[];
+    expect(scripts.length, 'there is a content script at all').toBeGreaterThan(0);
+    for (const cs of scripts) expect(cs.world ?? 'ISOLATED').toBe('ISOLATED');
+  });
+
   it('grants ONLY what the two features need, and host access to the portals + our own app', () => {
     const j = m();
     // P10 added exactly two: alarms (the daily wake) and notifications (at most

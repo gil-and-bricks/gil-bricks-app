@@ -48,7 +48,13 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm test -w packages/web
 
-      - name: Tests — extension (banned phrases, no CDN)
+      # The manifest gates moved into output.test.ts, which wipes and rebuilds
+      # .output itself (M5). They used to sit in security.test.ts behind
+      # `if (manifest === null) return;` and pass in silence — not laziness, but
+      # cover for a real race: vitest runs files in parallel, so that file was
+      # reading a directory output.test.ts was deleting underneath it. One file
+      # owns the build now, and nothing skips.
+      - name: Tests — extension (banned phrases, no CDN, the shipped manifest)
         if: ${{ !cancelled() }}
         run: npm test -w packages/extension
 
@@ -68,9 +74,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run build
 
-      - name: Build the extension
-        if: ${{ !cancelled() }}
-        run: npm run build:extension
 
   flags-off:
     name: the product with every flag off

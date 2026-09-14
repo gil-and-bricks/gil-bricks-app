@@ -20,8 +20,9 @@ jobs:
   walk:
     runs-on: ubuntu-latest
     # The input gate reloads the page for every input on every analyser and
-    # takes about thirteen minutes; the journey itself takes about three.
-    timeout-minutes: 30
+    # takes about thirteen minutes; the journey itself takes about three, and
+    # the map gate about eight.
+    timeout-minutes: 60
     permissions:
       contents: read
       issues: write
@@ -48,6 +49,46 @@ jobs:
           CHROME_PATH: /usr/bin/google-chrome
         run: node packages/web/scripts/check-inputs.mjs 2>&1 | tee -a journey.log
 
+      # THE MAP GATE. Written months ago, wired to nothing until 2026-09-14 —
+      # and it is the one script in the repository that was already doing the
+      # right thing: it changes an input and asserts the OUTPUT changed. It
+      # counts rendered basemap features rather than trusting that a canvas
+      # exists, reads the zoom glyph's actual contrast off the pixels, and
+      # proves the map heals from a blocked tile request and a lost WebGL
+      # context. None of that was running.
+      - name: Map gate
+        if: always()
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run map-gate -w packages/web 2>&1 | tee -a journey.log
+
+      # THE SIGNED-IN HALF (M5). Save a deal, reopen it from the pipeline, add a
+      # fact, watch it re-score, park it, bring it back. It runs the REAL Worker
+      # on this runner over a throwaway D1 and signs in through /auth/dev-login
+      # — the door that has always existed and that is 404 in production twice
+      # over. Its first step asks production to prove that, rather than assuming
+      # it. Read the header of check-signed-in.mjs for why this, and not a real
+      # account or a production back door.
+      - name: Signed-in gate
+        if: always()
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          npm run build -w packages/web
+          npm run signed-in-gate -w packages/web 2>&1 | tee -a journey.log
+
+      # THE EXTENSION, END TO END (M5). The built extension, loaded into a real
+      # Chrome, on real saved listing pages served under the portals' own
+      # hostnames, all the way to the handoff URL. Headed — Chrome loads no
+      # extension headless — hence xvfb. Chrome for Testing rather than the
+      # runner's Chrome: branded Chrome 137+ refuses --load-extension outright.
+      - name: Extension gate
+        if: always()
+        run: |
+          npm run build -w packages/extension
+          npx playwright-core install chromium
+          xvfb-run -a npm run extension-gate -w packages/extension 2>&1 | tee -a journey.log
+
       - name: Say so, loudly, if the walk broke
         if: failure()
         uses: actions/github-script@v8
@@ -65,7 +106,9 @@ jobs:
               'This gate arrives from a handoff, checks the photos and the floor plan render,',
               'runs the EPC lookup, edits an input and checks the number moved, checks a',
               'context-only field leaves it alone, changes strategy, and checks no section is',
-              'empty — at desktop and phone widths.',
+              'empty — at desktop and phone widths. Beside it run the input gate, the map',
+              'gate, the signed-in walk (save, fact, re-score, park, restore) and the',
+              'extension end to end (a real listing through to the handoff URL).',
               '',
               '```', log, '```',
             ].join('\n');

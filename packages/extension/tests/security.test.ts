@@ -68,56 +68,20 @@ describe('the panel can never be injected into by a listing page', () => {
   });
 });
 
-describe('the manifest asks for the minimum that works', () => {
-  const manifestPath = join(EXT, '.output/chrome-mv3/manifest.json');
-  const manifest = existsSync(manifestPath)
-    ? JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
-    : null;
-
-  it('claims no permission beyond the four it uses', () => {
-    if (manifest === null) return;
-    expect((manifest.permissions as string[]).sort()).toEqual(['alarms', 'notifications', 'sidePanel', 'storage']);
-  });
-
-  it('and never asks for the dangerous ones', () => {
-    if (manifest === null) return;
-    const asked = [...(manifest.permissions as string[]), ...((manifest.host_permissions as string[]) ?? [])];
-    for (const danger of ['tabs', 'scripting', 'cookies', 'webRequest', 'debugger', 'history', 'downloads', '<all_urls>', '*://*/*']) {
-      expect(asked, danger).not.toContain(danger);
-    }
-  });
-
-  it('reaches only the two portals and our own app', () => {
-    if (manifest === null) return;
-    expect((manifest.host_permissions as string[]).sort()).toEqual([
-      '*://*.rightmove.co.uk/*', '*://*.zoopla.co.uk/*',
-      'https://gil-bricks-app.gil-782.workers.dev/*',
-    ].sort());
-  });
-
-  it('exposes nothing to a web page, and accepts no message from one', () => {
-    if (manifest === null) return;
-    // A web-accessible resource is loadable BY the page; externally_connectable
-    // lets a page message the extension. Neither exists, so neither is a route in.
-    expect(manifest.web_accessible_resources ?? null).toBeNull();
-    expect(manifest.externally_connectable ?? null).toBeNull();
-  });
-
-  it('the content script stays in the isolated world', () => {
-    if (manifest === null) return;
-    for (const cs of manifest.content_scripts as { world?: string }[]) {
-      expect(cs.world ?? 'ISOLATED').toBe('ISOLATED');
-    }
-  });
-
-  it('extension pages run no inline script', () => {
-    if (manifest === null) return;
-    const csp = (manifest.content_security_policy as { extension_pages?: string })?.extension_pages ?? '';
-    expect(csp).toContain("script-src 'self'");
-    expect(csp).not.toContain('unsafe-inline');
-    expect(csp).not.toContain('unsafe-eval');
-  });
-});
+/**
+ * THE MANIFEST GATES LIVE IN output.test.ts, NOT HERE (M5).
+ *
+ * They used to sit in this file, reading `.output/chrome-mv3/manifest.json`
+ * behind `if (manifest === null) return;` — and with no build on disk all six
+ * passed in silence while asserting nothing about what ships. That guard was
+ * not laziness: output.test.ts WIPES AND REBUILDS `.output` in a beforeAll, and
+ * vitest runs test files in parallel, so this file was reading a directory
+ * another file was deleting underneath it. The early return hid the race.
+ *
+ * The fix is ownership, not a bigger timeout. output.test.ts owns the build, so
+ * every assertion about the built artefact now lives there and fails loudly.
+ * What is left in this file asserts the SOURCE, which nothing else is racing.
+ */
 
 describe('nothing read from a listing leaves the machine undocumented', () => {
   it('the only network call is to our own app', () => {

@@ -11,7 +11,8 @@
     "wxt:prepare": "wxt prepare",
     "typecheck": "wxt prepare && tsc --noEmit",
     "test": "wxt prepare && vitest run",
-    "icons": "node tools/make-icons.mjs"
+    "icons": "node tools/make-icons.mjs",
+    "extension-gate": "node scripts/check-extension.mjs"
   },
   "dependencies": {
     "@gil-bricks/core": "*"

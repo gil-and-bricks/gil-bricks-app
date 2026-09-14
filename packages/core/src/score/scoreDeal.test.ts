@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scoreDeal, explainFailure, type StrategyId } from './scoreDeal';
+import { scoreDeal, explainFailure, verdictForScore, type StrategyId } from './scoreDeal';
 import { scoreCopy } from './copy';
 import { analyseBtl } from '../strategy-calc/btl';
 import { analyseBrrrr } from '../strategy-calc/brrrr';
@@ -19,14 +19,49 @@ const cases: { id: StrategyId; base: Record<string, unknown>; analyse: (i: never
   { id: 'hmo', base: HMO, analyse: analyseHmo as never },
 ];
 
+/**
+ * THE BANDS, ASKED RATHER THAN ASSERTED (M5).
+ *
+ * What stood here asserted `8 <= 10` and that the string 'good' was truthy. It
+ * named the thresholds in its own title and then never put one to the code —
+ * `verdictForScore` was not called, `scoreDeal` was not called, and moving a
+ * boundary from 8 to 9 left it green. It is the same fault the M4 audit found
+ * everywhere: a test whose expectation is built from the same words as its
+ * subject, proving only that two constants match.
+ *
+ * So this one asks the FUNCTION, at the exact edges, including the values that
+ * sit a hair either side of a boundary — which is the only place a band can
+ * break.
+ */
 describe('score bands map to verdicts', () => {
-  it('8+ = good, 6-7.9 = marginal, <6 = walk away', () => {
-    // boundary check on verdictOf via public scoreDeal on synthesised scores is
-    // covered by the consistency grid; here assert the band labels directly.
-    for (const [lo, hi, want] of [[8, 10, 'good'], [6, 7.9, 'marginal'], [0, 5.9, 'walk away']] as const) {
-      expect(lo).toBeLessThanOrEqual(hi); // sanity
-      expect(want).toBeTruthy();
+  it.each([
+    [10, 'good'], [8.1, 'good'], [8, 'good'],
+    [7.999, 'marginal'], [7.9, 'marginal'], [6.5, 'marginal'], [6, 'marginal'],
+    [5.999, 'walk away'], [5.9, 'walk away'], [3, 'walk away'], [0, 'walk away'],
+  ] as const)('a score of %s is "%s"', (score, want) => {
+    expect(verdictForScore(score)).toBe(want);
+  });
+
+  /**
+   * And the boundary is CLOSED at the bottom of each band: the first value that
+   * belongs to a band must not read as the band below it. Written as a sweep so
+   * a future band cannot be added without being covered.
+   */
+  it('every boundary belongs to the band above it, not below', () => {
+    for (const edge of [8, 6]) {
+      expect(verdictForScore(edge), `${edge} itself`).not.toBe(verdictForScore(edge - 0.001));
+      expect(verdictForScore(edge), `${edge} vs just above`).toBe(verdictForScore(edge + 0.001));
     }
+  });
+
+  /**
+   * The bands are not just labels on a number — the number comes out of the
+   * real engine. A deal scored by `scoreDeal` must carry the verdict its own
+   * score implies, or the chip and the card can disagree on screen.
+   */
+  it.each(cases)('$id: the verdict scoreDeal returns is the one its score implies', ({ id, base }) => {
+    const ds = scoreDeal(id, base as never);
+    expect(ds.verdict, `${id} scored ${ds.score}`).toBe(verdictForScore(ds.score));
   });
 });
 
