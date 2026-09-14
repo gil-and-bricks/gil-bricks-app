@@ -284,7 +284,21 @@ try {
       if (await valueBox.count() === 0) { note(`[${name}] the refurb chip opened no field to type in`); await ctx.close(); continue; }
       // A refurb big enough to move a £95,000 deal, and unmistakably ours.
       await valueBox.fill('45000');
-      await card.getByRole('button', { name: /^Save to pipeline$/ }).first().click();
+      /**
+       * THE BOARD'S FACT EDITOR SAYS "Save", NOT "Save to pipeline".
+       *
+       * "Save to pipeline" is the ANALYSER's button (analyserForm.ts), and line
+       * 220 above is right to look for it. This one is the fact editor on a deal
+       * card, whose button is `BOARD_COPY.card.factSave` — the word "Save" — so
+       * this waited twenty seconds for a control that has never existed here and
+       * then failed the gate. Pre-existing; found while verifying DP3 and
+       * confirmed by running this gate against the previous commit, where it
+       * fails in exactly the same place.
+       *
+       * The scoped locator is what makes the short name safe: it is the Save
+       * inside THIS card, not any Save on the page.
+       */
+      await card.getByRole('button', { name: /^Save$/ }).first().click();
       await page.waitForTimeout(2500);
       ok('added a refurb fact');
 
