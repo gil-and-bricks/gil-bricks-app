@@ -6,7 +6,7 @@
  * re-review.
  *
  * R2 key:  config/extractors.json
- * URL:     https://pub-ed7263f454104eb1a02055393ee15800.r2.dev/config/extractors.json
+ * URL:     https://data.proplaunch.ai/config/extractors.json
  *
  * An identical FALLBACK_CONFIG ships inside the extension. loadExtractorConfig
  * fetches the remote copy with a short timeout, caches it, and falls back to the

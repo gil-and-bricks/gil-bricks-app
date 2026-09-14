@@ -16,14 +16,15 @@ export interface SiteConfig {
   /** MAKER credit (Gil & Bricks) — shown as a quiet secondary "by …". */
   makerName: string;
   tagline: string;
-  /** Locked product domain (proplaunch.ai) — NOT yet live; liveUrl stays workers.dev. */
+  /** The product's domain. LIVE since DM1: liveUrl now resolves to it too. */
   domain: string;
   liveUrl: string;
   socials: SocialLinks;
   /** Chrome Web Store listing URL. Empty = the install buttons hide themselves;
    * filled = the official "Available in the Chrome Web Store" badge links to it. */
   chromeStoreUrl: string;
-  /** Public base URL of the R2 data bucket (r2.dev development URL for now). */
+  /** Public base URL of the R2 data bucket — a custom domain since DM1, so it
+   *  is served from the CDN rather than from the uncached r2.dev address. */
   dataBaseUrl: string;
   /** NEVER hand-set: manifest.json is the single as-of source (DATA_SCHEMA.md); display fallback only. */
   dataAsOf: string;
@@ -42,7 +43,8 @@ export const siteConfig: SiteConfig = {
   siteName: coreConfig.siteName,
   makerName: coreConfig.makerName,
   tagline: 'Real UK sold-price data for property investors — free.',
-  // Locked future domain; the site still serves from liveUrl (workers.dev) for now.
+  // Live. `liveUrl` below comes from coreConfig and is now the same host, which
+  // is the state this field was always waiting for.
   domain: 'proplaunch.ai',
   // From coreConfig, because the extension links to the same place (P10).
   liveUrl: coreConfig.appBaseUrl,

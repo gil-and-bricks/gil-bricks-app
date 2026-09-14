@@ -27,7 +27,7 @@ import { join, relative, dirname } from 'node:path';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIST = join(WEB, 'dist');
-const B = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const B = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 if (process.env.CI === 'true' && process.argv[2] === undefined && process.env.BASE === undefined) {
   console.error('check-console: refusing to measure the deployed site in CI. Pass the local base URL.');
   process.exit(2);
@@ -63,7 +63,7 @@ const excusedLocally = (text) => LOCAL && /\/api\//.test(text);
  * production, still fails: the point of this gate is that a policy fault is
  * visible, and an excuse that swallowed those would undo it.
  */
-const DEPLOYED = 'https://gil-bricks-app.gil-782.workers.dev';
+const DEPLOYED = 'https://proplaunch.ai';
 const localAbsoluteAsset = (text) => LOCAL && text.includes(DEPLOYED);
 
 /** Every built page, found rather than listed — a new page is covered free. */

@@ -46,7 +46,7 @@ jobs:
 
       - name: Verify object is live
         run: |
-          curl -s -o /dev/null -w 'HEAD map/ew.pmtiles: %{http_code}\n' -I https://pub-ed7263f454104eb1a02055393ee15800.r2.dev/map/ew.pmtiles
+          curl -s -o /dev/null -w 'HEAD map/ew.pmtiles: %{http_code}\n' -I https://data.proplaunch.ai/map/ew.pmtiles
 
       # ---- IF THIS FAILED, SAY SO WHERE IT WILL BE SEEN -----------------------
       # A red tick in a tab nobody opens is not a warning. This opens an issue

@@ -82,7 +82,7 @@ const ok = (m) => console.log(`    ✓ ${m}`);
  * the build reads, so a base URL regressed to localhost would agree with itself
  * and pass. This is the address a person's browser must actually open.
  */
-const ANALYSER_ORIGIN = 'https://gil-bricks-app.gil-782.workers.dev';
+const ANALYSER_ORIGIN = 'https://proplaunch.ai';
 
 const CASES = [
   {

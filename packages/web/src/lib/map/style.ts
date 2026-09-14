@@ -134,7 +134,12 @@ export function buildMapStyle(): MapStyleSpec {
     version: 8,
     // our own origin — never a third-party CDN (GDPR + self-hosting rule)
     glyphs: '/map/fonts/{fontstack}/{range}.pbf',
-    sprite: `${siteConfig.liveUrl.replace(/\/+$/, '')}/map/sprites/v4/dark`,
+    // ROOT-RELATIVE, like the glyphs above. It used to be absolute off
+    // siteConfig.liveUrl, which quietly tied the map to whatever host the app
+    // was served from — and on the old host after the domain move (DM1) that
+    // made the sprite a CROSS-ORIGIN fetch that connect-src would refuse.
+    // Relative, it is correct on every host by construction.
+    sprite: '/map/sprites/v4/dark',
     sources: {
       protomaps: {
         type: 'vector',

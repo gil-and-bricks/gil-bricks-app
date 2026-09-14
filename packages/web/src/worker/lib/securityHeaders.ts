@@ -1,3 +1,5 @@
+import { coreConfig } from '@gil-bricks/core';
+
 /**
  * S1 — THE SECURITY HEADERS, in one place, applied at the Worker's single exit.
  *
@@ -27,6 +29,16 @@
  * no script at all. Tightening script-src is written up in the decisions log.
  */
 
+/**
+ * THE DATA BUCKET'S ORIGIN, READ FROM THE ONE PLACE IT IS WRITTEN.
+ *
+ * It used to be the r2.dev hostname typed out here and again in public/_headers
+ * and twice more in the tests. Moving the bucket to its own domain (DM1) meant
+ * finding all four. It is derived now, so the next move is one edit in
+ * coreConfig and nothing here changes at all.
+ */
+const DATA_ORIGIN = new URL(coreConfig.dataBaseUrl).origin;
+
 /** Everything the app legitimately talks to. Anything else is refused. */
 const CONNECT = [
   "'self'",
@@ -34,7 +46,7 @@ const CONNECT = [
   'https://environment.data.gov.uk',
   'https://www.planning.data.gov.uk',
   'https://landregistry.data.gov.uk',
-  'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+  DATA_ORIGIN,
   'https://challenges.cloudflare.com',
 ].join(' ');
 
@@ -67,7 +79,7 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   // Google avatars load straight from Google on signed-in pages.
-  `img-src 'self' data: blob: https://*.googleusercontent.com https://pub-ed7263f454104eb1a02055393ee15800.r2.dev ${PORTAL_IMAGES}`,
+  `img-src 'self' data: blob: https://*.googleusercontent.com ${DATA_ORIGIN} ${PORTAL_IMAGES}`,
   "font-src 'self' data:",
   `connect-src ${CONNECT}`,
   // Turnstile's widget, and the click-to-load YouTube embed.
@@ -95,9 +107,10 @@ export const SECURITY_HEADERS: Record<string, string> = {
   'x-frame-options': 'DENY',
   'referrer-policy': 'strict-origin-when-cross-origin',
   'permissions-policy': PERMISSIONS,
-  // workers.dev sits under the .dev TLD, which is HSTS-preloaded, so browsers
-  // already refuse plaintext here. Sent anyway: it is what makes the guarantee
-  // survive moving to the product's own domain.
+  // THIS NOW MATTERS. It used to be belt-and-braces: workers.dev sits under the
+  // .dev TLD, which is HSTS-preloaded, so browsers already refused plaintext
+  // whatever we sent. proplaunch.ai is not preloaded, so this header is the
+  // only thing upgrading a returning visitor — it is load-bearing from DM1 on.
   'strict-transport-security': 'max-age=31536000; includeSubDomains',
 };
 

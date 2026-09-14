@@ -140,14 +140,22 @@ describe('no CDN / font / network loads in the built output', () => {
     for (const u of urls) expect(u.startsWith('/fonts/'), `font url ${u}`).toBe(true);
   });
 
+  const DATA_HOST = new URL(coreConfig.dataBaseUrl).host;
+  const APP_HOST = new URL(coreConfig.appBaseUrl).host;
+
   it('the only external hosts are inert reference links + our own R2 data bucket', () => {
     // core carries gov.uk / gov.wales reference links as data; the extractor
     // config is fetched from OUR public R2 bucket (not a portal, not a CDN). Any
     // other host — a portal, a tracker, a web-font CDN — would fail here.
     const isAllowed = (h: string) =>
       ['www.gov.uk', 'www.gov.wales', 'gov.uk', 'gov.wales'].includes(h) ||
-      /\.r2\.dev$/.test(h) || // our R2 data bucket (config + sector data)
-      /\.workers\.dev$/.test(h) || // our own web app (Send-to-analyser handoff target)
+      // DERIVED FROM CONFIG, NOT A HOST SHAPE. These used to be /\.r2\.dev$/ and
+      // /\.workers\.dev$/ — patterns for Cloudflare's development hostnames rather
+      // than for us — so a naive grep for the old domains never found them and
+      // the domain move (DM1) failed here with no clue why. Read from the one
+      // place both hosts are written and the next move needs no edit at all.
+      h === DATA_HOST || // our R2 data bucket (config + sector data)
+      h === APP_HOST || // our own web app (Send-to-analyser handoff target)
       // Our own social profiles + per-strategy walkthrough links (E10). These are
       // INERT anchor hrefs the user clicks (open a new tab) — never fetched by the
       // extension, need no host permission, and transmit nothing.

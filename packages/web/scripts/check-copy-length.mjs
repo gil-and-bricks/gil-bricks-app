@@ -10,7 +10,7 @@
  * the binding number and is exempt by CLAUDE.md's copy rules.
  */
 import { chromium } from 'playwright-core';
-const B = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const B = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 // In CI the target must be the build from THIS commit, never the deployed site —
 // that would be measuring yesterday's code and calling it a gate.
 if (process.env.CI === 'true' && process.argv[2] === undefined && process.env.BASE === undefined) {

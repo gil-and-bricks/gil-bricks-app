@@ -22,14 +22,26 @@ export const coreConfig = {
 
   /**
    * Where the web app is served. The SAME string the extension links to and the
-   * site's own liveUrl — one source, so moving to the real domain is one edit
-   * (golden rule 4). Not the locked product domain (site.config.domain), which
-   * is not live yet.
+   * site's own liveUrl — one source, so moving to the real domain was one edit
+   * (golden rule 4), which is exactly what it turned out to be.
+   *
+   * DM1 — the product now lives on its own domain. The old
+   * gil-bricks-app.gil-782.workers.dev address still answers and 301s every
+   * page here; see worker/lib/canonical.ts for what it keeps serving and why.
    */
-  appBaseUrl: 'https://gil-bricks-app.gil-782.workers.dev',
+  appBaseUrl: 'https://proplaunch.ai',
 
-  /** Public base URL of the R2 data bucket (sector JSON, manifest, ukhpi, etc.). */
-  dataBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+  /**
+   * Public base URL of the R2 data bucket (sector JSON, manifest, ukhpi, etc.).
+   *
+   * A CUSTOM DOMAIN ON THE BUCKET, NOT THE r2.dev ONE. The r2.dev address is
+   * Cloudflare's development URL: it is never served from the edge cache — it
+   * returns no cf-cache-status at all — and it is rate limited, which is what
+   * made a single range request measure 16.4s during the map work. On a custom
+   * domain the same bucket sits behind the CDN, so a second reader gets a
+   * cache HIT instead of another trip to the bucket.
+   */
+  dataBaseUrl: 'https://data.proplaunch.ai',
 
   /** Social profiles — the ONLY place these URLs are written (name-agnostic). */
   socials: {

@@ -28,7 +28,7 @@ jobs:
           HEALTH_TOKEN: ${{ secrets.HEALTH_TOKEN }}
         run: |
           set -o pipefail
-          URL="https://gil-bricks-app.gil-782.workers.dev/api/health"
+          URL="https://proplaunch.ai/api/health"
           # --fail is deliberately NOT used: a bad verdict comes back as 200 and
           # we want to READ it. Only a transport failure should look like one.
           code=$(curl -sS -o body.json -w '%{http_code}' --max-time 25 \

@@ -57,6 +57,25 @@ await new Promise((resolve, reject) => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/octet-stream',
+        /**
+         * DM1 — THE ARCHIVE WENT UP WITH NO CACHE HEADER AT ALL.
+         *
+         * Every other object the pipeline writes carries one (upload.mjs); this
+         * one never did, so the 1.1GB archive the map range-requests all
+         * session long was re-fetched by the browser every time, and there was
+         * nothing for Cloudflare's edge to honour either.
+         *
+         * A DAY, not a year. The key is stable (`map/ew.pmtiles`) and the
+         * content is rebuilt monthly, so an immutable year would pin a stale
+         * basemap on returning visitors until they cleared their cache. A day
+         * gives real reuse within and across a session, and a monthly rebuild
+         * is visible to everyone within 24 hours.
+         *
+         * Sent UNSIGNED, like upload.mjs's own metadata headers: SigV4 only
+         * covers host, x-amz-date and x-amz-content-sha256 here, and R2 accepts
+         * the rest as object metadata.
+         */
+        'Cache-Control': 'public, max-age=86400',
         'Content-Length': size,
         'x-amz-date': now,
         'x-amz-content-sha256': payloadHash,

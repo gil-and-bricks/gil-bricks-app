@@ -60,7 +60,7 @@ import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const PROD = process.env.PROD_BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const PROD = process.env.PROD_BASE ?? 'https://proplaunch.ai';
 const CHROME = process.env.CHROME_PATH ?? undefined;
 const PORT = Number(process.env.PORT ?? 8788);
 

@@ -42,6 +42,7 @@ import { ackChainRisk, ackChange, boardRows, boardWindow, dealCounts, listDeaths
 import { BOARD_PAGE, DAILY_CRON, DEAD_STAGE, DEAL_DATE_KEYS, isFactType, isStage, LIVE_CAP_MESSAGE, MAX_LIVE_DEALS, PARK_REASON_KEYS, URGENCY, statusForStage } from '../config/pipeline';
 import { datesOn, rankUrgent } from '../lib/deals/urgency';
 import { handleDevLogin, handleDevSeed, handleDevSeedClear, handleDevPreview } from './dev';
+import { canonicalRedirect } from './lib/canonical';
 import { withSecurityHeaders } from './lib/securityHeaders';
 import { consume, identityOf, sweepRateLimits, type RateLimitRule } from './lib/rateLimit';
 
@@ -1794,6 +1795,12 @@ async function route(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     const { pathname } = url;
     const method = request.method;
+
+    // DM1 — one address for the product. Before anything else, and before any
+    // cookie or database work: an old host asking for a PAGE is sent to the
+    // canonical one. See lib/canonical.ts for what is deliberately excluded.
+    const moved = canonicalRedirect(url);
+    if (moved) return moved;
 
     // State-changing requests must come from our own pages (Sec-Fetch-Site is
     // set by every modern browser; requests without it — curl, tests — pass).

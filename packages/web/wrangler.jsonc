@@ -11,10 +11,48 @@
     // listed would be swallowed by the 404 page before the Worker ever saw it.
     // /broker/* is the fact-find link the broker opens (F2): it is a page, but
     // the Worker renders it, so it has to be listed here too.
-    "run_worker_first": ["/auth/*", "/api/*", "/dev/*", "/broker/*"],
+    "run_worker_first": [
+      // EVERY PAGE, so the Worker can 301 the old host onto the new one. A
+      // page is never served from the asset layer alone any more, because a
+      // redirect written in Worker code can only fire for a request the Worker
+      // actually sees — and /auth/*, /api/*, /dev/* and /broker/* are already
+      // covered by this wildcard (wrangler refuses to list them beside it).
+      "/*",
+      // …EXCEPT the static bulk. These are the paths a single page load pulls
+      // by the dozen — hashed chunks, map tiles, glyphs, sprites, fonts — and
+      // routing those through the Worker would turn one visit into a hundred
+      // invocations against the free plan's 100k/day. Excluded, they stay free
+      // and unlimited, and only the HTML navigation costs anything (£0 rule).
+      "!/_astro/*", "!/map/*", "!/fonts/*", "!/brand/*",
+      "!/favicon.png", "!/favicon.svg", "!/apple-touch-icon.png",
+      "!/robots.txt", "!/sitemap.xml"
+    ],
     // A mistyped or stale URL gets the site's own 404 page, not a blank screen (D2).
     "not_found_handling": "404-page"
   },
+  /**
+   * THE PRODUCT'S OWN DOMAIN.
+   *
+   * Two custom domains, both on the zone the operator already owns. Cloudflare
+   * creates one proxied record per hostname and touches nothing else — in
+   * particular it does NOT touch the MX, SPF or DKIM records that Email Routing
+   * needs, because those are different record types on the same name and the
+   * two coexist. The apex and www were both empty before this was added.
+   *
+   * `workers_dev: true` IS SET EXPLICITLY, and must stay. Wrangler turns
+   * workers.dev OFF by default the moment a route appears and the key is
+   * absent — the first deploy of these routes printed exactly that warning.
+   * The old
+   * gil-bricks-app.gil-782.workers.dev address is already in the wild — in a
+   * published Chrome extension, in links sent to a broker, in saved deals — so
+   * it has to keep answering. The Worker redirects it (301) to the canonical
+   * host rather than serving two copies of the site; see worker/index.ts.
+   */
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "proplaunch.ai", "custom_domain": true },
+    { "pattern": "www.proplaunch.ai", "custom_domain": true }
+  ],
   "triggers": {
     // Kit outbox safety net — the inline push handles the common case.
     // Plus the DAILY staleness stamp (P8, 06:00 UTC): it computes and stores

@@ -17,7 +17,7 @@
 import { chromium } from 'playwright-core';
 import { mkdirSync } from 'node:fs';
 
-const BASE = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const BASE = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 // The screenshots below are evidence, not output anybody depends on — but a
 // missing folder used to throw halfway through and skip every later check.

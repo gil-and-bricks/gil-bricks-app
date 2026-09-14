@@ -4,6 +4,7 @@
  * These are not a review, they are the review's teeth: each one fails the build
  * if a protection this product relies on is removed or quietly weakened.
  */
+import { coreConfig } from '@gil-bricks/core';
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
@@ -162,13 +163,16 @@ describe('every response carries the security headers', () => {
    * the set identical and the test green, while handing a portal the right to
    * run code on our pages. What each host may do is the whole point.
    */
+  /** Read, not retyped: DM1 moved this host and four copies of it had to be found. */
+  const DATA_ORIGIN = new URL(coreConfig.dataBaseUrl).origin;
+
   const CSP_EXPECTED: Record<string, string[]> = {
     'default-src': [],
     'script-src': ['https://challenges.cloudflare.com'],
     'style-src': [],
     'img-src': [
       'https://*.googleusercontent.com',
-      'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+      DATA_ORIGIN,
       'https://media.rightmove.co.uk',
       'https://*.zoocdn.com',
     ],
@@ -178,7 +182,7 @@ describe('every response carries the security headers', () => {
       'https://environment.data.gov.uk',
       'https://www.planning.data.gov.uk',
       'https://landregistry.data.gov.uk',
-      'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+      DATA_ORIGIN,
       'https://challenges.cloudflare.com',
     ],
     'frame-src': [
@@ -426,5 +430,49 @@ describe('the Worker answers HEAD the way the whole internet expects', () => {
       expect(head.headers.get(h), `HEAD is missing ${h}`).toBe(get.headers.get(h));
     }
     expect(head.headers.get('content-type')).toBe(get.headers.get('content-type'));
+  });
+});
+
+/**
+ * DM1 — THE TWO POLICIES ARE ONE POLICY.
+ *
+ * There are two CSPs: the Worker's, for anything it answers, and the one in
+ * public/_headers for the static paths the Worker never sees. They have always
+ * been meant to be identical and nothing made them so — the old test compared
+ * the ORIGINS each named, which is a weaker claim than it looks. Moving the
+ * data bucket to its own domain proved the point: the Worker's policy could
+ * have been updated and this file left on the old r2.dev host, and a
+ * same-origins check across two different lists would still have passed.
+ *
+ * Byte-identical, or it fails.
+ */
+describe('the static _headers policy and the Worker policy are the same policy', () => {
+  const HEADERS_FILE = readFileSync(
+    fileURLToPath(new URL('../../public/_headers', import.meta.url)), 'utf8',
+  );
+
+  /** The one `/*` block's CSP line, exactly as Cloudflare will serve it. */
+  const staticCsp = (): string => {
+    const line = HEADERS_FILE.split('\n').find((l) => /^\s+Content-Security-Policy:/.test(l));
+    expect(line, 'no Content-Security-Policy line in public/_headers').toBeDefined();
+    return (line as string).replace(/^\s*Content-Security-Policy:\s*/, '').trim();
+  };
+
+  it('finds a policy in both places', () => {
+    expect(staticCsp().length).toBeGreaterThan(200);
+    expect(SECURITY_HEADERS['content-security-policy'].length).toBeGreaterThan(200);
+  });
+
+  it('is byte-identical in both places', () => {
+    expect(staticCsp()).toBe(SECURITY_HEADERS['content-security-policy']);
+  });
+
+  it('names the data bucket that config actually points at, in both', () => {
+    const origin = new URL(coreConfig.dataBaseUrl).origin;
+    expect(staticCsp()).toContain(origin);
+    expect(SECURITY_HEADERS['content-security-policy']).toContain(origin);
+    // and the address it moved off is gone from both
+    expect(staticCsp()).not.toContain('r2.dev');
+    expect(SECURITY_HEADERS['content-security-policy']).not.toContain('r2.dev');
   });
 });

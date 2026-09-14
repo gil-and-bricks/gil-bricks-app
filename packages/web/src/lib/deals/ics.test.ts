@@ -9,7 +9,7 @@ import { CALENDAR, CALENDAR_ALARM, parkReason } from '../../config/pipeline';
 import { buildIcs, escapeText, eventsForDeal, fold, hasExportableDate, icsFilename, nextDay } from './ics';
 import type { BoardDeal } from './board';
 
-const HOST = 'gil-bricks-app.gil-782.workers.dev';
+const HOST = 'proplaunch.ai';
 const URL_TO_DEAL = `https://${HOST}/buy-to-let/analyser?price=120000&deal=d1`;
 const NOW = Date.parse('2026-09-06T09:30:00Z');
 

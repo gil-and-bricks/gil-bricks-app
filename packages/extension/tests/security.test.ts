@@ -8,6 +8,7 @@
  * hold the four things that keep that contained.
  */
 import { describe, expect, it } from 'vitest';
+import { coreConfig } from '@gil-bricks/core/config';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { scoreListing, smartDefaults, found, missing, type NormalisedListing, type SectorFile } from '@gil-bricks/core';
@@ -90,7 +91,11 @@ describe('nothing read from a listing leaves the machine undocumented', () => {
       const body = readFileSync(f, 'utf8');
       for (const m of body.matchAll(/https?:\/\/[a-z0-9.-]+/gi)) calls.push(m[0]);
     }
-    const external = [...new Set(calls)].filter((u) => !u.includes('gil-bricks-app') && !u.includes('localhost')
+    // OUR HOSTS, READ FROM CONFIG. This used to recognise our own app by the
+    // substring 'gil-bricks-app' — the Worker's NAME, which is not the domain
+    // and never was. The domain move (DM1) left the substring matching nothing.
+    const OURS = [new URL(coreConfig.appBaseUrl).host, new URL(coreConfig.dataBaseUrl).host];
+    const external = [...new Set(calls)].filter((u) => !OURS.some((h) => u.includes(h)) && !u.includes('localhost')
       && !u.includes('rightmove.co.uk') && !u.includes('zoopla.co.uk') && !u.includes('schema.org')
       && !u.includes('w3.org'));
     expect(external).toEqual([]);

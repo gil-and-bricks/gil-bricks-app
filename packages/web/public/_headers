@@ -1,15 +1,16 @@
 # ---------------------------------------------------------------------------
 # S1 — SECURITY HEADERS FOR EVERY STATIC PAGE.
 #
-# WHY THEY ARE HERE AND NOT ONLY IN THE WORKER. `run_worker_first` above lists
-# four path prefixes; everything else — every page a visitor actually reads — is
-# served by Cloudflare's asset layer WITHOUT the Worker running at all. The
-# Worker's own wrapper therefore covers /auth, /api, /dev and /broker, and this
-# file covers the rest. Both exist on purpose: neither reaches the other's paths.
+# WHY THEY ARE STILL HERE NOW THAT PAGES RUN THE WORKER (DM1). `run_worker_first`
+# is "/*" minus the static bulk, so every PAGE gets the Worker's own headers and
+# this file no longer covers them. What it still covers is the excluded paths —
+# /_astro, /map, /fonts, /brand and the named root files — which are served by
+# the asset layer alone and would otherwise go out with no policy at all.
 #
-# KEEP THE TWO IN STEP. src/worker/lib/securityHeaders.ts carries the same
-# policy for Worker-served responses, and a test asserts the CSP names the same
-# origins. Change one, change the other.
+# KEEP THE TWO IN STEP, and a test now makes that literal: security.test.ts
+# asserts the CSP string here is BYTE-IDENTICAL to the Worker's. It used to
+# assert only that both named the same origins, which would not have noticed
+# this file keeping the old r2.dev host after the Worker moved off it.
 #
 # The two that earn their place most: `frame-ancestors 'none'` stops the whole
 # site being framed over an attacker's page (the account page's "Delete
@@ -17,7 +18,7 @@
 # analyser's URL — postcode, house number, price, beds, every ticked refurb
 # line — travelling to Rightmove, Zoopla and Google in the Referer header.
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://pub-ed7263f454104eb1a02055393ee15800.r2.dev https://media.rightmove.co.uk https://*.zoocdn.com; font-src 'self' data:; connect-src 'self' https://data.police.uk https://environment.data.gov.uk https://www.planning.data.gov.uk https://landregistry.data.gov.uk https://pub-ed7263f454104eb1a02055393ee15800.r2.dev https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.googleusercontent.com https://data.proplaunch.ai https://media.rightmove.co.uk https://*.zoocdn.com; font-src 'self' data:; connect-src 'self' https://data.police.uk https://environment.data.gov.uk https://www.planning.data.gov.uk https://landregistry.data.gov.uk https://data.proplaunch.ai https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.youtube.com; worker-src 'self' blob:; frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin

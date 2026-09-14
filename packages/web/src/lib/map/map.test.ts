@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { siteConfig } from '../../site.config';
 import { circleRing, CLUSTER_THRESHOLD, escapeHtml, isRenderedTileEvent, METRES_PER_MILE, milesToMetres, pinState, shouldCluster } from './geo';
 import { brandFlavor, buildMapStyle, tilesUrl } from './style';
 
@@ -64,7 +65,12 @@ describe('pinState', () => {
 describe('style sanity', () => {
   it('points at OUR tiles, glyphs and sprites — no third-party hosts', () => {
     const style = buildMapStyle();
-    expect(tilesUrl()).toMatch(/^pmtiles:\/\/https:\/\/pub-.*\.r2\.dev\/map\/ew\.pmtiles$/);
+    // DERIVED, NOT PINNED. This used to assert the r2.dev hostname SHAPE
+    // (pub-*.r2.dev), which is a fact about Cloudflare's development URL rather
+    // than about us — so moving the bucket to its own domain failed a test that
+    // was never really testing the bucket. What matters is that the tiles come
+    // from the data host config names, and from nowhere else.
+    expect(tilesUrl()).toBe(`pmtiles://${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/map/ew.pmtiles`);
     expect(style.glyphs).toBe('/map/fonts/{fontstack}/{range}.pbf');
     expect(style.sprite).toContain('/map/sprites/v4/dark');
     const json = JSON.stringify(style);

@@ -24,7 +24,7 @@
  */
 import { chromium } from 'playwright-core';
 
-const B = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const B = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 const PHOTOS = [

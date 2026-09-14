@@ -26,7 +26,7 @@
  */
 import { chromium } from 'playwright-core';
 
-const B = process.argv[2] ?? process.env.BASE ?? 'https://gil-bricks-app.gil-782.workers.dev';
+const B = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 if (process.env.CI === 'true' && process.argv[2] === undefined && process.env.BASE === undefined) {
   console.error('check-render: refusing to measure the deployed site in CI. Pass the local base URL.');
   process.exit(2);

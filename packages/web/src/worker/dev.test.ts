@@ -23,7 +23,12 @@ describe('isLocalHost', () => {
   it('refuses a public hostname that merely LOOKS private', () => {
     // Every one of these is a registrable domain somebody else can own, and a
     // prefix match used to let them all through.
-    for (const h of ['10.example.com', '192.168.evil.co.uk', '172.16.attacker.net', 'gil-bricks-app.gil-782.workers.dev', 'example.com', '8.8.8.8', '172.15.0.1', '172.32.0.1', '11.0.0.1']) {
+    // BOTH OUR PUBLIC HOSTS ARE IN THIS LIST ON PURPOSE. The old one stayed
+    // when the product moved (DM1) — it still answers /dev/* rather than
+    // redirecting, so it is still a host this guard has to refuse — and the new
+    // one was added beside it, because a guard that only knows the address we
+    // have left is a guard for nothing.
+    for (const h of ['10.example.com', '192.168.evil.co.uk', '172.16.attacker.net', 'gil-bricks-app.gil-782.workers.dev', 'proplaunch.ai', 'www.proplaunch.ai', 'example.com', '8.8.8.8', '172.15.0.1', '172.32.0.1', '11.0.0.1']) {
       expect(isLocalHost(h), h).toBe(false);
     }
   });
@@ -37,6 +42,7 @@ describe('the preview cannot exist in production', () => {
 
   it('is refused on a public host, even with DEV_LOGIN somehow set', () => {
     expect(isPreviewEnv(env('on'), req('https://gil-bricks-app.gil-782.workers.dev/dev/preview'))).toBe(false);
+    expect(isPreviewEnv(env('on'), req('https://proplaunch.ai/dev/preview'))).toBe(false);
     expect(isPreviewEnv(env('on'), req('https://10.example.com/dev/preview'))).toBe(false);
   });
 
