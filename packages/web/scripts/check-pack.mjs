@@ -397,18 +397,129 @@ try {
     }
     ok(`every page photographed into ${SHOTS}`);
 
-    /* ── the export ─────────────────────────────────────────────────────── */
-    // The export is the browser's own Save as PDF, which is the only £0 route
-    // that gives real vector text with the fonts embedded. It always shows the
-    // print dialog and that cannot be suppressed from a page, so what is
-    // checked here is that the button exists, says so, and that the document
-    // survives print emulation — the dialog itself is the user's to answer.
-    const dl = page.getByRole('button', { name: /^Download PDF$/ });
-    if (!await dl.count()) note('there is no Download PDF button');
-    else ok('a Download PDF button is on the screen, always');
-    const hint = await page.locator('.pk-bar').innerText();
-    if (!/Save as PDF/i.test(hint)) note('the export flow never tells the user to choose Save as PDF');
-    else ok('and the flow says plainly to choose “Save as PDF”');
+    /* ── NOTHING PRINTS OVER ITS OWN FOOTER ─────────────────────────────── */
+    /**
+     * THE FAULT THIS CATCHES HAS NOW HAPPENED TWICE.
+     *
+     * DP2: the area page carried three ideas and the third printed across the
+     * disclaimer. DP3: giving every comparable a bar made each row taller, and
+     * the sixth row — the subject property, the whole point of the page — came
+     * down on top of the footer by 17px.
+     *
+     * Both were found by eye, which is not a method. This measures the deepest
+     * rendered descendant in each page body against the top of that page's own
+     * footer, so a change to type, spacing or row height that costs a page its
+     * last line fails here instead of reaching an investor.
+     */
+    const bleeds = await page.evaluate(() => [...document.querySelectorAll('.pk-page')].map((pg, i) => {
+      const body = pg.querySelector('.pk-page-body');
+      const foot = pg.querySelector('.pk-foot');
+      if (body === null || foot === null) return null;
+      let deepest = body.getBoundingClientRect().top;
+      for (const el of body.querySelectorAll('*')) {
+        const r = el.getBoundingClientRect();
+        if (r.height > 0 && r.bottom > deepest) deepest = r.bottom;
+      }
+      return { page: i + 1, over: +(deepest - foot.getBoundingClientRect().top).toFixed(1) };
+    }).filter((x) => x !== null));
+    const bleeding = bleeds.filter((b) => b.over > 0);
+    if (bleeding.length > 0) throw new Error(`content prints over the footer on page(s) ${bleeding.map((b) => `${b.page} (+${b.over}px)`).join(', ')}`);
+    ok(`no page prints over its own footer (tightest ${Math.max(...bleeds.map((b) => b.over)).toFixed(1)}px clear)`);
+
+    /* ── NO PAGE IS BLANK ───────────────────────────────────────────────── */
+    const thin = await page.evaluate(() => [...document.querySelectorAll('.pk-page')]
+      .map((pg, i) => ({ page: i + 1, chars: (pg.innerText || '').replace(/\s+/g, ' ').trim().length }))
+      .filter((p) => p.chars < 120));
+    if (thin.length > 0) throw new Error(`near-empty page(s): ${thin.map((t) => `${t.page} (${t.chars} chars)`).join(', ')}`);
+    ok('every page in the pack has content on it');
+
+    /* ── the export: SHARING, not printing ──────────────────────────────── */
+    /**
+     * DP3 turned the export around. It was `window.print()` plus twelve words
+     * telling the user how to drive their browser's print box; nobody prints a
+     * deal pack. The primary action is now Share, which hands ONE self-contained
+     * .html file to the phone's own share sheet — the only £0 route to WhatsApp
+     * for a file, given the app may never send email.
+     *
+     * The share sheet itself is the operating system's and cannot be driven
+     * from here, so what is measured is the half that is ours: that the file is
+     * actually built, that it carries its own stylesheet, fonts and images, and
+     * that it opens with no network. Print remains, demoted to a text link.
+     */
+    for (const [name, rx] of [['Share', /^Share$/], ['Save a copy', /^Save a copy$/], ['Print', /^Print$/]]) {
+      if (!await page.getByRole('button', { name: rx }).count()) throw new Error(`no ${name} control on the builder`);
+    }
+    ok('Share is the primary action, with Save a copy and Print beside it');
+
+    /* The real proof: press Save a copy and catch the download. */
+    const saved = await Promise.all([
+      page.waitForEvent('download', { timeout: 30000 }).catch(() => null),
+      page.getByRole('button', { name: /^Save a copy$/ }).click(),
+    ]).then(([d]) => d);
+    if (saved === null) throw new Error('Save a copy produced no file');
+    const savedPath = join(SHOTS, 'shared-pack.html');
+    await saved.saveAs(savedPath);
+    const html = readFileSync(savedPath, 'utf8');
+    if (!/^pack-|\.html$/.test(saved.suggestedFilename())) note(`filename is ${saved.suggestedFilename()}`);
+    ok(`Save a copy produced ${saved.suggestedFilename()} (${Math.round(html.length / 1024)}KB)`);
+
+    if (!html.includes('.pk-page')) throw new Error('the shared file carries no stylesheet');
+    ok('the shared file carries the document stylesheet');
+    if (!/@font-face/.test(html)) note('the shared file embeds no fonts — it will read in the system face');
+    else ok('the shared file embeds its own fonts');
+    const remote = [...html.matchAll(/(?:src|href)=["'](https?:\/\/[^"']+)/gi)].map((m) => m[1]);
+    if (remote.length > 0) throw new Error(`the shared file fetches from the network: ${remote.slice(0, 3).join(', ')}`);
+    ok('the shared file makes no network request — it opens offline');
+    if (!/viewport/.test(html)) throw new Error('the shared file has no viewport meta — it will not fit a phone');
+    ok('and it carries a viewport, so it fits a phone');
+
+    /**
+     * AND IT IS ACTUALLY ON THE SCREEN. Opened OFFLINE at 390px, because both
+     * halves of that matter: offline proves it is genuinely self-contained, and
+     * the geometry proves it is readable.
+     *
+     * THE LEFT EDGE IS CHECKED BECAUSE WIDTH ALONE LIED. The first version
+     * centred the sheet, which placed its left edge at -201px before the scale
+     * transform was applied; scrollWidth still read 390 and the sheet still
+     * measured 390 wide, while the document sat half out of frame with its
+     * address clipped mid-word. A measurement that cannot see that is not a
+     * measurement of "opens properly on a phone".
+     */
+    const reader = await browser.newContext({ viewport: { width: 390, height: 844 }, offline: true });
+    const rp = await reader.newPage();
+    const rFailed = [];
+    rp.on('requestfailed', (r) => rFailed.push(r.url()));
+    await rp.goto(`file://${savedPath}`, { waitUntil: 'load' });
+    await rp.waitForTimeout(2000);
+    const fit = await rp.evaluate(() => {
+      const first = document.querySelector('.pk-page');
+      const r = first === null ? null : first.getBoundingClientRect();
+      return {
+        sheets: document.querySelectorAll('.pk-page').length,
+        left: r === null ? null : Math.round(r.left),
+        right: r === null ? null : Math.round(r.right),
+        sideways: document.documentElement.scrollWidth > window.innerWidth + 1,
+        /* A REAL PIECE OF TEXT, not <body>. The document sets its type on `.pk`,
+           so measuring the body reported the browser default — "Times" — on a
+           file whose headings were rendering correctly in Montserrat all along.
+           A font check that reads an element with no text in it checks nothing. */
+        face: (() => {
+          const h = document.querySelector('.pk-cover-address, .pk-title, .pk-display');
+          return h === null ? null : getComputedStyle(h).fontFamily.split(',')[0].replace(/["']/g, '');
+        })(),
+      };
+    });
+    await rp.screenshot({ path: join(SHOTS, 'shared-on-phone.png') });
+    await reader.close();
+    if (rFailed.length > 0) throw new Error(`the shared file tried to fetch ${rFailed.length} thing(s) offline`);
+    if (fit.sheets !== count) throw new Error(`the shared file has ${fit.sheets} sheets, the builder showed ${count}`);
+    if (fit.sideways) throw new Error('the shared file scrolls sideways on a phone');
+    if (fit.left === null || fit.left < -1 || fit.left > 4) throw new Error(`the shared file sits at x=${fit.left} on a phone — it is off the side of the screen`);
+    if (fit.right === null || fit.right < 380) throw new Error(`the shared file is only ${fit.right}px wide on a 390px phone`);
+    if (fit.face === null || /^(Times|serif|-apple-system|system-ui)$/i.test(fit.face)) {
+      throw new Error(`the shared file fell back to ${fit.face ?? 'no'} type — its embedded fonts did not take`);
+    }
+    ok(`opened offline at 390px: ${fit.sheets} sheets, flush at x=${fit.left}, ${fit.right}px wide, set in ${fit.face}`);
 
     /* ── it composes on a phone, and works from a keyboard ──────────────── */
     const phone = await ctx.newPage();

@@ -134,14 +134,88 @@ describe('no control anywhere calls the OS share sheet', () => {
     expect(unclassified, 'new code directory — add it to SHIPPED or NOT_SHIPPED').toEqual([]);
   });
 
-  it('never uses the Web Share API \u2014 on any surface, in any package', () => {
+  /**
+   * THE RULE IS NOT "NEVER TOUCH THE WEB SHARE API". It is that a control which
+   * NAMES AN APP must open that app.
+   *
+   * The bug this suite was written for: a button reading "Share on WhatsApp"
+   * called navigator.share, so the user pressed WhatsApp and got the macOS
+   * panel — Mail, Messages, Notes, Freeform — a menu standing in front of the
+   * one app the button had promised.
+   *
+   * DP3 adds the opposite kind of control: a plain "Share" on the deal pack,
+   * which names nothing and whose entire job is to hand the file to whatever
+   * the reader actually uses. There the OS sheet is not an obstruction, it IS
+   * the feature — it is the only £0 route to WhatsApp for a FILE, and the app
+   * may never send email (golden rule 6).
+   *
+   * So the sweep is now allow-listed rather than absolute, and the protection
+   * is kept by the test BELOW it, which is the one that always mattered: a file
+   * that names an app may not call the share sheet. That is stricter than what
+   * this replaced, because the old test could have been satisfied by deleting
+   * the WhatsApp button entirely.
+   */
+  const MAY_USE_SHARE_SHEET = ['web/src/lib/pack/share.ts'];
+
+  /**
+   * COMMENTS ARE NOT CONTROLS, and an ALIAS IS STILL A CALL.
+   *
+   * This detector replaces a regex for the literal `navigator.share`, which was
+   * weaker than it read in both directions. It matched doc comments that merely
+   * DISCUSSED the API, and — the part that mattered — it missed
+   *
+   *     const nav = navigator as Navigator & { canShare?: ... };
+   *     if (typeof nav.share === 'function' && nav.canShare?.(…))
+   *
+   * which is ordinary TypeScript for reaching a capability the DOM lib does not
+   * type, and is exactly how this codebase now calls it. Found by planting the
+   * fault the suite exists to catch and watching it pass.
+   *
+   * `canShare` is unique to the Web Share API, so its bare presence counts. A
+   * `.share(` call counts only where the file also mentions `navigator`, which
+   * keeps an unrelated `thing.share()` from being swept up.
+   */
+  const codeOnly = (src: string): string => src
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+  const usesShareSheet = (raw: string): boolean => {
+    const src = codeOnly(raw);
+    if (/\bcanShare\b/.test(src)) return true;
+    return /\bnavigator\b/.test(src) && /\.\s*share\s*\(/.test(src);
+  };
+
+  it('uses the Web Share API in ONE named place, and nowhere else', () => {
     const offenders = SOURCES
-      .filter((p) => /navigator\s*\.\s*(share|canShare)\b/.test(readFileSync(p, 'utf8')))
-      .map((p) => relative(PKGS, p).split('\\').join('/'));
+      .filter((p) => usesShareSheet(readFileSync(p, 'utf8')))
+      .map((p) => relative(PKGS, p).split('\\').join('/'))
+      .filter((r) => !MAY_USE_SHARE_SHEET.includes(r));
     expect(
       offenders,
       'navigator.share opens the OS sheet (Mail, Messages, Notes\u2026), never the app a button names',
     ).toEqual([]);
+  });
+
+  it('and that place still exists \u2014 an allow-list for a deleted file is rot', () => {
+    const rels = SOURCES.map((p) => relative(PKGS, p).split('\\').join('/'));
+    for (const allowed of MAY_USE_SHARE_SHEET) expect(rels).toContain(allowed);
+  });
+
+  it('NO file that names a messaging app may call the share sheet', () => {
+    /**
+     * The real rule, enforced directly for the first time. If a file mentions
+     * WhatsApp, Messenger, Telegram, Signal or email AND reaches for the OS
+     * sheet, that is the exact fault this suite exists for — and the allow-list
+     * above buys no exemption from it.
+     */
+    const NAMES_AN_APP = /whatsapp|messenger|telegram|\bsignal\b|\bimessage\b|mailto:/i;
+    const offenders = SOURCES
+      .filter((p) => !p.endsWith(join('lib', 'share', 'whatsapp.ts')))
+      .filter((p) => {
+        const raw = readFileSync(p, 'utf8');
+        return NAMES_AN_APP.test(codeOnly(raw)) && usesShareSheet(raw);
+      })
+      .map((p) => relative(PKGS, p).split('\\').join('/'));
+    expect(offenders, 'a control that names an app must open that app').toEqual([]);
   });
 
   it('builds its WhatsApp link in ONE place \u2014 no hand-rolled wa.me anywhere else', () => {

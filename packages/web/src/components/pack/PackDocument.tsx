@@ -15,6 +15,7 @@
  * that comes out looking amateur. That is the whole trade, and it is why the
  * templates get the attention rather than an editing canvas.
  */
+import { compBarWidths } from '@gil-bricks/core';
 import type { EvidencedFigure } from '@gil-bricks/core';
 import { PACK_COPY, PACK_DISCLAIMER, PACK_DISCLAIMER_FULL, SECTION } from '../../config/pack';
 import { Waterfall, GrowthBand, Runway, ScopeBars, type WaterfallStep, type GrowthPoint, type RunwayPhase, type ScopeItem } from './charts/Charts';
@@ -82,7 +83,15 @@ const has = (m: PackModel, key: string): boolean => m.on.includes(key);
  * sales and the cap dropped it, so the page compared eight homes to nothing.
  */
 function compRows(m: PackModel): CompRow[] {
-  const room = m.mapImage === null ? 8 : 6;
+  /**
+   * HOW MANY ROWS THE SHEET ACTUALLY HOLDS, not how many look about right.
+   *
+   * Six fitted when a row was one line of text. Giving every row a bar made the
+   * rows taller and six then overran the footer by 17px — measured, and now
+   * guarded: check-pack.mjs fails if any page's content crosses its own footer.
+   * That is the same fault the area page had in DP2, found the same way.
+   */
+  const room = m.mapImage === null ? 8 : 5;
   const head = m.comps.slice(0, room);
   if (head.some((c) => c.subject) || !m.comps.some((c) => c.subject)) return head;
   return [...m.comps.slice(0, room - 1), ...m.comps.filter((c) => c.subject)];
@@ -181,9 +190,13 @@ export function PackDocument({ model }: { model: PackModel }) {
 
   /* ---- 1. THE COVER: a full-bleed photograph, their logo, the address, one
         figure. The one page that has to make somebody keep reading. ---- */
+  /** Only when the cover has no photograph to fill it. Three at most. */
+  const hasCoverShot = has(m, SECTION.photos) && m.photos[0] !== undefined;
+  const coverStrip = hasCoverShot ? [] : m.strip.slice(0, 3);
+
   const cover = (n: number, total: number) => (
     <section class="pk-page pk-cover is-bleed" key="cover">
-      {has(m, SECTION.photos) && m.photos[0]
+      {hasCoverShot
         ? (
           <>
             <div class="pk-cover-shot"><img src={m.photos[0]} alt="" class={m.branding.duotone ? 'pk-duo' : undefined} /></div>
@@ -208,6 +221,31 @@ export function PackDocument({ model }: { model: PackModel }) {
             </div>
           )}
         </div>
+        {/**
+          * WITHOUT A PHOTOGRAPH THE COVER USED TO BE A VOID.
+          *
+          * `justify-content: space-between` over three children leaves two big
+          * gaps, which a full-bleed photograph fills. With no photograph — which
+          * is EVERY pack on first load, because nobody has uploaded one yet —
+          * the operator opened the builder and saw a near-black empty sheet.
+          * That is what "it opens blank" meant: not that nothing was switched
+          * on, but that the first and largest thing on screen had nothing in it.
+          *
+          * So when there is no cover shot the space carries the deal's own
+          * headline figures instead. Nothing new is computed and nothing new is
+          * asked for — these are the same strip figures the glance page prints,
+          * which exist for every deal the moment it is saved.
+          */}
+        {coverStrip.length > 0 && (
+          <ul class="pk-cover-strip">
+            {coverStrip.map((f) => (
+              <li key={f.label}>
+                <span class="pk-cover-strip-fig">{f.value}</span>
+                <span class="pk-cover-strip-lab">{f.label}<Est on={f.projected} /></span>
+              </li>
+            ))}
+          </ul>
+        )}
         <dl class="pk-cover-meta">
           {m.investorName.trim() !== '' && (
             <div><dt>{PACK_COPY.cover.forInvestor}</dt><dd>{m.investorName}</dd></div>
@@ -228,7 +266,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const returnsPage = hero === null ? null : (n: number, total: number) => (
     <section class="pk-page is-ink" key="returns">
       <div class="pk-page-body">
-        <Opener n={1} eyebrow={PACK_COPY.returns.eyebrow} title={PACK_COPY.returns.heading} />
+        <Opener n={n - 1} eyebrow={PACK_COPY.returns.eyebrow} title={PACK_COPY.returns.heading} />
         <div class="pk-hero">
           <p class="pk-hero-fig">{hero.value}</p>
           <p class="pk-hero-lab">{hero.label}<Est on={hero.projected} /></p>
@@ -251,10 +289,27 @@ export function PackDocument({ model }: { model: PackModel }) {
   );
 
   /* ---- 3. WHAT IT COSTS TO GET IN: a waterfall, not a table. ---- */
-  const numbersPage = (n: number, total: number) => (
+  /**
+   * NOTHING RENDERS AS AN EMPTY PAGE.
+   *
+   * Three of these sheets had no guard at all, and the plan page had something
+   * worse than none: when a deal had no ticked scope, no runway and no floor
+   * plan it printed a line of apology in the middle of an otherwise blank A4.
+   * A page that says "there is nothing here" is still a page somebody has to
+   * turn, and in a document being sent to an investor it reads as an oversight.
+   * If a section has no content it is not in the document.
+   */
+  const numbersHasContent = m.waterfall.length > 0 || m.costs.length > 0 || m.returns.length > 0;
+  const planHasContent =
+    (has(m, SECTION.scope) && m.scope.length > 0)
+    || (has(m, SECTION.duration) && m.runway !== null)
+    || (has(m, SECTION.floorplan) && m.floorPlan !== null);
+  const areaHasContent = m.area.length > 0 || m.growth !== null;
+
+  const numbersPage = !numbersHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="numbers">
       <div class="pk-page-body">
-        <Opener n={2} eyebrow={PACK_COPY.numbers.eyebrow} title={PACK_COPY.numbers.heading} />
+        <Opener n={n - 1} eyebrow={PACK_COPY.numbers.eyebrow} title={PACK_COPY.numbers.heading} />
         <div class="pk-fig">
           <p class="pk-chart-head">
             {m.waterfallStacks
@@ -281,10 +336,10 @@ export function PackDocument({ model }: { model: PackModel }) {
   );
 
   /* ---- 4. THE WORK, AND HOW LONG THE MONEY IS TIED UP. ---- */
-  const planPage = (n: number, total: number) => (
+  const planPage = !planHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="plan">
       <div class="pk-page-body">
-        <Opener n={3} eyebrow={PACK_COPY.property.eyebrow} title={PACK_COPY.property.heading} />
+        <Opener n={n - 1} eyebrow={PACK_COPY.property.eyebrow} title={PACK_COPY.property.heading} />
         {has(m, SECTION.scope) && m.scope.length > 0 && (
           <div class="pk-fig">
             <p class="pk-chart-head">{PACK_COPY.property.scopeHead(String(m.scope.length))}</p>
@@ -305,17 +360,16 @@ export function PackDocument({ model }: { model: PackModel }) {
             <p class="pk-chart-note">{PACK_COPY.property.floorPlanMine}</p>
           </div>
         )}
-        {m.scope.length === 0 && !m.runway && !m.floorPlan && <p class="pk-lede">{PACK_COPY.property.noScope}</p>}
       </div>
       <Foot n={n} total={total} />
     </section>
   );
 
   /* ---- 5. THE AREA: public data, each line with its source. ---- */
-  const areaPage = (n: number, total: number) => (
+  const areaPage = !areaHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="area">
       <div class="pk-page-body">
-        <Opener n={4} eyebrow={PACK_COPY.area.eyebrow} title={PACK_COPY.area.heading} />
+        <Opener n={n - 1} eyebrow={PACK_COPY.area.eyebrow} title={PACK_COPY.area.heading} />
         {m.area.length > 0 && (
           <div class="pk-fig">
             <div class="pk-strip">
@@ -352,7 +406,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const compsPage = m.comps.length === 0 ? null : (n: number, total: number) => (
     <section class="pk-page" key="comps">
       <div class="pk-page-body">
-        <Opener n={5} eyebrow={PACK_COPY.comps.eyebrow} title={PACK_COPY.comps.heading} />
+        <Opener n={n - 1} eyebrow={PACK_COPY.comps.eyebrow} title={PACK_COPY.comps.heading} />
           <div class="pk-fig">
             <p class="pk-chart-head">{PACK_COPY.comps.head(String(m.comps.filter((c) => !c.subject).length))}</p>
             {m.mapImage !== null && (
@@ -361,21 +415,37 @@ export function PackDocument({ model }: { model: PackModel }) {
                 <p class="pk-chart-note">{PACK_COPY.comps.odbl}</p>
               </div>
             )}
-            <ul class="pk-comps">
-              {/* THE SUBJECT IS NEVER CUT. It sorted to the bottom on a cheap
-                  purchase and the slice dropped it, so the page compared eight
-                  homes to nothing. Its row is kept and the list trimmed around it. */}
-              {/* Fewer rows when the map is there: the sheet holds one or the
-                  other comfortably, and the list ran into the footer when it
-                  tried to hold both. */}
-              {compRows(m).map((c) => (
-                <li class={c.subject ? 'is-subject' : undefined} key={`${c.address}-${c.display}`}>
-                  <span class="pk-comp-addr">{c.address}</span>
-                  <span>{c.note !== '' && <span class="pk-pill">{c.note}</span>}</span>
-                  <span class="pk-comp-val">{c.display}</span>
-                </li>
-              ))}
-            </ul>
+            {/* THE SUBJECT IS NEVER CUT. It sorted to the bottom on a cheap
+                purchase and the slice dropped it, so the page compared eight
+                homes to nothing. Its row is kept and the list trimmed around it.
+                Fewer rows when the map is there: the sheet holds one or the
+                other comfortably, and the list ran into the footer when it
+                tried to hold both. */}
+            {/**
+              * RANKED, AND DRAWN. This was three columns of text with the sold
+              * price in a 20mm slot — readable, but you had to compare the
+              * numbers yourself. Each row now carries a proportional bar, so the
+              * ranking is visible before a single figure is read, and the
+              * subject property is the one bar in the sourcer's own accent.
+              *
+              * THE WIDTHS COME FROM core. Nothing on this page divides a price.
+              */}
+            <ol class="pk-comps">
+              {(() => {
+                const rows = compRows(m);
+                const widths = compBarWidths(rows.map((c) => c.value));
+                return rows.map((c, i) => (
+                  <li class={c.subject ? 'is-subject' : undefined} key={`${c.address}-${c.display}`}>
+                    <span class="pk-comp-addr">{c.address}</span>
+                    <span class="pk-comp-bar">
+                      <span class="pk-comp-bar-fill" style={{ width: `${(widths[i] ?? 0) * 100}%` }} />
+                    </span>
+                    <span class="pk-comp-val">{c.display}</span>
+                    {c.note !== '' && <span class="pk-comp-note"><span class="pk-pill">{c.note}</span></span>}
+                  </li>
+                ));
+              })()}
+            </ol>
           </div>
       </div>
       <Foot n={n} total={total} />
@@ -400,7 +470,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const basisPage = (n: number, total: number) => (
     <section class="pk-page" key="basis">
       <div class="pk-page-body">
-        <Opener n={5} eyebrow={PACK_COPY.basis.eyebrow} title={PACK_COPY.basis.heading} />
+        <Opener n={n - 1} eyebrow={PACK_COPY.basis.eyebrow} title={PACK_COPY.basis.heading} />
         <dl class="pk-basis-list">
           {[m.hero, ...m.strip, ...m.costs, ...m.returns]
             .filter((f): f is EvidencedFigure => f !== null)
@@ -438,6 +508,84 @@ export function PackDocument({ model }: { model: PackModel }) {
     </section>
   );
 
+  /* ---- 7. THE FINAL FIGURES: two columns, no chart, no argument. ---- */
+  /**
+   * THE PLAINEST PAGE IN THE PACK, AND DELIBERATELY SO.
+   *
+   * Every other money page here explains itself: the waterfall shows how the
+   * cash stacks, the returns page argues one number at ninety-six point, the
+   * basis page evidences all of them. None of that answers the question an
+   * investor actually asks last, which is "what do I put in, and what do I get
+   * back". This page answers exactly that and does nothing else — two columns,
+   * a ruled total, and a line saying it is before tax.
+   *
+   * IT COMPUTES NOTHING. Both columns are figures already in the model, printed
+   * in the order the engine produced them (charter rule 3: a component may
+   * format a figure, never make one).
+   */
+  /** The parts, and the total that core appended after them. */
+  const costTotal = m.costs.length > 1 ? m.costs[m.costs.length - 1] : undefined;
+  const costParts = m.costs.length > 1 ? m.costs.slice(0, -1) : m.costs;
+  const figuresHasContent = m.costs.length > 0 || m.returns.length > 0;
+  const figuresPage = !figuresHasContent ? null : (n: number, total: number) => (
+    <section class="pk-page" key="figures">
+      <div class="pk-page-body">
+        <Opener n={n - 1} eyebrow={PACK_COPY.figures.eyebrow} title={PACK_COPY.figures.heading} />
+        <div class="pk-ledger">
+          <div class="pk-ledger-col">
+            <p class="pk-eyebrow">{PACK_COPY.figures.inHead}</p>
+            {/**
+              * THE LAST COST IS THE TOTAL, AND MUST NOT BE PRINTED AS A ROW.
+              *
+              * `packNumbers` builds `costs` as the parts followed by the total,
+              * so listing the array whole put "Total going in £78,890" at the
+              * bottom of a column reading £120,000, £6,000, £35,000, £1,500 —
+              * set in the same type as the parts, so it read as a column that
+              * does not add up. That is the DP2 waterfall's lie in a different
+              * shape, and on the plainest page in the pack it is worse: there is
+              * no chart here to blame, just a list that looks wrong.
+              *
+              * The total is now the total, and when the parts genuinely do not
+              * sum to it — a financed purchase, where most of the price is
+              * borrowed — the page says why. `waterfallStacks` is core's own
+              * `partsSumToTotal`; the page asks it, it does not decide.
+              */}
+            <dl class="pk-ledger-list">
+              {costParts.map((f) => (
+                <div class="pk-ledger-row" key={f.label}>
+                  <dt>{f.label}<Est on={f.projected} /></dt>
+                  <dd>{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+            {costTotal && (
+              <div class="pk-ledger-total">
+                <span>{costTotal.label}<Est on={costTotal.projected} /></span>
+                <strong>{costTotal.value}</strong>
+              </div>
+            )}
+            {costTotal && !m.waterfallStacks && (
+              <p class="pk-ledger-note">{PACK_COPY.figures.financed}</p>
+            )}
+          </div>
+          <div class="pk-ledger-col is-out">
+            <p class="pk-eyebrow">{PACK_COPY.figures.outHead}</p>
+            <dl class="pk-ledger-list">
+              {m.returns.map((f) => (
+                <div class="pk-ledger-row" key={f.label}>
+                  <dt>{f.label}<Est on={f.projected} /></dt>
+                  <dd>{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+        <p class="pk-chart-note">{PACK_COPY.figures.note}</p>
+      </div>
+      <Foot n={n} total={total} />
+    </section>
+  );
+
   /**
    * THE MOVABLE PAGES, IN THE USER'S ORDER. The cover is pinned first and the
    * basis page pinned last, because a pack that opens on its disclaimer or ends
@@ -450,6 +598,7 @@ export function PackDocument({ model }: { model: PackModel }) {
     [SECTION.plan]: planPage,
     [SECTION.area]: areaPage,
     [SECTION.comps]: compsPage,
+    [SECTION.figures]: figuresPage,
     [SECTION.gallery]: photosPage,
   };
   const middle = m.order

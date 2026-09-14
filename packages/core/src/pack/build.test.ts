@@ -7,7 +7,7 @@
  * comes out of it without a basis attached.
  */
 import { describe, expect, it } from 'vitest';
-import { everyFigure, packNumbers, partsSumToTotal, perMonth, type PackFigureCopy, type PackSource } from './build';
+import { compBarWidths, everyFigure, packNumbers, partsSumToTotal, perMonth, type PackFigureCopy, type PackSource } from './build';
 import { NEVER_IN_A_PACK, PackHonestyError } from './honesty';
 
 const COPY: PackFigureCopy = {
@@ -187,5 +187,52 @@ describe('do the cost figures actually sum to the total', () => {
 
   it('refuses to claim anything from too few figures', () => {
     expect(partsSumToTotal({ headline: [], costs: [], returns: [] })).toBe(false);
+  });
+});
+
+describe('compBarWidths — the comparables page can be SEEN, not just read', () => {
+  it('gives the dearest the full width and the cheapest a visible stub', () => {
+    const w = compBarWidths([180_000, 200_000, 215_000]);
+    expect(w[2]).toBe(1);
+    expect(w[0]).toBeGreaterThan(0.08);
+    expect(w[0]).toBeLessThan(w[1] as number);
+  });
+
+  it('SEPARATES a tight cluster more than a zero baseline would', () => {
+    /**
+     * THE WHOLE REASON THE BASELINE IS NOT ZERO — asserted as the comparison it
+     * actually claims, not against a number picked by eye. Sold prices in one
+     * sector cluster: against zero these three are 0.837, 0.930 and 1.000, and
+     * the eye reads three bars of the same length.
+     *
+     * IT IS DELIBERATELY NOT MORE AGGRESSIVE THAN THIS. A floor closer to the
+     * cheapest comparable would separate them further and would also make a
+     * £5,000 difference on a £200,000 house look enormous. This is the evidence
+     * page of a document somebody decides where to put money from; legibility
+     * is worth a lot there and exaggeration is worth nothing.
+     */
+    const prices = [180_000, 200_000, 215_000];
+    const w = compBarWidths(prices);
+    const spread = (w[2] as number) - (w[0] as number);
+    const fromZero = 1 - (prices[0] as number) / (prices[2] as number);
+    expect(spread).toBeGreaterThan(fromZero * 1.8);
+    // and still bounded — separation, not distortion
+    expect(spread).toBeLessThan(0.5);
+  });
+
+  it('never returns a width outside the drawable range', () => {
+    for (const w of compBarWidths([1, 5_000_000, 250_000, 250_001])) {
+      expect(w).toBeGreaterThanOrEqual(0.08);
+      expect(w).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it('draws nothing for a figure it cannot trust, rather than guessing', () => {
+    expect(compBarWidths([0, -5, Number.NaN])).toEqual([0, 0, 0]);
+    expect(compBarWidths([])).toEqual([]);
+  });
+
+  it('survives every comparable being the same price', () => {
+    expect(compBarWidths([200_000, 200_000])).toEqual([1, 1]);
   });
 });

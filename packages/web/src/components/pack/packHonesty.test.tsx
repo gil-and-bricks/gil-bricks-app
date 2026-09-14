@@ -157,8 +157,18 @@ describe('the list makes room for the map', () => {
     expect(count(packModel({ comps: withSubject, mapImage: null }))).toBe(8);
   });
 
-  it('and six when a map is on the same sheet', () => {
-    expect(count(packModel({ comps: withSubject, mapImage: 'data:image/png;base64,iVBORw0KGgo=' }))).toBe(6);
+  it('and FIVE when a map is on the same sheet', () => {
+    /**
+     * IT WAS SIX UNTIL DP3, AND SIX NOW OVERRUNS THE FOOTER.
+     *
+     * Giving every comparable a proportional bar made each row taller, and the
+     * sheet then held one row fewer: measured at 17.1px of the subject
+     * property's own row printing over the disclaimer. The number here is not a
+     * preference, it is what fits — and check-pack.mjs now measures the same
+     * thing in a real browser, so a future change to row height fails there
+     * rather than shipping a page that prints over itself.
+     */
+    expect(count(packModel({ comps: withSubject, mapImage: 'data:image/png;base64,iVBORw0KGgo=' }))).toBe(5);
   });
 
   it('keeps the subject in both — it is the thing being compared', () => {

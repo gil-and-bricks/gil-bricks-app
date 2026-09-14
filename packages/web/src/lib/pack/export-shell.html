@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="__LANG__">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>__TITLE__</title>
+<style>__FONTS__</style>
+<style>__CSS__</style>
+<style>__PHONE__</style>
+</head>
+<body>
+__BODY__
+<script>
+/* Fits the A4 sheet to the viewport on a phone, and again when it is rotated.
+   Inert on a desktop, where the sheet already fits. */
+(function () {
+  var SHEET = 793.7;
+  function fit() {
+    var scale = Math.min(1, window.innerWidth / SHEET);
+    var pages = document.querySelectorAll('.pk-export .pk-page');
+    for (var i = 0; i < pages.length; i += 1) {
+      var page = pages[i];
+      if (scale < 1) {
+        /* A transform paints smaller; it does not RELAYOUT. The sheet stays
+           793px wide and 1122px tall as far as the page flow is concerned, so
+           without pulling both margins back by the space the scale gave up, the
+           document keeps a 793px scroll width (a sideways scroll on a phone)
+           and a column of dead air under every page. */
+        page.style.transform = 'scale(' + scale + ')';
+        page.style.marginRight = (page.offsetWidth * (scale - 1)) + 'px';
+        page.style.marginBottom = (page.offsetHeight * (scale - 1)) + 'px';
+      } else {
+        page.style.transform = '';
+        page.style.marginRight = '';
+        page.style.marginBottom = '';
+      }
+    }
+  }
+  fit();
+  window.addEventListener('resize', fit);
+  window.addEventListener('orientationchange', fit);
+})();
+</script>
+</body>
+</html>

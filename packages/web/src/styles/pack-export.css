@@ -1,0 +1,73 @@
+/**
+ * DP3 — WHAT THE SHARED FILE ADDS, AND THE BUILDER NEVER NEEDS.
+ *
+ * A shared pack is read on a phone. A4 is 210mm wide and a phone is about 75mm,
+ * so without this the recipient gets a document they have to scroll sideways
+ * through, one paragraph at a time. The sheet keeps its millimetre geometry and
+ * the whole page is SCALED, so nothing reflows and no line breaks anywhere the
+ * sender did not see it break.
+ *
+ * It lives here rather than in a template literal so it is a real stylesheet:
+ * highlighted, lintable, and diffable when it changes.
+ */
+/**
+ * THE BOX MODEL THE DOCUMENT WAS DESIGNED IN.
+ *
+ * `box-sizing: border-box` is set once, globally, in global.css — which the app
+ * loads on every page and which the exported file does not carry, because the
+ * rest of global.css is app chrome that would fight the document. Without this
+ * one line every sheet fell back to content-box and grew by its own side
+ * margins: 210mm + 16mm + 16mm, which is 794px + 121px = 915px. The pages were
+ * A4 in the builder and 915px wide in the file that was actually sent, and the
+ * only visible symptom was a sideways scroll on a phone.
+ */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; background: #55585f; }
+
+/**
+ * A BLOCK COLUMN, NOT A FLEX ONE — because a flex item is sized differently.
+ *
+ * This was `display: flex; flex-direction: column`, which gives every sheet
+ * `min-width: auto`: a flex item refuses to shrink below its MIN-CONTENT width.
+ * Several pages hold something that cannot wrap — a tabular figure at heading
+ * size, a nowrap value column — so the sheets silently grew from 210mm (794px)
+ * to 915px, and only in the exported file. The builder, whose container is a
+ * plain block, kept them at A4 throughout, so the pack gate's "every sheet
+ * measures A4" passed while the thing actually being sent did not.
+ *
+ * Matching the builder's box model exactly is the point: the file has to be the
+ * document that was previewed, not a near-enough re-layout of it.
+ */
+.pk-export { display: block; padding: 12px 0; }
+.pk-export .pk-page {
+  box-shadow: 0 2px 14px rgba(0, 0, 0, .4);
+  margin: 0 auto 12px;
+}
+
+@media (max-width: 820px) {
+  /**
+   * `align-items: flex-start` IS THE WHOLE FIX, and its absence was invisible
+   * to a width measurement.
+   *
+   * The column centres its children. On a phone the sheet is still 793px wide
+   * when the browser lays it out — the scale is a TRANSFORM, applied after
+   * layout — so centring put its left edge at (390 - 793) / 2 = -201px, and
+   * scaling about `top left` then shrank it around that off-screen origin. The
+   * page reported a 390px scrollWidth and a 390px sheet, because the overflow
+   * was clipped, while the document itself sat half out of frame with its first
+   * character cut off. Start the sheet at the left edge and the transform has
+   * nothing to inherit.
+   */
+  .pk-export { padding: 0; }
+  /* Flush to the left edge: `margin: 0 auto` would centre the UNSCALED 794px
+     sheet first, putting its left edge at (390-794)/2 = -202px, and scaling
+     about `top left` then shrinks it around that off-screen origin. The page
+     still reports a 390px width while its first character is cut off. */
+  .pk-export .pk-page { transform-origin: top left; box-shadow: none; margin: 0; }
+}
+
+@media print {
+  html, body { background: #fff; }
+  .pk-export { display: block; padding: 0; gap: 0; }
+}

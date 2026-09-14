@@ -206,6 +206,25 @@
 .pk-cover-hero-fig { font: 800 var(--pk-t-hero-sm)/.9 var(--pk-sans); letter-spacing: -.035em; color: #fff; font-variant-numeric: tabular-nums; }
 .pk-cover-hero-lab { font-size: var(--pk-t-small); color: var(--pk-text-on-ink-quiet); max-width: 46mm; padding-bottom: 2mm; }
 .pk-cover-meta { display: flex; gap: calc(var(--pk-base) * 3); align-items: flex-end; }
+/**
+ * THE COVER'S FIGURE STRIP — only ever rendered when there is no photograph.
+ * A rule above it rather than a box around it: the cover is already carrying a
+ * gradient and a headline, and a bordered card here would fight both.
+ */
+.pk-cover-strip {
+  list-style: none; margin: 0; padding: calc(var(--pk-base) * 1.1) 0 0;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  gap: var(--pk-gutter);
+  border-top: 1px solid var(--pk-line-on-ink);
+}
+.pk-cover-strip li { display: flex; flex-direction: column; gap: 1mm; }
+.pk-cover-strip-fig {
+  font: 800 var(--pk-t-title)/1 var(--pk-sans);
+  letter-spacing: -.02em; color: var(--pk-text-on-ink);
+  font-variant-numeric: tabular-nums;
+}
+.pk-cover-strip-lab { font-size: var(--pk-t-micro); color: var(--pk-text-on-ink-quiet); line-height: 1.3; }
+
 .pk-cover-meta dt { font: 700 var(--pk-t-micro)/1 var(--pk-sans); letter-spacing: .14em; text-transform: uppercase; color: var(--pk-accent); margin: 0 0 1.5mm; }
 .pk-cover-meta dd { margin: 0; font-size: var(--pk-t-body); color: var(--pk-text-on-ink); }
 
@@ -267,10 +286,65 @@
 .pk-runway-row { break-inside: avoid; }
 
 /* Comparables, ranked, with an inline bar each. */
-.pk-comps { list-style: none; margin: 0; padding: 0; }
-.pk-comps li { display: grid; grid-template-columns: 1fr 34mm 20mm; gap: var(--pk-gutter); align-items: center; padding: calc(var(--pk-base) * .8) 0; border-bottom: 1px solid var(--pk-line); break-inside: avoid; }
-.pk-comps li.is-subject { font-weight: 600; }
-.pk-comps li.is-subject .pk-comp-addr::after { content: ""; }
+/**
+ * THE MOST IMPORTANT PAGE IN THE PACK, TREATED THAT WAY.
+ *
+ * It was a three-column list: address, a pill, and the sold price squeezed into
+ * a 20mm column. Everything needed to compare the deal was on the page and none
+ * of it was visible — the reader had to do the comparing. Now every row draws
+ * its price, the numbers are set in the same tabular figures as the rest of the
+ * document, and the subject property is the one row in the sourcer's colour,
+ * marked rather than merely bolder.
+ */
+.pk-comps {
+  list-style: none; margin: calc(var(--pk-base) * .6) 0 0; padding: 0;
+  counter-reset: comp;
+}
+.pk-comps li {
+  display: grid;
+  grid-template-columns: 1fr 46mm auto;
+  grid-template-areas: "addr bar val" "note bar val";
+  gap: 0 var(--pk-gutter);
+  align-items: center;
+  padding: calc(var(--pk-base) * .72) 0;
+  border-bottom: 1px solid var(--pk-line);
+  break-inside: avoid;
+}
+.pk-comps li:last-child { border-bottom: 0; }
+.pk-comp-addr { grid-area: addr; font-size: var(--pk-t-small); line-height: 1.25; }
+.pk-comp-note { grid-area: note; }
+.pk-comp-val {
+  grid-area: val; justify-self: end;
+  font: 700 var(--pk-t-sub)/1 var(--pk-sans);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+/* The bar is a track, so a short bar still reads as "less", not as "missing". */
+.pk-comp-bar {
+  grid-area: bar; position: relative;
+  height: 4mm; border-radius: 2mm;
+  background: var(--pk-paper-warm);
+  overflow: hidden;
+}
+.pk-comp-bar-fill {
+  position: absolute; inset: 0 auto 0 0;
+  border-radius: 2mm;
+  background: color-mix(in srgb, var(--pk-text) 32%, transparent);
+}
+/**
+ * THE SUBJECT PROPERTY IS THE POINT OF THE PAGE. It used to be `font-weight:
+ * 600` and nothing else, which on a page of eight rows is close to invisible.
+ * It now takes the accent, a rule down its left edge and the full-strength bar.
+ */
+.pk-comps li.is-subject {
+  background: color-mix(in srgb, var(--pk-accent) 7%, transparent);
+  box-shadow: inset 2px 0 0 var(--pk-accent);
+  padding-left: 3mm; padding-right: 2mm;
+  margin-left: -3mm; margin-right: -2mm;
+  border-bottom-color: transparent;
+}
+.pk-comps li.is-subject .pk-comp-addr { font-weight: 700; }
+.pk-comps li.is-subject .pk-comp-val { color: var(--pk-accent); }
+.pk-comps li.is-subject .pk-comp-bar-fill { background: var(--pk-accent); }
 .pk-comp-addr { font-size: var(--pk-t-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pk-comp-val { font: 700 var(--pk-t-body)/1 var(--pk-sans); text-align: right; font-variant-numeric: tabular-nums; }
 .pk-pill { display: inline-block; font: 700 var(--pk-t-micro)/1 var(--pk-sans); padding: 1mm 2mm; border-radius: 99px; background: color-mix(in srgb, var(--pk-accent) 16%, transparent); color: var(--pk-accent); }
@@ -326,46 +400,196 @@
 .pk-terms p { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: 0 0 2mm; max-width: 150mm; }
 
 /* ===================================================================== *
+ * 8b. THE FINAL FIGURES — two columns, a rule, nothing else
+ * ===================================================================== */
+/**
+ * SIMPLE CONTENT, PRESENTED PROPERLY. The restraint is the design: no panel, no
+ * fill, no chart. What carries it is the type scale, the tabular figures and a
+ * single accent rule under each column head — the same devices the rest of the
+ * document uses, with everything else taken away.
+ */
+/**
+ * IT OWNS THE SHEET. At the row height the rest of the document uses, this page
+ * was two short columns floating in the top third of an A4 with the remaining
+ * 60% blank — technically not an empty page, but it read as one. The content
+ * here is a dozen lines and cannot be padded out, so the presentation carries
+ * it instead: generous rows, figures at heading size, and real air between the
+ * two columns. Simple content, given room.
+ */
+.pk-ledger {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: calc(var(--pk-gutter) * 4);
+  margin: calc(var(--pk-base) * 2.4) 0 0;
+}
+.pk-ledger-col .pk-eyebrow { padding-bottom: 3mm; border-bottom: 2px solid var(--pk-accent); }
+.pk-ledger-list { margin: 0; }
+.pk-ledger-row {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--pk-gutter);
+  padding: 5.4mm 0;
+  border-bottom: 1px solid var(--pk-line);
+  break-inside: avoid;
+}
+.pk-ledger-row dt { margin: 0; font-size: var(--pk-t-body); color: var(--pk-text-quiet); }
+.pk-ledger-row dd {
+  margin: 0; font: 700 var(--pk-t-lede)/1.1 var(--pk-sans);
+  font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--pk-text);
+}
+/* The total is the one line that raises its voice, and only on the in column. */
+.pk-ledger-total {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: var(--pk-gutter); margin-top: 5mm; padding-top: 5mm;
+  border-top: 2px solid var(--pk-text);
+}
+.pk-ledger-total span { font-size: var(--pk-t-body); font-weight: 600; }
+.pk-ledger-total strong {
+  font: 800 var(--pk-t-title)/1 var(--pk-sans);
+  font-variant-numeric: tabular-nums; letter-spacing: -.02em;
+}
+.pk-ledger-note { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: 2.5mm 0 0; line-height: 1.4; }
+
+/* ===================================================================== *
  * 9. THE COMPOSER — screen only, never printed
  * ===================================================================== */
-.pk-screen { min-height: 100vh; background: var(--bg-0); color: var(--text); }
+/**
+ * THE BUILDER IS A PROPLAUNCH SCREEN. It sits inside AppShell now, so the
+ * header, the footer, the tab bar, the gradient and — the part that had been
+ * missing entirely — analyser.css all apply. `.glass.card`, `.field`,
+ * `.btn-action`, `.btn-secondary`, `.btn-link`, `.hint`, `.page-title` and
+ * `.sr-only` are all defined THERE, and this file must not redefine any of
+ * them. What is left here is only what is genuinely particular to this screen:
+ * the three-column frame, the section rows, and the grey mount the paper sits
+ * on. Everything else is the same vocabulary as the analyser, which is the point.
+ */
 .pk-composer {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr) 19rem;
+  grid-template-columns: 19.5rem minmax(0, 1fr) 20rem;
   gap: var(--space-3);
   align-items: start;
-  padding: var(--space-3);
-  max-width: 100rem;
-  margin: 0 auto;
 }
-.pk-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
-.pk-bar h1 { font-size: var(--text-lg); margin: 0; flex: 1 1 auto; }
-.pk-side { position: sticky; top: var(--space-2); max-height: calc(100vh - var(--space-4)); overflow-y: auto; }
-.pk-side h2 { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 var(--space-2); }
-.pk-sections { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
-.pk-row { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) 0; border-bottom: 1px solid var(--line); }
-.pk-row-name { flex: 1 1 auto; font-size: var(--text-sm); }
-.pk-row-move { display: flex; gap: 2px; }
-.pk-row.is-locked .pk-row-name { opacity: .85; }
-.pk-lock { font-size: var(--text-xs); color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 4px; white-space: nowrap; }
-.pk-why { font-size: var(--text-xs); color: var(--text-dim); margin: 2px 0 0; }
-.pk-preview { background: #3f434b; border-radius: 6px; padding: var(--space-3) 0; overflow-x: auto; }
+.pk-bar {
+  grid-column: 1 / -1;
+  display: flex; flex-wrap: wrap; gap: var(--space-2);
+  align-items: center; justify-content: space-between;
+  margin-bottom: var(--space-1);
+}
+.pk-bar .page-title { margin: 0; }
+.pk-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+
+.pk-side { position: sticky; top: var(--space-2); max-height: calc(100vh - var(--space-5)); overflow-y: auto; }
+.pk-side h2 {
+  font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: .1em;
+  color: var(--text-dim); margin: 0 0 var(--space-2); font-weight: 700;
+}
+.pk-sections + h2, .field + h2 { margin-top: var(--space-3); }
+
+.pk-sections { list-style: none; margin: 0 0 var(--space-2); padding: 0; }
+/**
+ * ONE ROW, ONE LINE. The locked rows used to carry a sentence of justification
+ * as a third flex child; three of them turned this list into overlapping
+ * columns that clipped mid-word ("This docume… informa… not advi…"). The
+ * sentence is now `.sr-only` and the row is a grid with named tracks, so a long
+ * label wraps inside its own column instead of pushing the badge off the edge.
+ */
+.pk-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2); row-gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--glass-border);
+}
+/**
+ * A LOCKED ROW PUTS ITS BADGE ON ITS OWN LINE. The badge is `white-space:
+ * nowrap`, so in a third grid column it took the width it needed and squeezed
+ * the label until the two touched ("Your registrationAlways included"). Given
+ * its own row it cannot collide with anything, and the label gets the width.
+ */
+.pk-row.is-locked { grid-template-columns: auto minmax(0, 1fr); }
+.pk-row.is-locked .pk-lock { grid-column: 2; justify-self: start; }
+.pk-sections li:last-child .pk-row { border-bottom: 0; }
+.pk-row-name { font-size: var(--text-sm); line-height: 1.3; cursor: pointer; }
+.pk-row-move { display: flex; gap: 4px; }
+.pk-row-move .btn-link {
+  min-width: 2rem; min-height: 2rem; display: inline-flex;
+  align-items: center; justify-content: center;
+  border: 1px solid var(--glass-border); border-radius: var(--radius-btn);
+  font-size: var(--text-sm); padding: 0;
+}
+.pk-row-move .btn-link[disabled] { opacity: .3; cursor: default; }
+.pk-row.is-locked .pk-row-name { color: var(--text-dim); }
+.pk-lock {
+  font-size: var(--text-2xs); color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 999px;
+  padding: 2px 8px; white-space: nowrap; letter-spacing: .04em;
+}
+
+/* Checkboxes are the app's lime, not the browser's blue. */
+.pk-side input[type="checkbox"] {
+  accent-color: var(--accent); width: 1.15rem; height: 1.15rem; cursor: pointer;
+}
+
+/**
+ * THE PAPER SITS ON A MOUNT, not on the app's gradient — a white sheet floating
+ * straight on a purple background reads as a rendering fault. This grey is the
+ * neutral a print shop shows proofs on, and it is the one place on this screen
+ * that deliberately is not brand-coloured: it is there to make the document
+ * look like a document.
+ */
+.pk-preview {
+  background: #3f434b;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--glass-border);
+  padding: var(--space-3) 0;
+  overflow-x: auto;
+}
 /* The sheet is real A4; the preview scales it to the column it is in, so what
    is on screen is genuinely the printed page and not a re-styled copy. */
 .pk-scale { transform-origin: top center; }
-.pk-field { margin-bottom: var(--space-2); }
-.pk-field label { display: block; font-size: var(--text-sm); margin-bottom: 2px; }
-.pk-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
-.pk-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
-.pk-swatch[aria-pressed="true"] { border-color: var(--text); outline: 2px solid var(--accent); outline-offset: 1px; }
-.pk-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: var(--space-1); }
-.pk-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; }
-.pk-note { font-size: var(--text-xs); color: var(--text-dim); }
+
+.pk-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+/**
+ * `.field input` in analyser.css is (0,1,1) and sets `width: 100%`. A bare
+ * `.pk-swatch` is (0,1,0) and LOSES, so the custom-colour input rendered as a
+ * full-width grey bar under the palette. Scoped here to (0,2,0) so it wins
+ * rather than ties — the rule CLAUDE.md records from C3, applied to our own
+ * shared stylesheet rather than a third party's.
+ */
+.pk-swatches .pk-swatch {
+  width: 28px; height: 28px; min-height: 0; border-radius: 50%;
+  border: 2px solid transparent; cursor: pointer; padding: 0;
+  background-clip: padding-box; flex: 0 0 auto;
+  -webkit-appearance: none; appearance: none;
+}
+.pk-swatches input[type="color"].pk-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.pk-swatches input[type="color"].pk-swatch::-webkit-color-swatch { border: 0; border-radius: 50%; }
+.pk-swatches .pk-swatch[aria-pressed="true"] { border-color: var(--text); outline: 2px solid var(--accent); outline-offset: 1px; }
+.pk-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: var(--space-2); }
+.pk-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-btn); }
+
+/* The real input is .sr-only inside; the label is the button. */
+.pk-filepick { display: inline-flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.pk-filepick-btn { cursor: pointer; display: inline-flex; align-items: center; }
+
+.pk-refused { border-left: 3px solid var(--verdict-walk); padding-left: var(--space-2); margin-bottom: var(--space-2); }
+.pk-refused-phrase { font-size: var(--text-sm); font-weight: 600; margin: 0; }
+.pk-refused-why { font-size: var(--text-xs); color: var(--text-dim); margin: 2px 0 0; }
 
 @media (max-width: 70rem) {
+  /**
+   * ON A PHONE THE DOCUMENT COMES FIRST.
+   *
+   * It used to come THIRD: the whole control rail stacked above it, so opening
+   * your own pack on a phone meant scrolling past every checkbox on the screen
+   * before you saw a single page of it. The pack is what the user came for; the
+   * controls are how they change it afterwards.
+   */
   .pk-composer { grid-template-columns: 1fr; }
-  .pk-side { position: static; max-height: none; }
-  .pk-preview { order: 3; }
+  .pk-bar { order: 0; }
+  .pk-preview { order: 1; }
+  .pk-side { order: 2; position: static; max-height: none; }
+  .pk-actions { width: 100%; }
+  .pk-actions .btn-action, .pk-actions .btn-secondary { flex: 1 1 auto; justify-content: center; text-align: center; }
 }
 
 /* The pack action on a deal card: a real button, sized to sit beside the
@@ -385,7 +609,7 @@
 @media print {
   /* Everything that is not the document goes. */
   body > *, .shell-body > *, .pk-composer > * { display: none !important; }
-  body, .shell-body, main, .pk-screen, .pk-composer, .pk-preview, .pk-scale, .pk-pages {
+  body, .shell-body, main, .page-wrap, .pk-composer, .pk-preview, .pk-scale, .pk-pages {
     display: block !important;
     background: #fff !important;
     padding: 0 !important; margin: 0 !important;

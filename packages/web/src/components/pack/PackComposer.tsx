@@ -29,6 +29,8 @@ import {
   PACK_COPY, PACK_PARTS, PACK_SECTIONS, SECTION,
 } from '../../config/pack';
 import { accentReadsOnPaper, onAccent } from '../../lib/pack/accent';
+import { buildPackHtml, packFilename, sharePack } from '../../lib/pack/share';
+import { FilePick } from './FilePick';
 import { PackDocument, type PackModel } from './PackDocument';
 
 type Base = Omit<PackModel, 'on' | 'order' | 'photos' | 'summary' | 'investorName' | 'branding'>;
@@ -58,7 +60,9 @@ export function PackComposer({ base, branding, onBranding }: Props) {
   const [summary, setSummary] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [zoom, setZoom] = useState(1);
+  const [busy, setBusy] = useState(false);
   const preview = useRef<HTMLDivElement>(null);
+  const doc = useRef<HTMLDivElement>(null);
 
   /** Their own words, refused with an explanation rather than stripped. */
   const refused: BannedHit[] = useMemo(
@@ -111,6 +115,32 @@ export function PackComposer({ base, branding, onBranding }: Props) {
     }
   };
 
+  /**
+   * SHARING IS THE PRIMARY ACTION, and it is one press.
+   *
+   * The file is built from the sheets already on screen, so what is sent is
+   * literally what was previewed — there is no second renderer to disagree with
+   * the first. `busy` exists because inlining the fonts is a handful of fetches
+   * and a big base64, and a button that looks inert for a second invites a
+   * second press and a second file.
+   */
+  const share = async (mode: 'share' | 'save'): Promise<void> => {
+    const root = doc.current?.querySelector<HTMLElement>('.pk');
+    if (root === null || root === undefined || busy) return;
+    setBusy(true);
+    try {
+      const html = await buildPackHtml(root, base.address, document.documentElement.lang || 'en-GB');
+      await sharePack(
+        html,
+        packFilename(base.address, PACK_COPY.composer.fileSuffix),
+        PACK_COPY.composer.shareTitle,
+        mode,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const accent = branding.accentColour === '' ? ACCENT_PALETTE[0].hex : branding.accentColour;
   const model: PackModel = {
     ...base,
@@ -132,17 +162,23 @@ export function PackComposer({ base, branding, onBranding }: Props) {
   return (
     <div class="pk-composer">
       <div class="pk-bar">
-        <h1>{PACK_COPY.composer.heading}</h1>
-        <button type="button" class="btn-action" onClick={() => window.print()}>
-          {PACK_COPY.composer.download}
-        </button>
-        <p class="pk-note">{PACK_COPY.composer.downloadHint}</p>
+        <h1 class="page-title">{PACK_COPY.composer.heading}</h1>
+        <div class="pk-actions">
+          <button type="button" class="btn-action" disabled={busy} onClick={() => void share('share')}>
+            {PACK_COPY.composer.share}
+          </button>
+          <button type="button" class="btn-secondary" disabled={busy} onClick={() => void share('save')}>
+            {PACK_COPY.composer.save}
+          </button>
+          <button type="button" class="btn-link" onClick={() => window.print()}>
+            {PACK_COPY.composer.print}
+          </button>
+        </div>
       </div>
 
       {/* ---- the rail ------------------------------------------------ */}
       <aside class="pk-side glass card" aria-label={PACK_COPY.composer.sections}>
         <h2>{PACK_COPY.composer.sections}</h2>
-        <p class="pk-note">{PACK_COPY.composer.sectionsHint}</p>
         <ul class="pk-sections">
           {rail.map((s) => {
             const locked = Boolean(s.lockedWhy);
@@ -172,7 +208,12 @@ export function PackComposer({ base, branding, onBranding }: Props) {
                       aria-label={PACK_COPY.composer.moveDown(s.label)} onClick={() => move(s.key, 1)}>↓</button>
                   </span>
                 )}
-                {locked && <p class="pk-why" id={`pk-why-${s.key}`}>{s.lockedWhy}</p>}
+                {/* THE REASON IS KEPT, NOT SHOWN. Three of these rendered as
+                    paragraphs inside a flex row and collided into overlapping
+                    columns that clipped mid-word. The badge is the visible
+                    answer; the sentence stays for anyone using a screen reader,
+                    which is who actually needs it read out. */}
+                {locked && <p class="sr-only" id={`pk-why-${s.key}`}>{s.lockedWhy}</p>}
               </li>
             );
           })}
@@ -191,7 +232,7 @@ export function PackComposer({ base, branding, onBranding }: Props) {
 
       {/* ---- the document -------------------------------------------- */}
       <div class="pk-preview" ref={preview}>
-        <div class="pk-scale" style={{ zoom }}>
+        <div class="pk-scale" style={{ zoom }} ref={doc}>
           <PackDocument model={model} />
         </div>
       </div>
@@ -200,7 +241,7 @@ export function PackComposer({ base, branding, onBranding }: Props) {
       <aside class="pk-side glass card" aria-label={PACK_COPY.composer.brand}>
         <h2>{PACK_COPY.composer.brand}</h2>
 
-        <div class="pk-field">
+        <div class="field">
           <label id="pk-accent-lab">{PACK_COPY.composer.accent}</label>
           <div class="pk-swatches" role="group" aria-labelledby="pk-accent-lab">
             {ACCENT_PALETTE.map((c) => (
@@ -214,15 +255,15 @@ export function PackComposer({ base, branding, onBranding }: Props) {
             <input type="color" class="pk-swatch" aria-label={PACK_COPY.composer.custom} value={accent}
               onInput={(e) => onBranding({ ...branding, accentColour: (e.target as HTMLInputElement).value })} />
           </div>
-          {!accentReadsOnPaper(accent) && <p class="pk-note" role="alert">{PACK_COPY.composer.accentWarning}</p>}
+          {!accentReadsOnPaper(accent) && <p class="hint" role="alert">{PACK_COPY.composer.accentWarning}</p>}
         </div>
 
-        <div class="pk-field">
+        <div class="field">
           <label for="pk-logo">{PACK_COPY.composer.logo}</label>
-          <input id="pk-logo" type="file" accept="image/png,image/jpeg"
-            onChange={(e) => {
-              const f = (e.target as HTMLInputElement).files?.[0];
-              if (!f) return;
+          <FilePick id="pk-logo" accept="image/png,image/jpeg" label={PACK_COPY.composer.logoPick}
+            onFiles={(files) => {
+              const f = files?.[0];
+              if (f === undefined) return;
               const r = new FileReader();
               r.onload = () => onBranding({ ...branding, logoDataUri: String(r.result ?? '') });
               r.readAsDataURL(f);
@@ -233,30 +274,27 @@ export function PackComposer({ base, branding, onBranding }: Props) {
           )}
         </div>
 
-        <div class="pk-field">
+        <div class="field">
           <label for="pk-investor">{PACK_COPY.composer.investor}</label>
           <input id="pk-investor" type="text" maxLength={120} value={investorName}
             onInput={(e) => setInvestorName((e.target as HTMLInputElement).value)} />
         </div>
 
-        <div class="pk-field">
+        <div class="field">
           <label for="pk-summary">{PACK_COPY.composer.summary}</label>
-          <p class="pk-note">{PACK_COPY.composer.summaryHint}</p>
           <textarea id="pk-summary" rows={4} value={summary}
             onInput={(e) => setSummary((e.target as HTMLTextAreaElement).value)} />
         </div>
 
-        <div class="pk-field">
+        <div class="field">
           <h2>{PACK_COPY.composer.photos}</h2>
-          <p class="pk-note">{PACK_COPY.composer.photosHint}</p>
-          <p class="pk-note">{PACK_COPY.composer.noPortalImages}</p>
-          <p class="pk-note">{PACK_COPY.composer.photosNote}</p>
-          <input type="file" accept="image/*" multiple aria-label={PACK_COPY.composer.photosAdd}
-            onChange={(e) => addPhotos((e.target as HTMLInputElement).files)} />
+          <p class="hint">{PACK_COPY.composer.photosHint}</p>
+          <FilePick id="pk-photos" accept="image/*" multiple label={PACK_COPY.composer.photosAdd}
+            onFiles={(f) => addPhotos(f)} />
           {photos.length > 0 && (
             <>
               <div class="pk-thumbs">{photos.slice(0, 6).map((src) => <img class="pk-thumb" src={src} alt="" key={src} />)}</div>
-              <p class="pk-note">
+              <p class="hint">
                 {PACK_COPY.composer.photosCount(photos.length)}{' '}
                 <button type="button" class="btn-link" onClick={() => setPhotos([])}>{PACK_COPY.composer.photosClear}</button>
               </p>
@@ -265,7 +303,6 @@ export function PackComposer({ base, branding, onBranding }: Props) {
                   onChange={() => onBranding({ ...branding, duotone: !branding.duotone })} />
                 <span class="pk-row-name">{PACK_COPY.composer.duotone}</span>
               </label>
-              <p class="pk-note">{PACK_COPY.composer.duotoneHint}</p>
             </>
           )}
         </div>
@@ -274,7 +311,7 @@ export function PackComposer({ base, branding, onBranding }: Props) {
         {refused.length > 0 && (
           <div role="alert">
             <h2>{BANNED_COPY.heading}</h2>
-            <p class="pk-note">{BANNED_COPY.intro}</p>
+            <p class="hint">{BANNED_COPY.intro}</p>
             {refused.map((h) => (
               <div class="pk-refused" key={h.phrase}>
                 <p class="pk-refused-phrase">{BANNED_COPY.found(h.phrase)}</p>

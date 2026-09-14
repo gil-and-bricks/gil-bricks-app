@@ -1,17 +1,26 @@
 ---
 /**
- * DP1 — /pack. The one page in the app with no app chrome.
+ * DP1 — /pack. The builder is a PropLaunch screen; only the document is neutral.
  *
- * ON `Base.astro` DELIBERATELY. Everything else sits in AppShell, which carries
- * the navigation, the footer and the brand. This page's whole job is to put an
- * A4 document on screen and then on paper: a nav bar printed across the top of
- * somebody's investor pack would be our furniture on their document.
+ * ON `AppShell.astro`, AND DP1's REASONING FOR THE BARE LAYOUT WAS WRONG. That
+ * comment said a nav bar would print across the top of somebody's investor
+ * pack. It would not: `@media print` in pack.css is `body > *, .shell-body > *
+ * { display: none }` — it already names `.shell-body`, so it was written for
+ * this layout before the page used it. Nothing was gained by staying off the
+ * shell, and what was lost was the whole component vocabulary: `.glass.card`,
+ * `.field`, `.btn-action`, `.page-title` are all defined in analyser.css, which
+ * only AppShell imports. Every one of them matched no rule, so the builder
+ * rendered as raw browser controls — grey Arial buttons, borderless inputs —
+ * on top of a correct brand gradient.
+ *
+ * THE DOCUMENT IN THE MIDDLE IS STILL NEUTRAL. `.pk` owns its own tokens and
+ * inherits none of the app's, which is what keeps a sourcer's pack theirs.
  *
  * NOTHING HERE RENDERS WITHOUT THE FLAG. With `dealPack` off the route is a
  * redirect and the Worker's pack endpoints are bare 404s, so the feature has no
  * surface at all.
  */
-import Base from '../layouts/Base.astro';
+import AppShell from '../layouts/AppShell.astro';
 import { PackApp } from '../components/pack/PackApp';
 import { siteConfig } from '../site.config';
 import { features } from '../config/features';
@@ -21,8 +30,6 @@ import '../styles/pack.css';
 if (!features.dealPack) return Astro.redirect('/account');
 ---
 
-<Base title={`${PACK_COPY.build.heading} — ${siteConfig.siteName}`} description={PACK_COPY.build.intro} noindex>
-  <main class="pk-screen">
-    <PackApp client:load />
-  </main>
-</Base>
+<AppShell title={`${PACK_COPY.build.heading} — ${siteConfig.siteName}`} description={PACK_COPY.build.intro} noindex>
+  <PackApp client:load />
+</AppShell>

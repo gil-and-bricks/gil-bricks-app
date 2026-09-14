@@ -186,3 +186,38 @@ export function partsSumToTotal(n: PackNumbers): boolean {
 export function everyFigure(n: PackNumbers): EvidencedFigure[] {
   return [...n.headline, ...n.costs, ...n.returns];
 }
+
+/**
+ * DP3 — HOW LONG EACH COMPARABLE'S BAR IS.
+ *
+ * The comparables page is the most important page in the pack: it is the only
+ * one where somebody else's money is being compared to evidence rather than to
+ * a projection. It was a three-column list with the sold price in a 20mm
+ * column, which is a table of numbers — you can read it, but you cannot SEE it.
+ * A proportional bar makes the ranking instant.
+ *
+ * THE MATHS IS HERE, NOT IN THE PAGE. It is arithmetic on sold prices, which is
+ * domain arithmetic, and charter rule 3 puts that in core: a component may
+ * format a figure, never compute one. The page receives a width and prints it.
+ *
+ * THE SCALE STARTS AT 60% OF THE CHEAPEST, NOT AT ZERO. Sold prices in one
+ * postcode sector cluster tightly — £180k to £215k is a normal spread — and
+ * against a zero baseline every bar is the same length and the chart says
+ * nothing. Starting below the cheapest comparable keeps the ordering honest and
+ * the differences visible, and no bar is ever full width by accident.
+ *
+ * Returns a fraction in [0.08, 1] per row, in the order given. The floor means
+ * the cheapest row still draws something rather than vanishing.
+ */
+export function compBarWidths(values: readonly number[]): number[] {
+  const usable = values.filter((v) => Number.isFinite(v) && v > 0);
+  if (usable.length === 0) return values.map(() => 0);
+  const top = Math.max(...usable);
+  const floor = Math.min(...usable) * 0.6;
+  const span = top - floor;
+  return values.map((v) => {
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    if (span <= 0) return 1;
+    return Math.max(0.08, Math.min(1, (v - floor) / span));
+  });
+}

@@ -63,6 +63,7 @@ export const SECTION = {
   floorplan: 'floorplan',
   area: 'area',
   comps: 'comps',
+  figures: 'figures',
   gallery: 'gallery',
   basis: 'basis',
   compliance: 'compliance',
@@ -88,6 +89,7 @@ export const PACK_SECTIONS: readonly PackSection[] = [
   { key: SECTION.plan, label: 'The work and how long it takes' },
   { key: SECTION.area, label: 'The area' },
   { key: SECTION.comps, label: 'What sells nearby' },
+  { key: SECTION.figures, label: 'The final figures' },
   { key: SECTION.gallery, label: 'Your photographs' },
   { key: SECTION.basis, label: 'Where every figure came from', pinned: 'last', lockedWhy: 'Every number in this pack has to say where it came from.' },
   { key: SECTION.compliance, label: 'Your registration details', pinned: 'last', lockedWhy: 'An investor has to be able to check who they are dealing with.' },
@@ -96,7 +98,8 @@ export const PACK_SECTIONS: readonly PackSection[] = [
 
 /** The pages the user can reorder, in their default order. */
 export const MOVABLE_SECTIONS: readonly string[] = [
-  SECTION.returns, SECTION.purchase, SECTION.plan, SECTION.area, SECTION.comps, SECTION.gallery,
+  SECTION.returns, SECTION.purchase, SECTION.plan, SECTION.area, SECTION.comps, SECTION.figures,
+  SECTION.gallery,
 ];
 
 /** Sub-parts, switched on from the branding panel rather than the rail. */
@@ -203,6 +206,30 @@ export const PACK_COPY = {
     none: 'No area data available for this postcode.',
   },
 
+  /**
+   * DP3 — THE FINAL FIGURES. The plainest page in the pack, on purpose.
+   *
+   * Two columns and nothing else: what the investor puts in, and what they get
+   * back. Every other money page in this document explains, evidences or
+   * charts. This one states. It is the page somebody turns back to after they
+   * have read the rest, and the only thing it owes them is legibility.
+   */
+  figures: {
+    eyebrow: 'In and out',
+    heading: 'The final figures',
+    inHead: 'What goes in',
+    outHead: 'What comes back',
+    note: 'Before tax. Estimates are marked.',
+    /**
+     * WHY THE COLUMN DOES NOT ADD UP, said on the page rather than left to be
+     * noticed. On a financed deal the cash going in is far less than the
+     * purchase price, so a column of costs above a total looks like an
+     * arithmetic mistake. It is the same fact the waterfall states, in the same
+     * words, because it is the same fact.
+     */
+    financed: 'Part financed, so the cash going in is less than these add up to.',
+  },
+
   basis: {
     eyebrow: 'Basis and terms',
     heading: 'Where these figures came from',
@@ -229,7 +256,6 @@ export const PACK_COPY = {
   composer: {
     heading: 'Your deal pack',
     sections: 'Pages',
-    sectionsHint: 'Drag the order. Switch off what you do not want.',
     parts: 'What goes on them',
     brand: 'Your branding',
     moveUp: (name: string): string => `Move ${name} up`,
@@ -237,23 +263,25 @@ export const PACK_COPY = {
     include: (name: string): string => `Include ${name}`,
     pinnedFirst: 'Always first',
     pinnedLast: 'Always last',
-    download: 'Download PDF',
-    downloadHint: 'Opens your browser’s print box. Choose “Save as PDF” as the destination.',
-    accentWarning: 'That colour is too pale to read on the page. Headings will be hard to see.',
+    share: 'Share',
+    save: 'Save a copy',
+    print: 'Print',
+    accentWarning: 'Too pale to read on paper.',
     photos: 'Your photographs',
-    photosHint: 'Only photographs you have the right to use. Not the agent’s.',
-    photosNote: 'They stay on this device. They go into the pack and are not stored by us.',
+    photosHint: 'Yours only, not the agent’s. They stay on this device.',
     photosAdd: 'Add photographs',
     photosClear: 'Remove all',
     photosCount: (n: number): string => `${n} added`,
     duotone: 'Tint them in my colour',
-    duotoneHint: 'Makes a mixed set of phone photos look like one set.',
-    noPortalImages: 'The listing’s own photographs are never put in the pack. They belong to the agent.',
     investor: 'Who is it for? (optional)',
     summary: 'Your summary of the deal (optional)',
-    summaryHint: 'A few sentences in your own words. Checked before it goes in.',
     logo: 'Logo',
+    logoPick: 'Choose a logo',
     logoRemove: 'Remove',
+    /** The share sheet's own title, and the stem of the saved filename. */
+    shareTitle: 'Deal pack',
+    fileSuffix: 'deal-pack',
+    savedNote: 'Saved to your downloads.',
     accent: 'Accent colour',
     custom: 'Custom',
     saving: 'Saving…',
