@@ -2,6 +2,75 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-14 — A second accent, for primary calls to action only
+
+`--action: #ff2d78`. Lime says "this is ours"; pink says "press this".
+
+### White text was specified and does not pass — measured, then dropped
+
+  white  #ffffff on #ff2d78 ... 3.56:1  FAIL (AA normal text needs 4.5:1)
+  ink    #070014 on #ff2d78 ... 5.79:1  PASS
+
+AA Large (3:1) does not rescue it: these labels render at 16px/600, under the
+18.66px-bold threshold, so 3.56:1 is a fail rather than a judgement call. The
+operator was told before anything shipped and chose the pink pill with black
+text, which is what is built. The near-black is the house's existing ink for a
+bright fill; pure #000000 would be 5.90:1 if ever preferred.
+
+The pill itself was never in doubt — against every stop of the dark gradient it
+is 5.79 / 5.35 / 5.21 / 5.84:1, all well over the 3:1 a UI component needs.
+
+### Judgment calls
+
+**1. "Pill shape" and "same radius as the existing lime buttons" conflict.**
+The lime buttons use `--radius-btn: 12px`, which is a rounded rectangle, not a
+pill. The precise instruction won: same radius, same weight, same height — only
+the fill differs, so it reads as the same control wearing a louder colour. A
+true pill is `border-radius: 999px` on one rule if that was the intent.
+
+**2. "Make investor deal pack" does not exist.** Nothing in either package
+carries that label or anything like it. The nearest thing is the `pdfExport`
+flag, which is OFF and documented as hidden until the sprint that builds it.
+Nothing was invented to paint pink.
+
+**3. The Google sign-in button stays white.** `.gsi-button` is Google's own
+prescribed styling — white ground, #dadce0 border, Roboto. Recolouring it would
+breach their sign-in branding and cost the instant recognition that makes it
+work. The "Log in" buttons that OPEN that dialog are pink; the Google button
+inside it is not.
+
+**4. The analyser's Save was the quiet one.** It was `btn-secondary` while
+"Share on WhatsApp" was `btn-primary` — the thing most worth pressing was the
+least prominent. Save is now pink; Share stays lime, because it was not among
+the four named.
+
+**5. "Use this measurement" is not a Save.** `FloorPlanCard`'s button reads
+"Use this measurement" — it accepts a figure into the form rather than committing
+a deal, so it stays lime, as do the extension's "Open the measure tool" and
+"Use N m² as floor area". Only one of the extension's three `send-btn` controls
+is a call to action, and it now carries a modifier class that says so.
+
+**6. One token per artefact, not one token overall.** Within the web app it is
+genuinely one edit: `--action` in tokens.css and everything inherits. The
+extension ships as a separate artefact with its own stylesheet, so the value
+exists there too — exactly as `--accent` already did. `brandTokens.test.ts`
+fails if the two ever disagree, so it is two edits that cannot drift, not one
+edit. Said plainly rather than claimed as one.
+
+### The gate
+
+`brandTokens.test.ts` COMPUTES the contrast from the token's own value rather
+than trusting the comment beside it. Change the shade and it re-measures; a
+shade whose ink fails AA fails the build with the number in the message
+(verified by trying `#8a0038`: "2.10:1 — AA needs 4.5"). It also asserts both
+halves of the rule — every named primary action is pink, and the offers, the
+Google button and the YouTube links are not.
+
+### Rollback
+
+One line: `--action` back out of tokens.css and the five `btn-action` classes
+revert to what they were. Nothing else moved.
+
 ## 2026-09-14 — CA1: the area trajectory panel
 
 What an area has actually done with prices, and what the arithmetic says if it
