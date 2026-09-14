@@ -20,6 +20,7 @@ import {
   trajectoryFor,
   variability,
   type AreaSeries,
+  type AreaTrajectory as Trajectory,
   type TrajectoryFile,
 } from './trajectory';
 
@@ -220,19 +221,25 @@ describe('the trajectory as the panel receives it', () => {
     expect(t.scenarios!.bands[5].map((b) => b.key)).toEqual(['low', 'central', 'high']);
   });
 
+  /** The band with a given key, found by name rather than by position. */
+  const bandOf = (t: Trajectory, h: 5 | 10, key: 'low' | 'central' | 'high') => {
+    const found = t.scenarios?.bands[h].find((b) => b.key === key);
+    expect(found, `no ${key} band at ${h} years`).toBeDefined();
+    return found!;
+  };
+
   it('compounds from the DEAL\'s price, not the area average', () => {
-    const t = full();
-    expect(t.scenarios!.bands[5][1].end.breakdown.substituted).toContain('£250,000');
+    expect(bandOf(full(), 5, 'central').end.breakdown.substituted).toContain('£250,000');
   });
 
   it('falls back to the area average when the deal has no price', () => {
     const t = trajectoryFor(fileWith({ LA1: area() }), codes, null)!;
-    expect(t.scenarios!.bands[5][1].end.breakdown.substituted).toContain('£200,000');
+    expect(bandOf(t, 5, 'central').end.breakdown.substituted).toContain('£200,000');
   });
 
   it('the ten-year band is always wider than the five-year one', () => {
     const t = full();
-    const width = (h: 5 | 10) => t.scenarios!.bands[h][2].end.value - t.scenarios!.bands[h][0].end.value;
+    const width = (h: 5 | 10) => bandOf(t, h, 'high').end.value - bandOf(t, h, 'low').end.value;
     expect(width(10)).toBeGreaterThan(width(5));
   });
 

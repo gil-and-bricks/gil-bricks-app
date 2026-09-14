@@ -100,8 +100,13 @@ const money = (x: number): string => `£${Math.round(x).toLocaleString('en-GB')}
 export function annualChanges(index: readonly number[]): number[] {
   const out: number[] = [];
   for (let k = 1; k < index.length; k += 1) {
-    const before = index[k - 1];
-    const after = index[k];
+    // Typed as possibly-undefined on purpose. Under a stricter tsconfig — the
+    // extension's, once WXT 0.21 lands — an indexed read IS `number |
+    // undefined`, and `!(before > 0)` reads as a narrowing that does not narrow.
+    // The runtime behaviour was always right; this makes the types say so.
+    const before: number | undefined = index[k - 1];
+    const after: number | undefined = index[k];
+    if (before === undefined || after === undefined) continue;
     if (!(before > 0) || !(after > 0)) continue;
     out.push(after / before - 1);
   }
@@ -122,12 +127,14 @@ export function annualChanges(index: readonly number[]): number[] {
 export function ratePercentile(values: readonly number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
-  if (sorted.length === 1) return sorted[0];
+  const first = sorted[0];
+  if (first === undefined) return null;
+  if (sorted.length === 1) return first;
   const rank = (sorted.length - 1) * p;
-  const lo = Math.floor(rank);
-  const hi = Math.ceil(rank);
-  if (lo === hi) return sorted[lo];
-  return sorted[lo] + (rank - lo) * (sorted[hi] - sorted[lo]);
+  const lo = sorted[Math.floor(rank)];
+  const hi = sorted[Math.ceil(rank)];
+  if (lo === undefined || hi === undefined) return null;
+  return lo + (rank - Math.floor(rank)) * (hi - lo);
 }
 
 /** Cumulative growth over the last `years` years, and the same as an annual rate. */
@@ -136,8 +143,9 @@ export function growthOver(index: readonly number[], years: number): {
   annualised: WithBreakdown;
 } | null {
   if (index.length < years + 1) return null;
-  const then = index[index.length - 1 - years];
-  const now = index[index.length - 1];
+  const then: number | undefined = index[index.length - 1 - years];
+  const now: number | undefined = index[index.length - 1];
+  if (then === undefined || now === undefined) return null;
   if (!(then > 0) || !(now > 0)) return null;
   assertFinite({ then, now, years });
 
@@ -382,8 +390,8 @@ export function bandEnds(index: readonly number[], rates: ScenarioRates, years: 
 
 /** The history line the chart draws: one point per year, rebased to 100 at the start. */
 export function historyPoints(index: readonly number[]): { year: number; value: number }[] {
-  if (index.length === 0 || !(index[0] > 0)) return [];
-  const base = index[0];
+  const base: number | undefined = index[0];
+  if (base === undefined || !(base > 0)) return [];
   return index.map((v, k) => ({ year: k - (index.length - 1), value: (v / base) * 100 }));
 }
 
