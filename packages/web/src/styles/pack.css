@@ -1,222 +1,417 @@
 /**
- * DP1 — THE INVESTOR DEAL PACK.
+ * DP2 — THE DEAL PACK'S DESIGN SYSTEM.
  *
- * NEUTRAL BY DEFAULT, AND THAT IS DELIBERATE. A document a sourcer sends their
- * investor should look like theirs, not like ours. So there is no lime and no
- * dark purple anywhere in here: black on white, generous space, and one accent
- * colour that is THEIRS the moment they set it. Until they do, the accent is a
- * quiet slate that reads as "professional", not as "unbranded".
+ * WHAT WENT WRONG THE FIRST TIME, said plainly so it is not repeated: the brief
+ * asked for "neutral, not your brand", and what got built was no design at all —
+ * a white A4 page with some writing on it. Neutral means SOPHISTICATED AND
+ * UNBRANDED-TO-US. It does not mean blank. This document is a marketing
+ * document: it is the thing that makes an investor take a sourcer seriously, and
+ * it has to look like it cost money to make.
  *
- * It is the only stylesheet in this app that does not use the brand tokens, and
- * that is the point rather than an oversight.
+ * THE DESIGN QUALITY LIVES HERE AND IN THE TEMPLATES, never in the user's
+ * freedom to move things. They choose what goes in, in what order, in their
+ * colour, with their logo and their photographs. They never touch type, grid,
+ * spacing or layout — so there is no arrangement of their choices that comes out
+ * misaligned. That is the whole model.
  *
- * ONE IDEA A PAGE. Each `.pk-page` is one A4 sheet and breaks after itself. The
- * screen preview shows the same sheets stacked with a shadow, so what you see
- * scrolling is what comes out of the printer.
+ * FOUR THINGS CARRY THE "EXPENSIVE" LOOK, and none of them is an asset library:
+ *   1. A dramatic type scale. The page title is three times the body, the hero
+ *      number is nine times it. Scale IS the decoration.
+ *   2. Bands. Pages alternate ink and paper so the rhythm reads as deliberate.
+ *   3. Geometry derived from THEIR accent — rules, numerals, corner devices,
+ *      soft gradients. Nothing is drawn that their colour does not key.
+ *   4. Duotone photographs, so a set of mismatched phone pictures becomes one
+ *      coherent branded set (see .pk-duo and the SVG filter that feeds it).
+ *
+ * EVERY COLOUR AND EVERY BAND MUST SURVIVE THE PRINTER. Browsers strip
+ * backgrounds when printing unless told not to; without print-color-adjust the
+ * whole design collapses to white paper with text on it, which is precisely the
+ * document that was rejected.
  */
 
+/* ===================================================================== *
+ * 1. TOKENS
+ * ===================================================================== */
 .pk {
-  /* THEIRS, or a neutral default. Set inline from their profile — one custom
-     property, so every heading, rule and figure inherits it at once. */
-  --pk-accent: #334155;
-  --pk-ink: #111827;
-  --pk-quiet: #4b5563;
-  --pk-line: #d1d5db;
-  --pk-paper: #ffffff;
-  color: var(--pk-ink);
-  font: 400 11pt/1.5 Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* THEIRS. Set inline from their profile; everything else keys off it. */
+  --pk-accent: #8a1f4b;
+  /* A readable partner for the accent, computed by the app, never guessed. */
+  --pk-on-accent: #ffffff;
+
+  /* The two bands. Not our brand — a warm near-black and a warm white. */
+  --pk-ink: #10131a;
+  --pk-ink-soft: #1c2029;
+  --pk-paper: #fbfaf7;
+  --pk-paper-warm: #f4f1ea;
+
+  --pk-text: #14181f;
+  --pk-text-quiet: #5b636f;
+  --pk-text-on-ink: #f7f6f3;
+  --pk-text-on-ink-quiet: #a7adb8;
+  --pk-line: #d9d5cc;
+  --pk-line-on-ink: #2e3440;
+
+  /* THE GRID. 210mm sheet, 16mm side margins, 178mm of content in 12 columns. */
+  --pk-sheet-w: 210mm;
+  --pk-sheet-h: 297mm;
+  --pk-margin-x: 16mm;
+  --pk-margin-top: 18mm;
+  --pk-margin-bottom: 14mm;
+  --pk-col: calc((var(--pk-sheet-w) - (var(--pk-margin-x) * 2) - (11 * 4mm)) / 12);
+  --pk-gutter: 4mm;
+
+  /* THE BASELINE. Every vertical space is a multiple of it. */
+  --pk-base: 4mm;
+
+  /* THE TYPE SCALE. Body 10.5pt; the page title is 30pt — near enough three
+     times it, which is the jump that stops a document reading as a report. */
+  --pk-t-hero: 96pt;
+  --pk-t-hero-sm: 62pt;
+  --pk-t-display: 40pt;
+  --pk-t-title: 30pt;
+  --pk-t-lede: 13.5pt;
+  --pk-t-sub: 12pt;
+  --pk-t-body: 10.5pt;
+  --pk-t-small: 9pt;
+  --pk-t-micro: 7.5pt;
+
+  --pk-sans: Montserrat, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pk-body-font: Poppins, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  color: var(--pk-text);
+  font: 400 var(--pk-t-body)/1.55 var(--pk-body-font);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ---- one sheet -------------------------------------------------------- */
+/* ===================================================================== *
+ * 2. THE SHEET
+ * ===================================================================== */
 .pk-page {
+  position: relative;
+  width: var(--pk-sheet-w);
+  height: var(--pk-sheet-h);
+  overflow: hidden;              /* a sheet is a sheet; nothing spills */
   background: var(--pk-paper);
-  color: var(--pk-ink);
-  width: 210mm;
-  min-height: 297mm;
-  padding: 18mm 16mm 14mm;
-  /* A FALLBACK, NOT A TOKEN. These sheets are also written into the file the
-     user saves and sends, which carries this stylesheet and nothing else — a
-     bare var(--space-5) there resolves to nothing and the sheet loses its
-     centring on somebody else's machine. */
-  margin: 0 auto var(--space-5, 2rem);
-  box-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
+  color: var(--pk-text);
   display: flex;
   flex-direction: column;
-  position: relative;
+  padding: var(--pk-margin-top) var(--pk-margin-x) var(--pk-margin-bottom);
+  margin: 0 auto calc(var(--pk-base) * 2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .18), 0 18px 48px rgba(0, 0, 0, .34);
 }
+/* A band page: the same sheet, inverted. The rhythm is the point. */
+.pk-page.is-ink {
+  background: var(--pk-ink);
+  color: var(--pk-text-on-ink);
+  --pk-text: var(--pk-text-on-ink);
+  --pk-text-quiet: var(--pk-text-on-ink-quiet);
+  --pk-line: var(--pk-line-on-ink);
+}
+/* Full-bleed pages own their own padding. */
+.pk-page.is-bleed { padding: 0; }
 
-.pk-page-body { flex: 1 1 auto; }
+/**
+ * THE CORNER DEVICE — the "expensive without assets" part.
+ *
+ * A single soft wedge of their own accent, bottom-right, behind everything and
+ * at very low opacity. It gives a page with a short section somewhere to end
+ * rather than trailing off into white, and it is drawn from their colour so it
+ * can never fight the brand. No illustration, no stock art, no asset library:
+ * one gradient and one clip path.
+ *
+ * Behind content and under 8% opacity, so it cannot touch text contrast.
+ */
+.pk-page:not(.is-bleed)::after {
+  content: "";
+  position: absolute;
+  right: 0; bottom: 0;
+  width: 88mm; height: 88mm;
+  background: linear-gradient(135deg, transparent 35%, color-mix(in srgb, var(--pk-accent) 30%, transparent) 100%);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+  opacity: .5;
+  pointer-events: none;
+  z-index: 0;
+}
+.pk-page.is-ink::after { opacity: .7; }
+/* Content sits above it, always. */
+.pk-page-body, .pk-foot { position: relative; z-index: 1; }
+.pk-page-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 
-/* The rule under a page's title is the clearest place their colour shows. */
-.pk-h1 { font: 800 30pt/1.1 Montserrat, system-ui, sans-serif; margin: 0 0 4mm; color: var(--pk-ink); }
-.pk-h2 { font: 700 18pt/1.2 Montserrat, system-ui, sans-serif; margin: 0 0 2mm; color: var(--pk-accent); }
-.pk-h3 { font: 700 12pt/1.3 Montserrat, system-ui, sans-serif; margin: 6mm 0 2mm; color: var(--pk-ink); }
-.pk-rule { height: 3px; background: var(--pk-accent); border: 0; margin: 0 0 8mm; width: 28mm; }
-.pk-lede { font-size: 12pt; color: var(--pk-quiet); margin: 0 0 6mm; max-width: 130mm; }
+/* ===================================================================== *
+ * 3. TYPE
+ * ===================================================================== */
+.pk-display { font: 800 var(--pk-t-display)/1.02 var(--pk-sans); letter-spacing: -.02em; margin: 0; }
+.pk-title   { font: 800 var(--pk-t-title)/1.06 var(--pk-sans); letter-spacing: -.02em; margin: 0; }
+.pk-sub     { font: 600 var(--pk-t-sub)/1.3 var(--pk-sans); margin: 0; }
+.pk-lede    { font-size: var(--pk-t-lede); line-height: 1.45; color: var(--pk-text-quiet); margin: 0; max-width: 118mm; }
+.pk-body    { font-size: var(--pk-t-body); margin: 0; }
+.pk-small   { font-size: var(--pk-t-small); color: var(--pk-text-quiet); margin: 0; }
+.pk-micro   { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: 0; letter-spacing: .02em; }
 
-/* ---- the numbers: big, clear, room to breathe ------------------------- */
-.pk-figures { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm 8mm; margin: 0; padding: 0; list-style: none; }
-.pk-figure { break-inside: avoid; }
-.pk-figure-label { font-size: 9.5pt; color: var(--pk-quiet); margin: 0 0 1mm; }
-.pk-figure-value { font: 800 22pt/1.1 Montserrat, system-ui, sans-serif; margin: 0; color: var(--pk-ink); }
-.pk-figure-basis { font-size: 8.5pt; color: var(--pk-quiet); margin: 1.5mm 0 0; max-width: 70mm; }
+/* A section opener: an oversized numeral in their colour, then the title.
+   Large type used as decoration, which is how premium documents do it. */
+.pk-opener { display: flex; align-items: baseline; gap: var(--pk-base); margin: 0 0 calc(var(--pk-base) * 2); }
+.pk-opener-num {
+  font: 800 var(--pk-t-display)/1 var(--pk-sans);
+  color: var(--pk-accent);
+  opacity: .9;
+  letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums;
+}
+.pk-rule { height: 0; border: 0; border-top: 2px solid var(--pk-accent); width: 24mm; margin: calc(var(--pk-base) * .75) 0 calc(var(--pk-base) * 2); }
+
+/* The eyebrow above a title — small, spaced, in their colour. */
+.pk-eyebrow {
+  font: 700 var(--pk-t-micro)/1 var(--pk-sans);
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--pk-accent);
+  margin: 0 0 var(--pk-base);
+}
+.is-ink .pk-eyebrow { color: var(--pk-accent-on-ink, var(--pk-accent)); }
+
+/* ===================================================================== *
+ * 4. THE COVER — full-bleed photograph, their logo, the address, one figure
+ * ===================================================================== */
+.pk-cover { background: var(--pk-ink); color: var(--pk-text-on-ink); }
+.pk-cover-shot { position: absolute; inset: 0; overflow: hidden; }
+.pk-cover-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* The scrim is what makes type legible over any photograph they choose, and
+   what ties the image to their colour. Two layers: a vertical darkener and a
+   soft wash of the accent. */
+.pk-cover-scrim {
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(180deg, rgba(16, 19, 26, .82) 0%, rgba(16, 19, 26, .34) 38%, rgba(16, 19, 26, .92) 100%),
+    linear-gradient(140deg, color-mix(in srgb, var(--pk-accent) 55%, transparent) 0%, transparent 62%);
+}
+/* No photograph: the accent carries the cover on its own. */
+.pk-cover-plain {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 80% at 8% 0%, color-mix(in srgb, var(--pk-accent) 62%, transparent) 0%, transparent 58%),
+    linear-gradient(160deg, var(--pk-ink-soft) 0%, var(--pk-ink) 70%);
+}
+.pk-cover-inner {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; justify-content: space-between;
+  height: 100%;
+  padding: var(--pk-margin-top) var(--pk-margin-x) var(--pk-margin-bottom);
+}
+.pk-cover-logo { max-height: 16mm; max-width: 62mm; object-fit: contain; }
+.pk-cover-logo-text { font: 700 var(--pk-t-sub)/1 var(--pk-sans); color: var(--pk-text-on-ink); letter-spacing: .01em; }
+.pk-cover-address { font: 800 var(--pk-t-display)/1.02 var(--pk-sans); letter-spacing: -.025em; margin: 0; max-width: 150mm; }
+.pk-cover-strategy { margin: var(--pk-base) 0 0; font: 600 var(--pk-t-sub)/1.2 var(--pk-sans); color: var(--pk-text-on-ink-quiet); }
+.pk-cover-hero { display: flex; align-items: flex-end; gap: calc(var(--pk-base) * 2); margin-top: calc(var(--pk-base) * 3); }
+.pk-cover-hero-fig { font: 800 var(--pk-t-hero-sm)/.9 var(--pk-sans); letter-spacing: -.035em; color: #fff; font-variant-numeric: tabular-nums; }
+.pk-cover-hero-lab { font-size: var(--pk-t-small); color: var(--pk-text-on-ink-quiet); max-width: 46mm; padding-bottom: 2mm; }
+.pk-cover-meta { display: flex; gap: calc(var(--pk-base) * 3); align-items: flex-end; }
+.pk-cover-meta dt { font: 700 var(--pk-t-micro)/1 var(--pk-sans); letter-spacing: .14em; text-transform: uppercase; color: var(--pk-accent); margin: 0 0 1.5mm; }
+.pk-cover-meta dd { margin: 0; font-size: var(--pk-t-body); color: var(--pk-text-on-ink); }
+
+/* ===================================================================== *
+ * 5. THE HERO NUMBER — one enormous figure, the page built around it
+ * ===================================================================== */
+.pk-hero { display: flex; flex-direction: column; justify-content: center; flex: 1 1 auto; }
+.pk-hero-fig {
+  font: 800 var(--pk-t-hero)/.86 var(--pk-sans);
+  letter-spacing: -.045em;
+  color: var(--pk-accent);
+  font-variant-numeric: tabular-nums;
+  margin: 0;
+}
+.is-ink .pk-hero-fig { color: #fff; }
+.pk-hero-lab { font: 600 var(--pk-t-sub)/1.2 var(--pk-sans); margin: calc(var(--pk-base) * 1.5) 0 0; }
+.pk-hero-basis { font-size: var(--pk-t-small); color: var(--pk-text-quiet); margin: var(--pk-base) 0 0; max-width: 108mm; }
+
+/* A strip of supporting figures. Big, not tabular. */
+.pk-strip { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: var(--pk-gutter); margin-top: calc(var(--pk-base) * 3); }
+.pk-strip-item { border-top: 2px solid var(--pk-accent); padding-top: calc(var(--pk-base) * .75); break-inside: avoid; }
+.pk-strip-fig { font: 800 22pt/1 var(--pk-sans); letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin: 0; }
+.pk-strip-lab { font-size: var(--pk-t-small); color: var(--pk-text-quiet); margin: 1.5mm 0 0; }
+.pk-strip-note { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: 1mm 0 0; }
+
 /* Every forward-looking number wears this. It is not decoration. */
-.pk-estimate {
-  display: inline-block; font-size: 7.5pt; font-weight: 700; letter-spacing: 0.05em;
-  text-transform: uppercase; color: var(--pk-accent);
-  border: 1px solid var(--pk-accent); border-radius: 3px; padding: 0.5mm 1.5mm;
-  margin-left: 2mm; vertical-align: middle;
+.pk-est {
+  display: inline-block; vertical-align: middle;
+  font: 700 var(--pk-t-micro)/1 var(--pk-sans);
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--pk-accent);
+  border: 1px solid currentColor; border-radius: 2px;
+  padding: 1mm 1.6mm;
+  margin-left: 3mm;
+  white-space: nowrap;
 }
+.is-ink .pk-est { color: #fff; }
 
-/* The two headline numbers on the glance page get the whole width. */
-.pk-headline { display: grid; grid-template-columns: 1fr; gap: 10mm; margin: 10mm 0; }
-.pk-headline .pk-figure-value { font-size: 44pt; }
-.pk-headline .pk-figure-label { font-size: 11pt; }
-/* At 44pt a 2mm gap reads as a tag stuck to the last digit. */
-.pk-headline .pk-estimate { margin-left: 5mm; font-size: 8.5pt; }
+/* ===================================================================== *
+ * 6. CHARTS — every one hand-rolled inline SVG, so it prints as vector
+ * ===================================================================== */
+.pk-chart { width: 100%; display: block; overflow: visible; }
+/* The headline says what the chart MEANS, not what it measures. */
+.pk-chart-head { font: 700 var(--pk-t-sub)/1.25 var(--pk-sans); margin: 0 0 var(--pk-base); max-width: 135mm; }
+.pk-chart-note { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: calc(var(--pk-base) * .75) 0 0; }
+.pk-fig { margin: 0 0 calc(var(--pk-base) * 2.5); break-inside: avoid; }
 
-/* ---- cover ------------------------------------------------------------ */
-.pk-cover { justify-content: space-between; }
-.pk-logo { max-height: 22mm; max-width: 60mm; object-fit: contain; }
-.pk-cover-title { font: 800 34pt/1.05 Montserrat, system-ui, sans-serif; margin: 0 0 3mm; }
-.pk-cover-sub { font-size: 13pt; color: var(--pk-quiet); margin: 0; }
-.pk-cover-meta { font-size: 10pt; color: var(--pk-quiet); }
-.pk-cover-meta dt { font-weight: 600; color: var(--pk-ink); margin-top: 3mm; }
-.pk-cover-meta dd { margin: 0; }
+.pk-svg-bar { fill: var(--pk-accent); }
+.pk-svg-bar-soft { fill: var(--pk-accent); opacity: .3; }
+.pk-svg-bar-ink { fill: var(--pk-text); opacity: .85; }
+.pk-svg-line { fill: none; stroke: var(--pk-accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.pk-svg-band { fill: var(--pk-accent); opacity: .14; }
+.pk-svg-axis { stroke: var(--pk-line); stroke-width: .75; }
+.pk-svg-label { font: 500 7pt/1 var(--pk-body-font); fill: var(--pk-text-quiet); }
+.pk-svg-value { font: 700 8pt/1 var(--pk-sans); fill: var(--pk-text); font-variant-numeric: tabular-nums; }
+.pk-svg-value-inv { font: 700 8pt/1 var(--pk-sans); fill: #fff; font-variant-numeric: tabular-nums; }
 
-/* ---- photographs: theirs, never the portal's -------------------------- */
-/* FIXED HEIGHTS, NOT ASPECT RATIOS. With a ratio the block's height follows
-   the sheet's width, and one photograph, two or three each made the cover a
-   different length — at two it grew past A4 and the cover spilled. A height in
-   millimetres makes the cover the same length whatever they add, and
-   object-fit: cover means their photograph is still never distorted. */
-.pk-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 6mm 0 0; }
-.pk-photo { width: 100%; height: 42mm; object-fit: cover; border-radius: 2px; }
-.pk-photo-lead { grid-column: 1 / -1; height: 76mm; }
+/* The refurb runway: phases as bars on a time axis, not a table of dates. */
+.pk-runway-row { break-inside: avoid; }
 
-/* ---- lists, scope, area ---------------------------------------------- */
-.pk-list { margin: 0; padding: 0; list-style: none; }
-.pk-list li { padding: 2.5mm 0; border-bottom: 1px solid var(--pk-line); break-inside: avoid; }
-.pk-row { display: flex; justify-content: space-between; gap: 6mm; align-items: baseline; }
-.pk-row-value { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pk-source { font-size: 8.5pt; color: var(--pk-quiet); margin: 1mm 0 0; }
+/* Comparables, ranked, with an inline bar each. */
+.pk-comps { list-style: none; margin: 0; padding: 0; }
+.pk-comps li { display: grid; grid-template-columns: 1fr 34mm 20mm; gap: var(--pk-gutter); align-items: center; padding: calc(var(--pk-base) * .8) 0; border-bottom: 1px solid var(--pk-line); break-inside: avoid; }
+.pk-comps li.is-subject { font-weight: 600; }
+.pk-comps li.is-subject .pk-comp-addr::after { content: ""; }
+.pk-comp-addr { font-size: var(--pk-t-small); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pk-comp-val { font: 700 var(--pk-t-body)/1 var(--pk-sans); text-align: right; font-variant-numeric: tabular-nums; }
+.pk-pill { display: inline-block; font: 700 var(--pk-t-micro)/1 var(--pk-sans); padding: 1mm 2mm; border-radius: 99px; background: color-mix(in srgb, var(--pk-accent) 16%, transparent); color: var(--pk-accent); }
 
-/* ---- the duration runway --------------------------------------------- */
-.pk-runway { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 4mm 0; }
-.pk-runway-part { border-top: 3px solid var(--pk-accent); padding-top: 2mm; break-inside: avoid; }
-.pk-runway-name { font-size: 8.5pt; color: var(--pk-quiet); margin: 0; }
-.pk-runway-weeks { font: 700 12pt/1.2 Montserrat, system-ui, sans-serif; margin: 0.5mm 0 0; }
+/* The map, when it works. */
+.pk-map { width: 100%; border-radius: 1mm; display: block; }
+.pk-map-wrap { position: relative; break-inside: avoid; }
 
-/* ---- the locked parts -------------------------------------------------- */
-/* TWO COLUMNS, BECAUSE THIS IS THE ONE PAGE WHOSE LENGTH IS NOT FIXED. It
-   carries a line per figure, and a deal with more figures makes it longer — in
-   one column a BRRRR already ran past the bottom of the sheet and spilled onto
-   an unnumbered seventh page. The gate measures every sheet against A4, so if
-   this ever stops fitting it fails there rather than in somebody's printer. */
-.pk-basis-list { margin: 0; padding: 0; columns: 2; column-gap: 8mm; }
-.pk-basis-list > div { break-inside: avoid; margin-bottom: 2.5mm; }
-.pk-basis-list dt { font-weight: 700; font-size: 9pt; margin: 0; }
-.pk-basis-list dd { margin: 0.5mm 0 0; font-size: 8.5pt; color: var(--pk-quiet); }
-.pk-compliance { border: 1px solid var(--pk-line); padding: 4mm; margin: 5mm 0; break-inside: avoid; }
-.pk-compliance dt { font-size: 8.5pt; color: var(--pk-quiet); margin-top: 2mm; }
-.pk-compliance dd { margin: 0; font-size: 10pt; font-weight: 600; }
-/* A blank is a lie by omission, so the gap is printed and looks like a gap. */
-.pk-missing { font-weight: 600; color: #b45309; }
-.pk-terms p { font-size: 9pt; color: var(--pk-quiet); margin: 0 0 2.5mm; max-width: 140mm; }
+/* Their traced plan, as an architectural line drawing. */
+.pk-plan { margin: 0 0 calc(var(--pk-base) * 1.5); break-inside: avoid; }
+.pk-plan-svg { width: 100%; max-height: 92mm; display: block; }
+.pk-plan-room { fill: color-mix(in srgb, var(--pk-accent) 7%, transparent); stroke: var(--pk-accent); stroke-width: 1.2; stroke-linejoin: round; }
+.pk-plan-label { font: 500 6.5pt/1 var(--pk-body-font); fill: var(--pk-text); }
+.pk-plan-name { font: 700 var(--pk-t-small)/1 var(--pk-sans); margin: 0 0 2mm; }
 
-/* ---- their own traced floor plan -------------------------------------- */
-.pk-plan { margin: 4mm 0; break-inside: avoid; }
-.pk-plan-name { font-weight: 600; font-size: 9pt; margin: 0 0 2mm; }
-.pk-plan-svg { width: 100%; max-height: 90mm; }
-.pk-plan-room { fill: none; stroke: var(--pk-accent); stroke-width: 1.5; }
-.pk-plan-label { fill: var(--pk-ink); font-size: 7px; }
+/* ===================================================================== *
+ * 7. PHOTOGRAPHS — theirs only, disciplined, optionally duotone
+ * ===================================================================== */
+.pk-shots { display: grid; gap: var(--pk-gutter); grid-template-columns: 1fr 1fr; flex: 1 1 auto; min-height: 0; }
+.pk-shot { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pk-shot-lead { grid-column: 1 / -1; }
+/* Duotone is an SVG filter so it re-themes the instant their colour changes,
+   with no asset re-exported and nothing pre-baked. */
+.pk-duo { filter: url(#pk-duotone); }
+.pk-shots-full { position: absolute; inset: 0; }
+.pk-shots-full img { width: 100%; height: 100%; object-fit: cover; }
 
-/* ---- the foot of every page ------------------------------------------- */
+/* ===================================================================== *
+ * 8. PAGE FURNITURE — locked, quiet, never illegible
+ * ===================================================================== */
 .pk-foot {
+  flex: 0 0 auto;
+  display: flex; justify-content: space-between; align-items: flex-end; gap: calc(var(--pk-base) * 2);
   border-top: 1px solid var(--pk-line);
-  padding-top: 3mm; margin-top: 6mm;
-  display: flex; justify-content: space-between; gap: 6mm; align-items: flex-end;
-  font-size: 7.5pt; color: var(--pk-quiet);
+  padding-top: calc(var(--pk-base) * .75);
+  margin-top: calc(var(--pk-base) * 1.5);
 }
-.pk-foot-disclaimer { max-width: 140mm; margin: 0; }
-.pk-foot-made { margin: 0; white-space: nowrap; }
+.pk-foot p { margin: 0; font-size: var(--pk-t-micro); color: var(--pk-text-quiet); }
+.pk-foot-disclaimer { max-width: 132mm; }
+.pk-foot-page { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pk-cover .pk-foot { border-top-color: var(--pk-line-on-ink); }
 
-/* The saved file has no app chrome to hide, so the sheets sit on paper. */
-.pk-saved { margin: 0; background: #fff; }
+.pk-basis-list { margin: 0; padding: 0; columns: 2; column-gap: calc(var(--pk-gutter) * 2); }
+.pk-basis-list > div { break-inside: avoid; margin-bottom: calc(var(--pk-base) * .8); }
+.pk-basis-list dt { font: 700 var(--pk-t-small)/1.3 var(--pk-sans); margin: 0; }
+.pk-basis-list dd { margin: .8mm 0 0; font-size: var(--pk-t-micro); color: var(--pk-text-quiet); }
+.pk-compliance { border: 1px solid var(--pk-line); border-left: 3px solid var(--pk-accent); padding: calc(var(--pk-base) * 1.2); margin: calc(var(--pk-base) * 1.5) 0; break-inside: avoid; }
+.pk-compliance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: calc(var(--pk-base) * .8) calc(var(--pk-gutter) * 2); margin: 0; }
+.pk-compliance dt { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: 0; }
+.pk-compliance dd { margin: 0; font-size: var(--pk-t-small); font-weight: 600; }
+/* A blank is a lie by omission, so the gap is printed and looks like a gap. */
+.pk-missing { font-weight: 600; color: #a8541b; }
+.pk-terms p { font-size: var(--pk-t-micro); color: var(--pk-text-quiet); margin: 0 0 2mm; max-width: 150mm; }
 
-/* ---- the builder screen (never printed) -------------------------------- */
-.pk-build { max-width: 44rem; margin: 0 auto; padding: var(--space-4); }
-.pk-sections { list-style: none; margin: 0 0 var(--space-4); padding: 0; }
-.pk-section-row { display: flex; gap: var(--space-2); align-items: flex-start; padding: var(--space-2) 0; border-bottom: 1px solid var(--line); }
-.pk-locked { display: inline-block; font-size: var(--text-xs); font-weight: 700; color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; padding: 0 var(--space-1); }
-.pk-locked-why { font-size: var(--text-xs); color: var(--text-dim); margin: 2px 0 0; }
-.pk-refused { border-left: 3px solid var(--verdict-red, #e5484d); padding: var(--space-2); margin: var(--space-2) 0; }
-.pk-refused-phrase { font-weight: 700; margin: 0; }
-.pk-refused-why { margin: 2px 0 0; font-size: var(--text-sm); }
-.pk-preview-wrap { background: #4b5563; padding: var(--space-4) 0; margin: var(--space-4) calc(var(--space-4) * -1) 0; }
-/* The page around the sheets. Tokens, not copies of them: this rule is not
-   part of a sheet, so it never travels into the file the user saves. */
+/* ===================================================================== *
+ * 9. THE COMPOSER — screen only, never printed
+ * ===================================================================== */
 .pk-screen { min-height: 100vh; background: var(--bg-0); color: var(--text); }
-.pk-build-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
-.pk-declare-para { margin: 0 0 var(--space-2); }
-.pk-declare-confirm { display: flex; gap: var(--space-2); align-items: flex-start; margin: var(--space-3) 0; }
-.pk-profile-wrap { margin: var(--space-4) 0; }
-.pk-profile-logo { max-height: 3rem; vertical-align: middle; margin-right: var(--space-2); }
+.pk-composer {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr) 19rem;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3);
+  max-width: 100rem;
+  margin: 0 auto;
+}
+.pk-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.pk-bar h1 { font-size: var(--text-lg); margin: 0; flex: 1 1 auto; }
+.pk-side { position: sticky; top: var(--space-2); max-height: calc(100vh - var(--space-4)); overflow-y: auto; }
+.pk-side h2 { font-size: var(--text-sm); text-transform: uppercase; letter-spacing: .08em; margin: 0 0 var(--space-2); }
+.pk-sections { list-style: none; margin: 0 0 var(--space-3); padding: 0; }
+.pk-row { display: flex; align-items: center; gap: var(--space-1); padding: var(--space-1) 0; border-bottom: 1px solid var(--line); }
+.pk-row-name { flex: 1 1 auto; font-size: var(--text-sm); }
+.pk-row-move { display: flex; gap: 2px; }
+.pk-row.is-locked .pk-row-name { opacity: .85; }
+.pk-lock { font-size: var(--text-xs); color: var(--accent); border: 1px solid var(--accent); border-radius: 3px; padding: 0 4px; white-space: nowrap; }
+.pk-why { font-size: var(--text-xs); color: var(--text-dim); margin: 2px 0 0; }
+.pk-preview { background: #3f434b; border-radius: 6px; padding: var(--space-3) 0; overflow-x: auto; }
+/* The sheet is real A4; the preview scales it to the column it is in, so what
+   is on screen is genuinely the printed page and not a re-styled copy. */
+.pk-scale { transform-origin: top center; }
+.pk-field { margin-bottom: var(--space-2); }
+.pk-field label { display: block; font-size: var(--text-sm); margin-bottom: 2px; }
+.pk-swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.pk-swatch { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; padding: 0; }
+.pk-swatch[aria-pressed="true"] { border-color: var(--text); outline: 2px solid var(--accent); outline-offset: 1px; }
+.pk-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: var(--space-1); }
+.pk-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; }
+.pk-note { font-size: var(--text-xs); color: var(--text-dim); }
 
-/* Preview scales the real sheet down rather than restyling it, so what is on
-   screen at 390px is genuinely the printed page. */
-@media (max-width: 240mm) {
-  .pk-page { transform: scale(var(--pk-scale, 1)); transform-origin: top center; margin-bottom: 0; }
-  .pk-page-frame { overflow: hidden; margin-bottom: var(--space-4); }
+@media (max-width: 70rem) {
+  .pk-composer { grid-template-columns: 1fr; }
+  .pk-side { position: static; max-height: none; }
+  .pk-preview { order: 3; }
 }
 
-/* ---- PRINT ------------------------------------------------------------- */
+/* The pack action on a deal card: a real button, sized to sit beside the
+   stage picker rather than hide under it. */
+.dc-pack { text-decoration: none; white-space: nowrap; }
+
+/* ===================================================================== *
+ * 10. PRINT
+ * ===================================================================== */
 @page {
   size: A4 portrait;
-  /* The sheet carries its own padding, so the page box adds none — a margin
-     here plus padding there is what produces a document with a lopsided gutter. */
+  /* The sheet carries its own margins. A page margin here as well is what
+     produces a document with a lopsided gutter. */
   margin: 0;
 }
 
 @media print {
-  /* The app's own chrome, the builder controls and the preview frame all go.
-     Only the sheets print. */
-  body > *, .shell-body > *, .pk-build > * { display: none !important; }
-  body, .shell-body, main, .pk-build, .pk-preview-wrap, .pk-pages { display: block !important; }
-  /* THE BAR IS ITSELF A .pk-build, NOT A CHILD OF ONE — so the rule above put
-     it back rather than hiding it, and Back / Print / Save would have printed
-     across the top of the first sheet. Found by printing a real pack. */
-  .pk-build-bar, .pk-build-bar * { display: none !important; }
-  body {
+  /* Everything that is not the document goes. */
+  body > *, .shell-body > *, .pk-composer > * { display: none !important; }
+  body, .shell-body, main, .pk-screen, .pk-composer, .pk-preview, .pk-scale, .pk-pages {
+    display: block !important;
     background: #fff !important;
-    margin: 0 !important;
+    padding: 0 !important; margin: 0 !important;
+    max-width: none !important; overflow: visible !important;
+    border-radius: 0 !important; box-shadow: none !important;
   }
-  .pk-preview-wrap { background: #fff !important; padding: 0 !important; margin: 0 !important; }
-  .pk, .pk-pages { display: block !important; }
+  .pk-preview { order: 0 !important; }
+  /* The preview scales the sheet to fit a column. Paper does not need that. */
+  .pk-scale { transform: none !important; }
 
   .pk-page {
-    display: flex !important;
     box-shadow: none !important;
     margin: 0 !important;
-    width: auto;
-    min-height: 0;
-    /* One idea a page, and the last sheet must not push out a blank one. */
     break-after: page;
-    transform: none !important;
+    break-inside: avoid;
   }
   .pk-page:last-child { break-after: auto; }
-  .pk-page-frame { overflow: visible !important; margin: 0 !important; }
 
   /* THEIR COLOUR SURVIVES THE PRINTER. Browsers drop backgrounds and colours
-     when printing unless asked not to; without this the accent rule under
-     every heading — the one thing that makes the document theirs — comes out
-     blank. Both spellings: Safari still wants the prefix. */
+     when printing unless asked not to; without this the bands, the accent and
+     the cover scrim all come out white, which is exactly the blank document
+     this sprint exists to replace. Both spellings: Safari still wants the prefix. */
   .pk, .pk * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  /* Nothing may straddle a page break mid-thought. */
-  .pk-figure, .pk-runway-part, .pk-compliance, .pk-photos, .pk-headline { break-inside: avoid; }
-  .pk-h2, .pk-h3 { break-after: avoid; }
+  .pk-fig, .pk-strip-item, .pk-compliance, .pk-plan, .pk-comps li, .pk-runway-row { break-inside: avoid; }
 }

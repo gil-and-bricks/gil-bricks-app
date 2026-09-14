@@ -884,10 +884,12 @@ export function DealBoard() {
                 </select>
               </label>
               <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => { setKillNote(''); setParkingId(parkingId === d.id ? '' : d.id); }}>{BOARD_COPY.card.park}</button>
-              {/* DP1 — a pack is only ever made FROM a deal, so this is the only
-                  door to one. The page is where the declaration is asked for. */}
+              {/* DP2 — a pack is the thing a sourcer sends an investor, so the
+                  door to it is a real action in the primary colour rather than
+                  the line of small text it was. A pack is still only ever made
+                  FROM a saved deal; the page asks for the declaration. */}
               {features.dealPack && (
-                <a class="btn-link dc-pack" href={`/pack?deal=${encodeURIComponent(d.id)}`}>
+                <a class="btn-action dc-pack" href={`/pack?deal=${encodeURIComponent(d.id)}`}>
                   {BOARD_COPY.card.pack}
                   <span class="sr-only">{BOARD_COPY.card.packFor(d.title)}</span>
                 </a>

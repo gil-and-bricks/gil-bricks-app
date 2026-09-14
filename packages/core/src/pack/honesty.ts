@@ -88,6 +88,16 @@ export interface EvidencedFigure {
   basis: string;
   /** True for anything forward-looking. Forces the word "estimate" on screen. */
   projected: boolean;
+  /**
+   * DP2 — THE RAW FIGURE, for GEOMETRY ONLY.
+   *
+   * A chart has to know how long to draw a bar, and it must not re-derive that
+   * from the formatted string — parsing "£120,000" back into a number is how a
+   * chart and its own label start disagreeing. So the engine hands over both:
+   * `value` is what gets printed, this is what gets measured. Optional, because
+   * a percentage or a duration has nothing a bar could usefully be drawn from.
+   */
+  amount?: number;
 }
 
 /** Thrown rather than returned: a pack that cannot evidence a figure must stop. */

@@ -20,7 +20,8 @@
  */
 import {
   MIN_TRANSACTIONS, codesForSector, fmtMoney, getAreaCodes, getAreaTrajectory,
-  getManifest, getSector, growthOver, type TrajectoryFile, type SectorFile,
+  getManifest, getSector, growthOver,
+  type AreaCodesFile, type TrajectoryFile, type SectorFile,
 } from '@gil-bricks/core';
 import { PACK_AREA } from '../../config/pack';
 import type { AreaHighlight } from '../../components/pack/PackDocument';
@@ -38,6 +39,8 @@ export interface HighlightSources {
   trajectory: TrajectoryFile | null;
   /** The local authority code for this sector, from area-codes.json. */
   laCode: string | null;
+  /** The whole codes file, which the growth chart needs as well (DP2). */
+  codes: AreaCodesFile | null;
   /** The month the sold-price data is as of. */
   ppdMonth: string;
 }
@@ -114,6 +117,7 @@ export async function loadAreaFacts(sector: string): Promise<HighlightSources> {
     sector: sectorFile,
     trajectory,
     laCode: codes === null ? null : codesForSector(codes, sector).la,
+    codes,
     ppdMonth: manifest.ppdMonth,
   };
 }

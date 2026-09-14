@@ -25,9 +25,12 @@ import { packModel } from '../../fixtures/packModel';
  *  an empty string, and every assertion below would then pass on nothing. */
 const CSS = readFileSync(fileURLToPath(new URL('../../styles/pack.css', import.meta.url)), 'utf8');
 /** One rule's body, by selector. Null when the selector is not in the file. */
+/** One rule's body, by selector. Whitespace-tolerant: the stylesheet aligns
+ *  its short declarations in columns, so "selector {" is not always literal. */
 const rule = (selector: string): string | null => {
-  const at = CSS.indexOf(`${selector} {`);
-  return at === -1 ? null : CSS.slice(at, CSS.indexOf('}', at));
+  const re = new RegExp(`(^|[},])\\s*${selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{([^}]*)\\}`, 'm');
+  const m = re.exec(CSS);
+  return m === null ? null : m[2];
 };
 /** Sheets, counted exactly: `pk-page-body` shares the prefix and must not count. */
 const sheetCount = (html: string): number => (html.match(/class="pk-page[ "]/g) ?? []).length;
@@ -43,10 +46,14 @@ describe('the sheets', () => {
   });
 
   it('are sized A4 in the stylesheet, not by a guess at the viewport', () => {
+    const root = rule('.pk');
+    expect(root, '.pk has no rule').not.toBeNull();
+    expect(root).toContain('--pk-sheet-w: 210mm');
+    expect(root).toContain('--pk-sheet-h: 297mm');
     const page = rule('.pk-page');
     expect(page, '.pk-page has no rule').not.toBeNull();
-    expect(page).toContain('width: 210mm');
-    expect(page).toContain('min-height: 297mm');
+    expect(page).toContain('width: var(--pk-sheet-w)');
+    expect(page).toContain('height: var(--pk-sheet-h)');
   });
 
   it('sit in an A4 page box that adds no margin of its own', () => {
@@ -65,7 +72,7 @@ describe('the sheets', () => {
 
   it('never let a figure or the compliance block straddle a break', () => {
     const print = CSS.slice(CSS.indexOf('@media print'));
-    for (const sel of ['.pk-figure', '.pk-compliance', '.pk-headline']) {
+    for (const sel of ['.pk-fig', '.pk-compliance', '.pk-strip-item', '.pk-comps li']) {
       expect(print, sel).toContain(sel);
     }
     expect(print).toMatch(/break-inside:\s*avoid/);
@@ -75,14 +82,15 @@ describe('the sheets', () => {
 describe('the builder does not print', () => {
   it('hides the app’s own chrome and the controls, and shows the sheets', () => {
     const print = CSS.slice(CSS.indexOf('@media print'));
-    expect(print).toMatch(/\.pk-build\s*>\s*\*\s*\{[^}]*display:\s*none/s);
-    expect(print).toMatch(/\.pk-pages\s*\{[^}]*display:\s*block/s);
+    expect(print).toMatch(/\.pk-composer\s*>\s*\*[^{]*\{[^}]*display:\s*none/s);
+    expect(print).toMatch(/\.pk-pages[\s\S]{0,120}display:\s*block/);
   });
 
   it('puts the sheets on white paper, not on the app’s dark background', () => {
     const print = CSS.slice(CSS.indexOf('@media print'));
-    expect(print).toMatch(/body\s*\{[^}]*background:\s*#fff/s);
-    expect(print).toMatch(/\.pk-preview-wrap\s*\{[^}]*background:\s*#fff/s);
+    // The composer's dark ground must not print behind the sheets.
+    expect(print).toMatch(/background:\s*#fff\s*!important/);
+    expect(print).toContain('.pk-preview');
   });
 });
 
@@ -96,7 +104,10 @@ describe('their accent colour', () => {
     // deliberately not one of these: a headline in an arbitrary colour chosen
     // from a picker is the one place this could come out unreadable, so the
     // title stays black and the rule beneath it carries their colour.
-    for (const sel of ['.pk-h2', '.pk-rule', '.pk-runway-part']) {
+    // The title itself is INK, deliberately: a headline in an arbitrary colour
+    // from a picker is the one place this could come out unreadable. Their
+    // colour carries the eyebrow, the rule, the section numeral and the hero.
+    for (const sel of ['.pk-eyebrow', '.pk-rule', '.pk-opener-num', '.pk-hero-fig']) {
       const body = rule(sel);
       expect(body, `${sel} has no rule`).not.toBeNull();
       expect(body, sel).toContain('var(--pk-accent)');
@@ -105,16 +116,18 @@ describe('their accent colour', () => {
 
   it('falls back to a neutral default rather than to nothing', () => {
     const neutral = render(<PackDocument model={packModel({
-      branding: { businessName: 'A', accentColour: '', logoDataUri: '' },
+      branding: { businessName: 'A', accentColour: '', onAccent: '#ffffff', logoDataUri: '', duotone: false },
     })} />);
     expect(neutral).not.toContain('--pk-accent:');
-    expect(rule('.pk')).toContain('--pk-accent: #334155');
+    // The fallback is a real colour, not nothing: an unbranded pack has to look
+    // deliberate rather than unfinished.
+    expect(rule('.pk')).toMatch(/--pk-accent:\s*#[0-9a-f]{6}/i);
   });
 
   it('refuses anything that is not a plain hex colour', () => {
     // A value going straight into a style attribute is an injection surface.
     const nasty = render(<PackDocument model={packModel({
-      branding: { businessName: 'A', accentColour: 'red; background:url(https://evil.example/x)', logoDataUri: '' },
+      branding: { businessName: 'A', accentColour: 'red; background:url(https://evil.example/x)', onAccent: '#ffffff', logoDataUri: '', duotone: false },
     })} />);
     expect(nasty).not.toContain('evil.example');
     expect(nasty).not.toContain('--pk-accent:');

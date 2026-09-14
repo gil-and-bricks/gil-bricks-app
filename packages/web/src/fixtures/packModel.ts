@@ -18,6 +18,8 @@ import { refurbDuration, sayWeeks } from '@gil-bricks/core';
 import { REFURB_ITEMS } from '../config/refurb';
 import { DURATION_COPY, REFURB_DURATION } from '../config/refurbDuration';
 import { packNumbersFor, tickedKeys, tickedScope } from '../lib/pack/fromDeal';
+import { partsSumToTotal } from '@gil-bricks/core';
+import { compsFrom, heroAndStrip, waterfallFrom } from '../lib/pack/packData';
 import type { PackModel } from '../components/pack/PackDocument';
 
 /** A Welsh BRRRR: a repossession bought back, refurbished and refinanced. */
@@ -30,22 +32,33 @@ export const DEAL_TITLE = 'Terraced house · CF37 1HR · £120,000';
 
 /** Every section on. Tests that need one off take it out themselves. */
 export const ALL_ON = [
-  'cover', 'photos', 'headline', 'summary', 'purchase', 'refurb', 'returns',
-  'scope', 'duration', 'floorplan', 'areaHighlights', 'basis', 'compliance', 'disclaimer',
+  'cover', 'photos', 'returns', 'summary', 'purchase', 'plan', 'scope', 'duration',
+  'floorplan', 'area', 'comps', 'gallery', 'basis', 'compliance', 'disclaimer',
 ];
+
+/** The default reading order of the pages the user may move. */
+export const ORDER = ['returns', 'purchase', 'plan', 'area', 'comps', 'gallery'];
 
 export function packModel(over: Partial<PackModel> = {}): PackModel {
   const numbers = packNumbersFor('brrrr', BRRRR_PARAMS);
   if (numbers === null) throw new Error('the fixture deal must produce figures');
   const runway = refurbDuration(tickedKeys(BRRRR_PARAMS, REFURB_ITEMS), REFURB_DURATION, null);
   if (runway === null) throw new Error('the fixture deal must produce a duration');
+  const { hero, strip } = heroAndStrip(numbers);
+  const weeks = (r: { from: number; to: number }) => ({ from: r.from, to: r.to, display: sayWeeks(r) });
   return {
-    title: DEAL_TITLE,
+    address: DEAL_TITLE,
     strategy: 'brrrr',
     investorName: 'Rebecca Hall',
     summary: 'Bought below the local typical price and refinanced after the work.',
     preparedOn: '14 September 2026',
-    branding: { businessName: 'Hillside Property Partners', accentColour: '#8a1f4b', logoDataUri: '' },
+    branding: {
+      businessName: 'Hillside Property Partners',
+      accentColour: '#8a1f4b',
+      onAccent: '#ffffff',
+      logoDataUri: '',
+      duotone: false,
+    },
     compliance: {
       businessName: 'Hillside Property Partners',
       redressScheme: 'The Property Ombudsman',
@@ -55,16 +68,19 @@ export function packModel(over: Partial<PackModel> = {}): PackModel {
       piInsurer: 'Hiscox',
       piExpiry: '30 June 2027',
     },
-    headline: numbers.headline,
+    hero,
+    strip,
     costs: numbers.costs,
     returns: numbers.returns,
+    waterfall: waterfallFrom(numbers),
+    waterfallStacks: partsSumToTotal(numbers),
     scope: tickedScope(BRRRR_PARAMS, REFURB_ITEMS),
-    duration: {
-      parts: [
-        { name: DURATION_COPY.parts.leadIn, weeks: sayWeeks(runway.parts.leadIn) },
-        { name: DURATION_COPY.parts.onTools, weeks: sayWeeks(runway.parts.onTools) },
-        { name: DURATION_COPY.parts.snagging, weeks: sayWeeks(runway.parts.snagging) },
-        { name: DURATION_COPY.parts.voidPeriod, weeks: sayWeeks(runway.parts.voidPeriod) },
+    runway: {
+      phases: [
+        { name: DURATION_COPY.parts.leadIn, ...weeks(runway.parts.leadIn) },
+        { name: DURATION_COPY.parts.onTools, ...weeks(runway.parts.onTools) },
+        { name: DURATION_COPY.parts.snagging, ...weeks(runway.parts.snagging) },
+        { name: DURATION_COPY.parts.voidPeriod, ...weeks(runway.parts.voidPeriod) },
       ],
       total: sayWeeks(runway.total),
       basis: runway.breakdown.note ?? '',
@@ -74,6 +90,10 @@ export function packModel(over: Partial<PackModel> = {}): PackModel {
     area: [
       { label: 'Typical sold price in this postcode sector', value: '£132,000', sourceName: 'HM Land Registry Price Paid Data', sourceAsOf: 'June 2026' },
     ],
+    growth: null,
+    comps: compsFrom(null, 120000),
+    mapImage: null,
+    order: ORDER,
     on: ALL_ON,
     ...over,
   };

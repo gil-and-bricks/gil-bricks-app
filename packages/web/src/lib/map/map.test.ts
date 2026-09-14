@@ -77,7 +77,14 @@ describe('style sanity', () => {
     // at which point the map stops healing itself. `toContain` passed happily
     // while that was broken (DM1).
     expect(style.sprite).toContain('/map/sprites/v4/dark');
-    expect(style.sprite, 'MapLibre refuses a relative sprite URL').toMatch(/^https:\/\//);
+    // Absolute, because MapLibre refuses a relative sprite URL — and built from
+    // the serving origin, because an absolute URL pinned to another host is a
+    // cross-origin fetch that connect-src refuses (DP2).
+    expect(style.sprite, 'MapLibre refuses a relative sprite URL').toMatch(/^https?:\/\//);
+    // This file runs with no DOM, so there is no location — which is exactly
+    // the fallback path, and asserting it here proves the fallback is real.
+    expect(typeof location).toBe('undefined');
+    expect(style.sprite.startsWith(siteConfig.liveUrl)).toBe(true);
     expect(() => new URL(style.sprite as string)).not.toThrow();
     const json = JSON.stringify(style);
     expect(json).not.toMatch(/api\.protomaps\.com|demotiles|maptiler|mapbox/);

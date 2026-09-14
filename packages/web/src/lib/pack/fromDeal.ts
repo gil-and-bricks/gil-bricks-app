@@ -45,13 +45,20 @@ export function packSourceFor(strategy: string, urlParams: string): PackSource |
   const refurb = Number(inputs.refurb ?? inputs.refurbCost ?? 0);
   const legals = Number(inputs.legals ?? 0);
 
+  const rf = Number.isFinite(refurb) ? refurb : 0;
+  const lg = Number.isFinite(legals) ? legals : 0;
   const base = {
     price: fmtMoney(inputs.price),
     inWales: wales,
-    refurb: fmtMoney(Number.isFinite(refurb) ? refurb : 0),
-    legals: fmtMoney(Number.isFinite(legals) ? legals : 0),
+    refurb: fmtMoney(rf),
+    legals: fmtMoney(lg),
     additional: null as string | null,
   };
+  /** The same figures unformatted, so a chart measures the engine's number
+   *  rather than parsing one back out of "£120,000" (DP2). */
+  const amounts = (stampDuty: number, totalIn: number) => ({
+    price: inputs.price, stampDuty, refurb: rf, legals: lg, additional: null, totalIn,
+  });
 
   try {
     if (strategy === 'btl') {
@@ -64,6 +71,7 @@ export function packSourceFor(strategy: string, urlParams: string): PackSource |
         returnPct: pct(a.roi.value), returnIsRoce: false,
         grossYield: pct(a.grossYield.value),
         endValue: null,
+        amounts: amounts(a.stampDuty.value.tax, a.cashIn.value),
       };
     }
     if (strategy === 'hmo') {
@@ -79,6 +87,7 @@ export function packSourceFor(strategy: string, urlParams: string): PackSource |
         returnPct: pct(a.roi.value), returnIsRoce: false,
         grossYield: pct(a.grossYield.value),
         endValue: null,
+        amounts: amounts(a.stampDuty.value.tax, a.cashIn.value),
       };
     }
     if (strategy === 'flip') {
@@ -93,6 +102,7 @@ export function packSourceFor(strategy: string, urlParams: string): PackSource |
         returnPct: pct(a.profitOnGdvPct.value), returnIsRoce: true,
         grossYield: null,
         endValue: money(Number(inputs.gdv)),
+        amounts: amounts(a.stampDuty.value.tax, a.cashInvested.value),
       };
     }
     const a = analyseBrrrr(inputs as never);
@@ -107,6 +117,7 @@ export function packSourceFor(strategy: string, urlParams: string): PackSource |
       returnPct: pct(a.roiOnLeftIn.value), returnIsRoce: true,
       grossYield: pct(a.grossYieldOnCost.value),
       endValue: money(Number(inputs.arv)),
+      amounts: amounts(a.stampDuty.value.tax, a.cashInvested.value),
     };
   } catch {
     return null;
@@ -119,15 +130,24 @@ export function packNumbersFor(strategy: string, urlParams: string): PackNumbers
   return source === null ? null : packNumbers(source, PACK_FIGURES);
 }
 
-/** Which refurb items were ticked, as their own labels — for the scope list. */
-export function tickedScope(urlParams: string, items: readonly { key: string; label: string }[]): string[] {
+/**
+ * Which refurb items were ticked, with what each one costs — for the breakdown
+ * bars. The figure is the one the user typed into the analyser; nothing here
+ * adds them up, because the total is already `refurbCost` and two places
+ * computing one number is two places for it to stop agreeing.
+ */
+export function tickedScope(
+  urlParams: string, items: readonly { key: string; label: string }[],
+): { label: string; value: number; display: string }[] {
   const p = new URLSearchParams(urlParams);
   return items
-    .filter((i) => {
-      const v = p.get(`rf${i.key.charAt(0).toUpperCase()}${i.key.slice(1)}`);
-      return v !== null && v !== '' && v !== '0';
+    .map((i) => ({ item: i, raw: p.get(`rf${i.key.charAt(0).toUpperCase()}${i.key.slice(1)}`) }))
+    .filter((x) => x.raw !== null && x.raw !== '' && x.raw !== '0')
+    .map((x) => {
+      const n = Number(x.raw);
+      return { label: x.item.label, value: Number.isFinite(n) ? n : 0, display: fmtMoney(Number.isFinite(n) ? n : 0) };
     })
-    .map((i) => i.label);
+    .sort((a, b) => b.value - a.value);
 }
 
 /** The ticked keys, for the duration band. */

@@ -128,6 +128,24 @@ export interface MapStyleSpec {
   layers: unknown[];
 }
 
+/**
+ * WHERE THE SPRITE IS FETCHED FROM, and why it is neither relative nor pinned.
+ *
+ * MapLibre VALIDATES this field and refuses a relative value outright, so it has
+ * to be absolute. Pinning it to `siteConfig.liveUrl` made it absolute but also
+ * made it CROSS-ORIGIN on every host that is not the canonical one — a local
+ * Worker, a preview URL — where `connect-src 'self'` then refused it and the
+ * map lost its icons with only a CSP line in the console to say so.
+ *
+ * The current origin is absolute AND same-origin everywhere, which is what both
+ * requirements actually ask for. The config value is the fallback for rendering
+ * with no `location` at all, which is how the tests see it.
+ */
+function spriteOrigin(): string {
+  if (typeof location !== 'undefined' && location.origin !== '' && location.origin !== 'null') return location.origin;
+  return siteConfig.liveUrl.replace(/\/+$/, '');
+}
+
 /** Complete MapLibre style: brand-tuned basemap over our self-hosted assets. */
 export function buildMapStyle(): MapStyleSpec {
   return {
@@ -147,7 +165,7 @@ export function buildMapStyle(): MapStyleSpec {
      * caught it and nothing else did. map.test.ts now asserts absoluteness so
      * the unit tests catch it too.
      */
-    sprite: `${siteConfig.liveUrl.replace(/\/+$/, '')}/map/sprites/v4/dark`,
+    sprite: `${spriteOrigin()}/map/sprites/v4/dark`,
     sources: {
       protomaps: {
         type: 'vector',

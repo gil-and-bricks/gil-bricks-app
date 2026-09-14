@@ -217,7 +217,7 @@ try {
       const DEAL_QUERY = queryFor(name);
       const ON_BOARD = onBoardFor(name);
       await page.goto(`${B}/buy-to-let/analyser/?${DEAL_QUERY}`, { waitUntil: 'domcontentloaded' });
-      const save = page.getByRole('button', { name: /^Save$/ }).first();
+      const save = page.getByRole('button', { name: /^Save to pipeline$/ }).first();
       const canSave = await save.waitFor({ timeout: 25000 }).then(() => true, () => false);
       if (!canSave) { note(`[${name}] the analyser offered no Save button`); await ctx.close(); continue; }
       await save.click();
@@ -284,7 +284,7 @@ try {
       if (await valueBox.count() === 0) { note(`[${name}] the refurb chip opened no field to type in`); await ctx.close(); continue; }
       // A refurb big enough to move a £95,000 deal, and unmistakably ours.
       await valueBox.fill('45000');
-      await card.getByRole('button', { name: /^Save$/ }).first().click();
+      await card.getByRole('button', { name: /^Save to pipeline$/ }).first().click();
       await page.waitForTimeout(2500);
       ok('added a refurb fact');
 

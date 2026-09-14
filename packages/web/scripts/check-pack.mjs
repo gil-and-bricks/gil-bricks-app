@@ -189,7 +189,7 @@ try {
     ok('signed in');
 
     await page.goto(`${B}/brrrr/analyser/?${new URLSearchParams(DEAL)}`, { waitUntil: 'domcontentloaded' });
-    const save = page.getByRole('button', { name: /^Save$/ }).first();
+    const save = page.getByRole('button', { name: /^Save to pipeline$/ }).first();
     await save.waitFor({ timeout: 25000 });
     await save.click();
     await page.waitForTimeout(2500);
@@ -233,26 +233,29 @@ try {
     await page.waitForTimeout(2000);
     ok('declaration saved');
 
-    /* ── 3. their branding ──────────────────────────────────────────────── */
-    console.log('\n=== their pack, not ours ===');
-    await page.locator('.pk-profile-wrap > summary').click();
-    await page.waitForTimeout(400);
-    await page.fill('#pk-p-name', DECLARATION.businessName);
+    /* ── 3. the document is ALREADY THERE ───────────────────────────────── */
+    console.log('\n=== one screen, and the pack is on it ===');
+    const sheetsNow = await page.locator('.pk-page').count();
+    if (sheetsNow < 3) note(`the composer opened with ${sheetsNow} sheets — the pack should render immediately`);
+    else ok(`the pack renders on arrival, ${sheetsNow} sheets, with nothing to click through`);
+    if (await page.getByRole('button', { name: /^Make the pack$/ }).count()) {
+      note('there is still a "make the pack" step between the user and the document');
+    } else ok('there is no build step and no final screen to get stuck on');
+
+    /* ── 4. their branding, on the same screen ──────────────────────────── */
     await page.evaluate((hex) => {
-      const el = document.querySelector('#pk-p-accent');
+      const el = document.querySelector('.pk-swatches input[type=color]');
       el.value = hex;
       el.dispatchEvent(new Event('input', { bubbles: true }));
     }, ACCENT);
-    await page.setInputFiles('#pk-p-logo', { name: 'logo.png', mimeType: 'image/png', buffer: Buffer.from(LOGO, 'base64') });
-    await page.waitForTimeout(600);
-    await page.getByRole('button', { name: /^Save$/ }).first().click();
-    await page.waitForTimeout(1500);
-    ok('business name, accent colour and logo saved');
+    await page.setInputFiles('#pk-logo', { name: 'logo.png', mimeType: 'image/png', buffer: Buffer.from(LOGO, 'base64') });
+    await page.waitForTimeout(800);
+    ok('accent colour and logo set without leaving the screen');
 
     /* ── 4. the locked sections, on the builder ─────────────────────────── */
     const locked = ['basis', 'compliance', 'disclaimer'];
     for (const key of locked) {
-      const box = page.locator(`#pk-${key}`);
+      const box = page.locator(`#pk-s-${key}`);
       if (!await box.isChecked()) throw new Error(`the locked section "${key}" is not ticked`);
       if (!await box.isDisabled()) throw new Error(`the locked section "${key}" can be unticked`);
     }
@@ -261,38 +264,51 @@ try {
     // A disabled box is a suggestion. Take the suggestion away and click.
     await page.evaluate((keys) => {
       for (const k of keys) {
-        const el = document.querySelector(`#pk-${k}`);
+        const el = document.querySelector(`#pk-s-${k}`);
         el.disabled = false;
         el.click();
       }
     }, locked);
     await page.waitForTimeout(400);
     for (const key of locked) {
-      if (!await page.locator(`#pk-${key}`).isChecked()) throw new Error(`"${key}" came off when the disabling was removed`);
+      if (!await page.locator(`#pk-s-${key}`).isChecked()) throw new Error(`"${key}" came off when the disabling was removed`);
     }
     ok('and they stay on when the disabling is removed and they are clicked');
 
     // THEIR OWN PHOTOGRAPHS, added the way a person adds them. The pack has to
     // carry pictures for "no portal image" to mean anything.
-    await page.setInputFiles('input[type=file][accept="image/*"]', [
+    await page.setInputFiles('.pk-side input[type=file][accept="image/*"]', [
       { name: 'front.png', mimeType: 'image/png', buffer: Buffer.from(LOGO, 'base64') },
       { name: 'kitchen.png', mimeType: 'image/png', buffer: Buffer.from(LOGO, 'base64') },
     ]);
     await page.waitForTimeout(800);
-    if (!/2 photographs added/.test(await page.locator('.pk-build').innerText())) note('the photographs were not taken');
+    if (!/2 added/.test(await page.locator('.pk-side').last().innerText())) note('the photographs were not taken');
     else ok('two of their own photographs added');
 
-    await page.screenshot({ path: join(SHOTS, '1-builder.png'), fullPage: true });
+    await page.screenshot({ path: join(SHOTS, '1-composer.png'), fullPage: true });
 
-    /* ── 5. build it ────────────────────────────────────────────────────── */
+    /* ── 4b. the rail actually reorders ─────────────────────────────────── */
+    const firstBefore = await page.locator('.pk-page').nth(1).innerText().catch(() => '');
+    const down = page.getByRole('button', { name: /^Move The headline return down$/ });
+    if (await down.count()) {
+      await down.click();
+      await page.waitForTimeout(800);
+      const firstAfter = await page.locator('.pk-page').nth(1).innerText().catch(() => '');
+      if (firstBefore === firstAfter) note('moving a section down changed nothing in the document');
+      else ok('reordering the rail moves the page in the document, live');
+      await page.getByRole('button', { name: /^Move The headline return up$/ }).click();
+      await page.waitForTimeout(600);
+    } else note('the rail offers no way to reorder with a keyboard');
+
+    /* ── 5. the document ────────────────────────────────────────────────── */
     console.log('\n=== the pack itself ===');
     const before = requested.length;
-    await page.getByRole('button', { name: /^Make the pack$/ }).click();
-    await page.waitForTimeout(2000);
+    await page.waitForTimeout(1500);
 
     const sheets = page.locator('.pk-page');
     const count = await sheets.count();
-    if (count !== 6) note(`the pack rendered ${count} sheets, not six`); else ok('six sheets');
+    if (count < 5) note(`the pack rendered ${count} sheets — too few for a designed pack`);
+    else ok(`${count} designed sheets`);
 
     /**
      * A4 at 96dpi is 793.7 × 1122.5 CSS pixels. Measured, not asserted in CSS.
@@ -302,10 +318,14 @@ try {
      * an extra physical page whose footer still says "6 of 6". That is exactly
      * how this was found.
      */
+    // The composer scales the preview to fit its column. Measure the real
+    // sheet, not the scaled one — reset the zoom for the measurement.
+    await page.evaluate(() => { const el = document.querySelector('.pk-scale'); if (el) el.style.zoom = '1'; });
+    await page.waitForTimeout(400);
     let a4 = true;
     for (let i = 0; i < count; i += 1) {
       const box = await sheets.nth(i).boundingBox();
-      if (Math.abs(box.width - 793.7) > 2 || box.height < 1120 || box.height > 1124) {
+      if (box === null || Math.abs(box.width - 793.7) > 2 || box.height < 1120 || box.height > 1124) {
         note(`sheet ${i + 1} measures ${Math.round(box.width)}×${Math.round(box.height)}, not A4 (793×1122)`);
         a4 = false;
       }
@@ -313,19 +333,27 @@ try {
     if (a4) ok('every sheet measures A4 in the browser’s own layout — none overflows');
 
     /** THEIR colour, computed — not the declaration in the stylesheet. */
+    // The rule is a BORDER, not a filled box, and the page titles are
+    // deliberately ink — a headline in a colour picked from a swatch is the one
+    // place this could come out unreadable. Their colour carries the rule, the
+    // eyebrow and the oversized section numeral, so those are what is measured.
     const accentSeen = await page.evaluate(() => {
       const rule = document.querySelector('.pk-rule');
-      const h2 = document.querySelector('.pk-h2');
+      const eyebrow = document.querySelector('.pk-eyebrow');
+      const num = document.querySelector('.pk-opener-num');
       return {
-        rule: rule && getComputedStyle(rule).backgroundColor,
-        heading: h2 && getComputedStyle(h2).color,
+        rule: rule && getComputedStyle(rule).borderTopColor,
+        heading: eyebrow && getComputedStyle(eyebrow).color,
+        numeral: num && getComputedStyle(num).color,
       };
     });
     const EXPECT = 'rgb(138, 31, 75)';
     if (accentSeen.rule !== EXPECT) note(`the rule under the headings is ${accentSeen.rule}, not their accent`);
     else ok(`their accent is the computed colour of the rule (${accentSeen.rule})`);
-    if (accentSeen.heading !== EXPECT) note(`the page headings are ${accentSeen.heading}, not their accent`);
-    else ok('and of the headings');
+    if (accentSeen.heading !== EXPECT) note(`the eyebrow is ${accentSeen.heading}, not their accent`);
+    else ok('and of the eyebrow above each title');
+    if (accentSeen.numeral !== EXPECT) note(`the section numeral is ${accentSeen.numeral}, not their accent`);
+    else ok('and of the oversized section numeral');
 
     /* ── 6. nothing of the portal's is in it ────────────────────────────── */
     const images = await page.evaluate(() => [...document.querySelectorAll('.pk-pages img')].map((i) => i.getAttribute('src') ?? ''));
@@ -347,18 +375,21 @@ try {
     else ok('the pack prints no verdict line');
 
     /* ── 8. the locked sections really are on the page ──────────────────── */
+    // Case-insensitive: the eyebrows above the locked blocks are set in small
+    // caps, and innerText reports what is on the page, not what is in the source.
+    const said = packText.toLowerCase();
     for (const phrase of [
-      'Where these figures came from', 'Who prepared this', 'Terms',
+      'where these figures came from', 'who prepared this', 'terms',
       DECLARATION.hmrcAml, DECLARATION.redressNumber, DECLARATION.ico,
-      'Information only', 'not financial, investment, tax or legal advice',
+      'information only', 'not financial, investment, tax or legal advice',
     ]) {
-      if (!packText.includes(phrase)) note(`the pack never says "${phrase}"`);
+      if (!said.includes(phrase.toLowerCase())) note(`the pack never says "${phrase}"`);
     }
     ok('the basis, the registrations and the disclaimer are all in the document');
 
     const feet = await page.locator('.pk-foot-disclaimer').count();
-    if (feet !== 6) note(`the short disclaimer is on ${feet} sheets, not six`);
-    else ok('the short disclaimer is at the foot of all six');
+    if (feet !== count) note(`the short disclaimer is on ${feet} sheets, not all ${count}`);
+    else ok(`the short disclaimer is at the foot of all ${count}`);
 
     /* ── 9. page by page, and then printed ──────────────────────────────── */
     for (let i = 0; i < count; i += 1) {
@@ -366,37 +397,49 @@ try {
     }
     ok(`every page photographed into ${SHOTS}`);
 
-    /* ── the file they send ─────────────────────────────────────────────── */
-    // WE DO NOT HOST PACKS, so "share" is a document they save and send. It has
-    // to open somewhere else and still be a pack: its own stylesheet inside it,
-    // its pictures inside it, and nothing to fetch.
-    const [download] = await Promise.all([
-      page.waitForEvent('download', { timeout: 15000 }),
-      page.getByRole('button', { name: /^Save as a file$/ }).click(),
-    ]);
-    const saved = join(SHOTS, 'pack.html');
-    await download.saveAs(saved);
-    const file = readFileSync(saved, 'utf8');
-    if (!/^<!doctype html>/i.test(file)) note('the saved file is not a document');
-    else ok(`saved as ${download.suggestedFilename()}`);
-    if (!file.includes('@page')) note('the saved file carries no stylesheet — it would open unstyled');
-    else ok('the saved file carries the pack stylesheet inside it');
-    for (const bad of [/<img[^>]+src="(?!data:image\/)/, /rightmove/i, /zoocdn/i, /<script/i]) {
-      if (bad.test(file)) note(`the saved file contains ${String(bad)}`);
-    }
-    ok('every picture in the saved file is a data URI, and there is no script and no portal host');
+    /* ── the export ─────────────────────────────────────────────────────── */
+    // The export is the browser's own Save as PDF, which is the only £0 route
+    // that gives real vector text with the fonts embedded. It always shows the
+    // print dialog and that cannot be suppressed from a page, so what is
+    // checked here is that the button exists, says so, and that the document
+    // survives print emulation — the dialog itself is the user's to answer.
+    const dl = page.getByRole('button', { name: /^Download PDF$/ });
+    if (!await dl.count()) note('there is no Download PDF button');
+    else ok('a Download PDF button is on the screen, always');
+    const hint = await page.locator('.pk-bar').innerText();
+    if (!/Save as PDF/i.test(hint)) note('the export flow never tells the user to choose Save as PDF');
+    else ok('and the flow says plainly to choose “Save as PDF”');
 
-    // …and it really opens as a pack somewhere else, with no network at all.
-    const offline = await ctx.newPage();
-    await offline.route('**/*', (route) => (route.request().url().startsWith('file:') ? route.continue() : route.abort()));
-    await offline.goto(`file://${saved}`, { waitUntil: 'load' });
-    const openedSheets = await offline.locator('.pk-page').count();
-    const openedAccent = await offline.evaluate(() => getComputedStyle(document.querySelector('.pk-rule')).backgroundColor);
-    if (openedSheets !== 6) note(`the saved file opens with ${openedSheets} sheets, not six`);
-    else ok('the saved file opens elsewhere as six sheets, with the network refused');
-    if (openedAccent !== EXPECT) note(`the saved file lost their accent (${openedAccent})`);
-    else ok('and still in their colour');
-    await offline.close();
+    /* ── it composes on a phone, and works from a keyboard ──────────────── */
+    const phone = await ctx.newPage();
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.goto(page.url(), { waitUntil: 'domcontentloaded' });
+    await phone.waitForTimeout(3000);
+    const over = await phone.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    if (over > 2) note(`at 390px the composer scrolls sideways by ${over}px`);
+    else ok('the composer composes at 390px with no sideways scroll');
+    const phoneSheets = await phone.locator('.pk-page').count();
+    if (phoneSheets < 3) note(`at 390px the document rendered ${phoneSheets} sheets`);
+    else ok(`and still shows the document (${phoneSheets} sheets)`);
+    await phone.close();
+
+    // Every control reachable and operable without a mouse: the rail's reorder
+    // buttons are the keyboard path by design rather than a drag's afterthought.
+    const reachable = await page.evaluate(() => {
+      const sel = '.pk-composer button, .pk-composer input, .pk-composer textarea, .pk-composer a[href]';
+      const all = [...document.querySelectorAll(sel)];
+      const hidden = all.filter((el) => el.tabIndex < 0 || el.getAttribute('aria-hidden') === 'true');
+      const unnamed = all.filter((el) => {
+        const name = (el.getAttribute('aria-label') ?? '') + (el.textContent ?? '')
+          + (el.id ? (document.querySelector(`label[for="${el.id}"]`)?.textContent ?? '') : '');
+        return name.trim() === '';
+      });
+      return { total: all.length, hidden: hidden.length, unnamed: unnamed.length };
+    });
+    if (reachable.hidden > 0) note(`${reachable.hidden} composer control(s) cannot be tabbed to`);
+    else ok(`all ${reachable.total} composer controls are keyboard reachable`);
+    if (reachable.unnamed > 0) note(`${reachable.unnamed} composer control(s) have no accessible name`);
+    else ok('and every one of them has an accessible name');
 
     await page.emulateMedia({ media: 'print' });
     await page.waitForTimeout(400);
@@ -405,13 +448,13 @@ try {
       return {
         sheets: [...document.querySelectorAll('.pk-page')].filter(shown).length,
         controls: shown(document.querySelector('.pk-build-bar')),
-        colour: getComputedStyle(document.querySelector('.pk-rule')).backgroundColor,
+        colour: getComputedStyle(document.querySelector('.pk-rule')).borderTopColor,
         adjust: getComputedStyle(document.querySelector('.pk-page')).printColorAdjust
           || getComputedStyle(document.querySelector('.pk-page')).webkitPrintColorAdjust,
       };
     });
-    if (printed.sheets !== 6) note(`printing shows ${printed.sheets} sheets, not six`);
-    else ok('printing still shows all six sheets');
+    if (printed.sheets !== count) note(`printing shows ${printed.sheets} sheets, not ${count}`);
+    else ok(`printing still shows all ${count} sheets`);
     if (printed.controls) note('the builder’s controls would print');
     else ok('the builder’s controls do not print');
     if (printed.colour !== EXPECT) note(`printing loses their accent (${printed.colour})`);

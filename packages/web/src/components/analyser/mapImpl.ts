@@ -113,6 +113,19 @@ export interface MapHandle {
   update(data: MapData): void;
   setHovered(id: string | null): void;
   destroy(): void;
+  /**
+   * DP2 — the rendered map as a PNG data URI, for the printed deal pack.
+   *
+   * Only ever non-null when the map was mounted with `preserveBuffer`. WebGL
+   * throws the drawing buffer away after every frame unless told to keep it, so
+   * a canvas read on an ordinary map comes back BLANK — which is the documented
+   * failure mode and the reason this is an explicit opt-in rather than
+   * something every map pays for in memory.
+   *
+   * Resolves on `idle`, not on the next tick: a read before the tiles have
+   * finished drawing returns a half-painted map, which is worse than none.
+   */
+  snapshot(): Promise<string | null>;
 }
 
 export interface MapCallbacks {
@@ -122,6 +135,22 @@ export interface MapCallbacks {
   /** Fired if the map can't render — WebGL context lost, a fatal style/tile error,
    * or no tile painted within the watchdog window. Lets the UI fall back honestly. */
   onBlank?: (reason: string) => void;
+  /**
+   * DP2 — keep the WebGL drawing buffer so the canvas can be read as a PNG.
+   * Only the deal pack's offscreen capture map sets it; every on-screen map
+   * leaves it off, because it costs memory on every frame.
+   */
+  preserveBuffer?: boolean;
+  /**
+   * DP2 — draw the pins and the radius ring in THIS colour instead of the app's.
+   *
+   * The map normally reads `--accent` off the document root, which is our lime.
+   * A map captured for a deal pack is printed on a document a sourcer sends
+   * their own investor, so it has to wear THEIR colour: our brand on their
+   * letterhead is exactly the fault this sprint exists to fix. Only the pack's
+   * offscreen capture passes it; every on-screen map reads the token as before.
+   */
+  accent?: string;
 }
 
 const monthName = (d: string): string => {
@@ -170,12 +199,20 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
   // already started by CompMap when the map was asked for; idempotent here so a
   // direct mount (tests, a future caller) still gets them.
   warmMapAssets();
-  const LIME = cssToken('--accent');
-  const INK = cssToken('--accent-ink');
-  const LIME_FILL = cssTokenAlpha('--accent', 0.1);
-  const LIME_WASH = cssTokenAlpha('--accent', 0.12);
-  const LIME_HALO = cssTokenAlpha('--accent', 0.35);
+  const override = /^#[0-9a-fA-F]{6}$/.test(opts.accent ?? '') ? (opts.accent as string) : null;
+  const alpha = (a: number): string => {
+    if (override === null) return cssTokenAlpha('--accent', a);
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(override.slice(i, i + 2), 16));
+    return `rgba(${r},${g},${b},${a})`;
+  };
+  const LIME = override ?? cssToken('--accent');
+  const INK = override === null ? cssToken('--accent-ink') : '#ffffff';
+  const LIME_FILL = alpha(0.1);
+  const LIME_WASH = alpha(0.12);
+  const LIME_HALO = alpha(0.35);
   const interactive = opts.interactive !== false;
+  /** Kept out of the default path: it costs memory on every frame. */
+  const preserveBuffer = opts.preserveBuffer === true;
   const reduceMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let map: LibreMap;
@@ -188,6 +225,9 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
       minZoom: 6,
       maxZoom: 18,
       attributionControl: false,
+      // WebGL discards the buffer after each frame unless asked not to, and a
+      // canvas read then returns a blank image (DP2).
+      canvasContextAttributes: preserveBuffer ? { preserveDrawingBuffer: true } : undefined,
       cooperativeGestures: interactive, // never hijack page scroll on mobile
       interactive,
       fadeDuration: 100,
@@ -195,7 +235,7 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
   } catch (err) {
     // WebGL unavailable / blocked on this device — fail visibly, not blank.
     opts.onBlank?.(err instanceof Error ? err.message : 'webgl-unavailable');
-    return { update() {}, setHovered() {}, destroy() {} };
+    return { update() {}, setHovered() {}, destroy() {}, snapshot: async () => null };
   }
 
   // --- render-health watchdog (the S7.1 mobile blank-map fix) ---------------
@@ -548,6 +588,36 @@ export function mountMap(container: HTMLElement, data: MapData, opts: MapCallbac
       if (pulseFrame) cancelAnimationFrame(pulseFrame);
       popup?.remove();
       map.remove();
+    },
+    /**
+     * The map as a PNG, once it has settled.
+     *
+     * `idle` rather than a timer: MapLibre fires it when every tile in view has
+     * finished drawing, which is the only moment a canvas read is guaranteed to
+     * contain a whole map. A timeout is still needed because a map that never
+     * settles would otherwise hang the pack's export for ever.
+     */
+    async snapshot(): Promise<string | null> {
+      if (!preserveBuffer) return null;
+      const settled = await new Promise<boolean>((resolve) => {
+        if (map.loaded() && map.areTilesLoaded()) { resolve(true); return; }
+        const done = (): void => { map.off('idle', done); resolve(true); };
+        map.on('idle', done);
+        setTimeout(() => { map.off('idle', done); resolve(false); }, 12000);
+      });
+      if (!settled) return null;
+      try {
+        // One more frame, so the read happens after the last paint rather than
+        // between it and the buffer swap.
+        map.triggerRepaint();
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const url = map.getCanvas().toDataURL('image/png');
+        // A canvas that drew nothing still produces a valid, tiny data URI.
+        // Treat that as a failure rather than printing a blank rectangle.
+        return url.length > 5000 ? url : null;
+      } catch {
+        return null;
+      }
     },
   };
 }

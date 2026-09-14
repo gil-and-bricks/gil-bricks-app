@@ -23,7 +23,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render } from 'preact-render-to-string';
 import { PackDocument } from './PackDocument';
-import { packFileHtml, assertNoRemoteImages } from '../../lib/pack/saveFile';
 import { packModel } from '../../fixtures/packModel';
 
 /** The shapes the portals' own image URLs take, as the handoff carries them. */
@@ -49,7 +48,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 const withPictures = () => packModel({
   photos: [OWN_PHOTO, OWN_PHOTO],
-  branding: { businessName: 'Hillside Property Partners', accentColour: '#8a1f4b', logoDataUri: OWN_LOGO },
+  branding: { businessName: 'Hillside Property Partners', accentColour: '#8a1f4b', onAccent: '#ffffff', logoDataUri: OWN_LOGO, duotone: false },
 });
 
 const parsed = (html: string): HTMLDivElement => {
@@ -82,30 +81,18 @@ describe('a pack made from a deal that carries portal image URLs', () => {
     }
   });
 
-  it('the file the user saves carries no remote image either', () => {
-    const box = parsed(render(<PackDocument model={withPictures()} />));
-    const file = packFileHtml(box, 'A pack');
-    expect(file).toContain('data:image/png;base64');
-    expect(file.toLowerCase()).not.toContain('rightmove');
-    expect(file.toLowerCase()).not.toContain('zoocdn');
-    expect(file).not.toMatch(/<img[^>]+src="(?!data:image\/)/);
-  });
 });
 
-describe('and if one ever got in', () => {
-  it('the saved file refuses to be built', () => {
-    const box = parsed(`<div class="pk"><img src="${PORTAL_PHOTO}" alt=""></div>`);
-    expect(() => assertNoRemoteImages(box)).toThrow(/not ours to send/);
-    expect(() => packFileHtml(box, 'A pack')).toThrow();
-  });
-
-  it('refuses the agent’s floor plan just the same', () => {
-    const box = parsed(`<div class="pk"><img src="${PORTAL_PLAN}" alt=""></div>`);
-    expect(() => packFileHtml(box, 'A pack')).toThrow();
-  });
-
-  it('and a same-origin image is refused too — only a data URI is ours', () => {
-    const box = parsed('<div class="pk"><img src="/favicon.png" alt=""></div>');
-    expect(() => packFileHtml(box, 'A pack')).toThrow();
+/**
+ * DP2 — THE EXPORT IS THE BROWSER'S OWN "SAVE AS PDF", so there is no file we
+ * assemble and therefore nothing to assert about one. What reaches the PDF is
+ * exactly what is in the rendered document, which is what the checks above
+ * measure. The portal URLs below are still named so this file states plainly
+ * what it is guarding against.
+ */
+describe('the portal addresses this is guarding against', () => {
+  it('are real shapes, not invented ones', () => {
+    expect(PORTAL_PHOTO).toContain('media.rightmove.co.uk');
+    expect(PORTAL_PLAN).toContain('zoocdn.com');
   });
 });

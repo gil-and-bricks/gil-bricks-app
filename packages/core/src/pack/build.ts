@@ -53,6 +53,19 @@ export interface PackSource {
   grossYield: string | null;
   /** Flip/BRRRR only. */
   endValue: string | null;
+  /**
+   * The same money figures as raw numbers, for chart geometry. The formatted
+   * strings above are what gets printed; these are what gets measured. A chart
+   * never parses a formatted string back into a number.
+   */
+  amounts: {
+    price: number;
+    stampDuty: number;
+    refurb: number;
+    legals: number;
+    additional: number | null;
+    totalIn: number;
+  };
 }
 
 /**
@@ -99,8 +112,10 @@ export function perMonth(perYear: number): number {
 }
 
 /** One figure from one copy entry, so no call site can pair them wrongly. */
-const of = (c: FigureCopy, value: string, projected = false): EvidencedFigure =>
-  figure(c.label, value, c.basis, projected);
+const of = (c: FigureCopy, value: string, projected = false, amount?: number): EvidencedFigure => {
+  const f = figure(c.label, value, c.basis, projected);
+  return amount === undefined ? f : { ...f, amount };
+};
 
 /**
  * Build the pack's numbers from a deal.
@@ -110,13 +125,13 @@ const of = (c: FigureCopy, value: string, projected = false): EvidencedFigure =>
  */
 export function packNumbers(s: PackSource, copy: PackFigureCopy): PackNumbers {
   const costs: EvidencedFigure[] = [
-    of(copy.price, s.price),
-    of(s.inWales ? copy.stampDutyWales : copy.stampDuty, s.stampDuty),
-    of(copy.refurb, s.refurb, true),
-    of(copy.legals, s.legals),
+    of(copy.price, s.price, false, s.amounts.price),
+    of(s.inWales ? copy.stampDutyWales : copy.stampDuty, s.stampDuty, false, s.amounts.stampDuty),
+    of(copy.refurb, s.refurb, true, s.amounts.refurb),
+    of(copy.legals, s.legals, false, s.amounts.legals),
   ];
-  if (s.additional !== null) costs.push(of(copy.additional, s.additional));
-  costs.push(of(copy.totalIn, s.totalIn, true));
+  if (s.additional !== null) costs.push(of(copy.additional, s.additional, false, s.amounts.additional ?? undefined));
+  costs.push(of(copy.totalIn, s.totalIn, true, s.amounts.totalIn));
 
   const returns: EvidencedFigure[] = [];
   if (s.returnPct !== null) {
@@ -135,6 +150,33 @@ export function packNumbers(s: PackSource, copy: PackFigureCopy): PackNumbers {
   if (headline.length === 0 && costs[0]) headline.push(costs[0]);
 
   return { headline, costs, returns };
+}
+
+/**
+ * DP2 — DO THESE FIGURES ACTUALLY ADD UP TO THAT TOTAL?
+ *
+ * THIS EXISTS BECAUSE THE FIRST CHART LIED. The cost page drew a waterfall —
+ * price, then tax, then refurb, then legals, stacking to a total — and on a
+ * financed deal the parts do not sum to the total at all. A BRRRR's cash going
+ * in was £78,890 against a £120,000 purchase price, because most of the
+ * purchase is borrowed. The bars stacked anyway and the page told the reader
+ * that £120,000 + £6,000 + £35,000 + £1,500 came to £78,890.
+ *
+ * A chart that implies an arithmetic relationship which does not hold is worse
+ * than the table it replaced. So the shape is chosen from the figures rather
+ * than assumed: when the parts genuinely sum, a stack is the right picture and
+ * says something true; when they do not, the same bars are drawn from a shared
+ * baseline, which claims nothing about addition.
+ *
+ * A pound of tolerance, because every figure has already been rounded for
+ * display and a rounding difference is not a financing difference.
+ */
+export function partsSumToTotal(n: PackNumbers): boolean {
+  const amounts = n.costs.map((f) => f.amount).filter((a): a is number => typeof a === 'number');
+  if (amounts.length < 3) return false;
+  const total = amounts[amounts.length - 1];
+  const parts = amounts.slice(0, -1).reduce((sum, a) => sum + a, 0);
+  return Math.abs(parts - total) <= 1;
 }
 
 /**

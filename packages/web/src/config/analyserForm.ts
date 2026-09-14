@@ -140,7 +140,9 @@ export const ACTION_BAR = {
     share: 'Share on WhatsApp',
     copyLink: 'Copy link',
     copied: 'Copied ✓',
-    save: 'Save',
+    // DP2 — it used to say just "Save", which never said WHERE. A deal goes to
+    // the pipeline, and the pipeline is where a pack is made from it.
+    save: 'Save to pipeline',
     saving: 'Saving…',
     pdf: 'PDF',
   },

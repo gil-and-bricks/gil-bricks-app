@@ -620,7 +620,7 @@ export const BOARD_COPY = {
     moveLabel: (title: string) => `Move ${title} to a stage`,
     park: 'Park',
     /** DP1 — the door to the investor deal pack, from the deal it is about. */
-    pack: 'Make a deal pack',
+    pack: 'Create deal pack',
     packFor: (title: string): string => `Make an investor deal pack for ${title}`,
     parkReasonsLabel: (title: string) => `Why are you parking ${title}?`,
     keepIt: 'Keep it',

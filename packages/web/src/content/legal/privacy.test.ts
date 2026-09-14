@@ -194,7 +194,7 @@ describe('the consent it describes', () => {
  */
 describe('what the policy says about the deal pack (DP1)', () => {
   const MIGRATION = read('../../../migrations/0028_deal_pack.sql');
-  const BUILDER = read('../../components/pack/PackBuilder.tsx');
+  const BUILDER = read('../../components/pack/PackComposer.tsx');
 
   it('names the six things that cause anything to be stored', () => {
     expect(POLICY).toContain('one of these six things');

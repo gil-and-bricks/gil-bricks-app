@@ -44,65 +44,68 @@ export const BANNED_COPY = {
 } as const;
 
 /**
- * THE PAGES. Order is the reading order and is not user-editable — one idea a
- * page, design led. `locked` pages and sections cannot be unticked.
+ * DP2 — THE SECTIONS, and which of them the user may move.
+ *
+ * The cover is pinned first and the basis page pinned last: a pack that opens
+ * on its disclaimer, or ends on a photograph, is not a pack. Everything between
+ * them is theirs to reorder and to switch off. The three locked sections cannot
+ * be switched off at all, and each says why beside its own pinned row.
  */
+export const SECTION = {
+  cover: 'cover',
+  photos: 'photos',
+  returns: 'returns',
+  summary: 'summary',
+  purchase: 'purchase',
+  plan: 'plan',
+  scope: 'scope',
+  duration: 'duration',
+  floorplan: 'floorplan',
+  area: 'area',
+  comps: 'comps',
+  gallery: 'gallery',
+  basis: 'basis',
+  compliance: 'compliance',
+  disclaimer: 'disclaimer',
+} as const;
+
 export interface PackSection {
   key: string;
   label: string;
-  /** Shown beside a locked tick box, saying why it cannot come off. */
+  /** Shown beside a locked row, saying why it cannot come off. */
   lockedWhy?: string;
+  /** Pinned rows keep their place in the reading order. */
+  pinned?: 'first' | 'last';
 }
 
-export const PACK_PAGES: readonly { key: string; title: string; sections: readonly PackSection[] }[] = [
-  {
-    key: 'cover',
-    title: 'Cover',
-    sections: [
-      { key: 'cover', label: 'Cover page' },
-      { key: 'photos', label: 'Your photographs' },
-    ],
-  },
-  {
-    key: 'glance',
-    title: 'The opportunity at a glance',
-    sections: [
-      { key: 'headline', label: 'The headline numbers' },
-      { key: 'summary', label: 'Your summary of the deal' },
-    ],
-  },
-  {
-    key: 'numbers',
-    title: 'The numbers',
-    sections: [
-      { key: 'purchase', label: 'Purchase price, stamp duty, legals' },
-      { key: 'refurb', label: 'Refurb cost' },
-      { key: 'returns', label: 'Return and yield' },
-    ],
-  },
-  {
-    key: 'property',
-    title: 'The property and the plan',
-    sections: [
-      { key: 'scope', label: 'The refurb scope' },
-      { key: 'duration', label: 'How long the work takes' },
-      { key: 'floorplan', label: 'Your floor plan' },
-    ],
-  },
-  {
-    key: 'area',
-    title: 'The area',
-    sections: [{ key: 'areaHighlights', label: 'Area highlights, each with its source' }],
-  },
-  {
-    key: 'basis',
-    title: 'Basis, terms and disclaimers',
-    sections: [
-      { key: 'basis', label: 'Where every figure came from', lockedWhy: 'Every number in this pack has to say where it came from.' },
-      { key: 'compliance', label: 'Your registration details', lockedWhy: 'An investor has to be able to check who they are dealing with.' },
-      { key: 'disclaimer', label: 'The disclaimer', lockedWhy: 'This document is information, not advice. That has to be said.' },
-    ],
-  },
+/**
+ * The rail, top to bottom. `movable` rows are the ones the user drags.
+ */
+export const PACK_SECTIONS: readonly PackSection[] = [
+  { key: SECTION.cover, label: 'Cover', pinned: 'first' },
+  { key: SECTION.returns, label: 'The headline return' },
+  { key: SECTION.purchase, label: 'What it costs to get in' },
+  { key: SECTION.plan, label: 'The work and how long it takes' },
+  { key: SECTION.area, label: 'The area' },
+  { key: SECTION.comps, label: 'What sells nearby' },
+  { key: SECTION.gallery, label: 'Your photographs' },
+  { key: SECTION.basis, label: 'Where every figure came from', pinned: 'last', lockedWhy: 'Every number in this pack has to say where it came from.' },
+  { key: SECTION.compliance, label: 'Your registration details', pinned: 'last', lockedWhy: 'An investor has to be able to check who they are dealing with.' },
+  { key: SECTION.disclaimer, label: 'The disclaimer', pinned: 'last', lockedWhy: 'This document is information, not advice. That has to be said.' },
+];
+
+/** The pages the user can reorder, in their default order. */
+export const MOVABLE_SECTIONS: readonly string[] = [
+  SECTION.returns, SECTION.purchase, SECTION.plan, SECTION.area, SECTION.comps, SECTION.gallery,
+];
+
+/** Sub-parts, switched on from the branding panel rather than the rail. */
+export const PACK_PARTS: readonly PackSection[] = [
+  { key: SECTION.photos, label: 'Photograph on the cover' },
+  { key: SECTION.summary, label: 'Your summary of the deal' },
+  { key: SECTION.scope, label: 'The refurb breakdown' },
+  { key: SECTION.duration, label: 'How long the work takes' },
+  { key: SECTION.floorplan, label: 'Your floor plan' },
 ];
 
 /** The disclaimer, on EVERY page. Short enough to sit in a footer. */
@@ -125,10 +128,35 @@ export const PACK_COPY = {
   pageOf: (n: number, total: number): string => `${n} of ${total}`,
 
   cover: {
+    eyebrow: 'Investment opportunity',
     forInvestor: 'Prepared for',
     preparedBy: 'Prepared by',
-    on: (date: string): string => `Prepared ${date}`,
+    preparedOn: 'Prepared',
     noPhotos: 'No photographs added.',
+  },
+
+  /** The page built around one enormous number. */
+  returns: {
+    eyebrow: 'The headline',
+    heading: 'What this deal returns',
+  },
+
+  growth: {
+    alt: (years: string): string => `Price index over the last ${years} years`,
+    now: 'now',
+    start: (years: string): string => `${years} years ago`,
+    head: (rate: string, area: string): string => `${area} prices have moved ${rate} a year over ten years`,
+    note: 'The shaded band is what the same rates would give, repeated. It is an assumption about the area, not a forecast for this property.',
+    source: (name: string, asOf: string): string => `${name}, ${asOf}.`,
+  },
+
+  comps: {
+    eyebrow: 'The evidence',
+    heading: 'What sells nearby',
+    head: (n: string): string => `${n} homes sold nearby, for comparison`,
+    mapAlt: 'Map of the property and nearby sold homes',
+    odbl: 'Contains information from OpenStreetMap, made available under the Open Database License (ODbL).',
+    subject: 'This one',
   },
 
   glance: {
@@ -138,7 +166,12 @@ export const PACK_COPY = {
   },
 
   numbers: {
-    heading: 'The numbers',
+    eyebrow: 'The money in',
+    heading: 'What it costs to get in',
+    chartHead: (total: string): string => `Everything adds up to ${total} of cash going in`,
+    chartNote: 'Each bar stacks on the one before it. The last bar is the total.',
+    chartHeadFinanced: (total: string): string => `${total} of your own cash goes in`,
+    chartNoteFinanced: 'These do not add up to the total: the purchase is part financed, so only some of the price is your cash. Each bar is measured from zero.',
     /** The sub-heading over the return figures. Every figure's own label is in
      *  PACK_FIGURES, beside the basis that explains it. */
     returnsHeading: 'Return and yield',
@@ -146,7 +179,12 @@ export const PACK_COPY = {
   },
 
   property: {
-    heading: 'The property and the plan',
+    eyebrow: 'The plan',
+    heading: 'The work, and how long it takes',
+    scopeHead: (n: string): string => `${n} items of work, largest first`,
+    runwayHead: (total: string): string => `The money is tied up for ${total}, not just while the builder is there`,
+    runwayNote: 'The solid bar is the quicker case, the lighter bar the slower one.',
+    planHead: (total: string): string => `${total} across the floors we measured`,
     scopeHeading: 'What is being done',
     noScope: 'No refurb scope ticked.',
     floorPlanHeading: 'Floor plan',
@@ -157,13 +195,16 @@ export const PACK_COPY = {
   },
 
   area: {
-    heading: 'The area',
+    ukhpi: 'UK House Price Index, HM Land Registry',
+    eyebrow: 'The place',
+    heading: 'The area, and what sells here',
     intro: 'Public data about this postcode sector. Each line says where it came from.',
     source: (name: string, asOf: string): string => `${name}, ${asOf}.`,
     none: 'No area data available for this postcode.',
   },
 
   basis: {
+    eyebrow: 'Basis and terms',
     heading: 'Where these figures came from',
     intro: 'Every number in this pack, and what it rests on.',
     estimateTag: 'Estimate',
@@ -180,6 +221,43 @@ export const PACK_COPY = {
       missing: 'Registration details not provided',
     },
     disclaimerHeading: 'Terms',
+  },
+
+  /**
+   * DP2 — THE COMPOSER. One screen: the rail, the document, the panel.
+   */
+  composer: {
+    heading: 'Your deal pack',
+    sections: 'Pages',
+    sectionsHint: 'Drag the order. Switch off what you do not want.',
+    parts: 'What goes on them',
+    brand: 'Your branding',
+    moveUp: (name: string): string => `Move ${name} up`,
+    moveDown: (name: string): string => `Move ${name} down`,
+    include: (name: string): string => `Include ${name}`,
+    pinnedFirst: 'Always first',
+    pinnedLast: 'Always last',
+    download: 'Download PDF',
+    downloadHint: 'Opens your browser’s print box. Choose “Save as PDF” as the destination.',
+    accentWarning: 'That colour is too pale to read on the page. Headings will be hard to see.',
+    photos: 'Your photographs',
+    photosHint: 'Only photographs you have the right to use. Not the agent’s.',
+    photosNote: 'They stay on this device. They go into the pack and are not stored by us.',
+    photosAdd: 'Add photographs',
+    photosClear: 'Remove all',
+    photosCount: (n: number): string => `${n} added`,
+    duotone: 'Tint them in my colour',
+    duotoneHint: 'Makes a mixed set of phone photos look like one set.',
+    noPortalImages: 'The listing’s own photographs are never put in the pack. They belong to the agent.',
+    investor: 'Who is it for? (optional)',
+    summary: 'Your summary of the deal (optional)',
+    summaryHint: 'A few sentences in your own words. Checked before it goes in.',
+    logo: 'Logo',
+    logoRemove: 'Remove',
+    accent: 'Accent colour',
+    custom: 'Custom',
+    saving: 'Saving…',
+    saved: 'Saved',
   },
 
   /** The builder screen. */
@@ -232,12 +310,6 @@ export const PACK_COPY = {
     loadFailed: 'Your deals could not be loaded. Try again.',
   },
 
-  /** The saved file. Their own document, built in their own browser. */
-  save: {
-    file: 'Save as a file',
-    fileHint: 'One file you can send. Print or save as PDF instead if you prefer.',
-    failed: 'The file could not be saved.',
-  },
 } as const;
 
 /**
@@ -270,6 +342,23 @@ export const PACK_FIGURES: PackFigureCopy = {
  * THE AREA HIGHLIGHTS. Each line names its dataset and its date — a fact about
  * a place, never a claim about a deal.
  */
+/**
+ * A CURATED PALETTE, and a free hex beside it.
+ *
+ * Every one of these reads as text on the pack's paper (checked by
+ * accent.test.ts), prints without turning to mud, and looks like a brand rather
+ * than a highlighter. The custom field is still there for somebody whose brand
+ * colour is their brand colour — it just warns when the choice cannot be read.
+ */
+export const ACCENT_PALETTE: readonly { hex: string; name: string }[] = [
+  { hex: '#1f3a8a', name: 'Ink blue' },
+  { hex: '#0b5c3f', name: 'Forest' },
+  { hex: '#8a1f4b', name: 'Claret' },
+  { hex: '#7a2d12', name: 'Rust' },
+  { hex: '#3f3a6e', name: 'Indigo' },
+  { hex: '#334155', name: 'Slate' },
+];
+
 export const PACK_AREA = {
   typicalPrice: 'Typical sold price in this postcode sector',
   soldCount: 'Homes sold here in the last year',

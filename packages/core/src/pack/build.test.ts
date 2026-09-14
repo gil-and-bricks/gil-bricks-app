@@ -7,7 +7,7 @@
  * comes out of it without a basis attached.
  */
 import { describe, expect, it } from 'vitest';
-import { everyFigure, packNumbers, perMonth, type PackFigureCopy, type PackSource } from './build';
+import { everyFigure, packNumbers, partsSumToTotal, perMonth, type PackFigureCopy, type PackSource } from './build';
 import { NEVER_IN_A_PACK, PackHonestyError } from './honesty';
 
 const COPY: PackFigureCopy = {
@@ -31,6 +31,8 @@ const source = (over: Partial<PackSource> = {}): PackSource => ({
   refurb: '£10,000', additional: null, totalIn: '£45,000',
   monthlyRent: '£900', returnPct: '7.2%', returnIsRoce: false, grossYield: '7.2%',
   endValue: null,
+  // The same figures as raw numbers, for chart geometry (DP2).
+  amounts: { price: 150000, stampDuty: 7500, refurb: 10000, legals: 2000, additional: null, totalIn: 45000 },
   ...over,
 });
 
@@ -123,9 +125,67 @@ describe('the headline the reader sees first', () => {
   });
 });
 
+describe('DP2 — a chart measures the raw figure, never the formatted one', () => {
+  it('carries the amount beside the display string on every money figure', () => {
+    const n = packNumbers(source(), COPY);
+    const price = n.costs.find((f) => f.label === COPY.price.label);
+    expect(price?.value).toBe('£150,000');
+    expect(price?.amount).toBe(150000);
+  });
+
+  it('leaves it undefined where a bar would be meaningless', () => {
+    // A percentage has no length. A chart that drew one would be inventing it.
+    const n = packNumbers(source(), COPY);
+    expect(n.returns.find((f) => f.label === COPY.grossYield.label)?.amount).toBeUndefined();
+  });
+
+  it('never lets the two disagree — the amount comes from the engine, not a parse', () => {
+    const n = packNumbers(source({ price: '£1,250,000', amounts: { price: 1250000, stampDuty: 7500, refurb: 10000, legals: 2000, additional: null, totalIn: 45000 } }), COPY);
+    const price = n.costs.find((f) => f.label === COPY.price.label);
+    expect(price?.amount).toBe(1250000);
+  });
+});
+
 describe('a year as a month', () => {
   it('divides by twelve, and nothing else does', () => {
     expect(perMonth(12000)).toBe(1000);
     expect(perMonth(0)).toBe(0);
+  });
+});
+
+/**
+ * DP2 — the cost chart may only claim the parts add up when they do.
+ */
+describe('do the cost figures actually sum to the total', () => {
+  it('says yes for a cash purchase, where they genuinely do', () => {
+    // 150,000 + 7,500 + 10,000 + 2,000 = 169,500
+    const n = packNumbers(source({
+      totalIn: '£169,500',
+      amounts: { price: 150000, stampDuty: 7500, refurb: 10000, legals: 2000, additional: null, totalIn: 169500 },
+    }), COPY);
+    expect(partsSumToTotal(n)).toBe(true);
+  });
+
+  it('says NO for a financed deal — the case that made the first chart lie', () => {
+    // A real BRRRR: £78,890 of cash going in against a £120,000 purchase,
+    // because most of the purchase is borrowed. 120,000 + 6,000 + 35,000 +
+    // 1,500 is £162,500, and a stack drawn from those said it was £78,890.
+    const n = packNumbers(source({
+      price: '£120,000', stampDuty: '£6,000', refurb: '£35,000', legals: '£1,500', totalIn: '£78,890',
+      amounts: { price: 120000, stampDuty: 6000, refurb: 35000, legals: 1500, additional: null, totalIn: 78890 },
+    }), COPY);
+    expect(partsSumToTotal(n)).toBe(false);
+  });
+
+  it('forgives a rounding pound, because every figure was rounded for display', () => {
+    const n = packNumbers(source({
+      totalIn: '£169,501',
+      amounts: { price: 150000, stampDuty: 7500, refurb: 10000, legals: 2000, additional: null, totalIn: 169501 },
+    }), COPY);
+    expect(partsSumToTotal(n)).toBe(true);
+  });
+
+  it('refuses to claim anything from too few figures', () => {
+    expect(partsSumToTotal({ headline: [], costs: [], returns: [] })).toBe(false);
   });
 });
