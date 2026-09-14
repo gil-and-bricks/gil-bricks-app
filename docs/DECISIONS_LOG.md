@@ -72,6 +72,32 @@ It took three faults to get there, and each was only visible on the page:
   investor — the exact fault this sprint exists to fix. The colour is now passed
   in explicitly; only the pack's capture does it.
 
+### The Cache Rule broke the map, and CI had been saying so
+
+**CI had been red since before this sprint and I had not looked.** The console
+gate was failing on /comparables at desktop width, every run, with pmtiles
+reporting "Server returned no content-length header or content-length exceeding
+request" — a byte-serving failure on the range requests the basemap lives on.
+
+I called it transient on the first sighting. It was not: same page, same width,
+three runs in a row, starting with the first run after the Cache Rule went live
+on data.proplaunch.ai. Forty range requests from this network come back clean —
+206, correct content-length, every time — so it is a path the rule takes for a
+very large object on some routes and not others, not something the app can fix.
+
+**The archive now has its own host** (`coreConfig.tilesBaseUrl`), back on the
+r2.dev address it was served from for months. This costs nothing: the archive was
+never edge-cached anyway — `cf-cache-status: BYPASS`, because 1.07GB is far over
+the free plan's per-file ceiling — so there is no caching to lose. The JSON keeps
+the custom domain and keeps its HITs, which is where the measured win was.
+
+Said plainly: this is a mitigation chosen on correlation, not a proven root
+cause. I could not reproduce the failure from here. What makes it a safe choice
+rather than a guess is that it restores a configuration known to work for months
+and gives up nothing measurable. The alternative — exclude `/map/` from the
+Cache Rule and put the one config value back — is one line whenever that is
+confirmed.
+
 ### Judgment calls
 
 **1. NO "Save and create pack" on the analyser.** Asked to argue it and decide,
