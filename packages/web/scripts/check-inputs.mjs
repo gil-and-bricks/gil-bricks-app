@@ -77,6 +77,22 @@ const settle = async (page, path) => {
     () => (document.querySelector('.analyser')?.innerText ?? '').length > 1200,
     { timeout: 30000 },
   ).catch(() => {});
+  /**
+   * OPEN THE REFURB BREAKDOWN BEFORE MEASURING ANYTHING.
+   *
+   * The fingerprint below is `innerText`, which by definition skips anything
+   * inside a `hidden` element. The refurb breakdown is a collapsed disclosure,
+   * so an input whose effect is drawn INSIDE it — the duration runway, which is
+   * not repeated outside — measured as changing nothing at all, and the gate
+   * reported two live fields as dead (DM1). The row tick boxes hid the problem:
+   * their effect lands on the refurb TOTAL, which sits outside the disclosure.
+   *
+   * A gate that measures a collapsed page is measuring the wrong page.
+   */
+  await page.evaluate(() => {
+    const toggle = document.querySelector('.refurb-toggle');
+    if (toggle instanceof HTMLElement && toggle.getAttribute('aria-expanded') === 'false') toggle.click();
+  });
   await page.waitForTimeout(2500);
 };
 

@@ -167,3 +167,44 @@ describe('the config alone decides the numbers', () => {
     expect(partsFor('none', CONFIG)).toBeNull();
   });
 });
+
+/**
+ * DM1 — A BUILDER'S FIGURE WITH NOTHING TICKED.
+ *
+ * Found by the analyser's input gate, which types into every input on every
+ * strategy and fails any that moves nothing: the two week boxes took a number
+ * and the page did not move, because this returned null whenever the scope was
+ * empty. A field that accepts a number and does nothing with it is a lie to
+ * whoever typed it.
+ */
+describe('a builder’s own figure, with no scope ticked', () => {
+  it('still produces a runway — their weeks on tools, plus the other three parts', () => {
+    const d = refurbDuration([], CONFIG, { from: 3, to: 5 });
+    expect(d).not.toBeNull();
+    expect(d?.parts.onTools).toEqual({ from: 3, to: 5 });
+    expect(d?.fromBuilder).toBe(true);
+    // the three band-independent parts come straight from config
+    expect(d?.parts.leadIn).toEqual(CONFIG.leadIn);
+    expect(d?.parts.snagging).toEqual(CONFIG.snagging);
+    expect(d?.parts.voidPeriod).toEqual(CONFIG.voidPeriod);
+  });
+
+  it('sums to their weeks plus the rest, not to their weeks alone', () => {
+    const d = refurbDuration([], CONFIG, { from: 3, to: 5 });
+    const c = CONFIG;
+    expect(d?.total).toEqual({
+      from: 3 + c.leadIn.from + c.snagging.from + c.voidPeriod.from,
+      to: 5 + c.leadIn.to + c.snagging.to + c.voidPeriod.to,
+    });
+  });
+
+  it('still returns null with nothing ticked and no figure — there is genuinely nothing to say', () => {
+    expect(refurbDuration([], CONFIG, null)).toBeNull();
+    expect(refurbDuration([], CONFIG)).toBeNull();
+  });
+
+  it('refuses a nonsense figure rather than inventing a runway from it', () => {
+    expect(refurbDuration([], CONFIG, { from: 0, to: 0 })).toBeNull();
+    expect(refurbDuration([], CONFIG, { from: 9, to: 2 })).toBeNull();
+  });
+});

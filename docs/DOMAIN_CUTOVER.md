@@ -8,6 +8,13 @@ this order.
 
 ## 1. Google — so sign-in keeps working (DO THIS FIRST)
 
+> **THIS IS BROKEN RIGHT NOW AND I CONFIRMED IT.** I followed the live
+> sign-in redirect from https://proplaunch.ai through to Google and it answers
+> **`Error 400: redirect_uri_mismatch`**. The same check against the old
+> address comes back clean, so it is this one URI and nothing else. Until you
+> do this step, nobody can sign in on the new domain. Everything else on the
+> site — browsing, the analyser, the map, the tools — works.
+
 **What breaks without it:** every sign-in on the new domain fails with
 `Error 400: redirect_uri_mismatch`. Existing signed-in users are logged out by
 the move anyway (see §5), so this blocks *everyone*, not just new sign-ups.

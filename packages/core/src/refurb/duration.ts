@@ -138,10 +138,28 @@ export function refurbDuration(
   ownWeeks?: WeekRange | null,
 ): RefurbDuration | null {
   const band = bandFor(ticked, config);
-  const suggested = partsFor(band, config);
+  const fromBuilder = ownWeeks != null && ownWeeks.from > 0 && ownWeeks.to >= ownWeeks.from;
+
+  /**
+   * A BUILDER'S FIGURE IS ENOUGH ON ITS OWN.
+   *
+   * This used to return null whenever nothing was ticked, even when the user
+   * had typed their builder's weeks — so the field took a number and the page
+   * did not move, which is exactly the dead input the analyser's input gate
+   * exists to catch, and it caught this one.
+   *
+   * It does not need a band. The band only ever decided TIME ON TOOLS, and that
+   * is the one part a builder's figure replaces; lead-in, snagging and the void
+   * are the same constants whatever the scope. So with a figure and no scope,
+   * the runway is their number plus the other three — which is more useful than
+   * nothing and is the whole point the module was written to make.
+   */
+  const suggested = partsFor(band, config)
+    ?? (fromBuilder
+      ? { leadIn: config.leadIn, onTools: ownWeeks as WeekRange, snagging: config.snagging, voidPeriod: config.voidPeriod }
+      : null);
   if (suggested === null) return null;
 
-  const fromBuilder = ownWeeks != null && ownWeeks.from > 0 && ownWeeks.to >= ownWeeks.from;
   const parts: DurationParts = fromBuilder
     ? { ...suggested, onTools: ownWeeks as WeekRange }
     : suggested;
