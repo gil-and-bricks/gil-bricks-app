@@ -94,6 +94,43 @@ it to the one gate CLAUDE.md already records as the easiest to forget.
 signed-in user signs in once more on the new domain. Nothing is lost — the
 account, the deals and the pipeline are keyed to the user, not the host.
 
+### CORRECTION — the dev door, and an A/B that isolated the wrong variable
+
+The DM1 report said two gates could not run and that the cause was "not the
+domain move". **That was wrong, and the way it was got wrong is the useful
+part.**
+
+`GET /auth/dev-login` on a locally-run Worker answered 404, so `signed-in-gate`
+and `pack-gate` could not sign in. The A/B that produced the wrong conclusion
+reverted `run_worker_first` to its old value and saw the 404 persist — but left
+the new `routes` block in place. `routes` was the variable that mattered, and it
+was never isolated. Two changes went in together and only one was tested.
+
+**The cause.** wrangler takes the hostname a LOCAL Worker sees from the first
+`routes` entry, so from the moment `proplaunch.ai` was added the Worker booted
+on localhost:8788 started seeing `http://proplaunch.ai/auth/dev-login`. Proven
+by instrumenting `isDevEnv` to print what it actually received:
+
+    {"probe":"isDevEnv","url":"http://proplaunch.ai/auth/dev-login",
+     "host":"proplaunch.ai","devLoginType":"string","devLoginRaw":"\"on\""}
+
+`DEV_LOGIN` was `'on'` all along — every hypothesis about quoting, `--var` and
+`.dev.vars` was chasing the wrong half of the guard. The host half was the one
+failing, on a server reachable only on localhost.
+
+**The fix is in the boot, not the guard.** Both gates now pass
+`--local-upstream localhost`, the local-mode knob for exactly this. `isDevEnv`
+is untouched: its localhost requirement is what keeps /auth/dev-login inert in
+production, and loosening it to make a test convenient is the trade this repo
+has refused before.
+
+**And the symptom now explains itself.** The only thing the gate used to say was
+"signing in did not land on the board", which names neither cause nor fix. Both
+gates now ask the dev door BEFORE launching a browser and, when it is shut,
+print the status, both halves of `isDevEnv`, the fact that wrangler takes the
+host from `routes`, and the flag that fixes it. Verified by removing
+`--local-upstream` and watching the new message fire.
+
 ### Judgment calls
 
 **1. The Worker keeps its name.** `gil-bricks-app` is the Worker's name, not the

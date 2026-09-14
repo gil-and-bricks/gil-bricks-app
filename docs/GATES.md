@@ -61,7 +61,14 @@ is our server, not a portal, and it is exactly what a person's click does — it
 is also how the gate knows the analyser page resolves, since the site answers
 307 and the tab lands on the trailing-slash path.
 
-**The signed-in gate runs locally, on purpose.** Production has no test account.
+**The signed-in gate runs locally, on purpose.** Production has no test account. Both
+local-Worker gates boot with `--local-upstream localhost`, and that flag is
+load-bearing: wrangler takes the hostname a local Worker sees from the first
+`routes` entry in wrangler.jsonc, so once the product got a custom domain the
+Worker on localhost started seeing `http://proplaunch.ai/...` and every
+dev-only route answered the bare 404 its guard is designed to give a public
+host. Both gates now ask the dev door before launching a browser and say
+exactly that if it is shut. Production has no test account.
 Driving Google OAuth would mean handling a real password; a production back door
 would weaken real auth for everyone. Instead it boots the real Worker over a
 throwaway D1 and signs in through `/auth/dev-login`, which has always existed and
