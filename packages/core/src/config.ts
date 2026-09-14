@@ -44,29 +44,33 @@ export const coreConfig = {
   dataBaseUrl: 'https://data.proplaunch.ai',
 
   /**
-   * WHERE THE MAP'S TILE ARCHIVE IS FETCHED FROM — deliberately NOT the same
-   * host as the data above.
+   * WHERE THE MAP'S TILE ARCHIVE IS FETCHED FROM.
    *
-   * The archive is 1.07GB and the custom domain carries a Cache Rule. Since
-   * that rule went live the console gate has failed on /comparables at desktop
-   * width, every run, with pmtiles reporting "Server returned no content-length
-   * header or content-length exceeding request" — a byte-serving failure on the
-   * range requests the map lives on. It reproduces on the CI runner and not
-   * from the operator's network, so it is a path the rule takes for a very
-   * large object rather than something the app can fix in code.
+   * THE SAME HOST AS THE DATA, and deliberately so: one domain, and no
+   * rate-limited development endpoint anywhere in the request path.
    *
-   * HONEST ABOUT WHAT THIS IS: a mitigation chosen on correlation, not a proven
-   * root cause. What makes it safe is that it costs nothing — the archive was
-   * never edge-cached anyway (cf-cache-status: BYPASS, because it is far over
-   * the free plan's per-file ceiling), so moving it back to the address it was
-   * served from for months loses no caching at all. The JSON keeps the custom
-   * domain and keeps its cache HITs, which is where the measured win actually
-   * was.
+   * IT DID NOT START THAT WAY. When the data bucket's Cache Rule went live the
+   * console gate began failing on /comparables at desktop width, every run,
+   * with pmtiles reporting "Server returned no content-length header or
+   * content-length exceeding request" — a byte-serving failure on the range
+   * requests the basemap lives on. Moving the archive to its own host turned
+   * three consecutive red runs green on the next commit, which made the Cache
+   * Rule's path over a 1.07GB object the cause rather than a suspicion.
    *
-   * The alternative is to exclude /map/ from the Cache Rule and put this back
-   * to dataBaseUrl — one line, whenever that is confirmed.
+   * The rule now excludes /map/, so the archive takes the plain path again and
+   * this can point back where it belongs. The exclusion costs nothing: at
+   * 1.07GB the archive was never edge-cached anyway — cf-cache-status BYPASS,
+   * far over the free plan's per-file ceiling — so there was no caching to
+   * lose. The JSON keeps the rule and keeps its cache HITs, which is where the
+   * measured win was.
+   *
+   * KEPT AS ITS OWN FIELD rather than folded back into dataBaseUrl. The two
+   * point at the same host today, but they are two different things: a 1.07GB
+   * archive read in ranges, and a few hundred KB of JSON read whole. They have
+   * already needed to differ once, and a named field is how that stays one edit
+   * instead of an archaeology exercise.
    */
-  tilesBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+  tilesBaseUrl: 'https://data.proplaunch.ai',
 
   /** Social profiles — the ONLY place these URLs are written (name-agnostic). */
   socials: {
