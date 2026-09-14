@@ -5,6 +5,7 @@
  */
 import { coreConfig } from '../config';
 import { SCHEMA_VERSION, type AreaStatsFile, type Manifest, type PostcodeMap, type Sale, type SectorFile, type SectorsIndexEntry, type UkhpiFile } from './types';
+import type { TrajectoryFile } from '../area/trajectory';
 
 export type DataErrorKind = 'NotFound' | 'Network' | 'BadSchema';
 
@@ -188,6 +189,77 @@ export async function getAreaStats(outcode: string): Promise<AreaStatsFile> {
   }
   cache.set(path, body);
   return body as AreaStatsFile;
+}
+
+/**
+ * CA1 — area-trajectory.json and area-codes.json, both additive companions.
+ *
+ * Fetched ONLY when somebody opens the area panel, never on page load: between
+ * them they are about 46KB gzipped, and a reader who never opens the panel
+ * should not pay for it. Both are validated before use — a malformed file must
+ * fail loudly rather than draw a chart out of nothing.
+ */
+export interface AreaCodesFile {
+  schemaVersion: number;
+  source: string;
+  licence: string;
+  /** Distinct area codes, interned. */
+  codes: string[];
+  /** sector -> [localAuthorityIndex, regionIndex, countryIndex]; -1 means none. */
+  sectors: Record<string, [number, number, number]>;
+}
+
+export async function getAreaTrajectory(): Promise<TrajectoryFile> {
+  const path = 'area-trajectory.json';
+  const hit = cache.get(path);
+  if (hit) return hit as TrajectoryFile;
+  const body = await fetchJson(path);
+  const t = body as Partial<TrajectoryFile>;
+  if (
+    typeof t.month !== 'string'
+    || typeof t.areas !== 'object' || t.areas === null || Array.isArray(t.areas)
+    || Object.keys(t.areas).length === 0
+  ) {
+    throw new DataError('BadSchema', `Malformed area trajectory at ${path}`);
+  }
+  cache.set(path, body);
+  return body as TrajectoryFile;
+}
+
+export async function getAreaCodes(): Promise<AreaCodesFile> {
+  const path = 'area-codes.json';
+  const hit = cache.get(path);
+  if (hit) return hit as AreaCodesFile;
+  const body = await fetchJson(path);
+  const c = body as Partial<AreaCodesFile>;
+  if (
+    !Array.isArray(c.codes) || c.codes.length === 0
+    || typeof c.sectors !== 'object' || c.sectors === null || Array.isArray(c.sectors)
+  ) {
+    throw new DataError('BadSchema', `Malformed area codes at ${path}`);
+  }
+  cache.set(path, body);
+  return body as AreaCodesFile;
+}
+
+/**
+ * The three official codes for a sector — its local authority, its region and
+ * its country. ONS uses a pseudo-code ending 99999999 for "does not apply",
+ * which is how every Welsh sector reports its region: regions are an English
+ * geography and Wales has none. Those become null rather than a lookup that
+ * silently finds nothing.
+ */
+export function codesForSector(file: AreaCodesFile, sector: string): {
+  la: string | null; region: string | null; country: string | null;
+} {
+  const entry = file.sectors[sector.trim().toUpperCase()];
+  const at = (i: number): string | null => {
+    if (i === undefined || i < 0) return null;
+    const code = file.codes[i];
+    return typeof code === 'string' && !/99999999$/.test(code) ? code : null;
+  };
+  if (!entry) return { la: null, region: null, country: null };
+  return { la: at(entry[0]), region: at(entry[1]), country: at(entry[2]) };
 }
 
 /** ukhpi.json — additive v1 companion. */

@@ -10,6 +10,10 @@
  * published month.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+// CA1 — the area trajectory companion rides this same download. See
+// pipeline/area-trajectory.mjs; deleting that file and these two lines removes
+// the feature's data whole.
+import { writeTrajectory } from './area-trajectory.mjs';
 
 const DATA = 'pipeline/.data';
 const BASE = 'https://publicdata.landregistry.gov.uk/market-trend-data/house-price-index-data';
@@ -29,10 +33,11 @@ async function findLatestMonth() {
 const month = await findLatestMonth();
 console.log(`UKHPI latest published month: ${month}`);
 
-if (existsSync(`${DATA}/ukhpi-meta.json`) && existsSync(`${DATA}/ukhpi.json`)) {
+if (existsSync(`${DATA}/ukhpi-meta.json`) && existsSync(`${DATA}/ukhpi.json`)
+  && existsSync(`${DATA}/area-trajectory.json`)) {
   const prev = JSON.parse(readFileSync(`${DATA}/ukhpi-meta.json`, 'utf8'));
   if (prev.ukhpiMonth === month) {
-    console.log('ukhpi.json already matches — skipping download');
+    console.log('ukhpi.json and area-trajectory.json already match — skipping download');
     process.exit(0);
   }
 }
@@ -83,4 +88,9 @@ writeFileSync(`${DATA}/ukhpi.json`, JSON.stringify({
   index: table,
 }));
 writeFileSync(`${DATA}/ukhpi-meta.json`, JSON.stringify({ ukhpiMonth: month, latestDataMonth: latestData, rows: kept }, null, 2) + '\n');
+// CA1 — the second output, from the same lines. It throws rather than writing
+// a thin file, so a UK HPI shape change stops the refresh instead of quietly
+// publishing an area panel with no areas in it.
+await writeTrajectory(DATA, lines);
+
 console.log(`done: ${kept} rows kept; England ${eMonths[0]}..${latestData}, Wales ${wMonths[0]}..${wMonths[wMonths.length - 1]}`);

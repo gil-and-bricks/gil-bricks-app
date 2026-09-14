@@ -23,6 +23,7 @@ import { fmtMoney, fmtPct } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, updateStrategy, legacyRefurbLevel } from './state';
 import { refurbParamKeys } from './RefurbSection';
 import { VerdictShell } from './VerdictShell';
+import { AreaTrajectoryPanel } from './AreaTrajectory';
 import { MathsAccordion } from './Accordion';
 import { GdvModule } from './GdvModule';
 
@@ -144,6 +145,11 @@ export function FlipVerdict({ config, comps, valuation, beforeVerdict }: {
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
       missing={needs}
+      /* CA1 — history and labelled assumptions, collapsed, inside the verdict
+         card but never part of the verdict. Not an input to the Deal Score. */
+      afterVerdict={features.areaTrajectory
+        ? <AreaTrajectoryPanel sector={comps?.subject.sectorId ?? null} price={Number(s.price) || null} />
+        : null}
     >
       {valuation && prefilled.current !== null && !diverged.current && (strategyParams.value.gdv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>

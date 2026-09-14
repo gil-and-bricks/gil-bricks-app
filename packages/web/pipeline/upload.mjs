@@ -35,6 +35,20 @@ import { join, relative } from 'node:path';
 import { promisify } from 'node:util';
 
 const exec = promisify(execFile);
+
+/**
+ * Where wrangler actually is. npm hoists it to the workspace ROOT, so the
+ * hardcoded `node_modules/.bin/wrangler` only ever resolved if a copy happened
+ * to be installed beside this package — and locally it is not, so the fallback
+ * path died with ENOENT before uploading anything. Checks the local bin first,
+ * then the workspace root, and says which to look for if neither is there.
+ */
+const WRANGLER = ['node_modules/.bin/wrangler', '../../node_modules/.bin/wrangler']
+  .find((p) => existsSync(p));
+if (WRANGLER === undefined && !process.env.CLOUDFLARE_API_TOKEN) {
+  throw new Error('No wrangler binary found (looked in node_modules/.bin and ../../node_modules/.bin), '
+    + 'and no CLOUDFLARE_API_TOKEN for the API path.');
+}
 const BUCKET = 'gil-bricks-data';
 const args = process.argv.slice(2);
 const flag = (name, dflt) => {
@@ -135,7 +149,7 @@ async function putS3(key, body, cacheControl, attempt = 1) {
 async function putWrangler(key, gzPath, cacheControl, attempt = 1) {
   await throttle();
   try {
-    await exec('node_modules/.bin/wrangler', [
+    await exec(WRANGLER, [
       'r2', 'object', 'put', `${BUCKET}/${key}`,
       '--file', gzPath, '--content-type', 'application/json',
       '--content-encoding', 'gzip', '--cache-control', cacheControl, '--remote',
@@ -214,7 +228,7 @@ async function preflight() {
       if (parsed?.preflight !== true) throw new Error('preflight FAILED: the object did not decode back to its own JSON');
       console.log(`preflight OK — content-encoding: ${enc}, cache-control: ${cc}, ${body.length}B -> ${gz.length}B`);
       if (fastMode) await deleteS3(key);
-      else await exec('node_modules/.bin/wrangler', ['r2', 'object', 'delete', `${BUCKET}/${key}`, '--remote']).catch(() => {});
+      else await exec(WRANGLER, ['r2', 'object', 'delete', `${BUCKET}/${key}`, '--remote']).catch(() => {});
       return;
     }
     last = `HTTP ${res.status}`;

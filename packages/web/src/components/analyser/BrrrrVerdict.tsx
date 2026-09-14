@@ -21,6 +21,7 @@ import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, updateStrategy, legacyRefurbLevel } from './state';
 import { refurbParamKeys } from './RefurbSection';
 import { VerdictShell } from './VerdictShell';
+import { AreaTrajectoryPanel } from './AreaTrajectory';
 import { MathsAccordion } from './Accordion';
 
 function requireThresholds(config: StrategyConfig): { allOutMax: number; minCashflowGreen: number; icrBasic: number; icrHigher: number } {
@@ -143,6 +144,11 @@ export function BrrrrVerdict({ config, comps, valuation, beforeVerdict }: {
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
       missing={needs}
+      /* CA1 — history and labelled assumptions, collapsed, inside the verdict
+         card but never part of the verdict. Not an input to the Deal Score. */
+      afterVerdict={features.areaTrajectory
+        ? <AreaTrajectoryPanel sector={comps?.subject.sectorId ?? null} price={Number(s.price) || null} />
+        : null}
     >
       {valuation && prefilled.current !== null && (strategyParams.value.arv ?? '') === prefilled.current && (
         <p class="field-hint">{COPY.verdict.prefilled}</p>

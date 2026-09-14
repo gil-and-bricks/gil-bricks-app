@@ -13,6 +13,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 
 import { join } from 'node:path';
 import { modalDecile, salesByMonth, saleShare, sectorStats, typicalPriceByType } from './stats.mjs';
 import { csvHeader, onspdColumn } from './onspd-columns.mjs';
+import { writeAreaCodes } from './area-codes.mjs';
 import { closeSync, openSync, readSync } from 'node:fs';
 
 const DATA = 'pipeline/.data';
@@ -108,6 +109,16 @@ const UKHPI_META = `${DATA}/ukhpi-meta.json`;
 if (!existsSync(UKHPI_JSON) || !existsSync(UKHPI_META)) {
   throw new Error('UKHPI extract missing — run `node pipeline/ukhpi.mjs` first');
 }
+// CA1 — the area trajectory companion, written by the same UKHPI stage. It is
+// REQUIRED rather than optional: the panel's flag is what turns the feature
+// off, and a build that quietly shipped without the data would leave the panel
+// on and empty.
+const TRAJECTORY_JSON = `${DATA}/area-trajectory.json`;
+if (!existsSync(TRAJECTORY_JSON)) {
+  throw new Error('Area trajectory extract missing — run `node pipeline/ukhpi.mjs` first');
+}
+const areaTrajectoryMonth = JSON.parse(readFileSync(TRAJECTORY_JSON, 'utf8')).month;
+console.log(`areaTrajectoryMonth=${areaTrajectoryMonth}`);
 const ukhpiMonth = JSON.parse(readFileSync(UKHPI_META, 'utf8')).latestDataMonth;
 console.log(`ukhpiMonth=${ukhpiMonth}`);
 
@@ -438,10 +449,17 @@ console.log(`area stats files: ${areaFiles}`);
 // copy the UKHPI companion into the published output
 writeFileSync(join(OUT, 'ukhpi.json'), readFileSync(UKHPI_JSON));
 
+// CA1 — the area trajectory, and the sector→local-authority lookup that makes
+// it addressable. Both are fetched only when somebody opens the panel, so they
+// cost nothing on a page that never shows it.
+writeFileSync(join(OUT, 'area-trajectory.json'), readFileSync(TRAJECTORY_JSON));
+await writeAreaCodes(join(OUT, 'area-codes.json'), `${DATA}/onspd/${onspdCsv}`);
+
 const manifest = {
   schemaVersion: 1,
   ppdMonth,
   ukhpiMonth,
+  areaTrajectoryMonth,
   epcExtractDate,
   onspdEdition,
   generatedAt: new Date().toISOString(),

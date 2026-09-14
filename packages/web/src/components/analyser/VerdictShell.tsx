@@ -29,7 +29,7 @@ import { StrategyInputs } from './StrategyInputs';
 import { legacyRefurbLevel } from './state';
 
 export function VerdictShell({
-  config, country, hasContingency, aboveInputs, afterInputs, beforeVerdict, missing, children,
+  config, country, hasContingency, aboveInputs, afterInputs, beforeVerdict, missing, afterVerdict, children,
 }: {
   config: StrategyConfig;
   /** ONSPD country of the subject, for the refurb section's regional figures. */
@@ -48,6 +48,13 @@ export function VerdictShell({
    * — so the shell puts a line where each one would be, naming what it wants.
    */
   missing?: readonly StrategyField[];
+  /**
+   * CA1 — rendered INSIDE the verdict card, under the answer and before the
+   * waiting line: the area trajectory panel. It is a collapsed line, visually
+   * separate, and it is never part of the verdict — it is history and clearly
+   * labelled assumptions, and the Deal Score has never seen it.
+   */
+  afterVerdict?: ComponentChildren;
   /** The verdict card's own body: the score, the banner, the figures, the costs. */
   children: ComponentChildren;
 }) {
@@ -78,6 +85,7 @@ export function VerdictShell({
       <section class="glass card" aria-labelledby="verdict-h">
         <h2 id="verdict-h" tabIndex={-1}>{VERDICT_COPY.heading(config.name)}</h2>
         {children}
+        {afterVerdict}
         {/* SAY WHY, DO NOT JUST HIDE IT. Each section keeps its own anchor, so
             its chip stays in the strip and lands on the explanation rather than
             disappearing and leaving the page looking broken. */}

@@ -62,7 +62,12 @@ jobs:
           cd packages/web && node pipeline/epc.mjs
           df -h /
 
-      - name: Download UKHPI index
+      # One download, two outputs: the index the valuation uses for indexation,
+      # and the CA1 area trajectory (every local authority and region, plus the
+      # ONS affordability ratio). The stage throws rather than writing a thin
+      # file, so a UK HPI shape change stops the refresh instead of quietly
+      # publishing an area panel with no areas in it.
+      - name: Download UKHPI index and the area trajectory
         run: cd packages/web && node pipeline/ukhpi.mjs
 
       - name: Download + parse deprivation indices (IMD 2025 / WIMD 2025)

@@ -1959,6 +1959,62 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
 .refurb-caveat p:last-child { margin-bottom: 0; }
 .refurb-reviewed { margin-top: var(--space-2) !important; }
 
+/* CA1 — THE AREA TRAJECTORY PANEL.
+   Phone first. It lives inside the verdict card but must never read as part of
+   the verdict, so it is set apart by a rule above it and a quieter ground, and
+   it stays CLOSED until asked. Closed it is two lines tall, which is what keeps
+   it from pushing the answer off a 390px screen. */
+.at { margin-top: var(--space-4); border-top: 1px solid var(--line); padding-top: var(--space-3); }
+.at-summary { cursor: pointer; list-style: none; padding: var(--space-2) 0; min-height: 48px; display: flex; flex-direction: column; justify-content: center; gap: 2px; }
+.at-summary::-webkit-details-marker { display: none; }
+.at-summary::before { content: '+' / ''; float: right; font-weight: 700; color: var(--accent); }
+.at[open] .at-summary::before { content: '−' / ''; }
+.at-summary-line { font-weight: 600; font-size: var(--text-sm); }
+.at-summary-hint { font-size: var(--text-xs); color: var(--text-dim); }
+.at-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.at-body { padding-top: var(--space-2); }
+.at-h { font-size: var(--text-sm); margin: 0 0 var(--space-2); }
+
+/* The disclosure. Deliberately not small print: it is the same size as the
+   figures it qualifies, and it sits above them. */
+.at-honest { font-size: var(--text-xs); color: var(--text); background: var(--surface-2); border-left: 3px solid var(--accent); padding: var(--space-2); margin: 0 0 var(--space-3); }
+.at-fellback { font-size: var(--text-xs); color: var(--text-dim); margin: 0 0 var(--space-3); }
+
+.at-block { margin: 0 0 var(--space-3); }
+.at-block-h { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0 0 var(--space-1); }
+.at-forarea, .at-source, .at-basis, .at-assumption, .at-inflation, .at-illustrative, .at-attribution { font-size: var(--text-xs); color: var(--text-dim); margin: var(--space-1) 0 0; }
+.at-record, .at-compare, .at-bands { list-style: none; margin: 0; padding: 0; }
+.at-record-row, .at-compare-row, .at-band-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); padding: var(--space-1) 0; border-bottom: 1px solid var(--line); font-size: var(--text-sm); }
+.at-record-label, .at-band-name { color: var(--text-dim); flex: 1 1 8rem; }
+.at-record-value, .at-band-value { font-weight: 600; font-variant-numeric: tabular-nums; }
+.at-worst { font-weight: 600; font-size: var(--text-sm); margin: 0; }
+.at-best, .at-fell, .at-afford { font-size: var(--text-sm); margin: var(--space-1) 0 0; }
+
+/* THE PICTURE. One line, one band — never a fan, never three lines. The band is
+   deliberately the vaguer of the two: a soft fill with no edge, against a solid
+   line for what actually happened. */
+.at-chart { width: 100%; height: 120px; display: block; margin: var(--space-2) 0 var(--space-1); overflow: visible; }
+.at-band { fill: var(--accent); opacity: 0.16; stroke: none; }
+.at-line { fill: none; stroke: var(--text); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.at-now { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+.at-chart-intro { font-size: var(--text-xs); font-weight: 600; margin: 0; }
+.at-chart-key { display: flex; gap: var(--space-3); font-size: var(--text-xs); color: var(--text-dim); margin: 0 0 var(--space-2); }
+.at-key-line::before { content: '' / ''; display: inline-block; width: 14px; height: 2px; background: var(--text); vertical-align: middle; margin-right: 6px; }
+.at-key-band::before { content: '' / ''; display: inline-block; width: 14px; height: 10px; background: var(--accent); opacity: 0.3; vertical-align: middle; margin-right: 6px; }
+
+.at-horizon { margin-top: var(--space-3); }
+.at-horizon-h { font-size: var(--text-sm); margin: 0; }
+.at-illustrative { font-style: italic; }
+.at-withheld { margin: var(--space-2) 0 0; }
+.at-attribution { margin-top: var(--space-3); padding-top: var(--space-2); border-top: 1px solid var(--line); }
+
+@media (min-width: 40rem) {
+  /* Two columns for the record and the comparison, so the panel does not become
+     a long scroll on a laptop. The bands stay full width — a wide row makes a
+     scenario look more precise than it is. */
+  .at-record, .at-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-4); }
+}
+
 /* ---------- R3: the listing photo carousel --------------------------------
    Namespaced rc- throughout, so deleting this block removes the whole visual
    design of the feature and nothing else. It sits ABOVE the itemised list and

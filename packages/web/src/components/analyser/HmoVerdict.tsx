@@ -22,6 +22,7 @@ import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, legacyRefurbLevel } from './state';
 import { refurbParamKeys } from './RefurbSection';
 import { VerdictShell } from './VerdictShell';
+import { AreaTrajectoryPanel } from './AreaTrajectory';
 import { Accordion, MathsAccordion } from './Accordion';
 import { Article4Flag } from './Article4Flag';
 
@@ -160,6 +161,11 @@ export function HmoVerdict({ config, comps, valuation, beforeVerdict }: {
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
       missing={needs}
+      /* CA1 — history and labelled assumptions, collapsed, inside the verdict
+         card but never part of the verdict. Not an input to the Deal Score. */
+      afterVerdict={features.areaTrajectory
+        ? <AreaTrajectoryPanel sector={comps?.subject.sectorId ?? null} price={Number(s.price) || null} />
+        : null}
       aboveInputs={<p class="hint">{COPY.verdict.hmoScope}</p>}
       afterInputs={(
         <>

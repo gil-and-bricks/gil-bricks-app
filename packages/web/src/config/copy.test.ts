@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { strategies } from '@gil-bricks/core';
 import { microcopy } from '../content/microcopy';
+import { AREA_TRAJECTORY } from './areaTrajectory';
 import { COPY } from './copy';
 import { BRIDGING, FACTFIND, FACTFIND_VIEW } from './bridging';
 import { CALENDAR, CHAIN_RISK, GRAVEYARD_COPY, PARK_REASONS, RETRADE } from './pipeline';
@@ -59,6 +60,22 @@ const EXEMPT: Record<string, string> = {
   'components/analyser/HmoVerdict.tsx': 'inside collapsed accordions: statutory room sizes and the planning rules, quoted precisely',
   'components/site/Footer.astro': 'licence attributions we must print verbatim (OGL v3, ONSPD, IMD)',
 };
+
+/**
+ * CA1 — ONE STRING, EXEMPT BY NAME AND FOR A REASON.
+ *
+ * `AREA_TRAJECTORY.honest` is three sentences and about forty-five words, and
+ * it stays that way. It is the disclosure the entire area panel rests on:
+ * that this is history and not a view of the future, that prices fall as well
+ * as rise, and that nobody can forecast a local market. Shortening it would
+ * cost exactly the part that makes the panel safe to publish — and it is the
+ * one place the panel is allowed to say "forecast", because it is denying one.
+ *
+ * It is inside a collapsed panel, like the other exemption above, and it is
+ * the only string in that config over the limit. Everything else there is held
+ * to the rule by the loop below.
+ */
+const AREA_HONEST_EXEMPT = 'honest';
 
 describe('COPY RULES (N5) — nothing visible runs long', () => {
   it('every string in the copy config is short enough to read at a glance', () => {
@@ -313,5 +330,26 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
       expect(() => readFileSync(join(SRC, file), 'utf8'), file).not.toThrow();
       expect(EXEMPT[file].length, file).toBeGreaterThan(20);
     }
+  });
+});
+
+describe('CA1 — the area panel keeps the copy rules, with one named exemption', () => {
+  const strings = flatten(AREA_TRAJECTORY as unknown as Record<string, unknown>, '');
+
+  it('every string but the honest sentence is short enough to read at a glance', () => {
+    const long = strings
+      .filter((s) => s.key !== AREA_HONEST_EXEMPT)
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long, 'move the extra words into the show-the-maths accordion').toEqual([]);
+  });
+
+  it('and the exemption is real — the honest sentence IS over the limit, on purpose', () => {
+    const honest = strings.find((s) => s.key === AREA_HONEST_EXEMPT);
+    expect(honest, 'the exemption names a string that no longer exists').toBeDefined();
+    expect(
+      wordCount(honest!.text) > MAX_WORDS || sentencesOf(honest!.text).length > MAX_SENTENCES,
+      'the honest sentence now fits the rule — delete the exemption',
+    ).toBe(true);
   });
 });

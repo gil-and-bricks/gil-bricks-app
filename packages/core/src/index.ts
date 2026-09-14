@@ -68,5 +68,11 @@ export * from './listing';
 // it. Composed from the comps engine, so it lives beside the tools (A1).
 export * from './area/surroundings';
 
+// CA1 — the area trajectory panel's maths. Deliberately NOT imported by
+// scoreDeal or any strategy calculator: the Deal Score rests on evidence and
+// must never see a scenario. A test asserts the score is byte-identical with
+// the panel on and off.
+export * from './area/trajectory';
+
 export * from './tools/equity';
 export * from './tools/rentalYield';

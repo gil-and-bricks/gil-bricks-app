@@ -263,6 +263,19 @@ export interface FeatureFlags {
    * pre-filled with the address the person typed. Off: only the comparable
    * rows and the map popups offer a search, as before. */
   subjectLookup: boolean;
+  /**
+   * CA1 — the area trajectory panel: a collapsed line inside the verdict card
+   * that opens to show what the local authority has actually done with prices
+   * (5, 10 and 20 years from the UK House Price Index), how that compares to
+   * its region and country, how uneven it has been, its price-to-earnings
+   * ratio, and three clearly-labelled "if it repeated itself" bands.
+   *
+   * Off: the line is not rendered, the two data files are never fetched, and
+   * nothing else on the analyser changes. It has NEVER touched the Deal Score
+   * in either state — a test asserts the score is byte-identical with it on and
+   * off, because a scenario inside a score built on evidence would corrupt it.
+   */
+  areaTrajectory: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -306,6 +319,7 @@ export const features: FeatureFlags = {
   homeVideo: true,
   homeWhyFree: true,
   subjectLookup: true,
+  areaTrajectory: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

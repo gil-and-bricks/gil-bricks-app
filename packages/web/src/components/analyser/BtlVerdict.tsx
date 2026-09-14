@@ -23,6 +23,7 @@ import { fmtMoney, fmtPct, fmtRatio } from '@gil-bricks/core';
 import { initStrategyParams, state, strategyParams, legacyRefurbLevel } from './state';
 import { refurbParamKeys } from './RefurbSection';
 import { VerdictShell } from './VerdictShell';
+import { AreaTrajectoryPanel } from './AreaTrajectory';
 import { MathsAccordion } from './Accordion';
 
 // Thresholds MUST come from config — a missing key fails loudly, never
@@ -132,6 +133,11 @@ export function BtlVerdict({ config, comps, valuation, beforeVerdict }: {
       hasContingency={fields.some((f) => f.key === 'contingencyPct')}
       beforeVerdict={beforeVerdict}
       missing={needs}
+      /* CA1 — history and labelled assumptions, collapsed, inside the verdict
+         card but never part of the verdict. Not an input to the Deal Score. */
+      afterVerdict={features.areaTrajectory
+        ? <AreaTrajectoryPanel sector={comps?.subject.sectorId ?? null} price={Number(s.price) || null} />
+        : null}
     >
       {analysisError && <p class="field-error" role="alert">{analysisError}</p>}
       {/* (N4) The answer: on a desktop this becomes the sticky results rail
