@@ -214,7 +214,7 @@ export function DealFacts({ dealId, dealTitle, strategy, facts, onAdd, onRemove,
                 onInput={(e) => setNote((e.target as HTMLInputElement).value)}
               />
               <div class="fact-actions">
-                <button type="button" class="btn-primary" disabled={saving} onClick={save}>
+                <button type="button" class="btn-action" disabled={saving} onClick={save}>
                   {saving ? BOARD_COPY.card.factSaving : BOARD_COPY.card.factSave}
                 </button>
                 <button type="button" class="btn-secondary" onClick={reset}>{BOARD_COPY.card.factCancel}</button>

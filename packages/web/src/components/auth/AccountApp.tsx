@@ -93,7 +93,7 @@ export function AccountApp() {
       <div class="glass card">
         <h2 class="state-h">{ACCOUNT.signedOut.heading}</h2>
         <p class="hint">{COPY.account.signInToSave}</p>
-        <button type="button" class="btn-primary" onClick={openLoginWall}>{ACCOUNT.signedOut.logIn}</button>
+        <button type="button" class="btn-action" onClick={openLoginWall}>{ACCOUNT.signedOut.logIn}</button>
       </div>
     );
   }

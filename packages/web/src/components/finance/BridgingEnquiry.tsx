@@ -166,7 +166,7 @@ export function BridgingEnquiry() {
       <section class="glass card" aria-labelledby="bridge-signin">
         <h2 id="bridge-signin">{BRIDGING.signedOut.heading}</h2>
         <p class="hint">{BRIDGING.signedOut.body}</p>
-        <button type="button" class="btn-primary" onClick={openLoginWall}>{BRIDGING.signedOut.cta}</button>
+        <button type="button" class="btn-action" onClick={openLoginWall}>{BRIDGING.signedOut.cta}</button>
       </section>
     );
   }

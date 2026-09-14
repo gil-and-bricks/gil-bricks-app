@@ -26,6 +26,26 @@
   /* Colour */
   --accent: #dcff00;
   --accent-ink: #070014;        /* near-black text on lime fills */
+
+  /* THE SECOND ACCENT — PRIMARY CALLS TO ACTION ONLY.
+     Lime says "this is ours"; this says "press this". It is deliberately rare:
+     the things the operator actually wants pressed — Save, Send to my analyser,
+     Log in — and nothing else. Active states, the section strip, chips, the
+     score and every accent stay lime, because two loud colours everywhere would
+     mean neither reads as the priority.
+
+     MEASURED, not assumed (scripts/check-contrast.mjs asserts these):
+       near-black ink on the pink .......... 5.79:1  PASS AA (4.5 needed)
+       WHITE on the pink ................... 3.56:1  FAILS AA — never use it
+       the pill against --bg-0 ............. 5.79:1  PASS (3.0 needed)
+       the pill against --bg-1 ............. 5.35:1  PASS
+       the pill against --bg-2 ............. 5.21:1  PASS
+       the pill against --bg-3 ............. 5.84:1  PASS
+     White was the first choice and was dropped on the measurement: at the size
+     these labels actually render (16px/600) AA Large does not apply, so 3.56:1
+     is a fail, not a judgement call. Change --action and the gate re-measures. */
+  --action: #ff2d78;
+  --action-ink: #070014;        /* near-black text on the action fill */
   --bg-0: #070014;
   --bg-1: #1d022f;
   --bg-2: #230138;

@@ -148,7 +148,7 @@
    side are the same height and inset — they were both hand-padded before (D6).
    Lime fill with near-black text is reserved for the PRIMARY action: one per
    surface, and never as a background under white text. */
-.btn-primary, .btn-secondary {
+.btn-primary, .btn-secondary, .btn-action {
   display: inline-flex; align-items: center; justify-content: center;
   min-height: 2.75rem; padding: var(--pad-btn);
   border-radius: var(--radius-btn); border: 1px solid var(--accent);
@@ -156,6 +156,11 @@
   text-decoration: none;
 }
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
+/* THE PRIMARY CALL TO ACTION. Same size, radius and weight as the lime buttons
+   — only the fill differs, so it reads as the same control wearing the louder
+   colour rather than a different kind of thing. */
+.btn-action { background: var(--action); color: var(--action-ink); border-color: var(--action); }
+.btn-action:disabled { opacity: 0.5; cursor: default; }
 .btn-secondary { background: transparent; color: var(--accent); font-weight: 500; }
 .btn-secondary:disabled { opacity: 0.4; cursor: default; }
 

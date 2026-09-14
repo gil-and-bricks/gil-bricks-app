@@ -997,7 +997,7 @@ export function renderTriage(view: PanelView, h: PanelHandlers = {}): void {
   if (h.onOpenSettings) settingsLink.addEventListener('click', () => h.onOpenSettings!());
   card.append(settingsLink);
 
-  const send = e('button', 'send-btn', 'Send to my analyser →') as HTMLButtonElement;
+  const send = e('button', 'send-btn send-btn-action', 'Send to my analyser →') as HTMLButtonElement;
   send.type = 'button';
   if (h.onSend) send.addEventListener('click', () => h.onSend!());
   card.append(send);

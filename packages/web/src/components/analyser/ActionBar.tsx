@@ -185,7 +185,7 @@ export function ActionBar({ valuation, comps, strategyId }: { valuation: Valuati
       {canSave && (saveState === 'saved' ? (
         <a class="btn-secondary save-done" href="/deals">{savedToPipeline ? ACTION_BAR.saved.inPipeline : ACTION_BAR.saved.inMyDeals}</a>
       ) : (
-        <button type="button" class="btn-secondary" disabled={saveState === 'saving'} onClick={saveDeal}>
+        <button type="button" class="btn-action" disabled={saveState === 'saving'} onClick={saveDeal}>
           {saveState === 'saving' ? ACTION_BAR.buttons.saving : ACTION_BAR.buttons.save}
         </button>
       ))}

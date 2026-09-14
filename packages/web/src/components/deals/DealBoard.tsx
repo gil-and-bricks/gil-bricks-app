@@ -667,7 +667,7 @@ export function DealBoard() {
       <div key="board-signin" class="glass card">
         <h2 class="state-h">{BOARD_COPY.screen.signInHeading}</h2>
         <p class="hint">{COPY.account.dealsSignIn}</p>
-        <button type="button" class="btn-primary" onClick={openLoginWall}>{BOARD_COPY.screen.signInButton}</button>
+        <button type="button" class="btn-action" onClick={openLoginWall}>{BOARD_COPY.screen.signInButton}</button>
       </div>
     );
   }

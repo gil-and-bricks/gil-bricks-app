@@ -11,6 +11,15 @@
 
 :root {
   --accent: #dcff00;
+  /* THE SECOND ACCENT — primary calls to action only. Its canonical home is
+     packages/web/src/styles/tokens.css; this is the extension's own copy of the
+     same value, because the panel ships as a separate artefact with its own
+     stylesheet. `brandTokens.test.ts` in the web package fails if the two ever
+     disagree, so the duplication cannot silently drift.
+     Measured: near-black on this pink is 5.79:1 — passes AA. White is 3.56:1
+     and fails, which is why the ink is dark. */
+  --action: #ff2d78;
+  --action-ink: #070014;
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.7);
   --font-display: 'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -126,6 +135,11 @@ body {
 
 .send-btn { display: block; width: 100%; margin: 16px 0 0; padding: 12px; border-radius: 12px; border: none; background: var(--accent); color: #0a0a0a; font-family: var(--font-display); font-weight: 800; font-size: 1rem; cursor: pointer; }
 .send-btn:hover { filter: brightness(1.05); }
+/* THE ONE THING IN THIS PANEL WE WANT PRESSED. `send-btn` is shared by three
+   controls — send the deal, open the measure tool, use a measurement — and only
+   the first is a primary call to action. The other two are offers, and keeping
+   them lime is what lets this one read as the priority. */
+.send-btn-action { background: var(--action); color: var(--action-ink); }
 
 /* E6 review fixes: pending price row shows prose, empty pills hidden */
 .c-status:empty { display: none; }
