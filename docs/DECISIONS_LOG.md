@@ -2,6 +2,122 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-14 — DP2: the deal pack, designed
+
+The first pack was "the most poorly designed thing on this site since day one —
+a white A4 page with a bit of writing on it". That is a fair description of what
+was built, and the brief that produced it was "neutral by default, not my
+brand". **Neutral means sophisticated and unbranded-to-us. It does not mean
+blank**, and building no design at all is not the same as building a restrained
+one. This sprint is the correction.
+
+### The model: a constrained composer, not a canvas
+
+The user chooses what goes in, in what order, in their colour, with their logo
+and their photographs. They never touch type, grid, spacing or layout. That is
+the whole trade, and it is deliberate twice over: a free canvas is an enormous
+build, and its output is only as good as the non-designer using it — which is
+exactly the person who produced the page that was rejected. There is no
+arrangement of the available choices that comes out misaligned.
+
+### What carries the "expensive" look, with no asset library
+
+A dramatic type scale (the page title is three times the body, the hero number
+nine times it); alternating ink and paper bands so the rhythm reads as
+deliberate; oversized section numerals and rules keyed to their accent; a single
+soft corner wedge drawn from their colour so a short page ends rather than
+trailing into white; and duotone photographs via an SVG filter, so a set of
+mismatched phone pictures becomes one branded set and re-themes the instant the
+colour changes.
+
+### Three faults the printed page found that no test had
+
+1. **THE COST CHART WAS LYING.** It drew a waterfall — price, tax, refurb,
+   legals, stacking to a total — and on a financed deal the parts do not sum to
+   the total at all. It stacked £120,000 + £6,000 + £35,000 + £1,500 and
+   labelled the result £78,890, because most of a BRRRR purchase is borrowed. A
+   chart asserting arithmetic that does not hold is worse than the table it
+   replaced. `partsSumToTotal()` in core now decides the shape from the figures:
+   a stack when they genuinely sum, bars from a shared baseline when they do
+   not, with a line saying why.
+2. **The area page carried three ideas and the third printed over its own
+   footer.** Split into "The area" and "What sells nearby", which is what one
+   idea a page was supposed to mean.
+3. **The property the pack is ABOUT was missing from its own comparison.** On a
+   cheap purchase it sorted below eight dearer sales and the list's cap dropped
+   it, so the page showed eight homes and nothing to compare them with.
+
+### The map works
+
+MapLibre renders our own Protomaps tiles to a canvas; with
+`preserveDrawingBuffer` the canvas can be read as a PNG at 1400×900, which is
+near 300dpi at the size it prints. Captured offscreen, on `idle` rather than a
+timer, with a size check that treats a nearly-empty data URI as a failure. The
+ODbL line is printed beside it, because OpenStreetMap's terms are explicit that
+a link is not sufficient in non-interactive media.
+
+It took three faults to get there, and each was only visible on the page:
+
+* **The geocode lookup silently found nothing.** The postcode map keys have no
+  space (`SA16HW`); the lookup asked for `SA1 6HW`, got `undefined`, and drew no
+  map at all with nothing in the console to say so.
+* **CSP refused the sprite.** MapLibre validates that field and rejects a
+  relative URL, so it has to be absolute — but pinned to `siteConfig.liveUrl` it
+  is cross-origin on every host that is not the canonical one, and `connect-src
+  'self'` refused it. Built from the SERVING origin it is absolute AND
+  same-origin everywhere, which is what both requirements actually ask for. This
+  is the third attempt at that one line and the first that satisfies both.
+* **The first capture came out in OUR LIME.** The map reads `--accent` off the
+  document root. Our brand, printed on a document a sourcer sends their own
+  investor — the exact fault this sprint exists to fix. The colour is now passed
+  in explicitly; only the pack's capture does it.
+
+### Judgment calls
+
+**1. NO "Save and create pack" on the analyser.** Asked to argue it and decide,
+and the answer is no.
+
+A pack made at the moment of analysis is made from a deal nobody has checked.
+The pipeline is where facts arrive — a builder's quote, a survey, a
+down-valuation — and where the deal re-scores; a pack built before any of that
+is a pack of assumptions, sent to somebody deciding where to put £40,000. The
+first pack also requires a one-off compliance declaration, and putting that wall
+between "I have analysed this" and "it is saved" is the wrong moment for it.
+Two primary actions on one bar dilute both: the analyser answers *is this a
+deal*, the pack answers *how do I present it*.
+
+The discovery worry behind the question is real but already solved: after saving,
+the button becomes a link to the pipeline and the hint beside it links there too,
+and the pack action on the card is now a pink button rather than a line of small
+text. The route is save → pipeline → Create deal pack, one click after the save.
+What was actually wrong was that the button said "Save" and never said where —
+it now says **Save to pipeline**.
+
+**2. The footer is in the DOM, not an @page margin box.** Native margin boxes
+would give real page counters, but they are invisible until the print dialog
+opens — and a preview that hides the locked disclaimer is a preview that lies
+about the document, on a screen whose whole job is to show the user what they
+are about to send.
+
+**3. Reordering is buttons, not drag.** A drag handle needs a keyboard
+equivalent, and the keyboard equivalent IS a pair of buttons. Building the
+buttons as the whole feature gives mouse, touch and keyboard one implementation
+instead of three.
+
+**4. The export is the browser's Save as PDF, and the copy says so.** A silent
+download is only achievable by rasterising, which means blurry unselectable text
+and huge files. The print path gives real vector text with fonts embedded. The
+DP1 "save as a self-contained HTML file" button was removed: two export buttons
+on one bar is a choice a non-technical operator should not have to make, and the
+PDF is the artefact an investor is actually sent.
+
+**5. The accent's partner colour is computed, not assumed** — and the obvious
+test for it was useless. "Is anything readable ON this colour" passes every
+colour: measured across all 256 greys, the best of black-or-white never drops
+below 4.61:1. What genuinely fails is the accent used as TEXT on the paper, where
+a pale yellow measures 1.29:1. That is what is checked, and the composer warns
+on it rather than shipping a page nobody can read.
+
 ## 2026-09-14 — DM1: PropLaunch moves to proplaunch.ai
 
 The app serves from **https://proplaunch.ai**; the R2 data bucket from
