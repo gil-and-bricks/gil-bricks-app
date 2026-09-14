@@ -22,6 +22,10 @@
  */
 import type { NormalisedListing, Portal } from './types';
 import type { SignalConfig, SignalPattern } from './config';
+// ONE matcher, shared with the extractors — see wording.ts. The warning on
+// screen and the flag that travels with the deal must read the same words the
+// same way, or the panel can say "Auction sale" while the board never hears.
+import { AUCTION_GROUP, firstMatch, plainText } from './wording';
 
 export type SignalBand = 'strong' | 'some' | 'none-seen';
 
@@ -55,47 +59,10 @@ export interface SellerSignals {
 }
 
 /** Strip HTML and collapse whitespace so patterns match plain description text. */
-function plainText(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-const isWordChar = (c: string): boolean => /[a-z0-9]/.test(c);
-
-/**
- * The first pattern in the group that appears in the text AS A WHOLE WORD, with
- * its surrounding context. Matching is whole-word by default so a pattern never
- * inverts meaning by sitting inside a longer word ('structural' in "structurally
- * sound", 'the late' in "the latest"). A trailing '*' marks a deliberate STEM
- * (e.g. 'relocat*' → relocation/relocating) — leading boundary only. Every
- * occurrence is scanned, so a real whole-word use later in the text still counts.
- */
-function firstMatch(text: string, lower: string, group: SignalPattern): SignalEvidence | null {
-  for (const raw of group.patterns) {
-    const stem = raw.endsWith('*');
-    const needle = (stem ? raw.slice(0, -1) : raw).toLowerCase();
-    if (!needle) continue;
-    let from = 0;
-    for (;;) {
-      const at = lower.indexOf(needle, from);
-      if (at < 0) break;
-      const leadOk = at === 0 || !isWordChar(lower[at - 1]);
-      const trailOk = stem || at + needle.length >= lower.length || !isWordChar(lower[at + needle.length]);
-      if (leadOk && trailOk) {
-        const start = Math.max(0, at - 32);
-        const end = Math.min(text.length, at + needle.length + 32);
-        const snippet = (start > 0 ? '…' : '') + text.slice(start, end).trim() + (end < text.length ? '…' : '');
-        return { label: group.label, phrase: snippet, source: 'listing' };
-      }
-      from = at + 1;
-    }
-  }
-  return null;
-}
+/** A wording hit as this module's own evidence shape. The phrase always came
+ *  from the listing's words, so the source is never in doubt. */
+const evidenceFrom = (hit: { label: string; phrase: string } | null): SignalEvidence | null =>
+  (hit === null ? null : { label: hit.label, phrase: hit.phrase, source: 'listing' });
 
 /** 0 distinct signals → none seen, 1 → some, 2+ → strong. Deliberately coarse. */
 function bandOf(distinctSignals: number): SignalBand {
@@ -168,7 +135,7 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
 
   // (3) language in the description — each matched group counts once.
   for (const group of config.flexibilityLanguage) {
-    const hit = firstMatch(text, lower, group);
+    const hit = evidenceFrom(firstMatch(text, lower, group));
     if (hit) {
       flexEvidence.push(hit);
       flexSignals += 1;
@@ -181,18 +148,31 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
   let impSignals = 0;
   const impSeen = new Set<string>();
 
-  // Zoopla's structured auction flag is reliable; Rightmove has none.
+  /**
+   * WHERE THE AUCTION FLAG CAME FROM, said accurately.
+   *
+   * Zoopla publishes a structured flag. Rightmove does not, so its flag is now
+   * read from the listing's own wording (see wording.ts) — and the sentence
+   * here must not claim the portal flagged it when the portal did no such
+   * thing. Two different facts, two different sentences.
+   */
   if (listing.isAuction.status === 'found' && listing.isAuction.value === true) {
-    impEvidence.push({ label: 'Auction sale', phrase: `${portal} flags this as an auction`, source: portal });
+    const auctionGroup = config.impairmentLanguage.find((g) => g.key === AUCTION_GROUP);
+    const wording = auctionGroup !== undefined && firstMatch(text, lower, auctionGroup) !== null;
+    impEvidence.push({
+      label: 'Auction sale',
+      phrase: wording ? 'the listing says this is an auction sale' : `${portal} flags this as an auction`,
+      source: wording ? 'listing' : portal,
+    });
     impSignals += 1;
-    impSeen.add('auction-mechanism');
+    impSeen.add(AUCTION_GROUP);
   } else if (portal === 'rightmove') {
-    impNotes.push('Auctions aren’t flagged on Rightmove — checked the wording.');
+    impNotes.push('Rightmove has no auction field — read the wording instead.');
   }
 
   for (const group of config.impairmentLanguage) {
     if (impSeen.has(group.key)) continue; // don't double-count auction
-    const hit = firstMatch(text, lower, group);
+    const hit = evidenceFrom(firstMatch(text, lower, group));
     if (hit) {
       impEvidence.push(hit);
       impSignals += 1;
@@ -202,7 +182,7 @@ export function readSellerSignals(listing: NormalisedListing, config: SignalConf
 
   // ---- WORTH KNOWING (neutral) -------------------------------------------
   const worthKnowing: string[] = [];
-  const chain = firstMatch(text, lower, config.chainFree);
+  const chain = evidenceFrom(firstMatch(text, lower, config.chainFree));
   if (chain) {
     worthKnowing.push(`Chain-free — a completion-speed advantage that usually carries a small premium, not a discount (“${chain.phrase}”).`);
   }

@@ -37,6 +37,10 @@ const PLAN = 'https://media.rightmove.co.uk/property-floorplan/9196cc0ea/9160402
 const ARRIVAL = new URLSearchParams({
   postcode: 'SA1 6HW', price: '95000', type: 'T', beds: '3', baths: '1', area: '80', paon: '12',
   rent: '800', ph: PHOTOS, fp: PLAN,
+  // M6 — the flag the board's legal-pack warning depends on. It is metadata,
+  // not a form field, which is exactly the shape that used to be discarded on
+  // the first write.
+  auction: '1',
 }).toString();
 
 const fails = [];
@@ -70,6 +74,8 @@ for (const [vpName, viewport, isMobile] of [['desktop', { width: 1440, height: 9
   const arrived = await params();
   if (!('ph' in arrived) || !('fp' in arrived)) note('arrive', 'the handoff lost ph/fp before anything was touched');
   else ok('the link still carries the photos and the plan');
+  if (arrived.auction !== '1') note('arrive', 'the auction flag was gone before anything was touched');
+  else ok('the deal arrived flagged as an auction');
 
   // SCROLL TO IT FIRST, because a person does. The photo is lazy-loaded, so on a
   // 390px screen it sits below the fold and has honestly not been asked for yet;
@@ -136,6 +142,10 @@ for (const [vpName, viewport, isMobile] of [['desktop', { width: 1440, height: 9
   const lost = Object.keys(arrived).filter((k) => !(k in kept));
   if (lost.length > 0) note('edit', `editing lost: ${lost.join(', ')}`);
   else ok('nothing the deal arrived with was lost by editing');
+  // Named rather than derived: the board warns about the legal pack off this
+  // one, and a list-driven check goes quiet the moment the list changes.
+  if (kept.auction !== '1') note('edit', 'editing lost the AUCTION FLAG — the board would not warn about the legal pack');
+  else ok('and the auction flag is still there after the edit');
 
   // ---- 5. AND ONE THAT SHOULD NOT -----------------------------------------
   console.log('  5. edit something that should change nothing');

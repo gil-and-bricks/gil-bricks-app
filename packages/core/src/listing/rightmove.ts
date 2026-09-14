@@ -6,6 +6,7 @@
 import type { ExtractorConfig } from './config';
 import { getMeta, getRightmovePageModel, scriptTexts } from './dom';
 import { getPath } from './path';
+import { auctionInWording } from './wording';
 import { parseListingUpdate, parseMoney, parseRightmoveOgTitle, rightmoveFloorArea, rightmoveIdFromUrl } from './parse';
 import {
   fieldOf,
@@ -89,6 +90,7 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
   const newBuildSignal = channelRaw != null || Array.isArray(tags);
   const isNew = channel.toUpperCase().includes('NEW') || (Array.isArray(tags) && tags.some((t) => /new[ _-]?home|new[ _-]?build/i.test(String(t))));
   const auctionRaw = getPath(pd, p.auction);
+  const descriptionRaw = getPath(pd, p.description) as string | undefined;
 
   return {
     portal: 'rightmove',
@@ -114,9 +116,27 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
     // Rightmove records first-live only via an "Added on" reason; a "Reduced"
     // listing's original go-live date isn't in the model.
     firstVisibleDate: update?.reason === 'added' ? found(update.date) : missing<string>(),
-    description: fieldOf(getPath(pd, p.description) as string | undefined),
-    // Rightmove has no reliable structured auction flag unless present.
-    isAuction: typeof auctionRaw === 'boolean' ? found(auctionRaw) : unavailable<boolean>(),
+    description: fieldOf(descriptionRaw),
+    /**
+     * THE LEGAL-PACK WARNING DEPENDS ON THIS.
+     *
+     * Rightmove publishes no structured auction flag, so this used to end at
+     * `unavailable` — and a listing whose description opens "This property is
+     * for sale by the Modern Method of Auction" handed over to the analyser
+     * with nothing set. The board warns about the legal pack off `is_auction`,
+     * so it never warned. Meanwhile Seller Signals, reading that same sentence
+     * with that same config group, had already printed "Auction sale" on the
+     * panel. The words were read; the warning that matters was not.
+     *
+     * So where the model has no boolean, the listing's own wording is read —
+     * through the one shared matcher, never a second copy of the patterns.
+     * A match says `true`; NO match still says `unavailable`, because a
+     * Rightmove page that does not mention an auction is not evidence that
+     * there is none, and claiming `false` would be inventing a fact.
+     */
+    isAuction: typeof auctionRaw === 'boolean'
+      ? found(auctionRaw)
+      : (auctionInWording(descriptionRaw, config.signals) ? found(true) : unavailable<boolean>()),
   };
 }
 

@@ -107,17 +107,33 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
   } catch {
     zoocdnPrefix = null;
   }
-  const zooplaPhotos = Array.isArray(imagesRaw)
-    ? imagesRaw
-      .map((i) => i?.filename)
-      .filter((f): f is string => typeof f === 'string' && f !== '')
+  /**
+   * Filenames to addresses, ONE way, for photographs and floor plans alike.
+   *
+   * This existed only for the photographs. Floor plans took the same
+   * `{ filename }` shape straight out of the page and were handed on as
+   * `f0fc15a5….jpg` — a bare filename, not an address. `handoff.ts` then
+   * dropped it, because it only carries an `fp` that is an https URL, so NO
+   * Zoopla listing had ever handed a floor plan to the analyser. Worse, the
+   * panel offered its measure tool over that filename, so the one surface where
+   * you would notice showed an image that could never load.
+   *
+   * Two call sites reading the same page the same way had drifted apart, which
+   * is why they are now one function.
+   */
+  const toUrls = (filenames: unknown): string[] => (Array.isArray(filenames)
+    ? filenames
+      .map((f) => (typeof f === 'string' ? f : ''))
+      .filter((f) => f !== '')
       .map((f) => (/^https:\/\//i.test(f) ? f : (zoocdnPrefix === null ? '' : `${zoocdnPrefix}${f}`)))
       .filter((u) => /^https:\/\//i.test(u))
-    : [];
+    : []);
 
-  const fpFilenames = Array.isArray(floorPlan?.image)
-    ? floorPlan!.image.map((im: any) => im?.filename).filter((f: unknown): f is string => typeof f === 'string')
-    : [];
+  const zooplaPhotos = toUrls(Array.isArray(imagesRaw) ? imagesRaw.map((i) => i?.filename) : []);
+
+  const fpFilenames = toUrls(Array.isArray(floorPlan?.image)
+    ? floorPlan!.image.map((im: any) => im?.filename)
+    : []);
 
   // Zoopla exposes a machine "publishedOn" (first live) but no update REASON
   // unless priceHistory.priceChanges is populated. A price change can be a rise

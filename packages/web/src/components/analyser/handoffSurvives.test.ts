@@ -30,6 +30,14 @@ const ARRIVING: Record<string, string> = {
   [CRITERIA_PARAMS.minProfit]: '20000',
   [FLOORPLAN_PARAM]: 'https://media.rightmove.co.uk/property-floorplan/a/1/plan.png',
   [PHOTOS_PARAM]: 'https://media.rightmove.co.uk/property-photo/a/1/one.jpeg https://media.rightmove.co.uk/property-photo/a/1/two.jpeg',
+  /**
+   * THE ONE THAT WARNS ABOUT THE LEGAL PACK (M6). It is metadata, not a field,
+   * so it is exactly the shape of thing the first write used to discard — and
+   * losing it is not a cosmetic loss: the board warns about the legal pack off
+   * this flag, and somebody can commit to a reservation fee on an auction lot
+   * without ever being told to read the pack.
+   */
+  auction: '1',
   // a strategy field, so the edit below is a real one
   gdv: '128889',
 };
@@ -99,6 +107,41 @@ describe('a handoff survives being edited', () => {
     const lost = mustSurvive().filter((k) => !out.has(k));
     expect(lost, `lost by editing: ${lost.join(', ')}`).toEqual([]);
     expect(out.get('gdv'), 'and the edit itself took').toBe('131000');
+  });
+
+  /**
+   * THE AUCTION FLAG, NAMED OUT LOUD (M6).
+   *
+   * The three tests above build their expectation by subtracting READ_ONCE from
+   * the arriving keys — so the moment a key is added to READ_ONCE, they stop
+   * asking about it and go green. Adding 'auction' to that list therefore
+   * passed every one of them, which is the same round-trip fault as the bug
+   * this whole file was written to prevent: two sides reading one list.
+   *
+   * The legal-pack warning is not something to leave to a derived list. This
+   * names the parameter, literally, and fails if it ever stops travelling — no
+   * matter what any list says.
+   */
+  it.each([
+    ['nothing touched', (_m: Record<string, any>) => undefined],
+    ['a strategy field edited', (m: Record<string, any>) => m.updateStrategy({ gdv: '131000' })],
+    ['a property field edited', (m: Record<string, any>) => m.update({ price: '105000' })],
+    ['the price cleared and retyped', (m: Record<string, any>) => { m.update({ price: '' }); m.update({ price: '96000' }); }],
+  ])('the auction flag is still in the address with %s', async (_label, act) => {
+    const mod = await loadWith(FULL);
+    act(mod);
+    expect(
+      mod.written().get('auction'),
+      'the board warns about the legal pack off this flag — losing it loses the warning',
+    ).toBe('1');
+  });
+
+  it('and a deal that is NOT an auction never gains the flag', async () => {
+    const notAuction = new URLSearchParams({ ...ARRIVING });
+    notAuction.delete('auction');
+    const { written, update } = await loadWith(notAuction.toString());
+    update({ price: '105000' });
+    expect(written().has('auction'), 'a warning nobody earned is its own kind of wrong').toBe(false);
   });
 
   it('and after a property field is edited', async () => {

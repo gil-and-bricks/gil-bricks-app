@@ -56,9 +56,9 @@
   },
   "floorPlanImageUrls": {
     "value": [
-      "a203aff2acd061b4a5157a6b28a9409fbba66b57.jpg",
-      "be996b41f00cd358069453e95a0dec217c696a9e.jpg",
-      "a362cec9725db46fac01b14e3ae743044a263748.jpg"
+      "https://lid.zoocdn.com/u/480/360/a203aff2acd061b4a5157a6b28a9409fbba66b57.jpg",
+      "https://lid.zoocdn.com/u/480/360/be996b41f00cd358069453e95a0dec217c696a9e.jpg",
+      "https://lid.zoocdn.com/u/480/360/a362cec9725db46fac01b14e3ae743044a263748.jpg"
     ],
     "status": "found"
   },

@@ -92,15 +92,13 @@ const CASES = [
     path: '/properties/167112923',
     expect: {
       postcode: 'SA5 8BD', price: '110000', type: 'T', beds: '3', baths: '1',
-      // KNOWN BROKEN, 2026-09-14 — and NOT "what the page says", which is what
-      // an earlier version of this comment wrongly claimed. This listing's
-      // description contains "Modern Method of Auction" TWICE, and config.ts
-      // already knows that phrase. But the Rightmove extractor records
-      // isAuction as `unavailable-on-this-portal`, so the flag never travels,
-      // and the board never warns about the legal pack — which handoff.ts says
-      // is the entire reason `auction` exists. Asserted as absent so the day it
-      // starts working this line fails and has to be struck out.
-      auction: null,
+      // FIXED 2026-09-14, and asserted the right way round now. This listing's
+      // description says "Modern Method of Auction" twice. Rightmove publishes
+      // no auction field, so the flag used to be dropped and the board never
+      // warned about the legal pack — somebody could commit to a reservation
+      // fee having never been told to read it. The extractor now reads the
+      // listing's own wording, so the flag travels.
+      auction: '1',
       // Genuinely absent: this listing gives a street, not a house number.
       paon: null,
     },
@@ -141,14 +139,12 @@ const CASES = [
     photoPrefix: 'https://lid.zoocdn.com/',
     golden: 'zoopla-auction-terrace-floorplan.json',
     wantRoute: '/buy-to-let/analyser/',
-    // KNOWN BROKEN, 2026-09-14. Zoopla stores a floor plan as
-    // {"filename": "<hash>.jpg"} with no URL anywhere on the page, and the
-    // extractor never turns it into an address. `handoff.ts` then drops it,
-    // because it only writes `fp` for an https value. So no Zoopla listing has
-    // ever handed a floor plan over. Recorded here, dated, and asserted as
-    // ABSENT — the day it is fixed this line fails and has to be struck out.
-    wantFloorPlan: null,
-    knownBroken: 'no floor plan reaches the analyser from Zoopla (see listing.test.ts KNOWN_BROKEN)',
+    // FIXED 2026-09-14. Zoopla stores a floor plan as {"filename": "<hash>.jpg"}
+    // with no URL anywhere on the page, and the extractor absolutised the
+    // photographs but not the plans — so `handoff.ts` dropped every one and no
+    // Zoopla listing had ever handed a floor plan to the analyser. One function
+    // now does both, using the prefix read from the page itself.
+    wantFloorPlan: 'https://lid.zoocdn.com/',
     panelSays: [/Glanmor Road/, /SA2 0PX/, /£150,000/, /terraced/i, /3 bed/, /freehold/],
   },
 ];
@@ -354,11 +350,7 @@ async function walk(testCase) {
 
       // The floor plan.
       const fp = q.get('fp');
-      if (testCase.wantFloorPlan === null) {
-        if (fp !== null) {
-          problems.push(`a floor plan arrived for ${testCase.portal} ("${fp}") — this was recorded as broken. Strike the line out of CASES and listing.test.ts.`);
-        } else ok(`no floor plan, as recorded — KNOWN BROKEN: ${testCase.knownBroken}`);
-      } else if (fp === null) {
+      if (fp === null) {
         problems.push('the handoff carries no floor plan at all, and this listing has one');
       } else if (!fp.startsWith(testCase.wantFloorPlan)) {
         problems.push(`the floor plan is "${fp.slice(0, 70)}" — expected an address at ${testCase.wantFloorPlan}`);

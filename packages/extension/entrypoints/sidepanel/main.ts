@@ -777,6 +777,22 @@ function costsCard(view: PanelView): HTMLElement | null {
  * A collapsed card whose one line tells the user what to do; opening it launches
  * the client-side measure tool. Shows a measured area/rooms once captured.
  */
+/**
+ * Will the browser actually render this plan? Asked by loading it the same way
+ * the measure tool will — in the user's own browser, from the portal's server.
+ * Nothing is uploaded, nothing is kept, and a plan that cannot load is simply
+ * not offered.
+ */
+function planLoads(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const probe = new Image();
+    probe.referrerPolicy = 'no-referrer';
+    probe.onload = () => resolve(probe.naturalWidth > 0);
+    probe.onerror = () => resolve(false);
+    probe.src = url;
+  });
+}
+
 function floorPlanCard(view: PanelView, h: PanelHandlers): HTMLElement | null {
   const fp = view.floorplan;
   if (!fp || !fp.available) return null;
@@ -1569,10 +1585,35 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   ctx.failure = null;
   if (!result.ok) { ctx.failure = failureFor(result.reason, result.message); return draw(ctx); }
   ctx.listing = result.listing;
-  // Floor-plan availability from the listing (measure tool opens on demand — E9.1).
+  /**
+   * THE MEASURE TOOL IS OFFERED ONLY IF THE PLAN ACTUALLY LOADS.
+   *
+   * This was `!!fpUrl` — truthy. Zoopla hands its floor plans over as bare
+   * FILENAMES, so every Zoopla listing with a plan offered "Open the measure
+   * tool" over `f0fc15a5….jpg`, an address that resolves to nothing. The
+   * extractor now turns those into real addresses, but a truthy check would
+   * still offer the tool over any string at all, and the next portal to change
+   * its shape would put us straight back here.
+   *
+   * So two gates. It must be an https ADDRESS — the same test `handoff.ts`
+   * applies before it will carry one — and then the browser is asked to load
+   * it. If it will not load, the offer is withdrawn rather than left sitting
+   * there to disappoint. The image is fetched by the USER'S browser from the
+   * portal's own server, exactly as the measure tool itself does; it never
+   * reaches us and is never stored.
+   */
   const fpUrl = ctx.listing.floorPlanImageUrls.status === 'found' ? ctx.listing.floorPlanImageUrls.value?.[0] : undefined;
-  ctx.floorplan.available = !!fpUrl;
-  ctx.floorplan.imageUrl = fpUrl ?? undefined;
+  const fpUsable = typeof fpUrl === 'string' && /^https:\/\//i.test(fpUrl.trim());
+  ctx.floorplan.available = fpUsable;
+  ctx.floorplan.imageUrl = fpUsable ? fpUrl : undefined;
+  if (fpUsable) {
+    void planLoads(fpUrl as string).then((okToOffer) => {
+      if (activeCtx !== ctx || okToOffer) return;
+      ctx.floorplan.available = false;
+      ctx.floorplan.imageUrl = undefined;
+      draw(ctx);
+    });
+  }
   if (ctx.listing.listingId.value) ctx.listingUnknowns = await store.getUnknowns(ctx.listing.listingId.value);
   if (ctx.listing.postcode.value) {
     const pc = postcodeToSector(ctx.listing.postcode.value);

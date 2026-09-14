@@ -102,7 +102,7 @@
     "status": "found"
   },
   "isAuction": {
-    "value": null,
-    "status": "unavailable-on-this-portal"
+    "value": true,
+    "status": "found"
   }
 }
