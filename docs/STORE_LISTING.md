@@ -63,7 +63,7 @@ GOOD TO KNOW
 - Desktop Chrome only (it's a side panel — not available on phones).
 - Covers England & Wales only, because that's where the sold-price data reaches.
 
-Made by Gil & Bricks. Privacy policy: https://gil-bricks-app.gil-782.workers.dev/extension/privacy
+Made by Gil & Bricks. Privacy policy: https://proplaunch.ai/extension/privacy
 ```
 
 ## Category (field: "Category")
@@ -147,7 +147,7 @@ The extension collects **no user data**. Recommended answers for each disclosure
 
 **Privacy policy URL (required):**
 ```
-https://gil-bricks-app.gil-782.workers.dev/extension/privacy
+https://proplaunch.ai/extension/privacy
 ```
 
 Note: this URL must return HTTP 200 with no login before you submit — it does

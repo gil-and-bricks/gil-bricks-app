@@ -62,8 +62,8 @@ blank space where a number should be.
 | `tool_headline` | The one big number, already formatted | `£171,494 of equity` |
 | `tool_detail` | The supporting figures, one line | `Estimated value £325,000. Still owed £153,506. Loan to value 47%.` |
 | `tool_maths` | The working, exactly as the show-the-maths panel gave it | (a longer line of working) |
-| `factfind_link` | The broker's single-use link to a fact-find | `https://gil-bricks-app.gil-782.workers.dev/broker/factfind?t=…` |
-| `enquiry_link` | The broker's single-use link to a qualified **enquiry** | `https://gil-bricks-app.gil-782.workers.dev/broker/enquiry?t=…` |
+| `factfind_link` | The broker's single-use link to a fact-find | `https://proplaunch.ai/broker/factfind?t=…` |
+| `enquiry_link` | The broker's single-use link to a qualified **enquiry** | `https://proplaunch.ai/broker/enquiry?t=…` |
 
 The first four come from `KIT_FIELDS` in `src/config/capture.ts`. The fifth is
 `KIT_FACTFIND_FIELD` in `src/worker/lib/factfind.ts`, and the sixth is

@@ -107,7 +107,7 @@ manifest records them (`postcodeFiles`, `sectorsIndexAt`, `ukhpiMonth`).
 
 `area/{OUTCODE}.json` — one file per outcode, `{sectorId: AreaStats}` for that
 outcode's sectors (schema v1 untouched; `sectors-index.json` is deliberately
-UNCHANGED — r2.dev serves uncompressed and every comps search downloads the
+UNCHANGED — the bucket serves what it is given and every comps search downloads the
 index, so fattening it measurably slowed every page: 2.3MB vs 0.9MB).
 
 | Field | Meaning |

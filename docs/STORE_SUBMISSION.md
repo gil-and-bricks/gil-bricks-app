@@ -25,7 +25,7 @@ Things only YOU can decide are flagged with **[YOU DECIDE]**.
 
 A Chrome reviewer opens your privacy-policy URL and checks it matches what the
 extension does. That page is **live and correct**: open
-https://gil-bricks-app.gil-782.workers.dev/extension/privacy in a private window
+https://proplaunch.ai/extension/privacy in a private window
 and you get it with no login, describing the "Send to my analyser" handoff and
 the sold-price lookup.
 
@@ -101,7 +101,7 @@ Open the **Privacy practices** tab and fill it from the same file:
    table, select the recommended answer (every one is **No / not collected**).
 4. **Certifications** → tick all **three** boxes (all are true — see the table).
 5. **Privacy policy URL** → paste
-   `https://gil-bricks-app.gil-782.workers.dev/extension/privacy`
+   `https://proplaunch.ai/extension/privacy`
    (open it in a private window first to confirm it loads with no login — it is
    live and correct today, see Step 0a).
 

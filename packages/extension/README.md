@@ -119,7 +119,12 @@ The exact data paths the readers use live in one small JSON file so they can be
 retargeted after a portal redesign **without a code change or a store re-review**:
 
 - **R2 key:** `config/extractors.json`
-- **Public URL:** `https://pub-ed7263f454104eb1a02055393ee15800.r2.dev/config/extractors.json`
+- **Public URL:** `https://data.proplaunch.ai/config/extractors.json`
+- **The r2.dev address must stay enabled.** Every copy of the extension already
+  installed from the store has `https://pub-ed7263f454104eb1a02055393ee15800.r2.dev`
+  compiled into its bundle. Turning the development URL off would break the
+  extractor config and the sector data for all of them, silently, until Chrome
+  pushed an update. Leave it on until the store stats say the old version is gone.
 - The extension ships an **identical copy** inside itself and uses it whenever the
   remote file can't be fetched — so the reader always works offline and first
   paint is never blocked. To publish an update:

@@ -4,7 +4,7 @@
 Free UK (England & Wales only) property deal-analyser web app for self-investors
 and deal sourcers. Operator is NON-TECHNICAL. Simplicity is a HARD LAW: if a
 choice adds user confusion, it is wrong. £0 running cost is a HARD constraint.
-Live at: https://gil-bricks-app.gil-782.workers.dev
+Live at: https://proplaunch.ai
 
 ## Golden rules (never violate)
 1. SIMPLICITY over cleverness. Plain English everywhere. No jargon without an

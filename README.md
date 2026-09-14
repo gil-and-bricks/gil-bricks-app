@@ -26,7 +26,7 @@ anything structural.
 
 ## Live URL
 
-https://gil-bricks-app.gil-782.workers.dev
+https://proplaunch.ai
 
 ## Project scaffold
 

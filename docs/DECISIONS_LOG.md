@@ -2,6 +2,116 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-14 — DM1: PropLaunch moves to proplaunch.ai
+
+The app serves from **https://proplaunch.ai**; the R2 data bucket from
+**https://data.proplaunch.ai**. The old workers.dev address still answers.
+
+### What the redirect does, and the one thing it deliberately does not
+
+Pages on the old host and on www 301 to the canonical host, path and query
+intact. `/api/*`, `/auth/*` and `/broker/*` on the OLD host are **exempt and
+keep serving**, because the Chrome extension already in the store holds a host
+permission for the old host only: its daily check is a credentialed `fetch` to
+/api/attention, and a 301 to a host it has no permission for is a FAILED FETCH,
+not a followed redirect. Redirecting those would have broken every installed
+copy silently until Chrome pushed an update. Opening a tab is different — a tab
+follows a redirect with no permission at all — which is why pages could move on
+day one and the API could not. Same reasoning protects an OAuth round trip in
+flight and a broker's single-use link already sent.
+
+**www gets no such exemption**, and that is a bug found while writing the test
+rather than after. `redirectUri()` builds Google's callback from whichever
+origin served the request, so a sign-in begun on www would have asked Google to
+return to `https://www.proplaunch.ai/auth/callback` — a URI nobody registered —
+and failed with redirect_uri_mismatch. www now hands over the whole request,
+/auth included, so a sign-in can only ever begin on the canonical host.
+
+### Where the redirect lives, after two dead ends
+
+1. **`public/_redirects` cannot do it.** Workers static assets reject an
+   absolute URL on the left-hand side — "Line 18: Only relative URLs are
+   allowed". Host-based redirects are a Pages feature, not a Workers-assets one.
+2. **Worker code could not see the request.** `run_worker_first` listed four
+   path prefixes, so every PAGE was served by the asset layer without the Worker
+   running at all.
+
+So `run_worker_first` is now `"/*"` **minus the static bulk** — `_astro`, `map`,
+`fonts`, `brand` and the named root files are excluded by negation, which
+wrangler supports. Only the HTML navigation costs a Worker invocation; the
+hundred asset requests behind it stay free and unlimited. That keeps the free
+plan's 100k/day well out of reach at this traffic, and it is one line to undo.
+
+**`workers_dev: true` is now set explicitly, and must stay.** The first deploy
+of the new routes printed a warning that wrangler disables workers.dev by
+default the moment a route appears and the key is absent — which would have
+taken the old address down entirely, extension and all.
+
+### The R2 custom domain: what it fixed, and what it did not
+
+Moving the bucket off `r2.dev` is done and the rate-limited development URL is
+out of the request path. **It did not, on its own, make anything faster**, and
+the reason was worth finding rather than assuming.
+
+`cf-cache-status` came back `DYNAMIC` on every object — not MISS, not HIT, but
+"not eligible". A two-object experiment settled it: a throwaway `.css` and a
+`.json` uploaded to the same bucket with the same `Cache-Control: public,
+max-age=3600` behaved differently — the `.css` went MISS then HIT, the `.json`
+stayed DYNAMIC on every request. Eligibility is by file EXTENSION, and neither
+`.json` nor `.pmtiles` is on Cloudflare's default list. The bucket, the zone and
+the custom domain are all fine; what is missing is a **Cache Rule**, which needs
+dashboard access this token does not have. It is written up as an operator step.
+
+Also found: **the 1.1GB tiles archive was uploaded with no `Cache-Control` at
+all.** Every other object the pipeline writes carries one; `upload-tiles.mjs`
+never did, so the archive the map range-requests all session long was
+re-fetched every time and there was nothing for an edge to honour either. It now
+goes up with `public, max-age=86400` — a day, not a year, because the key is
+stable and the content is rebuilt monthly.
+
+### Four hosts were written as REGEX SHAPES and no search for the domain found them
+
+`map.test.ts` pinned `/pub-.*\.r2\.dev/`; the extension's two output
+allowlists matched `/\.r2\.dev$/` and `/\.workers\.dev$/`; its security test
+recognised our own app by the substring `gil-bricks-app`, which is the Worker's
+NAME and never was the domain. All four are now derived from `coreConfig`, as
+are both CSPs. The next move is one edit.
+
+### The map gate caught a regression nothing else did
+
+The sprite URL was absolute off `siteConfig.liveUrl`, and was changed to
+root-relative on the reasoning that an absolute URL ties the map to one host.
+The basemap still drew — sprites are only icons — so it looked correct.
+**MapLibre validates that field and refuses a relative value**, and the failure
+only surfaces when the style is RELOADED: on a WebGL context loss the map
+stopped healing and dropped to its fallback. Reverted, and `map.test.ts` now
+asserts the URL is absolute so the unit tests catch it too, rather than leaving
+it to the one gate CLAUDE.md already records as the easiest to forget.
+
+### Session cookies do not survive the move, and that is correct
+
+`__Host-session` forbids a Domain attribute, so the session is host-only. Every
+signed-in user signs in once more on the new domain. Nothing is lost — the
+account, the deals and the pipeline are keyed to the user, not the host.
+
+### Judgment calls
+
+**1. The Worker keeps its name.** `gil-bricks-app` is the Worker's name, not the
+domain; renaming it would fork the deployment rather than rename the old
+address, leaving a second script answering on workers.dev with frozen code and
+no secrets, writing the same D1 database. The name is invisible to users.
+
+**2. The r2.dev URL stays enabled.** Every extension copy already installed has
+it compiled in. Turning it off would break their extractor config and sector
+data silently. It comes off when the store stats say the old version is gone.
+
+**3. A resolver override was added to the browser gates.** A runner that has
+already asked for a brand-new name caches the negative answer for the zone's
+SOA minimum, and some resolvers refresh it on every miss — which is exactly what
+happened here. `RESOLVE=host:ip` maps it in Chrome and PRINTS that it has done
+so, because an override nobody can see is how a gate starts lying. TLS, SNI,
+Host and certificate validation stay real; only DNS is bypassed.
+
 ## 2026-09-14 — DP1 (finished): the pack is built, verified in a browser, flag ON
 
 The second half. `features.dealPack` is **on**: the declaration and profile
