@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { coreConfig } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
 import { circleRing, CLUSTER_THRESHOLD, escapeHtml, isRenderedTileEvent, METRES_PER_MILE, milesToMetres, pinState, shouldCluster } from './geo';
 import { brandFlavor, buildMapStyle, tilesUrl } from './style';
@@ -70,7 +71,9 @@ describe('style sanity', () => {
     // than about us — so moving the bucket to its own domain failed a test that
     // was never really testing the bucket. What matters is that the tiles come
     // from the data host config names, and from nowhere else.
-    expect(tilesUrl()).toBe(`pmtiles://${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/map/ew.pmtiles`);
+    // The archive has its own host (coreConfig.tilesBaseUrl), separate from the
+    // JSON, because the 1.07GB file and the data bucket's Cache Rule do not mix.
+    expect(tilesUrl()).toBe(`pmtiles://${coreConfig.tilesBaseUrl.replace(/\/+$/, '')}/map/ew.pmtiles`);
     expect(style.glyphs).toBe('/map/fonts/{fontstack}/{range}.pbf');
     // ABSOLUTE, not just present. MapLibre rejects a relative sprite URL and
     // the failure is invisible until the style is RELOADED — a context loss —

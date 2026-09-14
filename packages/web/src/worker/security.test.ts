@@ -165,6 +165,9 @@ describe('every response carries the security headers', () => {
    */
   /** Read, not retyped: DM1 moved this host and four copies of it had to be found. */
   const DATA_ORIGIN = new URL(coreConfig.dataBaseUrl).origin;
+  const TILES_ORIGIN = new URL(coreConfig.tilesBaseUrl).origin;
+  /** Both hosts, deduplicated — they collapse to one entry if ever reunited. */
+  const DATA_HOSTS = [...new Set([DATA_ORIGIN, TILES_ORIGIN])];
 
   const CSP_EXPECTED: Record<string, string[]> = {
     'default-src': [],
@@ -172,7 +175,7 @@ describe('every response carries the security headers', () => {
     'style-src': [],
     'img-src': [
       'https://*.googleusercontent.com',
-      DATA_ORIGIN,
+      ...DATA_HOSTS,
       'https://media.rightmove.co.uk',
       'https://*.zoocdn.com',
     ],
@@ -182,7 +185,7 @@ describe('every response carries the security headers', () => {
       'https://environment.data.gov.uk',
       'https://www.planning.data.gov.uk',
       'https://landregistry.data.gov.uk',
-      DATA_ORIGIN,
+      ...DATA_HOSTS,
       'https://challenges.cloudflare.com',
     ],
     'frame-src': [
@@ -468,11 +471,11 @@ describe('the static _headers policy and the Worker policy are the same policy',
   });
 
   it('names the data bucket that config actually points at, in both', () => {
-    const origin = new URL(coreConfig.dataBaseUrl).origin;
-    expect(staticCsp()).toContain(origin);
-    expect(SECURITY_HEADERS['content-security-policy']).toContain(origin);
-    // and the address it moved off is gone from both
-    expect(staticCsp()).not.toContain('r2.dev');
-    expect(SECURITY_HEADERS['content-security-policy']).not.toContain('r2.dev');
+    // BOTH hosts: the JSON is on the product's own domain, the map's 1.07GB
+    // archive is deliberately not (see coreConfig.tilesBaseUrl).
+    for (const origin of [new URL(coreConfig.dataBaseUrl).origin, new URL(coreConfig.tilesBaseUrl).origin]) {
+      expect(staticCsp(), origin).toContain(origin);
+      expect(SECURITY_HEADERS['content-security-policy'], origin).toContain(origin);
+    }
   });
 });

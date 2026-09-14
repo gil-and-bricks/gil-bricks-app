@@ -5,6 +5,7 @@
  * from our own /map/ assets — zero third-party tile or CDN calls.
  */
 import { layers, namedFlavor } from '@protomaps/basemaps';
+import { coreConfig } from '@gil-bricks/core';
 import { siteConfig } from '../../site.config';
 import { ITALIC_STACK, UPRIGHT_STACK } from './fonts';
 
@@ -15,7 +16,7 @@ export const TILES_SOURCE_ID = 'protomaps';
 
 /** Plain HTTPS URL of the archive — used for the persistent PMTiles instance. */
 export function tilesHttpUrl(): string {
-  return `${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/${TILES_KEY}`;
+  return `${coreConfig.tilesBaseUrl.replace(/\/+$/, '')}/${TILES_KEY}`;
 }
 
 export function tilesUrl(): string {

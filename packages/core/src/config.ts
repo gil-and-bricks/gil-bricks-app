@@ -43,6 +43,31 @@ export const coreConfig = {
    */
   dataBaseUrl: 'https://data.proplaunch.ai',
 
+  /**
+   * WHERE THE MAP'S TILE ARCHIVE IS FETCHED FROM — deliberately NOT the same
+   * host as the data above.
+   *
+   * The archive is 1.07GB and the custom domain carries a Cache Rule. Since
+   * that rule went live the console gate has failed on /comparables at desktop
+   * width, every run, with pmtiles reporting "Server returned no content-length
+   * header or content-length exceeding request" — a byte-serving failure on the
+   * range requests the map lives on. It reproduces on the CI runner and not
+   * from the operator's network, so it is a path the rule takes for a very
+   * large object rather than something the app can fix in code.
+   *
+   * HONEST ABOUT WHAT THIS IS: a mitigation chosen on correlation, not a proven
+   * root cause. What makes it safe is that it costs nothing — the archive was
+   * never edge-cached anyway (cf-cache-status: BYPASS, because it is far over
+   * the free plan's per-file ceiling), so moving it back to the address it was
+   * served from for months loses no caching at all. The JSON keeps the custom
+   * domain and keeps its cache HITs, which is where the measured win actually
+   * was.
+   *
+   * The alternative is to exclude /map/ from the Cache Rule and put this back
+   * to dataBaseUrl — one line, whenever that is confirmed.
+   */
+  tilesBaseUrl: 'https://pub-ed7263f454104eb1a02055393ee15800.r2.dev',
+
   /** Social profiles — the ONLY place these URLs are written (name-agnostic). */
   socials: {
     instagram: 'https://www.instagram.com/gil_and_bricks/',

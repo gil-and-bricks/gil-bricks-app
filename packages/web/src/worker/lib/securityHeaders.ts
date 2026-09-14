@@ -38,6 +38,10 @@ import { coreConfig } from '@gil-bricks/core';
  * coreConfig and nothing here changes at all.
  */
 const DATA_ORIGIN = new URL(coreConfig.dataBaseUrl).origin;
+/** The map's archive lives on its own host (see coreConfig.tilesBaseUrl). When
+ *  the two are the same string this collapses to one entry, not two. */
+const TILES_ORIGIN = new URL(coreConfig.tilesBaseUrl).origin;
+const DATA_HOSTS = [...new Set([DATA_ORIGIN, TILES_ORIGIN])].join(' ');
 
 /** Everything the app legitimately talks to. Anything else is refused. */
 const CONNECT = [
@@ -46,7 +50,7 @@ const CONNECT = [
   'https://environment.data.gov.uk',
   'https://www.planning.data.gov.uk',
   'https://landregistry.data.gov.uk',
-  DATA_ORIGIN,
+  DATA_HOSTS,
   'https://challenges.cloudflare.com',
 ].join(' ');
 
@@ -79,7 +83,7 @@ const CSP = [
   "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
   "style-src 'self' 'unsafe-inline'",
   // Google avatars load straight from Google on signed-in pages.
-  `img-src 'self' data: blob: https://*.googleusercontent.com ${DATA_ORIGIN} ${PORTAL_IMAGES}`,
+  `img-src 'self' data: blob: https://*.googleusercontent.com ${DATA_HOSTS} ${PORTAL_IMAGES}`,
   "font-src 'self' data:",
   `connect-src ${CONNECT}`,
   // Turnstile's widget, and the click-to-load YouTube embed.

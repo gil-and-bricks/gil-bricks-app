@@ -142,6 +142,9 @@ describe('no CDN / font / network loads in the built output', () => {
 
   const DATA_HOST = new URL(coreConfig.dataBaseUrl).host;
   const APP_HOST = new URL(coreConfig.appBaseUrl).host;
+  // coreConfig is bundled whole, so the map's tile host is a string in the
+  // panel chunk even though the extension never renders a map (DP2).
+  const TILES_HOST = new URL(coreConfig.tilesBaseUrl).host;
 
   it('the only external hosts are inert reference links + our own R2 data bucket', () => {
     // core carries gov.uk / gov.wales reference links as data; the extractor
@@ -155,6 +158,7 @@ describe('no CDN / font / network loads in the built output', () => {
       // the domain move (DM1) failed here with no clue why. Read from the one
       // place both hosts are written and the next move needs no edit at all.
       h === DATA_HOST || // our R2 data bucket (config + sector data)
+      h === TILES_HOST || // the map's own tile host, bundled via coreConfig
       h === APP_HOST || // our own web app (Send-to-analyser handoff target)
       // Our own social profiles + per-strategy walkthrough links (E10). These are
       // INERT anchor hrefs the user clicks (open a new tab) — never fetched by the
