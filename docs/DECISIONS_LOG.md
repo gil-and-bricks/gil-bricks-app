@@ -2,6 +2,92 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-14 — DP1 (finished): the pack is built, verified in a browser, flag ON
+
+The second half. `features.dealPack` is **on**: the declaration and profile
+screens, the `/pack` page, the wiring from a saved deal's `url_params` to real
+computed figures, the area highlights, the button on the deal card, the duration
+field in the refurb section, the saved file, and the web-side tests.
+
+### Verified by opening one, not by reading the source
+
+`npm run pack-gate -w packages/web` (`scripts/check-pack.mjs`) boots the real
+Worker on a throwaway database, signs in through the existing dev door, saves a
+real BRRRR deal from the analyser, presses the pack button on its card, completes
+the declaration, sets a business name, a logo and an accent colour, builds the
+pack, and then measures the thing on screen: six sheets at 793×1122 CSS pixels,
+the accent as the COMPUTED colour of the rules and headings, every image a data
+URI, no request to a portal host, no Deal Score and no verdict anywhere in the
+text, the locked boxes disabled AND still in the document when the disabling is
+forced off, the builder's controls gone under print emulation, and the saved file
+reopened from disk with the network refused.
+
+**It found three real bugs that every unit test had passed.**
+
+1. **The first pack had no registrations on it.** `PackApp` read the declaration
+   row once, on mount — when there was nothing to read. Completing the
+   declaration moved the screen on but never re-read it, so the compliance block
+   on somebody's very first pack printed "Registration details not provided".
+   Now the load is keyed on a counter the declaration bumps.
+2. **The builder's own controls would have printed.** The print rules hide
+   `.pk-build > *`, and the button bar IS a `.pk-build` rather than a child of
+   one — so the rule that shows the sheets put the bar back. Back / Print / Save
+   would have printed across the top of the first sheet.
+3. **Two sheets overflowed A4.** The basis page grows with the number of figures
+   and ran past the bottom onto an unnumbered seventh page whose footer still
+   said "6 of 6"; and the cover's photographs used `aspect-ratio`, so the cover's
+   length changed with how many were added. The basis list is now two columns and
+   the photographs have heights in millimetres. The gate now fails a sheet that
+   is too TALL as well as one that is too short.
+
+### Judgment calls
+
+**7. Share is a file, not a link.** We do not host packs. Hosting one would mean
+storing an investor-facing document about somebody's deal on our servers, for
+ever, at a URL anybody who received it could open — and it would not be free.
+So "Save as a file" writes one self-contained HTML document in the browser: the
+pack's own stylesheet inlined, every image a data URI, no script, nothing to
+fetch. `assertNoRemoteImages` refuses to build it if that is ever untrue. It is
+built with the browser's own document API rather than by concatenating markup,
+because the title is the user's own property title. There is no WhatsApp button:
+the pack is not a link, and a share sheet that sends a message without the
+document would be a button that does not do what it says.
+
+**8. The pack's labels and bases moved OUT of core.** They were written inline in
+`pack/build.ts` — and the same labels sat unused in `config/pack.ts`, which is
+two sources of truth for the same words. `packNumbers(source, copy)` now takes a
+`PackFigureCopy`: core decides which figures a strategy carries and in what
+order, `config/pack.ts` decides what each one says. A label and its basis are one
+object, because a basis that has drifted from its figure is worse than none.
+
+**9. "An estimate, not a valuation" was refused by our own rule.** The end-value
+basis denied being a valuation, and `figure()` threw — the check does not read
+negations, and it should not have to. The wording avoids the word entirely.
+Caught by the engine, not by review.
+
+**10. The floor plan is drawn from coordinates, not injected as SVG.** The model
+carries room names typed by the user. Building an SVG string from those and
+injecting it would be an injection hole in a document that leaves the building.
+
+**11. Test fixtures live in `src/fixtures`, outside the product tree.** A pack
+fixture needs a fictional investor and a fictional business, and those must never
+reach the config the product ships its words from. The inline-copy ratchet
+governs `components/` and `lib/`; the fixture is deliberately outside it, and a
+new guardrail (check G) fails if any shipped file imports from there.
+
+### Not built, and why
+
+**Crime and deprivation are not in the area page.** Both are in the app and both
+are honestly sourced, but there is no way to frame a deprivation decile
+"positively" in a document selling a deal without it becoming a nudge.
+
+### Known, not caused here
+
+`src/components/analyser` logs five unhandled `ECONNREFUSED ::1:3000` rejections
+under vitest — a component fetching a relative URL in happy-dom. It predates this
+sprint (checked by stashing this sprint's change to that file and re-running) and
+fails nothing. Left alone rather than fixed inside a product commit.
+
 ## 2026-09-14 — DP1: the investor deal pack (PART BUILT, FLAG OFF)
 
 **The research document did not arrive again.** The message carried the numbered
