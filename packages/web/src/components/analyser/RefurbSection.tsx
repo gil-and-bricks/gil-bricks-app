@@ -17,11 +17,13 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import {
   REFURB_MODE, fmtMoney, isSuggestion, refurbMode, refurbRange, refurbTotal, regionForPostcode,
+  refurbDuration, sayWeeks, sayMonths,
   suggestFor, sumRefurbLines, figuresAreStale, isRegionId, NO_SUGGESTION, REFURB_DRIVER,
   type CostBand, type CountryCode, type NoSuggestion, type PropertyFacts, type RefurbLine, type RegionId, type Suggestion,
 } from '@gil-bricks/core';
 
 import { CONTINGENCY, DEFAULT_LABOUR, LABOUR_OPTIONS, REFURB, REFURB_CAVEAT, REFURB_ITEMS, paramFor } from '../../config/refurb';
+import { DURATION_COPY, REFURB_DURATION } from '../../config/refurbDuration';
 import {
   FIGURES_INCLUDE_VAT, FIGURES_REVIEWED, figureSpecFor, labourFactor, regionMultiplier, suggestionsReady,
 } from '../../config/refurbFigures';
@@ -36,6 +38,10 @@ import { PhotoCarousel, flushSeen, loadSeen, photosFromParam } from '../../refur
 import { REFURB_PHOTOS } from '../../config/refurb';
 
 export const MODE_PARAM = 'rfList';
+/** DP1 — the builder's own on-tools figure, in weeks. Two params, never one:
+ *  a duration in this product is a range and a single box would invite a point. */
+export const DURATION_FROM_PARAM = 'rfWkFrom';
+export const DURATION_TO_PARAM = 'rfWkTo';
 export const REGION_PARAM = 'rfRegion';
 export const LABOUR_PARAM = 'rfLabour';
 /** Per-item counts. Only `windows` uses one today. */
@@ -43,7 +49,7 @@ export const countParam = (key: string): string => `rfN${key.charAt(0).toUpperCa
 
 export function refurbParamKeys(): string[] {
   return [
-    MODE_PARAM, REGION_PARAM, LABOUR_PARAM,
+    MODE_PARAM, REGION_PARAM, LABOUR_PARAM, DURATION_FROM_PARAM, DURATION_TO_PARAM,
     ...REFURB_ITEMS.map((i) => paramFor(i.key)),
     ...REFURB_ITEMS.filter((i) => i.driver === REFURB_DRIVER.perUnit).map((i) => countParam(i.key)),
   ];
@@ -53,6 +59,15 @@ const numOf = (raw: string | undefined): number => {
   const n = Number(raw);
   return Number.isFinite(n) && raw !== '' && raw !== undefined ? n : 0;
 };
+/** The builder's own figure, or null. Both boxes, in order, or neither. */
+export function ownWeeksFrom(params: Record<string, string>): { from: number; to: number } | null {
+  const from = Number(params[DURATION_FROM_PARAM]);
+  const to = Number(params[DURATION_TO_PARAM]);
+  if (!Number.isFinite(from) || from <= 0) return null;
+  const upper = Number.isFinite(to) && to >= from ? to : from;
+  return { from, to: upper };
+}
+
 const numOrNull = (raw: string | undefined): number | null => {
   const n = Number(raw);
   return Number.isFinite(n) && raw !== '' && raw !== undefined && n > 0 ? n : null;
@@ -216,6 +231,12 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
   };
 
   const displayTotal = refurbTotal(lines, stored);
+  /** DP1 — the runway for the ticked scope. The engine bands it; this reads it. */
+  const duration = refurbDuration(
+    lines.filter((l) => l.ticked).map((l) => l.key),
+    REFURB_DURATION,
+    ownWeeksFrom(p),
+  );
   const reviewedStale = figuresAreStale(FIGURES_REVIEWED, Date.now(), REFURB.staleAfterMonths);
 
   return (
@@ -373,6 +394,53 @@ export function RefurbSection({ legacy, onLegacySeen, country, hasContingency }:
               value={p.contingencyPct ?? CONTINGENCY.default}
               onInput={(e) => { updateStrategy({ contingencyPct: (e.target as HTMLInputElement).value.replace(/[^0-9.]/g, '') }); markEdited('contingencyPct'); }} />
             <p class="field-hint">{CONTINGENCY.note}</p>
+          </div>
+        )}
+
+        {/* DP1 — HOW LONG, not just how much. The runway is four parts and the
+            field shows all four, because a builder's "three weeks" is three
+            weeks on tools and the money is tied up far longer than that. */}
+        {features.dealPack && (
+          <div class="refurb-duration">
+            <h4>{DURATION_COPY.heading}</h4>
+            {duration === null
+              ? <p class="hint">{DURATION_COPY.none}</p>
+              : (
+                <>
+                  <p class="refurb-duration-total">
+                    {sayWeeks(duration.total)}
+                    <span class="refurb-duration-tag">{DURATION_COPY.estimateLabel}</span>
+                  </p>
+                  <p class="hint">{sayMonths(duration.total)} · {DURATION_COPY.runway}</p>
+                  <ul class="refurb-duration-parts">
+                    <li><span>{DURATION_COPY.parts.leadIn}</span> <span>{sayWeeks(duration.parts.leadIn)}</span></li>
+                    <li><span>{DURATION_COPY.parts.onTools}</span> <span>{sayWeeks(duration.parts.onTools)}</span></li>
+                    <li><span>{DURATION_COPY.parts.snagging}</span> <span>{sayWeeks(duration.parts.snagging)}</span></li>
+                    <li><span>{DURATION_COPY.parts.voidPeriod}</span> <span>{sayWeeks(duration.parts.voidPeriod)}</span></li>
+                  </ul>
+                  <p class="hint">
+                    {duration.fromBuilder
+                      ? DURATION_COPY.basisBuilder
+                      : DURATION_COPY.basis(DURATION_COPY.bandNames[duration.band] ?? duration.band)}
+                  </p>
+                </>
+              )}
+            <div class="field refurb-duration-own">
+              <span class="refurb-duration-own-label" id="rf-wk-label">{DURATION_COPY.ownLabel}</span>
+              <span class="refurb-duration-own-boxes">
+                <label class="sr-only" for="rf-wk-from">{DURATION_COPY.ownFrom}</label>
+                <input id="rf-wk-from" inputMode="numeric" class="refurb-n" aria-describedby="rf-wk-label"
+                  placeholder={DURATION_COPY.ownFrom}
+                  value={p[DURATION_FROM_PARAM] ?? ''}
+                  onInput={(e) => updateStrategy({ [DURATION_FROM_PARAM]: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+                <label class="sr-only" for="rf-wk-to">{DURATION_COPY.ownTo}</label>
+                <input id="rf-wk-to" inputMode="numeric" class="refurb-n" aria-describedby="rf-wk-label"
+                  placeholder={DURATION_COPY.ownTo}
+                  value={p[DURATION_TO_PARAM] ?? ''}
+                  onInput={(e) => updateStrategy({ [DURATION_TO_PARAM]: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              </span>
+              <p class="field-hint">{DURATION_COPY.ownHint}</p>
+            </div>
           </div>
         )}
 

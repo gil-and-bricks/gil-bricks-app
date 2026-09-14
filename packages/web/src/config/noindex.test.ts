@@ -25,6 +25,7 @@ const HIDDEN: Record<string, string> = {
   'terms.astro': 'a document for people already using the app, reached from the footer',
   'privacy.astro': 'the same — reached from the footer, never a search result we want to compete on',
   'diagnostics.astro': 'a tool for the operator to read their own browser back to us; no value to a stranger',
+  'pack.astro': 'somebody’s own investor pack, built from their own saved deal — private, and meaningless to a stranger',
 };
 
 const walk = (dir: string): string[] => readdirSync(dir, { withFileTypes: true }).flatMap((d) => (

@@ -37,8 +37,14 @@ describe('what the policy says it collects', () => {
     }
   });
 
-  it('says there is no upload — and there is no way to make one', () => {
-    expect(POLICY).toContain('There is no upload.');
+  it('says there is no credit report upload — and there is no way to make one', () => {
+    // NARROWED IN DP1, DELIBERATELY. The policy used to say "There is no
+    // upload" flat out. A pack logo IS a file the user picks, so the blanket
+    // sentence stopped being true the day that shipped — and a sentence that is
+    // nearly true is the kind that gets a policy disbelieved. It now says what
+    // it always meant: the broker's questions take no credit report.
+    expect(POLICY).toContain('There is no credit report upload.');
+    expect(POLICY).not.toContain('There is no upload.');
     for (const f of FACTFIND.fields) expect(f.kind, f.key).not.toBe('file');
     // nothing anywhere in the flow accepts a file
     expect(WORKER).not.toContain('formData()');
@@ -180,6 +186,84 @@ describe('the consent it describes', () => {
  * not any more: this reads the extension's real config and fails if the page
  * does not account for every permission and host it declares.
  */
+/**
+ * DP1 — THE DEAL PACK'S OWN CLAIMS, read back out of the code.
+ *
+ * The logo is the first image file this product has ever stored, so every
+ * sentence the policy writes about it is checked here rather than trusted.
+ */
+describe('what the policy says about the deal pack (DP1)', () => {
+  const MIGRATION = read('../../../migrations/0028_deal_pack.sql');
+  const BUILDER = read('../../components/pack/PackBuilder.tsx');
+
+  it('names the six things that cause anything to be stored', () => {
+    expect(POLICY).toContain('one of these six things');
+    expect(POLICY).toContain('**6. You make an investor deal pack.**');
+  });
+
+  it('names exactly what the two pack tables hold, and nothing they do not', () => {
+    // Every column in the migration must be accounted for in the policy.
+    const columns = [...MIGRATION.matchAll(/^ {2}([a-z_]+) TEXT/gm)].map((m) => m[1]);
+    const SAYS: Record<string, RegExp> = {
+      business_name: /business name/i,
+      accent_colour: /accent colour/i,
+      logo_data_uri: /logo image file/i,
+      hmrc_aml_ref: /HMRC anti-money-laundering supervision/i,
+      redress_scheme: /redress scheme/i,
+      redress_number: /membership number/i,
+      ico_registration: /ICO registration/i,
+      pi_insurer: /professional indemnity insurer/i,
+      pi_expiry: /date cover runs to/i,
+      declared_at: /the time you confirmed it/i,
+      declaration_version: /version of the wording you confirmed/i,
+      updated_at: /./,
+      user_id: /./,
+    };
+    // A regex that found nothing would pass this test in silence.
+    expect(columns.length, 'no columns read from the migration').toBe(14);
+    for (const c of columns) {
+      expect(SAYS[c], `no wording rule for new pack column "${c}" — add one`).toBeDefined();
+      expect(SAYS[c].test(POLICY), `the policy never mentions "${c}"`).toBe(true);
+    }
+    // and the two tables really are the only ones DP1 added
+    expect([...MIGRATION.matchAll(/CREATE TABLE IF NOT EXISTS ([a-z_]+)/g)].map((m) => m[1]).sort())
+      .toEqual(['business_profiles', 'pack_declarations']);
+  });
+
+  it('says the logo is capped at 64KB — and that is the cap the Worker enforces', () => {
+    const cap = /LOGO_MAX_BYTES = (\d+) \* 1024;/.exec(WORKER)?.[1] ?? '';
+    expect(cap, 'LOGO_MAX_BYTES not found in the Worker').not.toBe('');
+    expect(Number(cap)).toBe(64);
+    expect(POLICY).toContain('capped at 64KB');
+    expect(WORKER).toContain('logo too big');
+  });
+
+  it('says deleting the account deletes both, logo included — and it does', () => {
+    expect(POLICY).toContain('Deleting your account deletes both of these, logo included.');
+    const del = WORKER.slice(WORKER.indexOf('async function handleDeleteAccount'));
+    const body = del.slice(0, del.indexOf('await env.DB.batch(stmts)'));
+    expect(body.length, 'handleDeleteAccount not found').toBeGreaterThan(200);
+    expect(body).toContain("DELETE FROM business_profiles WHERE user_id = ?");
+    expect(body).toContain("DELETE FROM pack_declarations WHERE user_id = ?");
+  });
+
+  it('says the pack itself is never stored — and no endpoint stores one', () => {
+    expect(POLICY).toContain('The pack itself is never stored.');
+    // The only pack writes are the profile and the declaration. A third INSERT
+    // against a pack table fails this rather than shipping quietly.
+    const inserts = [...WORKER.matchAll(/INSERT INTO (business_profiles|pack_declarations|pack_[a-z_]+)/g)]
+      .map((m) => m[1]).sort();
+    expect(inserts).toEqual(['business_profiles', 'business_profiles', 'pack_declarations']);
+  });
+
+  it('says the photographs never leave the device — and the builder never sends them', () => {
+    expect(POLICY).toContain('never leave your device');
+    // They are read locally and put in the document. No request carries them.
+    expect(BUILDER).toContain('readAsDataURL');
+    expect(BUILDER).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon/);
+  });
+});
+
 describe('the extension privacy page matches the shipped manifest (D3)', () => {
   const WXT = read('../../../../extension/wxt.config.ts');
   const EXT_PAGE = read('../../pages/extension/privacy.astro').replace(/\s+/g, ' ');

@@ -16,6 +16,11 @@
  * EVERY FIGURE GOES THROUGH `figure()`, which refuses one with no basis. That
  * is the whole design: the pack cannot print a number it cannot explain,
  * because there is no code path that produces one.
+ *
+ * NOT ONE WORD OF IT IS WRITTEN HERE. The labels and the basis lines are
+ * user-facing copy and live in web config like every other string the product
+ * says (charter rule 2); this file holds the SHAPE — which figures a pack may
+ * carry, in what order, and that each arrives with its basis attached.
  */
 import { figure, type EvidencedFigure } from './honesty';
 
@@ -51,23 +56,51 @@ export interface PackSource {
 }
 
 /**
- * The bases. Held here rather than in the copy config because each one is tied
- * to the figure it explains — separating them is how they drift apart, and a
- * basis that has drifted from its figure is worse than none.
+ * The words. Supplied by the caller from config, never written here.
+ *
+ * A LABEL AND ITS BASIS TRAVEL TOGETHER. They are one object with one key per
+ * figure, because a basis that has drifted away from the figure it explains is
+ * worse than no basis at all — this shape makes the pair impossible to edit
+ * apart.
  */
-const BASIS = {
-  price: 'The asking price you entered.',
-  stampDuty: 'Calculated from the purchase price using the current bands.',
-  legals: 'Your figure for legal and buying costs.',
-  refurb: 'Your refurb figure, from the scope ticked in the analyser.',
-  additional: 'Your figure for additional costs.',
-  totalIn: 'Purchase price, tax, refurb and costs added together.',
-  rent: 'Your monthly rent figure.',
-  roi: 'Annual return divided by the cash going in, from the figures in this pack. Before tax.',
-  roce: 'Profit divided by the capital employed, from the figures in this pack. Before tax.',
-  yield: 'Annual rent divided by the purchase price.',
-  endValue: 'Your end value figure. An estimate, not a valuation.',
-} as const;
+export interface FigureCopy {
+  label: string;
+  basis: string;
+}
+
+export interface PackFigureCopy {
+  price: FigureCopy;
+  stampDuty: FigureCopy;
+  /** Wales pays Land Transaction Tax, and the label has to say which. */
+  stampDutyWales: FigureCopy;
+  refurb: FigureCopy;
+  legals: FigureCopy;
+  additional: FigureCopy;
+  totalIn: FigureCopy;
+  roi: FigureCopy;
+  roce: FigureCopy;
+  grossYield: FigureCopy;
+  monthlyRent: FigureCopy;
+  endValue: FigureCopy;
+}
+
+/**
+ * A yearly figure as the monthly one a pack prints.
+ *
+ * Here rather than at the call site because it is arithmetic on a domain value,
+ * and those live in this package (charter rule 3). An HMO's income arrives from
+ * its analysis as a year's gross room income; the pack's line says "Monthly
+ * rent", so it is the analysis's own figure divided by twelve — never rooms
+ * multiplied by a room rent again, which would be a second place the same
+ * number is worked out.
+ */
+export function perMonth(perYear: number): number {
+  return perYear / 12;
+}
+
+/** One figure from one copy entry, so no call site can pair them wrongly. */
+const of = (c: FigureCopy, value: string, projected = false): EvidencedFigure =>
+  figure(c.label, value, c.basis, projected);
 
 /**
  * Build the pack's numbers from a deal.
@@ -75,33 +108,28 @@ const BASIS = {
  * Anything absent is simply absent — a pack with no rent figure shows no yield,
  * rather than a dash or a zero that reads as a real number.
  */
-export function packNumbers(s: PackSource): PackNumbers {
+export function packNumbers(s: PackSource, copy: PackFigureCopy): PackNumbers {
   const costs: EvidencedFigure[] = [
-    figure('Purchase price', s.price, BASIS.price),
-    figure(s.inWales ? 'Land Transaction Tax' : 'Stamp duty', s.stampDuty, BASIS.stampDuty),
-    figure('Refurb cost', s.refurb, BASIS.refurb, true),
-    figure('Legal and buying costs', s.legals, BASIS.legals),
+    of(copy.price, s.price),
+    of(s.inWales ? copy.stampDutyWales : copy.stampDuty, s.stampDuty),
+    of(copy.refurb, s.refurb, true),
+    of(copy.legals, s.legals),
   ];
-  if (s.additional !== null) costs.push(figure('Additional costs', s.additional, BASIS.additional));
-  costs.push(figure('Total going in', s.totalIn, BASIS.totalIn, true));
+  if (s.additional !== null) costs.push(of(copy.additional, s.additional));
+  costs.push(of(copy.totalIn, s.totalIn, true));
 
   const returns: EvidencedFigure[] = [];
   if (s.returnPct !== null) {
-    returns.push(figure(
-      s.returnIsRoce ? 'Return on capital employed' : 'Return on cash',
-      s.returnPct,
-      s.returnIsRoce ? BASIS.roce : BASIS.roi,
-      true,
-    ));
+    returns.push(of(s.returnIsRoce ? copy.roce : copy.roi, s.returnPct, true));
   }
-  if (s.grossYield !== null) returns.push(figure('Rental yield', s.grossYield, BASIS.yield, true));
-  if (s.monthlyRent !== null) returns.push(figure('Monthly rent', s.monthlyRent, BASIS.rent, true));
+  if (s.grossYield !== null) returns.push(of(copy.grossYield, s.grossYield, true));
+  if (s.monthlyRent !== null) returns.push(of(copy.monthlyRent, s.monthlyRent, true));
 
   /** The lead numbers differ by strategy: a flip leads on the end value, a
    *  let leads on what it returns. */
   const headline: EvidencedFigure[] = [];
   if ((s.strategy === 'flip' || s.strategy === 'brrrr') && s.endValue !== null) {
-    headline.push(figure('Estimated end value', s.endValue, BASIS.endValue, true));
+    headline.push(of(copy.endValue, s.endValue, true));
   }
   if (returns[0]) headline.push(returns[0]);
   if (headline.length === 0 && costs[0]) headline.push(costs[0]);

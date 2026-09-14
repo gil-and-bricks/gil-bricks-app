@@ -30,6 +30,8 @@ export const HIDDEN_FROM_SEARCH: readonly string[] = [
   '/privacy',
   // M2 — a tool for the operator, not a page for anyone else.
   '/diagnostics',
+  // DP1 — somebody's own investor pack, built from their own saved deal.
+  '/pack',
 ];
 
 /**

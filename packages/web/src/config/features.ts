@@ -331,7 +331,7 @@ export const features: FeatureFlags = {
   homeWhyFree: true,
   subjectLookup: true,
   areaTrajectory: true,
-  dealPack: false,
+  dealPack: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

@@ -110,6 +110,31 @@ jobs:
         if: always()
         with: { name: log-signed-in, path: gate.log, retention-days: 7 }
 
+  # DP1 — a real investor pack, built and printed in a real browser. Like the
+  # signed-in gate it runs the real Worker locally, for the same reasons; unlike
+  # every other gate it measures a PRINTED page, because that is what the pack is.
+  pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Deal pack gate
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: |
+          npm run build -w packages/web
+          npm run pack-gate -w packages/web 2>&1 | tee gate.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: log-pack, path: gate.log, retention-days: 7 }
+      # The pack itself, so a failure can be LOOKED AT rather than read about.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: pack-pages, path: packages/web/docs/screens/pack, retention-days: 7 }
+
   # The BUILT extension, loaded into a real Chrome, on real saved listing pages
   # served under the portals' own hostnames, through to the handoff URL. Headed
   # — Chrome loads no extension headless — hence xvfb. Chrome for Testing rather
@@ -141,7 +166,7 @@ jobs:
   # silence. It runs even when a gate times out, which is exactly the case the
   # old single-job shape could not report at all.
   report:
-    needs: [walk, inputs, map, signed-in, extension]
+    needs: [walk, inputs, map, signed-in, pack, extension]
     # `&&` binds tighter than `||`, so the obvious spelling of this —
     # always() && contains(...'failure') || contains(...'cancelled') — parses as
     # (always() && failure-check) || cancelled-check, and the second half loses
@@ -166,12 +191,13 @@ jobs:
               'every input moves something': '${{ needs.inputs.result }}',
               'the map renders': '${{ needs.map.result }}',
               'the signed-in half': '${{ needs.signed-in.result }}',
+              'a deal pack': '${{ needs.pack.result }}',
               'the extension end to end': '${{ needs.extension.result }}',
             };
             const broke = Object.entries(results).filter(([, r]) => r !== 'success');
             const dirs = { 'the walk a person takes': 'log-walk', 'every input moves something': 'log-inputs',
               'the map renders': 'log-map', 'the signed-in half': 'log-signed-in',
-              'the extension end to end': 'log-extension' };
+              'a deal pack': 'log-pack', 'the extension end to end': 'log-extension' };
             const tail = (name) => {
               const p = `logs/${dirs[name]}/gate.log`;
               return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').slice(-2500) : '(no log — the gate was cancelled before it wrote one)';

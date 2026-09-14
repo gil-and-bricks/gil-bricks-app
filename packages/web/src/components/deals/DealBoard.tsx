@@ -884,6 +884,14 @@ export function DealBoard() {
                 </select>
               </label>
               <button type="button" class="btn-link dc-park" disabled={busy} onClick={() => { setKillNote(''); setParkingId(parkingId === d.id ? '' : d.id); }}>{BOARD_COPY.card.park}</button>
+              {/* DP1 — a pack is only ever made FROM a deal, so this is the only
+                  door to one. The page is where the declaration is asked for. */}
+              {features.dealPack && (
+                <a class="btn-link dc-pack" href={`/pack?deal=${encodeURIComponent(d.id)}`}>
+                  {BOARD_COPY.card.pack}
+                  <span class="sr-only">{BOARD_COPY.card.packFor(d.title)}</span>
+                </a>
+              )}
             </div>
             {parkingId === d.id && (
               <div class="dc-park-reasons" role="group" aria-label={BOARD_COPY.card.parkReasonsLabel(d.title)}>

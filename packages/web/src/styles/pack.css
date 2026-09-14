@@ -34,7 +34,11 @@
   width: 210mm;
   min-height: 297mm;
   padding: 18mm 16mm 14mm;
-  margin: 0 auto var(--space-5);
+  /* A FALLBACK, NOT A TOKEN. These sheets are also written into the file the
+     user saves and sends, which carries this stylesheet and nothing else — a
+     bare var(--space-5) there resolves to nothing and the sheet loses its
+     centring on somebody else's machine. */
+  margin: 0 auto var(--space-5, 2rem);
   box-shadow: 0 2px 18px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
@@ -68,6 +72,8 @@
 .pk-headline { display: grid; grid-template-columns: 1fr; gap: 10mm; margin: 10mm 0; }
 .pk-headline .pk-figure-value { font-size: 44pt; }
 .pk-headline .pk-figure-label { font-size: 11pt; }
+/* At 44pt a 2mm gap reads as a tag stuck to the last digit. */
+.pk-headline .pk-estimate { margin-left: 5mm; font-size: 8.5pt; }
 
 /* ---- cover ------------------------------------------------------------ */
 .pk-cover { justify-content: space-between; }
@@ -79,9 +85,14 @@
 .pk-cover-meta dd { margin: 0; }
 
 /* ---- photographs: theirs, never the portal's -------------------------- */
+/* FIXED HEIGHTS, NOT ASPECT RATIOS. With a ratio the block's height follows
+   the sheet's width, and one photograph, two or three each made the cover a
+   different length — at two it grew past A4 and the cover spilled. A height in
+   millimetres makes the cover the same length whatever they add, and
+   object-fit: cover means their photograph is still never distorted. */
 .pk-photos { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; margin: 6mm 0 0; }
-.pk-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 2px; }
-.pk-photo-lead { grid-column: 1 / -1; aspect-ratio: 16 / 9; }
+.pk-photo { width: 100%; height: 42mm; object-fit: cover; border-radius: 2px; }
+.pk-photo-lead { grid-column: 1 / -1; height: 76mm; }
 
 /* ---- lists, scope, area ---------------------------------------------- */
 .pk-list { margin: 0; padding: 0; list-style: none; }
@@ -97,15 +108,28 @@
 .pk-runway-weeks { font: 700 12pt/1.2 Montserrat, system-ui, sans-serif; margin: 0.5mm 0 0; }
 
 /* ---- the locked parts -------------------------------------------------- */
-.pk-basis-list { margin: 0; padding: 0; }
-.pk-basis-list dt { font-weight: 700; font-size: 10pt; margin-top: 3mm; }
-.pk-basis-list dd { margin: 0.5mm 0 0; font-size: 9.5pt; color: var(--pk-quiet); }
-.pk-compliance { border: 1px solid var(--pk-line); padding: 5mm; margin: 6mm 0; break-inside: avoid; }
-.pk-compliance dt { font-size: 9pt; color: var(--pk-quiet); margin-top: 2.5mm; }
-.pk-compliance dd { margin: 0; font-size: 10.5pt; font-weight: 600; }
+/* TWO COLUMNS, BECAUSE THIS IS THE ONE PAGE WHOSE LENGTH IS NOT FIXED. It
+   carries a line per figure, and a deal with more figures makes it longer — in
+   one column a BRRRR already ran past the bottom of the sheet and spilled onto
+   an unnumbered seventh page. The gate measures every sheet against A4, so if
+   this ever stops fitting it fails there rather than in somebody's printer. */
+.pk-basis-list { margin: 0; padding: 0; columns: 2; column-gap: 8mm; }
+.pk-basis-list > div { break-inside: avoid; margin-bottom: 2.5mm; }
+.pk-basis-list dt { font-weight: 700; font-size: 9pt; margin: 0; }
+.pk-basis-list dd { margin: 0.5mm 0 0; font-size: 8.5pt; color: var(--pk-quiet); }
+.pk-compliance { border: 1px solid var(--pk-line); padding: 4mm; margin: 5mm 0; break-inside: avoid; }
+.pk-compliance dt { font-size: 8.5pt; color: var(--pk-quiet); margin-top: 2mm; }
+.pk-compliance dd { margin: 0; font-size: 10pt; font-weight: 600; }
 /* A blank is a lie by omission, so the gap is printed and looks like a gap. */
 .pk-missing { font-weight: 600; color: #b45309; }
-.pk-terms p { font-size: 9.5pt; color: var(--pk-quiet); margin: 0 0 3mm; max-width: 140mm; }
+.pk-terms p { font-size: 9pt; color: var(--pk-quiet); margin: 0 0 2.5mm; max-width: 140mm; }
+
+/* ---- their own traced floor plan -------------------------------------- */
+.pk-plan { margin: 4mm 0; break-inside: avoid; }
+.pk-plan-name { font-weight: 600; font-size: 9pt; margin: 0 0 2mm; }
+.pk-plan-svg { width: 100%; max-height: 90mm; }
+.pk-plan-room { fill: none; stroke: var(--pk-accent); stroke-width: 1.5; }
+.pk-plan-label { fill: var(--pk-ink); font-size: 7px; }
 
 /* ---- the foot of every page ------------------------------------------- */
 .pk-foot {
@@ -117,6 +141,9 @@
 .pk-foot-disclaimer { max-width: 140mm; margin: 0; }
 .pk-foot-made { margin: 0; white-space: nowrap; }
 
+/* The saved file has no app chrome to hide, so the sheets sit on paper. */
+.pk-saved { margin: 0; background: #fff; }
+
 /* ---- the builder screen (never printed) -------------------------------- */
 .pk-build { max-width: 44rem; margin: 0 auto; padding: var(--space-4); }
 .pk-sections { list-style: none; margin: 0 0 var(--space-4); padding: 0; }
@@ -127,6 +154,14 @@
 .pk-refused-phrase { font-weight: 700; margin: 0; }
 .pk-refused-why { margin: 2px 0 0; font-size: var(--text-sm); }
 .pk-preview-wrap { background: #4b5563; padding: var(--space-4) 0; margin: var(--space-4) calc(var(--space-4) * -1) 0; }
+/* The page around the sheets. Tokens, not copies of them: this rule is not
+   part of a sheet, so it never travels into the file the user saves. */
+.pk-screen { min-height: 100vh; background: var(--bg-0); color: var(--text); }
+.pk-build-bar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.pk-declare-para { margin: 0 0 var(--space-2); }
+.pk-declare-confirm { display: flex; gap: var(--space-2); align-items: flex-start; margin: var(--space-3) 0; }
+.pk-profile-wrap { margin: var(--space-4) 0; }
+.pk-profile-logo { max-height: 3rem; vertical-align: middle; margin-right: var(--space-2); }
 
 /* Preview scales the real sheet down rather than restyling it, so what is on
    screen at 390px is genuinely the printed page. */
@@ -148,6 +183,10 @@
      Only the sheets print. */
   body > *, .shell-body > *, .pk-build > * { display: none !important; }
   body, .shell-body, main, .pk-build, .pk-preview-wrap, .pk-pages { display: block !important; }
+  /* THE BAR IS ITSELF A .pk-build, NOT A CHILD OF ONE — so the rule above put
+     it back rather than hiding it, and Back / Print / Save would have printed
+     across the top of the first sheet. Found by printing a real pack. */
+  .pk-build-bar, .pk-build-bar * { display: none !important; }
   body {
     background: #fff !important;
     margin: 0 !important;

@@ -11,7 +11,7 @@
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render } from 'preact-render-to-string';
-import { RefurbSection, linesFrom, refurbParamKeys, MODE_PARAM } from './RefurbSection';
+import { RefurbSection, linesFrom, refurbParamKeys, MODE_PARAM, DURATION_FROM_PARAM, DURATION_TO_PARAM } from './RefurbSection';
 import { REFURB, REFURB_ITEMS, paramFor } from '../../config/refurb';
 import { state, strategyParams } from './state';
 import { features } from '../../config/features';
@@ -143,8 +143,12 @@ describe('reachable without a mouse, and named for a screen reader', () => {
 describe('the params it owns', () => {
   it('registers the mode flag, the region, the labour choice, one param per item and a count per sized item', () => {
     const counted = REFURB_ITEMS.filter((i) => i.driver === 'perUnit').length;
-    expect(refurbParamKeys()).toHaveLength(REFURB_ITEMS.length + counted + 3);
-    for (const k of [MODE_PARAM, 'rfRegion', 'rfLabour']) expect(refurbParamKeys()).toContain(k);
+    // +5: the mode flag, the region, the labour choice, and the two boxes that
+    // take a builder's own on-tools figure (DP1).
+    expect(refurbParamKeys()).toHaveLength(REFURB_ITEMS.length + counted + 5);
+    for (const k of [MODE_PARAM, 'rfRegion', 'rfLabour', DURATION_FROM_PARAM, DURATION_TO_PARAM]) {
+      expect(refurbParamKeys()).toContain(k);
+    }
   });
 
   it('a row is ticked when its param has any value — including a typed zero', () => {

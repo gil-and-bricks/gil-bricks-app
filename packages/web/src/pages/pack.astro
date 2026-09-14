@@ -1,0 +1,28 @@
+---
+/**
+ * DP1 — /pack. The one page in the app with no app chrome.
+ *
+ * ON `Base.astro` DELIBERATELY. Everything else sits in AppShell, which carries
+ * the navigation, the footer and the brand. This page's whole job is to put an
+ * A4 document on screen and then on paper: a nav bar printed across the top of
+ * somebody's investor pack would be our furniture on their document.
+ *
+ * NOTHING HERE RENDERS WITHOUT THE FLAG. With `dealPack` off the route is a
+ * redirect and the Worker's pack endpoints are bare 404s, so the feature has no
+ * surface at all.
+ */
+import Base from '../layouts/Base.astro';
+import { PackApp } from '../components/pack/PackApp';
+import { siteConfig } from '../site.config';
+import { features } from '../config/features';
+import { PACK_COPY } from '../config/pack';
+import '../styles/pack.css';
+
+if (!features.dealPack) return Astro.redirect('/account');
+---
+
+<Base title={`${PACK_COPY.build.heading} — ${siteConfig.siteName}`} description={PACK_COPY.build.intro} noindex>
+  <main class="pk-screen">
+    <PackApp client:load />
+  </main>
+</Base>

@@ -10,7 +10,7 @@
  * Change a word here and every pack changes. Nothing in the pack components is
  * a string literal.
  */
-import type { BannedPhrase } from '@gil-bricks/core';
+import type { BannedPhrase, PackFigureCopy } from '@gil-bricks/core';
 
 /** The version of the declaration wording. Stored with every agreement, so
  *  "they agreed" always means "agreed to THIS". Bump it when the words change. */
@@ -139,17 +139,10 @@ export const PACK_COPY = {
 
   numbers: {
     heading: 'The numbers',
-    purchasePrice: 'Purchase price',
-    stampDuty: 'Stamp duty',
-    stampDutyWales: 'Land Transaction Tax',
-    legals: 'Legal and buying costs',
-    refurb: 'Refurb cost',
-    additional: 'Additional costs',
-    totalIn: 'Total going in',
-    roi: 'Return on cash',
-    roce: 'Return on capital employed',
-    yield: 'Rental yield',
-    monthlyRent: 'Monthly rent',
+    /** The sub-heading over the return figures. Every figure's own label is in
+     *  PACK_FIGURES, beside the basis that explains it. */
+    returnsHeading: 'Return and yield',
+    refurbDuration: 'How long the work takes',
   },
 
   property: {
@@ -158,6 +151,8 @@ export const PACK_COPY = {
     noScope: 'No refurb scope ticked.',
     floorPlanHeading: 'Floor plan',
     floorPlanMine: 'Drawn by us from the property’s dimensions.',
+    floorPlanTotal: (total: string): string => `${total} in total.`,
+    sqm: (n: string): string => `${n} m²`,
     noFloorPlan: 'No floor plan drawn.',
   },
 
@@ -223,6 +218,70 @@ export const PACK_COPY = {
     save: 'Save',
     saved: 'Saved',
     whyNoMore: 'Fonts, sizes and layout are fixed so every pack stays readable.',
+    open: 'Your pack branding',
+  },
+
+  /** Nothing here blames the user, and nothing pretends it worked. */
+  errors: {
+    saveFailed: 'That did not save. Try again.',
+    logoFailed: 'That file could not be read.',
+    logoTooBig: 'That logo is too large. PNG or JPG up to 64KB.',
+    noDeal: 'Open a pack from a deal on your board.',
+    dealGone: 'That deal is not on your board.',
+    noFigures: 'This deal has no figures yet. Open it in the analyser first.',
+    loadFailed: 'Your deals could not be loaded. Try again.',
+  },
+
+  /** The saved file. Their own document, built in their own browser. */
+  save: {
+    file: 'Save as a file',
+    fileHint: 'One file you can send. Print or save as PDF instead if you prefer.',
+    failed: 'The file could not be saved.',
+  },
+} as const;
+
+/**
+ * EVERY FIGURE A PACK CAN PRINT: its label and the line that says where it came
+ * from. The two are one entry because they must never be edited apart.
+ *
+ * `packNumbers()` in @gil-bricks/core decides WHICH of these a given strategy
+ * carries and in what order. This decides what each one SAYS.
+ */
+export const PACK_FIGURES: PackFigureCopy = {
+  price: { label: 'Purchase price', basis: 'The asking price you entered.' },
+  stampDuty: { label: 'Stamp duty', basis: 'Calculated from the purchase price using the current bands.' },
+  stampDutyWales: { label: 'Land Transaction Tax', basis: 'Calculated from the purchase price using the current Welsh bands.' },
+  refurb: { label: 'Refurb cost', basis: 'Your refurb figure, from the scope ticked in the analyser.' },
+  legals: { label: 'Legal and buying costs', basis: 'Your figure for legal and buying costs.' },
+  additional: { label: 'Additional costs', basis: 'Your figure for additional costs.' },
+  totalIn: { label: 'Total going in', basis: 'Purchase price, tax, refurb and costs added together.' },
+  roi: { label: 'Return on cash', basis: 'Annual return divided by the cash going in, from the figures in this pack. Before tax.' },
+  roce: { label: 'Return on capital employed', basis: 'Profit divided by the capital employed, from the figures in this pack. Before tax.' },
+  grossYield: { label: 'Rental yield', basis: 'Annual rent divided by the purchase price.' },
+  monthlyRent: { label: 'Monthly rent', basis: 'Your monthly rent figure.' },
+  // THE WORD "VALUATION" IS NOT USED, EVEN TO DENY IT. `figure()` refuses any
+  // basis carrying it, and rightly: a valuation is a regulated act by a
+  // qualified valuer, and this is the sourcer's own figure for what the
+  // property is worth after the work.
+  endValue: { label: 'Estimated end value', basis: 'Your own figure for what it is worth once the work is done. An estimate.' },
+};
+
+/**
+ * THE AREA HIGHLIGHTS. Each line names its dataset and its date — a fact about
+ * a place, never a claim about a deal.
+ */
+export const PACK_AREA = {
+  typicalPrice: 'Typical sold price in this postcode sector',
+  soldCount: 'Homes sold here in the last year',
+  soldCountValue: (n: number): string => `${n}`,
+  growth: (area: string): string => `${area}, average over ten years`,
+  growthValue: (rate: string): string => `${rate} a year`,
+  affordability: 'Price against local earnings',
+  affordabilityValue: (ratio: string): string => `${ratio}×`,
+  sources: {
+    landRegistry: 'HM Land Registry Price Paid Data',
+    ukhpi: 'UK House Price Index, HM Land Registry',
+    ons: 'ONS residence-based affordability ratio',
   },
 } as const;
 
@@ -236,8 +295,8 @@ export const PACK_COPY = {
  */
 export const DECLARATION = {
   heading: 'Before you make a deal pack',
-  intro: 'A deal pack goes to somebody deciding where to put money. Before you can make one, '
-    + 'confirm you understand what sourcing is and give the registrations that go on every pack.',
+  intro: 'A deal pack goes to somebody deciding where to put money. Confirm what sourcing is, '
+    + 'and give the registrations that go on every pack.',
 
   /** The thing they must understand. Plain, and not dressed as advice. */
   understanding: [

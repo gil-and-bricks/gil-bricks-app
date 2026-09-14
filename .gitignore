@@ -41,3 +41,7 @@ packages/extension/.wxt/
 
 # Claude Code session artifacts (machine-local)
 .claude/
+
+# DP1 — the pack gate rewrites these on every run (screenshots, a PDF and a
+# saved pack). Evidence, not source: regenerate with `npm run pack-gate`.
+packages/web/docs/screens/pack/

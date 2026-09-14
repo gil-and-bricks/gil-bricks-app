@@ -37,6 +37,22 @@ export interface PackCompliance {
   piExpiry: string;
 }
 
+/**
+ * THE USER'S OWN TRACED PLAN, as geometry.
+ *
+ * NOT AN SVG STRING. Room names are typed by the user, and a string built from
+ * them and injected would be an injection hole in a document that leaves the
+ * building. The shape is rendered as JSX, where Preact escapes the text for us.
+ */
+export interface PackFloorPlan {
+  levels: {
+    name: string;
+    totalSqm: string;
+    rooms: { name: string; area: string; points: { x: number; y: number }[] }[];
+  }[];
+  total: string;
+}
+
 export interface AreaHighlight {
   label: string;
   value: string;
@@ -60,7 +76,7 @@ export interface PackModel {
   duration: { parts: { name: string; weeks: string }[]; total: string; basis: string } | null;
   /** Object URLs for photographs the user chose in THIS browser. Never remote. */
   photos: string[];
-  floorPlanSvg: string | null;
+  floorPlan: PackFloorPlan | null;
   area: AreaHighlight[];
   /** Section keys that are switched on. Locked ones are always present. */
   on: readonly string[];
@@ -98,6 +114,36 @@ function Figure({ f, big }: { f: EvidencedFigure; big?: boolean }) {
       </p>
       {!big && <p class="pk-figure-basis">{f.basis}</p>}
     </li>
+  );
+}
+
+/** One storey of their plan. Coordinates in, shapes out — no arithmetic. */
+function Level({ level }: { level: PackFloorPlan['levels'][number] }) {
+  const xs = level.rooms.flatMap((r) => r.points.map((p) => p.x));
+  const ys = level.rooms.flatMap((r) => r.points.map((p) => p.y));
+  if (xs.length === 0 || ys.length === 0) return null;
+  const minX = Math.min(...xs); const minY = Math.min(...ys);
+  const w = Math.max(Math.max(...xs) - minX, 1); const h = Math.max(Math.max(...ys) - minY, 1);
+  const mid = (ns: number[]): number => ns.reduce((a, n) => a + n, 0) / ns.length;
+  return (
+    <div class="pk-plan" key={level.name}>
+      <p class="pk-plan-name">{level.name} · {level.totalSqm}</p>
+      <svg class="pk-plan-svg" viewBox={`${minX - 8} ${minY - 8} ${w + 16} ${h + 16}`} role="img" aria-label={level.name}>
+        {level.rooms.map((room) => (
+          <g key={room.name}>
+            <polygon class="pk-plan-room" points={room.points.map((p) => `${p.x},${p.y}`).join(' ')} />
+            <text
+              class="pk-plan-label"
+              x={mid(room.points.map((p) => p.x))}
+              y={mid(room.points.map((p) => p.y))}
+              text-anchor="middle"
+            >
+              {room.name} · {room.area}
+            </text>
+          </g>
+        ))}
+      </svg>
+    </div>
   );
 }
 
@@ -167,7 +213,7 @@ export function PackDocument({ model }: { model: PackModel }) {
         {has(m, S.purchase) && <ul class="pk-figures">{m.costs.map((f) => <Figure f={f} key={f.label} />)}</ul>}
         {has(m, S.returns) && m.returns.length > 0 && (
           <>
-            <h3 class="pk-h3">{PACK_COPY.numbers.roi}</h3>
+            <h3 class="pk-h3">{PACK_COPY.numbers.returnsHeading}</h3>
             <ul class="pk-figures">{m.returns.map((f) => <Figure f={f} key={f.label} />)}</ul>
           </>
         )}
@@ -193,7 +239,7 @@ export function PackDocument({ model }: { model: PackModel }) {
         {has(m, S.duration) && m.duration !== null && (
           <>
             <h3 class="pk-h3">
-              {PACK_COPY.numbers.refurb}
+              {PACK_COPY.numbers.refurbDuration}
               <span class="pk-estimate">{PACK_COPY.basis.estimateTag}</span>
             </h3>
             <div class="pk-runway">
@@ -211,14 +257,16 @@ export function PackDocument({ model }: { model: PackModel }) {
         {has(m, S.floorplan) && (
           <>
             <h3 class="pk-h3">{PACK_COPY.property.floorPlanHeading}</h3>
-            {m.floorPlanSvg === null
+            {m.floorPlan === null
               ? <p class="pk-source">{PACK_COPY.property.noFloorPlan}</p>
               : (
                 <>
-                  {/* Their own traced plan — geometry we hold, drawn here as SVG.
-                      Never the agent's floor plan image. */}
-                  <div dangerouslySetInnerHTML={{ __html: m.floorPlanSvg }} />
-                  <p class="pk-source">{PACK_COPY.property.floorPlanMine}</p>
+                  {/* Their own traced plan — geometry we hold, drawn from
+                      coordinates. Never the agent's floor plan image. */}
+                  {m.floorPlan.levels.map((level) => <Level level={level} key={level.name} />)}
+                  <p class="pk-source">
+                    {PACK_COPY.property.floorPlanTotal(m.floorPlan.total)} {PACK_COPY.property.floorPlanMine}
+                  </p>
                 </>
               )}
           </>
@@ -274,7 +322,7 @@ export function PackDocument({ model }: { model: PackModel }) {
             ))}
           {m.duration !== null && (
             <div>
-              <dt>{PACK_COPY.property.heading} — {m.duration.total}</dt>
+              <dt>{PACK_COPY.numbers.refurbDuration} — {m.duration.total}</dt>
               <dd>{m.duration.basis}</dd>
             </div>
           )}

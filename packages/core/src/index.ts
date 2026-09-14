@@ -64,6 +64,7 @@ export * from './refurb/duration';
 // comparable or a page without going through this: the refusals are code, not
 // a checklist. Deliberately NOT imported by scoreDeal or any analyser path.
 export * from './pack/honesty';
+export * from './pack/build';
 export { scoreCopy } from './score/copy';
 export type { Verdict } from './score/copy';
 

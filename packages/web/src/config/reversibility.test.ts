@@ -452,6 +452,26 @@ describe('REVERSIBILITY CHARTER guardrail (N1)', () => {
     expect(offenders, 'a threshold in a component — thresholds are config; tiers are @gil-bricks/core').toEqual([]);
   });
 
+  /**
+   * G. TEST FIXTURES ARE TEST DATA, AND THE PRODUCT NEVER IMPORTS THEM.
+   *
+   * src/fixtures holds deals, names and businesses invented for tests. They sit
+   * outside components/ and lib/ ON PURPOSE, which is also what puts them
+   * outside the inline-copy ratchet — so the one thing that must stay true is
+   * that no shipped file reaches into them. A fictional investor's name in a
+   * real pack would be our fault and nobody else's.
+   */
+  it('G. product code never imports a test fixture', () => {
+    const FIXTURES = join(SRC, 'fixtures');
+    expect(walk(FIXTURES).length, 'no fixtures found — has the directory moved?').toBeGreaterThan(0);
+    const offenders = ALL_FILES
+      .filter((p) => !isTest(p) && !p.startsWith(FIXTURES) && /\.(ts|tsx|astro|mjs)$/.test(p))
+      .filter((p) => /from\s+'[^']*\/fixtures\/|from\s+"[^"]*\/fixtures\//.test(read(p)))
+      .map(rel)
+      .sort();
+    expect(offenders, 'a shipped file imports test data — move what it needs into config').toEqual([]);
+  });
+
   it('E. INLINE COPY RATCHET: no file gains inline user-facing copy; new files start at zero', () => {
     const problems: string[] = [];
     const seen = new Set<string>();

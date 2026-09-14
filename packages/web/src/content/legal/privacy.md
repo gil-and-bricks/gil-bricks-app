@@ -16,7 +16,7 @@ is why there is no cookie banner.
 
 ## What is stored, and only when
 
-**Nothing, until you do one of these five things.**
+**Nothing, until you do one of these six things.**
 
 **1. You sign in with Google.** Google tells me your email address, your name
 and a link to your profile picture. That is all I get — never your password.
@@ -55,15 +55,40 @@ wording you ticked. That record of your consent is kept with the enquiry after
 the answers themselves have been deleted, because I have to be able to show that
 you agreed. You have to tick that box, and it names him and those details.
 
-**There is no upload.** The broker's own form takes a credit report file; this
-one does not, and never will. It asks only whether one is available, and he asks
-you for it directly. A stored credit report is the most damaging single thing
-this site could ever leak, and it belongs on his system, not mine.
+**There is no credit report upload.** The broker's own form takes a credit
+report file; this one does not, and never will. It asks only whether one is
+available, and he asks you for it directly. A stored credit report is the most
+damaging single thing this site could ever leak, and it belongs on his system,
+not mine.
 
 **5. You ask a tool to email you its breakdown.** Stored: the email address you
 gave (or the one on your account), the figures that were already on your screen
 and which tool produced them. You have to tick the box. The answer itself never
 needs an email, and you do not need an account.
+
+**6. You make an investor deal pack.** Two things are stored, both on your own
+row in the same database.
+
+Your **branding**: the business name you type, one accent colour, and — if you
+choose one — a **logo image file**. The logo is the only picture this site ever
+stores. It is your own file, you pick it, it is capped at 64KB, and it is kept
+as the image itself so your pack prints without fetching anything.
+
+Your **declaration**: the business name, HMRC anti-money-laundering supervision
+number, redress scheme and membership number, ICO registration number,
+professional indemnity insurer and the date cover runs to — whatever you fill in
+— with the time you confirmed it and the version of the wording you confirmed.
+These print on every pack you make, because an investor has to be able to check
+who they are dealing with.
+
+**The pack itself is never stored.** It is built in your browser, from the deal
+you already saved, and it is yours to print or save. **The photographs you add
+to a pack never leave your device** — they are read in the page, go straight
+into the document, and are never uploaded. The listing's own photographs are
+never put in a pack at all: they belong to the agent.
+
+**Deleting your account deletes both of these, logo included.** They are removed
+in the same operation as everything else, not left behind.
 
 I hold **no payment details**, and never will — there is nothing to pay for.
 There is no password to steal: sign-in is Google's.
@@ -155,7 +180,8 @@ address to Cloudflare to confirm you are a person. Turnstile is not analytics.
 
 ## How long things are kept
 
-- Your account, saved deals and pipeline stay until you delete them.
+- Your account, saved deals and pipeline stay until you delete them. So do your
+  pack branding, your logo and your declaration.
 - The sign-in session expires after 30 days.
 - A tool lead — the email address and figures behind "email me this
   breakdown" — is deleted within 90 days of being sent.
@@ -176,7 +202,8 @@ address to Cloudflare to confirm you are a person. Turnstile is not analytics.
 ## Getting your data, or deleting it
 
 **Delete everything** is a button on the account page. It permanently removes:
-your account record, every saved deal and everything in your pipeline, any
+your account record, every saved deal and everything in your pipeline, **your
+pack branding, your logo and your declaration**, any
 bridging enquiry you sent — **which kills his link to that enquiry on the
 spot** — **the broker's questions and your answers to them — which also kills
 his link on the spot, even if he has not opened it** — anything

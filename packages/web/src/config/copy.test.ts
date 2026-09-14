@@ -20,6 +20,7 @@ import { COPY } from './copy';
 import { BRIDGING, FACTFIND, FACTFIND_VIEW } from './bridging';
 import { CALENDAR, CHAIN_RISK, GRAVEYARD_COPY, PARK_REASONS, RETRADE } from './pipeline';
 import { NAV } from './nav';
+import { BANNED_COPY, DECLARATION, PACK_COPY, PACK_DISCLAIMER, PACK_DISCLAIMER_FULL, PACK_FIGURES } from './pack';
 import { STRATEGY_LANDING } from './strategyLanding';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
 import { inlineCopy, inlineCopyAstro } from './reversibility.test';
@@ -91,6 +92,49 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
       .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
       .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
     expect(long, 'one idea per sentence — split it').toEqual([]);
+  });
+
+  /**
+   * DP1 — THE PACK'S COPY, AND THE FOUR THINGS IN IT THAT MUST RUN LONG.
+   *
+   * Everything a sourcer reads on the way to a pack is held to the rule. Four
+   * groups are exempt BY NAME, each for the same reason: they are the parts a
+   * regulator would read, and shortening them costs exactly the words that make
+   * the document safe to send.
+   *
+   *   • DECLARATION.understanding — the three paragraphs saying what the law
+   *     treats sourcing as. They are the whole point of the gate.
+   *   • DECLARATION.confirmLabel and .blanksWarning — what they are agreeing to,
+   *     and what a blank does. A tick box may not be shorter than the promise.
+   *   • PACK_DISCLAIMER / PACK_DISCLAIMER_FULL — printed in the document itself,
+   *     which is not an app screen and is read once, carefully.
+   *   • PACK_FIGURES bases — a basis says where a number came from; a basis
+   *     trimmed to nine words stops doing that.
+   *
+   * The BANNED_PHRASES reasons are exempt for the same reason as a lever line:
+   * naming why a word cannot go in IS the plain-English win.
+   */
+  it('the pack’s screen copy obeys the same rules', () => {
+    const EXEMPT_KEYS = /^(DECLARATION\.(understanding|confirmLabel|blanksWarning)|PACK_COPY\.build\.(photosHint|noPortalImages|photosNote))/;
+    const strings = [...flatten(PACK_COPY, 'PACK_COPY'), ...flatten(DECLARATION, 'DECLARATION'), ...flatten(BANNED_COPY, 'BANNED_COPY')]
+      .filter((s) => !EXEMPT_KEYS.test(s.key));
+    expect(strings.length, 'nothing was walked — has the config moved?').toBeGreaterThan(40);
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long, 'move the extra words into the document, or name the exemption above').toEqual([]);
+  });
+
+  it('every exempt string in the pack is still there — an exemption for nothing is a lie', () => {
+    expect(DECLARATION.understanding.length).toBe(3);
+    for (const p of DECLARATION.understanding) expect(wordCount(p)).toBeGreaterThan(20);
+    expect(wordCount(PACK_DISCLAIMER)).toBeGreaterThan(15);
+    expect(PACK_DISCLAIMER_FULL.length).toBe(3);
+    // and every figure still says where it came from
+    for (const [key, c] of Object.entries(PACK_FIGURES)) {
+      expect(c.basis, key).not.toBe('');
+      expect(wordCount(c.label), key).toBeLessThan(6);
+    }
   });
 
   it('the nav obeys the same rules', () => {
