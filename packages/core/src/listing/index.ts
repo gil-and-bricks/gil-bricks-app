@@ -13,6 +13,8 @@ export * from './scoreListing';
 export * from './criteria';
 export * from './sanity';
 export * from './sellerSignals';
+// One whole-word matcher, shared by the extractors and the deal pack.
+export * from './wording';
 export * from './floorplan';
 export { RIGHTMOVE_EXTRACTOR_VERSION, extractRightmove } from './rightmove';
 export { ZOOPLA_EXTRACTOR_VERSION, extractZoopla } from './zoopla';

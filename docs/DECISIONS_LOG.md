@@ -2,6 +2,92 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-14 — DP1: the investor deal pack (PART BUILT, FLAG OFF)
+
+**The research document did not arrive again.** The message carried the numbered
+brief and nothing after it — the third sprint running. The brief is
+self-sufficient and says it wins, so this was built to the brief. Nothing here
+rests on a document I could not read.
+
+### What is built, and what is NOT
+
+`features.dealPack` is **OFF**. The engines, the migrations, the routes, the
+copy and the document component are written and tested; the wiring that turns a
+saved deal into a rendered pack is not finished. Shipping a half-built investor
+document — the one artefact this product makes that goes in front of somebody
+deciding where to put money — would contradict the rule the brief itself set.
+
+BUILT AND TESTED
+- `refurb/duration.ts` + `config/refurbDuration.ts` — the banded estimate, as a
+  range, over the whole runway (lead-in, on tools, snagging, void). 21 tests.
+- `pack/honesty.ts` — the four refusals: banned words with explanations, no
+  figure without a basis, no modelled figure called a valuation, no comparable
+  without source and date. Plus the locked-section rule. 36 tests.
+- `pack/build.ts` — the pack's numbers, built through `figure()` so one with no
+  basis cannot exist.
+- Migration `0028_deal_pack.sql` — `business_profiles` and `pack_declarations`,
+  both added to account deletion.
+- `/api/pack/profile` (GET/PUT) and `/api/pack/declaration` (POST).
+- `config/pack.ts` — every word, the banned list, the declaration wording.
+- `PackDocument.tsx` — the six sheets; `PackApp.tsx` — the builder screen.
+- `styles/pack.css` — real A4 sheets, `@page`, `print-color-adjust` so their
+  accent survives the printer.
+
+NOT BUILT
+- The declaration and profile SCREENS (the routes they post to exist).
+- The Astro page, and the wiring from a saved deal's `url_params` to a
+  `PackSource` with real computed figures.
+- The area highlights, drawn from our own data with each source named.
+- The "Make investor deal pack" button on a deal card.
+- The duration field in the refurb section (the engine behind it is done).
+- Share (download / link / share sheet).
+- The web-side tests: no score or verdict in a rendered pack, the locked
+  sections cannot be removed through the UI, no portal image fetched during a
+  render, print output checked at A4.
+
+### Judgment calls
+
+**1. The photographs are never uploaded.** They are chosen in the browser at the
+moment the pack is made, held as object URLs, printed, and released. The app has
+no file upload, no R2 binding on the Worker, and a test tied to the privacy
+policy asserts the Worker never parses a multipart form. Photographs are also
+large and per-deal, and the workflow is make-it-then-print-it in one sitting —
+the PDF is what persists. They must be re-chosen if a pack is rebuilt later.
+
+**2. The logo IS stored, as a data URI.** It is small, capped at 64KB, set once
+and needed on every pack, so it goes in D1 as a JSON string — the same bytes as
+an upload but with no multipart parser and no new attack surface, which leaves
+that privacy test exactly as strict as it was. The policy's "There is no upload"
+promise is scoped to the broker fact-find and a credit report, not to this.
+**The privacy policy will need a line about the logo before this ships.**
+
+**3. The duration week counts are a banding, not a dataset.** The brief's
+guidance is qualitative — weeks, months, longer. The numbers that turn that into
+a range live in `config/refurbDuration.ts`, are labelled estimates everywhere
+they appear, show their four parts, and can be replaced by the user's builder's
+figure. Nobody surveyed them and the product never implies otherwise.
+
+**4. A builder's figure replaces ON-TOOLS time only.** A builder quotes their
+own work, not your lead-in or your void. Replacing the whole runway with their
+number is precisely the mistake the field exists to prevent.
+
+**5. The declaration cannot be edited.** A second POST is refused with 409. A
+compliance record that can be rewritten is not a record; it stores the version
+of the wording agreed to, as the fact-find consent record does.
+
+**6. The pack takes an allow-list out of the analysis, never an omit-list.**
+`BtlAnalysis` carries `verdict`, `verdictCopy` and `lever`. Spreading it and
+deleting three keys would mean the next field added to an analysis silently
+appears in somebody's investor document.
+
+### Four pre-existing bugs found and fixed on the way
+
+`authz.test.ts`, `lead.test.ts`, `factfind.test.ts` and `enquiryLink.test.ts`
+each carried a hand-typed list of migrations. `authz`'s had already drifted —
+`0025_rate_limits.sql` was missing, so every authz test ran against a schema
+with no `rate_limits` table and the suite printed "no such table: rate_limits"
+while passing. All four now read the migrations directory.
+
 ## 2026-09-14 — A second accent, for primary calls to action only
 
 `--action: #ff2d78`. Lime says "this is ours"; pink says "press this".

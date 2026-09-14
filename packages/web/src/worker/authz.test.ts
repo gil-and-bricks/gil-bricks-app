@@ -17,7 +17,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
@@ -26,17 +26,21 @@ import { features } from '../config/features';
 import { BROKER } from '../config/bridging';
 import { hashToken } from './lib/brokerLink';
 
-const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const ALL_MIGRATIONS = [
-  '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
-  '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0009_bridging_enquiries.sql',
-  '0010_tool_saves.sql', '0011_outbox_fields.sql', '0012_deal_sold_evidence.sql',
-  '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql',
-  '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql',
-  '0019_bridging_factfind.sql', '0020_factfind_consent_record.sql', '0021_change_cash_needed.sql',
-  '0022_epc_cache.sql', '0023_cron_heartbeat.sql', '0024_bridging_enquiry_link.sql', '0026_deal_floorplans.sql', '0027_refurb_cue_seen.sql',
-];
+const MIGRATIONS_DIR = fileURLToPath(new URL('../../migrations/', import.meta.url));
+const MIG = (n: string) => readFileSync(`${MIGRATIONS_DIR}${n}`, 'utf8');
+/**
+ * EVERY migration, READ FROM THE DIRECTORY rather than retyped.
+ *
+ * This was a hand-maintained list, and it had already drifted: 0025_rate_limits
+ * was missing, so every authz test ran against a schema with no rate_limits
+ * table and the suite printed "no such table: rate_limits" while passing. A
+ * list that must mirror a directory is the same round-trip fault this codebase
+ * keeps being bitten by — so it reads the directory, sorted, and a new
+ * migration is covered the moment it exists.
+ */
+const ALL_MIGRATIONS = readdirSync(MIGRATIONS_DIR)
+  .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+  .sort();
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {

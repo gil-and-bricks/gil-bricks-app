@@ -410,6 +410,10 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     env.DB.prepare('DELETE FROM deal_floorplans WHERE user_id = ?').bind(user.sub),
     // R3 — and which pointers they were shown.
     env.DB.prepare('DELETE FROM refurb_cue_seen WHERE user_id = ?').bind(user.sub),
+    // DP1 — their business identity and their compliance declaration. The logo
+    // is image bytes they gave us, so "delete everything" plainly includes it.
+    env.DB.prepare('DELETE FROM business_profiles WHERE user_id = ?').bind(user.sub),
+    env.DB.prepare('DELETE FROM pack_declarations WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM deals WHERE user_id = ?').bind(user.sub),
   );
   stmts.push(
@@ -1088,6 +1092,116 @@ async function handlePutFloorPlan(request: Request, env: Env, dealId: string): P
 
 
 /**
+ * DP1 — THE SOURCER'S OWN IDENTITY, AND THEIR DECLARATION.
+ *
+ * Two endpoints, and the difference between them is the point:
+ *
+ *  • The PROFILE is theirs to change whenever they like — a business name, one
+ *    accent colour and a logo. Upserted.
+ *  • The DECLARATION is written ONCE and is not editable here. It records that
+ *    they confirmed, on a date, against a named version of the wording, that
+ *    they understand sourcing is estate agency work and hold the registrations
+ *    that go with it. Rewriting history is the one thing a compliance record
+ *    must not allow, so a second POST is refused rather than silently updating.
+ *
+ * NO FILE UPLOAD. The logo arrives as a data URI inside JSON — the same bytes,
+ * but no multipart form parsing anywhere in this Worker, which is what the
+ * privacy policy's own test asserts by grepping this file. (That test greps raw
+ * SOURCE, comments included, so this note deliberately does not spell out the
+ * call it forbids.) Capped here, in one place.
+ */
+const LOGO_MAX_BYTES = 64 * 1024;
+const LOGO_TYPES = /^data:image\/(png|jpeg|jpg|webp|svg\+xml);base64,[A-Za-z0-9+/=]+$/;
+const HEX_COLOUR = /^#[0-9a-fA-F]{6}$/;
+
+/** Trim, cap, and never store more than the pack can print. */
+const field = (v: unknown, max = 120): string => String(v ?? '').trim().slice(0, max);
+
+async function handleGetPackProfile(request: Request, env: Env): Promise<Response> {
+  if (!features.dealPack) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const profile = await env.DB.prepare(
+    'SELECT business_name, accent_colour, logo_data_uri FROM business_profiles WHERE user_id = ?',
+  ).bind(user.sub).first<{ business_name: string; accent_colour: string; logo_data_uri: string }>();
+  const declaration = await env.DB.prepare(
+    `SELECT hmrc_aml_ref, redress_scheme, redress_number, ico_registration, pi_insurer, pi_expiry,
+            declared_at, declaration_version FROM pack_declarations WHERE user_id = ?`,
+  ).bind(user.sub).first();
+  return json({ profile: profile ?? null, declaration: declaration ?? null });
+}
+
+async function handlePutPackProfile(request: Request, env: Env): Promise<Response> {
+  if (!features.dealPack) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const name = field(body.businessName);
+  const accent = field(body.accentColour, 7);
+  if (accent !== '' && !HEX_COLOUR.test(accent)) return json({ error: 'bad colour' }, 400);
+  const logo = String(body.logo ?? '').trim();
+  if (logo !== '') {
+    if (!LOGO_TYPES.test(logo)) return json({ error: 'bad logo' }, 400);
+    // The base64 payload, not the whole string, is what costs us storage.
+    const bytes = Math.floor((logo.length - logo.indexOf(',') - 1) * 0.75);
+    if (bytes > LOGO_MAX_BYTES) return json({ error: 'logo too big' }, 413);
+  }
+  await env.DB.prepare(
+    `INSERT INTO business_profiles (user_id, business_name, accent_colour, logo_data_uri, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET business_name = excluded.business_name,
+       accent_colour = excluded.accent_colour, logo_data_uri = excluded.logo_data_uri,
+       updated_at = excluded.updated_at`,
+  ).bind(user.sub, name, accent, logo, new Date().toISOString()).run();
+  return json({ ok: true });
+}
+
+async function handlePostPackDeclaration(request: Request, env: Env): Promise<Response> {
+  if (!features.dealPack) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const existing = await env.DB.prepare('SELECT user_id FROM pack_declarations WHERE user_id = ?')
+    .bind(user.sub).first();
+  // A compliance record that can be rewritten is not a record.
+  if (existing) return json({ error: 'already declared' }, 409);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  if (body.confirmed !== true) return json({ error: 'must confirm' }, 400);
+  const version = field(body.version, 40);
+  if (version === '') return json({ error: 'bad request' }, 400);
+  await env.DB.prepare(
+    `INSERT INTO pack_declarations (user_id, hmrc_aml_ref, redress_scheme, redress_number,
+       ico_registration, pi_insurer, pi_expiry, declared_at, declaration_version)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).bind(
+    user.sub, field(body.hmrcAml), field(body.redressScheme), field(body.redressNumber),
+    field(body.ico), field(body.piInsurer), field(body.piExpiry),
+    new Date().toISOString(), version,
+  ).run();
+  // The business name given here seeds the profile, so it prints on the first
+  // pack without them typing it twice.
+  const name = field(body.businessName);
+  if (name !== '') {
+    await env.DB.prepare(
+      `INSERT INTO business_profiles (user_id, business_name, accent_colour, logo_data_uri, updated_at)
+       VALUES (?, ?, '', '', ?)
+       ON CONFLICT(user_id) DO UPDATE SET business_name = excluded.business_name,
+         updated_at = excluded.updated_at`,
+    ).bind(user.sub, name, new Date().toISOString()).run();
+  }
+  return json({ ok: true });
+}
+
+/**
  * R3 — WHICH REFURB POINTERS THIS PERSON HAS SEEN.
  *
  * Read once per session, written once in a batch. Cue KEYS only: no photo, no
@@ -1722,6 +1836,10 @@ async function route(request: Request, env: Env): Promise<Response> {
     // R3 — the refurb pointers this person has already been shown.
     if (pathname === '/api/refurb-cues/seen' && method === 'GET') return handleGetCuesSeen(request, env);
     if (pathname === '/api/refurb-cues/seen' && method === 'POST') return handlePostCuesSeen(request, env);
+    // DP1 — the sourcer's own branding, and their one-off declaration.
+    if (pathname === '/api/pack/profile' && method === 'GET') return handleGetPackProfile(request, env);
+    if (pathname === '/api/pack/profile' && method === 'PUT') return handlePutPackProfile(request, env);
+    if (pathname === '/api/pack/declaration' && method === 'POST') return handlePostPackDeclaration(request, env);
     if (pathname === '/api/health' && method === 'GET') return handleHealth(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
     if (pathname === '/api/deals/dead' && method === 'GET') return handleTerminalPage(request, env, url, 'dead');

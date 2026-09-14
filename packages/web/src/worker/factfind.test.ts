@@ -13,7 +13,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DatabaseSync } from 'node:sqlite';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import worker, { type Env } from './index';
 import { SESSION_COOKIE } from './lib/cookies';
@@ -23,15 +23,18 @@ import { BROKER, FACTFIND_RULES, brokerReady, factFindReady } from '../config/br
 import { siteConfig } from '../site.config';
 import { columnsCoverEveryField, hashToken, purgeFactFinds } from './lib/factfind';
 
-const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const MIGRATIONS = [
-  '0001_init.sql', '0002_outbox_action.sql', '0003_deals_idempotent_outbox_backoff.sql',
-  '0004_deals_key_includes_strategy.sql', '0005_deal_pipeline.sql', '0006_deal_headline_figure.sql',
-  '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0009_bridging_enquiries.sql', '0020_factfind_consent_record.sql',
-  // account deletion reaches into these too, so the fixture carries them
-  '0010_tool_saves.sql', '0011_outbox_fields.sql', '0019_bridging_factfind.sql',
-  '0013_deal_changes.sql', '0016_deal_deaths.sql', '0024_bridging_enquiry_link.sql', '0026_deal_floorplans.sql', '0027_refurb_cue_seen.sql',
-];
+const MIGRATIONS_DIR = fileURLToPath(new URL('../../migrations/', import.meta.url));
+const MIG = (n: string) => readFileSync(`${MIGRATIONS_DIR}${n}`, 'utf8');
+/**
+ * EVERY migration, READ FROM THE DIRECTORY rather than retyped.
+ *
+ * This was a hand-picked subset, and it broke the moment account deletion
+ * reached a new table — which is the whole point of the tests below. A list
+ * that must mirror a directory drifts; the directory cannot.
+ */
+const MIGRATIONS = readdirSync(MIGRATIONS_DIR)
+  .filter((f) => /^\d{4}_.*\.sql$/.test(f))
+  .sort();
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {

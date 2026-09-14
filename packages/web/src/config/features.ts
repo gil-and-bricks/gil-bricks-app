@@ -276,6 +276,17 @@ export interface FeatureFlags {
    * off, because a scenario inside a score built on evidence would corrupt it.
    */
   areaTrajectory: boolean;
+  /**
+   * DP1 — the investor deal pack: the "Make investor deal pack" button on a
+   * saved deal, the one-off compliance declaration that gates it, the branding
+   * profile, and the print-ready document itself.
+   *
+   * Off: no button on any deal, the pack routes answer 404, and neither the
+   * declaration nor the profile screen is reachable. Nothing else moves — the
+   * pack is a separate document and has never been an input to the Deal Score
+   * or to anything on the analyser.
+   */
+  dealPack: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -320,6 +331,7 @@ export const features: FeatureFlags = {
   homeWhyFree: true,
   subjectLookup: true,
   areaTrajectory: true,
+  dealPack: false,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

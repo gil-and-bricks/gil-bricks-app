@@ -57,6 +57,13 @@ export * from './evidence/chips';
 export * from './refurb';
 export * from './refurb/region';
 export * from './refurb/suggest';
+// DP1 — how long the work takes, as a range with its basis. Never a number.
+export * from './refurb/duration';
+
+// DP1 — the deal pack's honesty rules. The pack cannot render a figure, a
+// comparable or a page without going through this: the refusals are code, not
+// a checklist. Deliberately NOT imported by scoreDeal or any analyser path.
+export * from './pack/honesty';
 export { scoreCopy } from './score/copy';
 export type { Verdict } from './score/copy';
 
