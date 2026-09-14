@@ -11,7 +11,7 @@
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { render } from 'preact-render-to-string';
-import { RefurbSection, linesFrom, refurbParamKeys, MODE_PARAM, DURATION_FROM_PARAM, DURATION_TO_PARAM } from './RefurbSection';
+import { RefurbSection, linesFrom, refurbParamKeys, ownWeeksFrom, MODE_PARAM, DURATION_FROM_PARAM, DURATION_TO_PARAM } from './RefurbSection';
 import { REFURB, REFURB_ITEMS, paramFor } from '../../config/refurb';
 import { state, strategyParams } from './state';
 import { features } from '../../config/features';
@@ -155,5 +155,46 @@ describe('the params it owns', () => {
     const lines = linesFrom({ [paramFor('roof')]: '0', [paramFor('kitchen')]: '' });
     expect(lines.find((l) => l.key === 'roof')?.ticked).toBe(true);
     expect(lines.find((l) => l.key === 'kitchen')?.ticked).toBe(false);
+  });
+});
+
+/**
+ * DM1 — THE TWO WEEK BOXES, and the input gate that caught them.
+ *
+ * The gate types into every input on every strategy and fails any that moves
+ * nothing on the page. Both boxes failed it. The first fix was in the engine —
+ * a builder's figure with no scope ticked used to produce no runway at all —
+ * and it made the FIRST box live. The second stayed dead for a different
+ * reason: it required the first to be filled, so a number typed into it alone
+ * read as no figure at all.
+ *
+ * One figure, in either box, is a point. Two are a range.
+ */
+describe('a builder’s own weeks: either box alone is a figure', () => {
+  const at = (from: string, to: string) =>
+    ownWeeksFrom({ [DURATION_FROM_PARAM]: from, [DURATION_TO_PARAM]: to });
+
+  it('reads one figure in the first box as that many weeks', () => {
+    expect(at('10', '')).toEqual({ from: 10, to: 10 });
+  });
+
+  it('reads one figure in the SECOND box the same way — this is the one that was dead', () => {
+    expect(at('', '14')).toEqual({ from: 14, to: 14 });
+  });
+
+  it('reads two as the range they are', () => {
+    expect(at('10', '14')).toEqual({ from: 10, to: 14 });
+  });
+
+  it('ignores an upper below the lower rather than inverting it', () => {
+    // What a half-typed "14" looks like on its way past "1".
+    expect(at('10', '1')).toEqual({ from: 10, to: 10 });
+  });
+
+  it('is null only when there is genuinely no figure', () => {
+    expect(at('', '')).toBeNull();
+    expect(at('0', '0')).toBeNull();
+    expect(at('abc', '')).toBeNull();
+    expect(at('-4', '')).toBeNull();
   });
 });

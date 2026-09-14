@@ -59,13 +59,31 @@ const numOf = (raw: string | undefined): number => {
   const n = Number(raw);
   return Number.isFinite(n) && raw !== '' && raw !== undefined ? n : 0;
 };
-/** The builder's own figure, or null. Both boxes, in order, or neither. */
+/**
+ * The builder's own figure, or null.
+ *
+ * EITHER BOX ALONE IS A POINT, and that symmetry is the whole of it. A builder
+ * who says "about ten weeks" types 10 in the first box and leaves the second
+ * empty, and that has always read as ten weeks flat. Typing only the SECOND box
+ * used to read as nothing at all — the field took a number and the page did not
+ * move, which the analyser's input gate calls a lie to whoever turns the dial,
+ * and it was right: it caught this one and nothing else had.
+ *
+ * So one figure, in either box, means that many weeks; two mean a range. A
+ * second figure below the first is ignored rather than inverted — it is what a
+ * half-typed "14" looks like on its way past "1".
+ */
 export function ownWeeksFrom(params: Record<string, string>): { from: number; to: number } | null {
-  const from = Number(params[DURATION_FROM_PARAM]);
-  const to = Number(params[DURATION_TO_PARAM]);
-  if (!Number.isFinite(from) || from <= 0) return null;
-  const upper = Number.isFinite(to) && to >= from ? to : from;
-  return { from, to: upper };
+  const raw = (k: string): number | null => {
+    const n = Number(params[k]);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  const lower = raw(DURATION_FROM_PARAM);
+  const upper = raw(DURATION_TO_PARAM);
+  if (lower === null && upper === null) return null;
+  if (lower === null) return { from: upper as number, to: upper as number };
+  if (upper === null || upper < lower) return { from: lower, to: lower };
+  return { from: lower, to: upper };
 }
 
 const numOrNull = (raw: string | undefined): number | null => {
