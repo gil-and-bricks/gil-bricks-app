@@ -75,8 +75,22 @@ describe('a scheduled job that fails must say so where it will be seen', () => {
     expect(scheduled.length, 'there are scheduled workflows to check').toBeGreaterThan(0);
     for (const f of scheduled) {
       const body = readFileSync(workflows + f, 'utf8');
+      /**
+       * WIDENED 2026-09-14, and the reason matters: the old form of this
+       * required the literal `if: failure()` and nothing else. That is not
+       * merely narrow, it is wrong — a job that is CANCELLED (a timeout, most
+       * obviously) does not trigger `failure()`, so a workflow spelled exactly
+       * the way this demanded would stay silent on the one outcome that had
+       * just happened. journey.yml ran 65 minutes against a 60-minute limit,
+       * was cancelled, and reported nothing at all.
+       *
+       * What this actually cares about is that a bad outcome reaches a human.
+       * So: some `if:` must react to a bad outcome — `failure()` itself, or a
+       * check on a needed job's result — and the issue-raising below still has
+       * to be there. A workflow with no notifier at all still fails this.
+       */
       expect(body, `${f} has no failure notifier — a red tick in a tab nobody opens is not a warning`)
-        .toMatch(/if:\s*failure\(\)/);
+        .toMatch(/if:[^\n]*(failure\(\)|needs\.\*\.result|\.result\s*[!=]=)/);
       expect(body, `${f} must be allowed to open the issue`).toMatch(/issues:\s*write/);
       expect(body, `${f} must ASSIGN it — GitHub emails an assignee`).toMatch(/assignees:/);
     }

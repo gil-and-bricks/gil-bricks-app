@@ -1,10 +1,21 @@
-# THE JOURNEY GATE, against production, on a schedule.
+# THE BROWSER GATES, against production, on a schedule.
 #
-# It cannot run on a pull request: the EPC lookup and the auth refusals are
-# Worker routes, and a pull request only has the static build. So it runs
-# against the deployed site, four times a day and on demand, and opens an
-# ASSIGNED issue when the walk a person takes stops working — because the app
+# They cannot run on a pull request: the EPC lookup and the auth refusals are
+# Worker routes, and a pull request only has the static build. So they run
+# against the deployed site, four times a day and on demand, and open an
+# ASSIGNED issue when something a person does stops working — because the app
 # may never send email (CLAUDE.md rule 6).
+#
+# ONE JOB PER GATE, and the reason is a real failure rather than tidiness.
+# These five were a single serial chain — journey, then inputs, then map, then
+# signed-in, then the extension, plus two builds and a Chromium download. On
+# 2026-09-14 that chain ran 65 minutes against a 60-minute limit and was
+# CANCELLED, so every gate in it reported nothing at all. A gate that can be
+# starved by the gate in front of it is not a gate.
+#
+# Split, each one owns its own runner and its own timeout, the slowest is about
+# fifteen minutes rather than sixty-five, and one gate timing out can no longer
+# silence the other four.
 name: journey
 
 on:
@@ -16,102 +27,166 @@ concurrency:
   group: journey
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
+  # The walk a person takes: arrive from a handoff, photos, floor plan, EPC
+  # lookup, edit and watch the number move, change strategy, no empty section.
   walk:
     runs-on: ubuntu-latest
-    # The input gate reloads the page for every input on every analyser and
-    # takes about thirteen minutes; the journey itself takes about three, and
-    # the map gate about eight.
-    timeout-minutes: 60
-    permissions:
-      contents: read
-      issues: write
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
+        with: { node-version: 22, cache: npm }
       - run: npm ci
       - name: Walk the product
-        id: walk
         env:
           CHROME_PATH: /usr/bin/google-chrome
-        run: npm run journey-gate -w packages/web 2>&1 | tee journey.log
-      # The input gate, here rather than on a pull request because it reloads the
-      # page for every input on every analyser — the only way one input's effect
-      # cannot colour the next — and that costs about thirteen minutes. A dead
-      # input is a structural fault that does not appear between two commits, so
-      # four times a day is the right cadence and a PR is not.
+        run: npm run journey-gate -w packages/web 2>&1 | tee gate.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: log-walk, path: gate.log, retention-days: 7 }
+
+  # Every input on every analyser must move something. It reloads the page for
+  # each one — the only way one input's effect cannot colour the next — which
+  # is why it takes about thirteen minutes and why it is not on a pull request.
+  inputs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
       - name: Input gate
-        if: always()
         env:
           CHROME_PATH: /usr/bin/google-chrome
-        run: node packages/web/scripts/check-inputs.mjs 2>&1 | tee -a journey.log
+        run: node packages/web/scripts/check-inputs.mjs 2>&1 | tee gate.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: log-inputs, path: gate.log, retention-days: 7 }
 
-      # THE MAP GATE. Written months ago, wired to nothing until 2026-09-14 —
-      # and it is the one script in the repository that was already doing the
-      # right thing: it changes an input and asserts the OUTPUT changed. It
-      # counts rendered basemap features rather than trusting that a canvas
-      # exists, reads the zoom glyph's actual contrast off the pixels, and
-      # proves the map heals from a blocked tile request and a lost WebGL
-      # context. None of that was running.
+  # Rendered basemap FEATURES, not just a canvas: pins, cluster split, popup
+  # fields, the zoom glyph's contrast off the pixels, and recovery from both a
+  # blocked tile request and a lost WebGL context.
+  map:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
       - name: Map gate
-        if: always()
         env:
           CHROME_PATH: /usr/bin/google-chrome
-        run: npm run map-gate -w packages/web 2>&1 | tee -a journey.log
-
-      # THE SIGNED-IN HALF (M5). Save a deal, reopen it from the pipeline, add a
-      # fact, watch it re-score, park it, bring it back. It runs the REAL Worker
-      # on this runner over a throwaway D1 and signs in through /auth/dev-login
-      # — the door that has always existed and that is 404 in production twice
-      # over. Its first step asks production to prove that, rather than assuming
-      # it. Read the header of check-signed-in.mjs for why this, and not a real
-      # account or a production back door.
-      - name: Signed-in gate
+        run: npm run map-gate -w packages/web 2>&1 | tee gate.log
+      - uses: actions/upload-artifact@v4
         if: always()
+        with: { name: log-map, path: gate.log, retention-days: 7 }
+
+  # Save a deal, reopen it from the pipeline, add a fact, watch it re-score,
+  # park it, bring it back. It runs the REAL Worker on this runner over a
+  # throwaway D1 and signs in through /auth/dev-login — the door that has always
+  # existed and is 404 in production twice over. Its first step asks PRODUCTION
+  # to prove that rather than assuming it.
+  signed-in:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Signed-in gate
         env:
           CHROME_PATH: /usr/bin/google-chrome
         run: |
           npm run build -w packages/web
-          npm run signed-in-gate -w packages/web 2>&1 | tee -a journey.log
-
-      # THE EXTENSION, END TO END (M5). The built extension, loaded into a real
-      # Chrome, on real saved listing pages served under the portals' own
-      # hostnames, all the way to the handoff URL. Headed — Chrome loads no
-      # extension headless — hence xvfb. Chrome for Testing rather than the
-      # runner's Chrome: branded Chrome 137+ refuses --load-extension outright.
-      - name: Extension gate
+          npm run signed-in-gate -w packages/web 2>&1 | tee gate.log
+      - uses: actions/upload-artifact@v4
         if: always()
+        with: { name: log-signed-in, path: gate.log, retention-days: 7 }
+
+  # The BUILT extension, loaded into a real Chrome, on real saved listing pages
+  # served under the portals' own hostnames, through to the handoff URL. Headed
+  # — Chrome loads no extension headless — hence xvfb. Chrome for Testing rather
+  # than the runner's Chrome: branded Chrome 137+ refuses --load-extension.
+  extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      # Cached: it is a ~150MB download and was a slice of the 65 minutes.
+      - name: Cache Chrome for Testing
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Extension gate
         run: |
           npm run build -w packages/extension
           npx playwright-core install chromium
-          xvfb-run -a npm run extension-gate -w packages/extension 2>&1 | tee -a journey.log
+          xvfb-run -a npm run extension-gate -w packages/extension 2>&1 | tee gate.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: log-extension, path: gate.log, retention-days: 7 }
 
-      - name: Say so, loudly, if the walk broke
-        if: failure()
-        uses: actions/github-script@v8
+  # ONE issue for the run, naming which gates broke — not five issues, and not
+  # silence. It runs even when a gate times out, which is exactly the case the
+  # old single-job shape could not report at all.
+  report:
+    needs: [walk, inputs, map, signed-in, extension]
+    # `&&` binds tighter than `||`, so the obvious spelling of this —
+    # always() && contains(...'failure') || contains(...'cancelled') — parses as
+    # (always() && failure-check) || cancelled-check, and the second half loses
+    # its always(), which is precisely the branch that has to survive a
+    # cancellation. Parenthesised, and failure() spelled out so the scheduled-job
+    # notifier guard in dataFreshness.test.ts can see it.
+    if: always() && (failure() || contains(needs.*.result, 'cancelled'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { path: logs }
+      - uses: actions/github-script@v8
         with:
           script: |
             const fs = require('fs');
-            const log = fs.existsSync('journey.log') ? fs.readFileSync('journey.log', 'utf8').slice(-4000) : '(no log)';
-            const TITLE = 'The journey gate failed — something a person does is broken';
+            const results = {
+              'the walk a person takes': '${{ needs.walk.result }}',
+              'every input moves something': '${{ needs.inputs.result }}',
+              'the map renders': '${{ needs.map.result }}',
+              'the signed-in half': '${{ needs.signed-in.result }}',
+              'the extension end to end': '${{ needs.extension.result }}',
+            };
+            const broke = Object.entries(results).filter(([, r]) => r !== 'success');
+            const dirs = { 'the walk a person takes': 'log-walk', 'every input moves something': 'log-inputs',
+              'the map renders': 'log-map', 'the signed-in half': 'log-signed-in',
+              'the extension end to end': 'log-extension' };
+            const tail = (name) => {
+              const p = `logs/${dirs[name]}/gate.log`;
+              return fs.existsSync(p) ? fs.readFileSync(p, 'utf8').slice(-2500) : '(no log — the gate was cancelled before it wrote one)';
+            };
+            const TITLE = 'A browser gate failed — something a person does is broken';
+            const body = [
+              'Against the LIVE site. What broke, and what did not:',
+              '',
+              ...Object.entries(results).map(([n, r]) => `- ${r === 'success' ? '✓' : '✗'} ${n} — ${r}`),
+              '',
+              ...broke.flatMap(([n]) => [`### ${n}`, '```', tail(n), '```', '']),
+            ].join('\n');
             const { data: open } = await github.rest.issues.listForRepo({
               owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'journey',
             });
-            const body = [
-              'The walk a person takes through the analyser stopped working on the LIVE site.',
-              '',
-              'This gate arrives from a handoff, checks the photos and the floor plan render,',
-              'runs the EPC lookup, edits an input and checks the number moved, checks a',
-              'context-only field leaves it alone, changes strategy, and checks no section is',
-              'empty — at desktop and phone widths. Beside it run the input gate, the map',
-              'gate, the signed-in walk (save, fact, re-score, park, restore) and the',
-              'extension end to end (a real listing through to the handoff URL).',
-              '',
-              '```', log, '```',
-            ].join('\n');
             if (open.length > 0) {
               await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open[0].number, body });
             } else {
