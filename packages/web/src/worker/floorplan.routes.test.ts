@@ -12,7 +12,11 @@ import { signSession } from './lib/jwt';
 import { features } from '../config/features';
 
 const MIG = (n: string) => readFileSync(fileURLToPath(new URL(`../../migrations/${n}`, import.meta.url)), 'utf8');
-const MIGRATIONS = ['0001_init.sql', '0005_deal_pipeline.sql', '0026_deal_floorplans.sql'];
+const MIGRATIONS = ['0001_init.sql', '0005_deal_pipeline.sql', '0026_deal_floorplans.sql',
+  // DP4 — saved packs. The board asks which deals have one on every load,
+  // so every harness that boots the Worker needs this table to exist.
+  '0028_deal_pack.sql', '0029_saved_packs.sql',
+];
 
 function makeD1(sqlite: DatabaseSync): Env['DB'] {
   const prepare = (sql: string) => {

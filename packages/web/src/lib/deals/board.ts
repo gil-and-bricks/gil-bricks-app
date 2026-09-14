@@ -11,6 +11,9 @@ import { AUCTION_WARNING_STAGE, BOARD_COPY, CHAIN_RISK, DEAL_DATE_KEYS, PROGRESS
 
 /** One deal as the board needs it (from /api/deals when the flag is on). */
 export interface BoardDeal {
+  /** DP4 — a saved pack is attached to this deal, so the card can show a tick.
+   *  Optional: a board loaded with the dealPack flag off never carries it. */
+  has_pack?: boolean;
   id: string;
   strategy: string;
   title: string;

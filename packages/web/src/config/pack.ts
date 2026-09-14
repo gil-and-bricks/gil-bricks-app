@@ -263,9 +263,17 @@ export const PACK_COPY = {
     include: (name: string): string => `Include ${name}`,
     pinnedFirst: 'Always first',
     pinnedLast: 'Always last',
-    share: 'Share',
-    save: 'Save a copy',
+    save: 'Save to this deal',
+    saving: 'Saving…',
+    savedAt: (when: string): string => `Saved ${when}`,
+    shareWhatsApp: 'Send on WhatsApp',
+    shareEmail: 'Send by email',
+    download: 'Download a copy',
     print: 'Print',
+    /** The message that carries the link. Short: WhatsApp truncates long text. */
+    shareText: (address: string, link: string): string => `Deal pack — ${address}\n${link}`,
+    shareSubject: (address: string): string => `Deal pack — ${address}`,
+    mustSave: 'Save the pack first, then send the link.',
     accentWarning: 'Too pale to read on paper.',
     photos: 'Your photographs',
     photosHint: 'Yours only, not the agent’s. They stay on this device.',
@@ -278,14 +286,26 @@ export const PACK_COPY = {
     logo: 'Logo',
     logoPick: 'Choose a logo',
     logoRemove: 'Remove',
-    /** The share sheet's own title, and the stem of the saved filename. */
-    shareTitle: 'Deal pack',
     fileSuffix: 'deal-pack',
-    savedNote: 'Saved to your downloads.',
     accent: 'Accent colour',
-    custom: 'Custom',
-    saving: 'Saving…',
+    custom: 'Pick any colour',
     saved: 'Saved',
+  },
+
+  /** DP4 — the shared link's own page. */
+  shared: {
+    title: 'Deal pack',
+    loading: 'Opening the pack…',
+    gone: 'This link is no longer available.',
+  },
+
+  /** DP4 — the gutter beside each page. Labels, never sentences. */
+  gutter: {
+    forPage: (name: string): string => `Controls for ${name}`,
+    inPack: 'In the pack',
+    notInPack: 'Not in the pack',
+    always: 'Always included',
+    alwaysWhy: 'Every pack carries its evidence, your registrations and the disclaimer.',
   },
 
   /** The builder screen. */
@@ -378,14 +398,68 @@ export const PACK_FIGURES: PackFigureCopy = {
  * than a highlighter. The custom field is still there for somebody whose brand
  * colour is their brand colour — it just warns when the choice cannot be read.
  */
+/**
+ * DP4 — WHY THESE, AND WHY THIS MANY.
+ *
+ * THE OLD SET WAS SIX AND SIX MEANT NOTHING. It was picked by eye, and picking
+ * by eye showed: three of the six were blues sitting within 31° of each other
+ * (Ink blue 225°, Slate 215°, Indigo 246°), while a 143° arc of the hue wheel
+ * between Rust and Forest held nothing at all. A sourcer whose brand was teal,
+ * olive or plum had no preset and a sourcer who wanted blue had three.
+ *
+ * THE RULE NOW: one colour per sector of the hue wheel, each the darkest
+ * readable member of its family, plus one neutral for a document that wants no
+ * colour at all. Eight sectors closes the worst gap from 143° to 70°.
+ *
+ * EVERY ONE CLEARS 7:1 ON THE PACK'S PAPER (#fbfaf7) — measured, not assumed;
+ * accent.test.ts asserts it for the whole palette. That is well above the 4.5:1
+ * `accentReadsOnPaper` warns below, because a preset should never be the thing
+ * that trips the warning: the presets are the safe set, and the custom picker
+ * is where a sourcer may go outside it and be told if they have.
+ */
 export const ACCENT_PALETTE: readonly { hex: string; name: string }[] = [
-  { hex: '#1f3a8a', name: 'Ink blue' },
-  { hex: '#0b5c3f', name: 'Forest' },
-  { hex: '#8a1f4b', name: 'Claret' },
   { hex: '#7a2d12', name: 'Rust' },
-  { hex: '#3f3a6e', name: 'Indigo' },
-  { hex: '#334155', name: 'Slate' },
+  { hex: '#6b4a12', name: 'Bronze' },
+  { hex: '#3c5e18', name: 'Moss' },
+  { hex: '#0b5c3f', name: 'Forest' },
+  { hex: '#14505c', name: 'Teal' },
+  { hex: '#1f3a8a', name: 'Ink blue' },
+  { hex: '#4a2a6b', name: 'Plum' },
+  { hex: '#8a1f4b', name: 'Claret' },
+  { hex: '#2b3038', name: 'Graphite' },
 ];
+
+/**
+ * DP4 — WHICH CONTROLS BELONG TO WHICH PAGE.
+ *
+ * The rail listed every control together, far from the page each one changed,
+ * and — the actual bug — it listed them whether or not the page or the content
+ * existed. Five checkboxes did nothing at all: "Photograph on the cover" with
+ * no photograph, "Your summary of the deal" with no summary typed, "Your floor
+ * plan" on a deal that has none, the gallery below two photographs, and Cover,
+ * which was wired to nothing whatsoever.
+ *
+ * Controls now live in the gutter beside the page they act on, and a control
+ * only exists when the thing it controls does. That is not a tidier list; it
+ * makes the whole class of dead toggle impossible to write, because there is
+ * nowhere to put a control for a page that is not there.
+ */
+export const PAGE_PARTS: Readonly<Record<string, readonly string[]>> = {
+  cover: [SECTION.photos],
+  // NO SUMMARY CHECKBOX. The text field beside the page IS the control: type
+  // words and they print, clear them and they do not. A tick box next to an
+  // empty textarea is a second control for the same thing that can only ever
+  // do nothing, which is precisely the fault this sprint is fixing.
+  plan: [SECTION.scope, SECTION.duration, SECTION.floorplan],
+};
+
+/** What each field actually DOES, said as the effect and not as a category. */
+export const PACK_FIELDS = {
+  investor: 'Name on the cover',
+  investorHint: 'Prints under “Prepared for”.',
+  summary: 'Your words, under the heading',
+  summaryHint: 'Prints on this page, above the figures.',
+} as const;
 
 export const PACK_AREA = {
   typicalPrice: 'Typical sold price in this postcode sector',

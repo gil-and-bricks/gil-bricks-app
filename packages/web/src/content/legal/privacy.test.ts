@@ -247,21 +247,53 @@ describe('what the policy says about the deal pack (DP1)', () => {
     expect(body).toContain("DELETE FROM pack_declarations WHERE user_id = ?");
   });
 
-  it('says the pack itself is never stored — and no endpoint stores one', () => {
-    expect(POLICY).toContain('The pack itself is never stored.');
-    // The only pack writes are the profile and the declaration. A third INSERT
-    // against a pack table fails this rather than shipping quietly.
-    const inserts = [...WORKER.matchAll(/INSERT INTO (business_profiles|pack_declarations|pack_[a-z_]+)/g)]
+  it('says a pack is stored ONLY on Save — and names every table that holds one', () => {
+    /**
+     * THIS TEST USED TO ASSERT THE OPPOSITE, and the change is the point.
+     *
+     * Until DP4 the policy said "The pack itself is never stored" and this
+     * asserted that exactly two pack tables were ever written to. Saving a pack
+     * to its deal makes that false, so the promise was rewritten rather than
+     * quietly outlived — and the list below is still exhaustive, so a THIRD
+     * table appearing fails here instead of shipping unannounced.
+     */
+    expect(POLICY).toContain('A pack is only stored if you press Save.');
+    const inserts = [...WORKER.matchAll(/INSERT INTO (business_profiles|pack_declarations|deal_packs|pack_[a-z_]+)/g)]
       .map((m) => m[1]).sort();
-    expect(inserts).toEqual(['business_profiles', 'business_profiles', 'pack_declarations']);
+    expect(inserts).toEqual(['business_profiles', 'business_profiles', 'deal_packs', 'pack_declarations']);
   });
 
-  it('says the photographs never leave the device — and the builder never sends them', () => {
-    expect(POLICY).toContain('never leave your device');
-    // They are read locally and put in the document. No request carries them.
+  it('is honest that saving uploads the photographs, and that it changed', () => {
+    // The old promise was "never leave your device". Somebody who read that and
+    // relied on it is owed the change in plain words, not a silent edit.
+    expect(POLICY).toContain('Saving does upload the photographs');
+    expect(POLICY).toContain('This changed in September 2026');
+    expect(POLICY).toContain('If you never press Save');
+    // And the unsaved path really is still local-only.
     expect(BUILDER).toContain('readAsDataURL');
-    expect(BUILDER).not.toMatch(/fetch\(|XMLHttpRequest|sendBeacon/);
   });
+
+  it('says the link is a bearer link, and that deleting the deal kills it', () => {
+    expect(POLICY).toContain('Anyone with the link can open a saved pack.');
+    expect(POLICY).toContain('Deleting the deal deletes the saved pack');
+    // A promise is only a promise if the code keeps it. Both deletes, and the
+    // bytes as well as the row — an orphaned R2 object is somebody's
+    // photographs left in a bucket after they asked for deletion.
+    expect(WORKER).toContain('DELETE FROM deal_packs WHERE deal_id = ? AND user_id = ?');
+    expect(WORKER).toContain("DELETE FROM deal_packs WHERE user_id = ?");
+    expect(WORKER).toMatch(/PACKS\.delete\(/);
+  });
+
+  it('stores only a scrambled form of the token, as the policy claims', () => {
+    expect(POLICY).toContain('scrambled form of it is stored');
+    // A material change to what is stored must move the version, or somebody
+    // who read the old promise has no way to notice the new one.
+    expect(POLICY).toContain('Version 2026-09-15');
+    // SHA-256 of the token is what goes in the row; the raw token never does.
+    expect(WORKER).toContain("crypto.subtle.digest('SHA-256'");
+    expect(WORKER).not.toMatch(/token_hash[^)]*\)\s*VALUES[^)]*token\b(?!_)/);
+  });
+
 });
 
 describe('the extension privacy page matches the shipped manifest (D3)', () => {

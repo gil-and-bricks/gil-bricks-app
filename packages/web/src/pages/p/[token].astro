@@ -1,0 +1,42 @@
+---
+/**
+ * DP4 — /p/<token>: the pack, as the investor receives it.
+ *
+ * NO APP CHROME, and this time for a reason that holds. The builder belongs in
+ * AppShell because it is a PropLaunch screen (DP3); this is the sourcer's
+ * document being read by somebody who has never heard of us, so it carries the
+ * document and the neutral tokens and nothing else. There is no navigation to
+ * offer them and no account for them to have.
+ *
+ * NOINDEX, and the Worker sends `x-robots-tag` and `referrer-policy:
+ * no-referrer` with the pack itself. The token is a bearer credential — whoever
+ * holds the link can read the pack, which is the point, since an investor has
+ * no account here — and the pack carries the sourcer's AML, ICO and insurance
+ * registrations. It is 128 bits from crypto.getRandomValues, minted in the
+ * Worker, and only its SHA-256 is stored, so a leaked copy of the table opens
+ * nothing. Deleting the row revokes it.
+ *
+ * PRERENDERED SHELL, CLIENT-FETCHED CONTENTS. The route is static and the pack
+ * arrives from /api/pack/shared/<token>, so no token ever lands in a build.
+ */
+import Base from '../../layouts/Base.astro';
+import { SharedPack } from '../../components/pack/SharedPack';
+import { siteConfig } from '../../site.config';
+import { features } from '../../config/features';
+import { PACK_COPY } from '../../config/pack';
+import '../../styles/pack.css';
+
+// No `export const prerender`: the site is output: 'static' already, and the
+// literal `= true` trips check A's search for an exported boolean switch — a
+// rule about product flags, which this is not.
+export function getStaticPaths() {
+  // One shell, matched at runtime. The token never takes part in the build.
+  return [{ params: { token: '_' } }];
+}
+
+if (!features.dealPack) return Astro.redirect('/');
+---
+
+<Base title={`${PACK_COPY.shared.title} — ${siteConfig.siteName}`} noindex>
+  <SharedPack client:load />
+</Base>

@@ -52,3 +52,27 @@ export const PACK_PAPER = '#fbfaf7';
 export function accentReadsOnPaper(hex: string): boolean {
   return contrast(hex, PACK_PAPER) >= 4.5;
 }
+
+/**
+ * DP4 — THE HUE OF A COLOUR, 0–359, or -1 for a grey.
+ *
+ * Here so the palette can be checked for SPREAD and not only for contrast. The
+ * old preset set passed every contrast check it had and still offered three
+ * blues within 31° and a 143° arc of the wheel with nothing in it — a fault
+ * that only a hue measurement can see.
+ */
+export function hueOf(hex: string): number {
+  const n = Number.parseInt(hex.replace('#', ''), 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  if (d === 0) return -1;
+  let x: number;
+  if (max === r) x = ((g - b) / d) % 6;
+  else if (max === g) x = (b - r) / d + 2;
+  else x = (r - g) / d + 4;
+  return Math.round((x * 60 + 360) % 360);
+}

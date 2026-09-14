@@ -18,6 +18,10 @@ const PAGES = fileURLToPath(new URL('../pages/', import.meta.url));
 
 /** Hidden from search, with the reason each. Nothing else may be. */
 const HIDDEN: Record<string, string> = {
+  'p/[token].astro':
+    'DP4 — a saved pack behind a share link. It is the sourcer\u2019s document, sent to one '
+    + 'investor, and it carries their AML, ICO and insurance registrations. The Worker sends '
+    + 'x-robots-tag and no-referrer with the pack itself; this is the page that frames it.',
   'account.astro': 'someone’s own account page — private, and useless to a stranger',
   'deals.astro': 'someone’s own deal pipeline — private; this is the Lighthouse 66 and it is correct',
   'start.astro': 'a short pointer at the right tool; the tools it points to are the pages worth finding',

@@ -1,6 +1,6 @@
 # Privacy
 
-**Version 2026-09-06.**
+**Version 2026-09-15.**
 
 **I am not a lawyer.** This page is written to describe honestly what this site
 collects, where it goes and how to get rid of it. Every line below describes
@@ -81,11 +81,24 @@ professional indemnity insurer and the date cover runs to — whatever you fill 
 These print on every pack you make, because an investor has to be able to check
 who they are dealing with.
 
-**The pack itself is never stored.** It is built in your browser, from the deal
-you already saved, and it is yours to print or save. **The photographs you add
-to a pack never leave your device** — they are read in the page, go straight
-into the document, and are never uploaded. The listing's own photographs are
-never put in a pack at all: they belong to the agent.
+**A pack is only stored if you press Save.** Until then it is built in your
+browser, from the deal you already saved, and nothing about it is kept. Pressing
+Save attaches it to that deal so it is there when you come back — and that is
+what makes a link possible, because neither WhatsApp nor an email client can
+carry a file from a web page.
+
+**Saving does upload the photographs you added, because they are part of the
+pack.** This changed in September 2026: before that a pack was never stored and
+photographs never left your device. If you never press Save, that is still
+exactly what happens. The listing's own photographs are never put in a pack at
+all, saved or not: they belong to the agent.
+
+**Anyone with the link can open a saved pack.** That is what the link is for —
+the investor you send it to has no account here — so treat it like the document
+itself and send it only to people you mean to. The link is a long random code
+that cannot be guessed, it is not indexed by search engines, and only a
+scrambled form of it is stored, so a copy of our database would not open your
+pack. **Deleting the deal deletes the saved pack and stops the link working.**
 
 **Deleting your account deletes both of these, logo included.** They are removed
 in the same operation as everything else, not left behind.

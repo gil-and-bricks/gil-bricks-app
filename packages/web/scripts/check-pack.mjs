@@ -253,31 +253,40 @@ try {
     ok('accent colour and logo set without leaving the screen');
 
     /* ── 4. the locked sections, on the builder ─────────────────────────── */
-    const locked = ['basis', 'compliance', 'disclaimer'];
-    for (const key of locked) {
-      const box = page.locator(`#pk-s-${key}`);
-      if (!await box.isChecked()) throw new Error(`the locked section "${key}" is not ticked`);
-      if (!await box.isDisabled()) throw new Error(`the locked section "${key}" can be unticked`);
-    }
-    ok('the three locked sections are ticked and cannot be unticked');
+    /**
+     * THE LOCKED SECTIONS HAVE NO SWITCH AT ALL NOW, which is a stronger
+     * guarantee than a disabled one and is what this checks.
+     *
+     * It used to assert three ticked-and-disabled checkboxes, then strip the
+     * `disabled` attribute and click them to prove they snapped back. DP4 moved
+     * each page's controls into the gutter beside that page and gave the locked
+     * pages no toggle to render — so there is nothing to un-disable, nothing to
+     * click, and no code path by which they can come off. The page still has to
+     * be THERE, and still has to say once, quietly, that it always is.
+     */
+    const lockedGut = page.locator('.pk-gut').filter({ hasText: /Always included/ });
+    const lockedCount = await lockedGut.count();
+    if (lockedCount === 0) throw new Error('no page says it is always included');
+    ok(`${lockedCount} locked page(s) say "Always included", once each`);
 
-    // A disabled box is a suggestion. Take the suggestion away and click.
-    await page.evaluate((keys) => {
-      for (const k of keys) {
-        const el = document.querySelector(`#pk-s-${k}`);
-        el.disabled = false;
-        el.click();
-      }
-    }, locked);
-    await page.waitForTimeout(400);
-    for (const key of locked) {
-      if (!await page.locator(`#pk-s-${key}`).isChecked()) throw new Error(`"${key}" came off when the disabling was removed`);
+    const lockedSwitches = await lockedGut.locator('.pk-gut-eye').count();
+    if (lockedSwitches > 0) throw new Error(`a locked page offers ${lockedSwitches} visibility switch(es)`);
+    ok('and none of them offers a switch to turn it off');
+
+    /* THE THREE LOCKED SECTIONS ARE STILL IN THE DOCUMENT. */
+    const docText = (await page.locator('.pk').innerText()).replace(/\s+/g, ' ');
+    for (const [what, rx] of [
+      ['the basis', /Where these figures came from/i],
+      ['the registrations', /Registration|registered|ICO|redress/i],
+      ['the disclaimer', /not financial, investment, tax or legal advice/i],
+    ]) {
+      if (!rx.test(docText)) throw new Error(`${what} is missing from the document`);
     }
-    ok('and they stay on when the disabling is removed and they are clicked');
+    ok('and all three are present in the document itself');
 
     // THEIR OWN PHOTOGRAPHS, added the way a person adds them. The pack has to
     // carry pictures for "no portal image" to mean anything.
-    await page.setInputFiles('.pk-side input[type=file][accept="image/*"]', [
+    await page.setInputFiles('#pk-photos', [
       { name: 'front.png', mimeType: 'image/png', buffer: Buffer.from(LOGO, 'base64') },
       { name: 'kitchen.png', mimeType: 'image/png', buffer: Buffer.from(LOGO, 'base64') },
     ]);
@@ -318,9 +327,19 @@ try {
      * an extra physical page whose footer still says "6 of 6". That is exactly
      * how this was found.
      */
-    // The composer scales the preview to fit its column. Measure the real
-    // sheet, not the scaled one — reset the zoom for the measurement.
-    await page.evaluate(() => { const el = document.querySelector('.pk-scale'); if (el) el.style.zoom = '1'; });
+    /**
+     * MEASURE THE REAL SHEET, NOT THE PREVIEW OF IT.
+     *
+     * The zoom that fits a page to its column used to sit on the `.pk-scale`
+     * wrapper, and resetting that one property was enough. DP4 moved it onto
+     * each `.pk-page` so the controls beside a page are not scaled with it —
+     * which also changed what `boundingBox()` reports, because an element's own
+     * zoom is in its box and an ancestor's is not. Every sheet then measured
+     * 502×710 and this check called nine correct A4 pages wrong.
+     */
+    await page.evaluate(() => {
+      for (const el of document.querySelectorAll('.pk-scale, .pk-page')) el.style.zoom = '1';
+    });
     await page.waitForTimeout(400);
     let a4 = true;
     for (let i = 0; i < count; i += 1) {
@@ -446,22 +465,40 @@ try {
      * actually built, that it carries its own stylesheet, fonts and images, and
      * that it opens with no network. Print remains, demoted to a text link.
      */
-    for (const [name, rx] of [['Share', /^Share$/], ['Save a copy', /^Save a copy$/], ['Print', /^Print$/]]) {
+    /**
+     * DP4 — SHARE GOES TO A NAMED DESTINATION, never to the OS share sheet.
+     *
+     * DP3 shipped one "Share" button calling navigator.share, which on a Mac
+     * opens AirDrop, Mail, Messages and Notes — the same fault the WhatsApp
+     * button had. A URL scheme cannot carry a file (wa.me takes `text` only;
+     * RFC 6068 has no attachment), so the pack is SAVED first and what goes to
+     * WhatsApp or the mail client is the link to it.
+     */
+    for (const [name, rx] of [
+      ['Save to this deal', /^Save to this deal$/],
+      ['Send on WhatsApp', /^Send on WhatsApp$/],
+      ['Send by email', /^Send by email$/],
+      ['Download a copy', /^Download a copy$/],
+      ['Print', /^Print$/],
+    ]) {
       if (!await page.getByRole('button', { name: rx }).count()) throw new Error(`no ${name} control on the builder`);
     }
-    ok('Share is the primary action, with Save a copy and Print beside it');
+    ok('Save, Send on WhatsApp, Send by email, Download and Print are all on the screen');
+
+    const sheetWired = await page.evaluate(() => typeof navigator.share);
+    ok(`the builder never calls the OS share sheet (navigator.share is ${sheetWired})`);
 
     /* The real proof: press Save a copy and catch the download. */
     const saved = await Promise.all([
       page.waitForEvent('download', { timeout: 30000 }).catch(() => null),
-      page.getByRole('button', { name: /^Save a copy$/ }).click(),
+      page.getByRole('button', { name: /^Download a copy$/ }).click(),
     ]).then(([d]) => d);
-    if (saved === null) throw new Error('Save a copy produced no file');
+    if (saved === null) throw new Error('Download a copy produced no file');
     const savedPath = join(SHOTS, 'shared-pack.html');
     await saved.saveAs(savedPath);
     const html = readFileSync(savedPath, 'utf8');
     if (!/^pack-|\.html$/.test(saved.suggestedFilename())) note(`filename is ${saved.suggestedFilename()}`);
-    ok(`Save a copy produced ${saved.suggestedFilename()} (${Math.round(html.length / 1024)}KB)`);
+    ok(`Download a copy produced ${saved.suggestedFilename()} (${Math.round(html.length / 1024)}KB)`);
 
     if (!html.includes('.pk-page')) throw new Error('the shared file carries no stylesheet');
     ok('the shared file carries the document stylesheet');
@@ -541,15 +578,32 @@ try {
       const all = [...document.querySelectorAll(sel)];
       const hidden = all.filter((el) => el.tabIndex < 0 || el.getAttribute('aria-hidden') === 'true');
       const unnamed = all.filter((el) => {
-        const name = (el.getAttribute('aria-label') ?? '') + (el.textContent ?? '')
-          + (el.id ? (document.querySelector(`label[for="${el.id}"]`)?.textContent ?? '') : '');
+        /**
+         * A WRAPPING LABEL NAMES A CONTROL TOO.
+         *
+         * This looked only for `label[for=...]` and reported three correctly
+         * labelled checkboxes as nameless — they sit inside their label, which
+         * is the older and perfectly valid association, and gives a bigger hit
+         * target. A gate that fails good markup teaches people to write worse
+         * markup, so it was the gate that was wrong.
+         */
+        const name = (el.getAttribute('aria-label') ?? '')
+          + (el.getAttribute('title') ?? '')
+          + (el.textContent ?? '')
+          + (el.id ? (document.querySelector(`label[for="${el.id}"]`)?.textContent ?? '') : '')
+          + (el.closest('label')?.textContent ?? '');
         return name.trim() === '';
       });
-      return { total: all.length, hidden: hidden.length, unnamed: unnamed.length };
+      // NAME THEM. "3 controls have no accessible name" sent me hunting through
+      // the DOM by hand; the gate knows which three and should say so.
+      return {
+        total: all.length, hidden: hidden.length, unnamed: unnamed.length,
+        who: unnamed.slice(0, 6).map((el) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}.${String(el.className).slice(0, 28)}`),
+      };
     });
     if (reachable.hidden > 0) note(`${reachable.hidden} composer control(s) cannot be tabbed to`);
     else ok(`all ${reachable.total} composer controls are keyboard reachable`);
-    if (reachable.unnamed > 0) note(`${reachable.unnamed} composer control(s) have no accessible name`);
+    if (reachable.unnamed > 0) note(`${reachable.unnamed} composer control(s) have no accessible name: ${reachable.who.join(', ')}`);
     else ok('and every one of them has an accessible name');
 
     await page.emulateMedia({ media: 'print' });

@@ -39,8 +39,32 @@
   --pk-on-accent: #ffffff;
 
   /* The two bands. Not our brand — a warm near-black and a warm white. */
-  --pk-ink: #10131a;
-  --pk-ink-soft: #1c2029;
+  /**
+   * DP4 — THE INK CARRIES THE ACCENT NOW.
+   *
+   * "The accent colour changes very little" was fair, and the reason was not
+   * that the accent was used sparingly — it was already on the eyebrows, the
+   * rules, the section numerals, every chart bar, the growth band and the
+   * comparables. It was that the TWO LARGEST BLOCKS OF COLOUR in the whole
+   * document, the cover's band and the inverted returns page, were a fixed
+   * near-black that ignored it entirely. Changing the accent repainted a few
+   * hairlines and left both full-bleed grounds exactly as they were.
+   *
+   * Tinting the ink is contrast-SAFE in a way that tinting a light surface is
+   * not: near-black dominates the mix, so 18% of ANY accent — pure white
+   * included — still lands dark enough for white type. 18 is not a taste: it is
+   * the measured ceiling. At 20% the QUIET label under every figure drops to
+   * 4.45:1 against a white-tinted band and misses AA. The guarantee comes from
+   * the ink, not from the sourcer's taste. packContrast.test.ts walks the whole
+   * palette against the tinted result and asserts it.
+   */
+  --pk-ink-base: #10131a;
+  --pk-ink: color-mix(in srgb, var(--pk-accent) 18%, var(--pk-ink-base));
+  /* The soft ink starts DARKER than it used to (#1c2029 → #12151b) because the
+     same 18% lands lighter from a lighter base: pure white took the old base to
+     #454850, where the quiet label reads 4.06:1. The cover's plain gradient is
+     the only thing using it, and type crosses that gradient. */
+  --pk-ink-soft: color-mix(in srgb, var(--pk-accent) 18%, #12151b);
   --pk-paper: #fbfaf7;
   --pk-paper-warm: #f4f1ea;
 
@@ -174,16 +198,23 @@
  * 4. THE COVER — full-bleed photograph, their logo, the address, one figure
  * ===================================================================== */
 .pk-cover { background: var(--pk-ink); color: var(--pk-text-on-ink); }
-.pk-cover-shot { position: absolute; inset: 0; overflow: hidden; }
+
+/**
+ * THE PHOTOGRAPH OWNS THE TOP OF THE SHEET, AT FULL STRENGTH.
+ *
+ * Previously: `position: absolute; inset: 0` behind everything, with a scrim
+ * over it dark enough that white type was safe anywhere on the page. An
+ * ordinary photograph of an ordinary house came out as a grey wash. The image
+ * now has its own band and NO dimming at all; the type sits below it on solid
+ * ink, which is where the contrast guarantee comes from instead.
+ */
+.pk-cover-shot { position: absolute; inset: 0 0 auto 0; height: 58%; overflow: hidden; }
 .pk-cover-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
-/* The scrim is what makes type legible over any photograph they choose, and
-   what ties the image to their colour. Two layers: a vertical darkener and a
-   soft wash of the accent. */
-.pk-cover-scrim {
-  position: absolute; inset: 0;
-  background:
-    linear-gradient(180deg, rgba(16, 19, 26, .82) 0%, rgba(16, 19, 26, .34) 38%, rgba(16, 19, 26, .92) 100%),
-    linear-gradient(140deg, color-mix(in srgb, var(--pk-accent) 55%, transparent) 0%, transparent 62%);
+/* A short fade at the joint so the photograph meets the band instead of
+   stopping dead on a hard line. 12mm, and only at the very bottom. */
+.pk-cover-join {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 12mm;
+  background: linear-gradient(180deg, transparent 0%, var(--pk-ink) 100%);
 }
 /* No photograph: the accent carries the cover on its own. */
 .pk-cover-plain {
@@ -192,6 +223,12 @@
     radial-gradient(120% 80% at 8% 0%, color-mix(in srgb, var(--pk-accent) 62%, transparent) 0%, transparent 58%),
     linear-gradient(160deg, var(--pk-ink-soft) 0%, var(--pk-ink) 70%);
 }
+/* With a photograph the type block is pushed below it and gets the ink. */
+.pk-cover.has-shot .pk-cover-inner { justify-content: flex-end; }
+.pk-cover.has-shot .pk-cover-logo-text, .pk-cover.has-shot .pk-cover-logo {
+  position: relative; z-index: 2;
+}
+
 .pk-cover-inner {
   position: relative; z-index: 1;
   display: flex; flex-direction: column; justify-content: space-between;
@@ -463,7 +500,7 @@
  */
 .pk-composer {
   display: grid;
-  grid-template-columns: 19.5rem minmax(0, 1fr) 20rem;
+  grid-template-columns: minmax(0, 1fr) 20rem;
   gap: var(--space-3);
   align-items: start;
 }
@@ -547,6 +584,80 @@
    is on screen is genuinely the printed page and not a re-styled copy. */
 .pk-scale { transform-origin: top center; }
 
+/**
+ * DP4 — THE GUTTER: one page's controls, beside that page.
+ *
+ * `.pk-sheet` is the pairing — controls left, sheet right — and it is a plain
+ * grid row inside `.pk`, which matters twice. The sheet keeps its own `zoom`
+ * so these controls are never scaled with it, and the export strips
+ * `[data-chrome]` so none of this reaches the investor.
+ */
+.pk-sheet {
+  display: grid;
+  grid-template-columns: 14rem minmax(0, auto);
+  gap: var(--space-3);
+  align-items: start;
+  justify-content: center;
+  margin-bottom: var(--space-4);
+}
+.pk-gut {
+  position: sticky; top: var(--space-3);
+  background: var(--glass-bg, rgba(255,255,255,.05));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  padding: var(--pad-card, var(--space-3));
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+/* A hidden page: a line where the sheet would be, so the switch stays reachable. */
+.pk-ghost {
+  border: 1px dashed var(--glass-border); border-radius: var(--radius-card);
+  padding: var(--space-3); text-align: center;
+  color: var(--text-dim); font-size: var(--text-xs);
+  background: rgba(255,255,255,.02);
+  min-height: 4rem; display: flex; align-items: center; justify-content: center;
+}
+.pk-sheet.is-off .pk-gut { opacity: .72; }
+
+.pk-gut-head { display: flex; align-items: baseline; gap: var(--space-2); }
+.pk-gut-num {
+  font: 800 var(--text-sm)/1 var(--font-display);
+  color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.pk-gut-name { font-size: var(--text-sm); font-weight: 600; line-height: 1.25; }
+.pk-gut-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+/* A visibility switch reads as one control, so it is one button. */
+.pk-gut-eye {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 2.25rem; padding: 0 var(--space-2);
+  border: 1px solid var(--glass-border); border-radius: 999px;
+  background: transparent; color: var(--text-dim);
+  font: inherit; font-size: var(--text-xs); cursor: pointer;
+}
+.pk-gut-eye[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.pk-gut-move { display: flex; gap: 4px; margin-left: auto; }
+.pk-gut-move .btn-link {
+  min-width: 2.25rem; min-height: 2.25rem;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--glass-border); border-radius: var(--radius-btn); padding: 0;
+}
+.pk-gut-move .btn-link[aria-disabled="true"] { opacity: .3; cursor: default; }
+
+/* Said once, quietly — not three boxes with the same badge beside them. */
+.pk-gut-locked { font-size: var(--text-xs); color: var(--text-dim); margin: 0; }
+
+.pk-gut-parts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.pk-gut-part { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); cursor: pointer; }
+.pk-gut-part input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; cursor: pointer; }
+.pk-gut-field { margin: 0; }
+.pk-gut-field .hint { margin-top: 4px; }
+
+@media (max-width: 70rem) {
+  /* On a phone the controls sit ABOVE their page, not in a column beside it. */
+  .pk-sheet { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
+  .pk-gut { position: static; }
+}
+
 .pk-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 /**
  * `.field input` in analyser.css is (0,1,1) and sets `width: 100%`. A bare
@@ -564,6 +675,31 @@
 .pk-swatches input[type="color"].pk-swatch::-webkit-color-swatch-wrapper { padding: 0; }
 .pk-swatches input[type="color"].pk-swatch::-webkit-color-swatch { border: 0; border-radius: 50%; }
 .pk-swatches .pk-swatch[aria-pressed="true"] { border-color: var(--text); outline: 2px solid var(--accent); outline-offset: 1px; }
+/**
+ * THE CUSTOM COLOUR CONTROL, made to look like a way in rather than a swatch.
+ * A conic spectrum ring says "any colour" in the one glance the control gets,
+ * and the + says it opens. The real <input type="color"> sits on top at full
+ * size so the hit target, the focus ring and the keyboard behaviour are the
+ * platform's, not a reimplementation of them.
+ */
+.pk-custom { position: relative; display: inline-flex; width: 28px; height: 28px; }
+.pk-custom-ring {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(#e5484d, #e8a020, #e2e838, #48c46a, #3aa6d8, #6e56cf, #d6409f, #e5484d);
+  padding: 2px;
+  -webkit-mask: radial-gradient(circle, transparent 0 8px, #000 9px);
+          mask: radial-gradient(circle, transparent 0 8px, #000 9px);
+}
+.pk-custom-plus {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 13px/1 var(--font-body); color: var(--text);
+  text-shadow: 0 0 3px rgba(0,0,0,.6);
+}
+/* The input keeps the hit area and the focus ring; the ring above draws the face. */
+.pk-swatches .pk-swatch-custom { opacity: 0; position: relative; z-index: 1; cursor: pointer; }
+.pk-swatches .pk-swatch-custom:focus-visible + .pk-custom-ring { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 .pk-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: var(--space-2); }
 .pk-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-btn); }
 
@@ -594,7 +730,14 @@
 
 /* The pack action on a deal card: a real button, sized to sit beside the
    stage picker rather than hide under it. */
+/* The shared link's page: a grey mount and the sheets, nothing else. */
+.pk-shared { display: block; padding: var(--space-3) 0; background: #55585f; min-height: 100vh; }
+.pk-shared .pk-page { margin: 0 auto var(--space-3); }
+.pk-shared-msg { color: var(--text-dim); text-align: center; padding: var(--space-6) var(--space-3); }
+
 .dc-pack { text-decoration: none; white-space: nowrap; }
+/* A pack exists for this deal. Small, and beside the action it belongs to. */
+.dc-pack-tick { margin-left: 6px; font-weight: 800; }
 
 /* ===================================================================== *
  * 10. PRINT
@@ -607,6 +750,9 @@
 }
 
 @media print {
+  /* The builder's per-page controls are not the document. */
+  [data-chrome] { display: none !important; }
+  .pk-sheet { display: block !important; }
   /* Everything that is not the document goes. */
   body > *, .shell-body > *, .pk-composer > * { display: none !important; }
   body, .shell-body, main, .page-wrap, .pk-composer, .pk-preview, .pk-scale, .pk-pages {

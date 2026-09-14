@@ -155,25 +155,21 @@ describe('no control anywhere calls the OS share sheet', () => {
    * this replaced, because the old test could have been satisfied by deleting
    * the WhatsApp button entirely.
    */
-  const MAY_USE_SHARE_SHEET = ['web/src/lib/pack/share.ts'];
-
   /**
-   * COMMENTS ARE NOT CONTROLS, and an ALIAS IS STILL A CALL.
+   * DP4 — THE ALLOW-LIST IS GONE, AND THE RULE IS ABSOLUTE AGAIN.
    *
-   * This detector replaces a regex for the literal `navigator.share`, which was
-   * weaker than it read in both directions. It matched doc comments that merely
-   * DISCUSSED the API, and — the part that mattered — it missed
+   * DP3 narrowed this to permit the deal pack's Share button, on the reasoning
+   * that a control labelled just "Share" names no app and the OS sheet was the
+   * only £0 route to WhatsApp for a 1.7MB file. The first half was arguable;
+   * the second was the real motive, and it was solving the wrong problem. What
+   * the operator got was AirDrop, Mail, Messages and Notes — the same fault the
+   * WhatsApp button had, wearing a different label.
    *
-   *     const nav = navigator as Navigator & { canShare?: ... };
-   *     if (typeof nav.share === 'function' && nav.canShare?.(…))
-   *
-   * which is ordinary TypeScript for reaching a capability the DOM lib does not
-   * type, and is exactly how this codebase now calls it. Found by planting the
-   * fault the suite exists to catch and watching it pass.
-   *
-   * `canShare` is unique to the Web Share API, so its bare presence counts. A
-   * `.share(` call counts only where the file also mentions `navigator`, which
-   * keeps an unrelated `thing.share()` from being swept up.
+   * The fix was not a better exemption. A saved pack has a URL, and a URL is
+   * the one thing wa.me and a mail client will both carry, so nothing in the
+   * product needs the sheet any more and the exemption has been deleted rather
+   * than re-argued. If it ever comes back, it comes back as a decision made in
+   * daylight, not as a name on a list.
    */
   const codeOnly = (src: string): string => src
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
@@ -184,20 +180,14 @@ describe('no control anywhere calls the OS share sheet', () => {
     return /\bnavigator\b/.test(src) && /\.\s*share\s*\(/.test(src);
   };
 
-  it('uses the Web Share API in ONE named place, and nowhere else', () => {
+  it('never uses the Web Share API — on any surface, in any package', () => {
     const offenders = SOURCES
       .filter((p) => usesShareSheet(readFileSync(p, 'utf8')))
-      .map((p) => relative(PKGS, p).split('\\').join('/'))
-      .filter((r) => !MAY_USE_SHARE_SHEET.includes(r));
+      .map((p) => relative(PKGS, p).split('\\').join('/'));
     expect(
       offenders,
-      'navigator.share opens the OS sheet (Mail, Messages, Notes\u2026), never the app a button names',
+      'navigator.share opens the OS sheet (Mail, Messages, Notes…), never the app a button names',
     ).toEqual([]);
-  });
-
-  it('and that place still exists \u2014 an allow-list for a deleted file is rot', () => {
-    const rels = SOURCES.map((p) => relative(PKGS, p).split('\\').join('/'));
-    for (const allowed of MAY_USE_SHARE_SHEET) expect(rels).toContain(allowed);
   });
 
   it('NO file that names a messaging app may call the share sheet', () => {
@@ -221,7 +211,11 @@ describe('no control anywhere calls the OS share sheet', () => {
   it('builds its WhatsApp link in ONE place \u2014 no hand-rolled wa.me anywhere else', () => {
     const offenders = SOURCES
       .filter((p) => !p.endsWith(join('lib', 'share', 'whatsapp.ts')))
-      .filter((p) => /wa\.me|api\.whatsapp\.com|whatsapp:\/\//.test(readFileSync(p, 'utf8')))
+      // CODE, not comments. DP4's share.ts and PackComposer.tsx both EXPLAIN in
+      // prose why wa.me can carry only text — that is the record of a decision,
+      // not a second hand-rolled link, and a rule that cannot tell them apart
+      // pushes people to stop writing the reasons down.
+      .filter((p) => /wa\.me|api\.whatsapp\.com|whatsapp:\/\//.test(codeOnly(readFileSync(p, 'utf8'))))
       .map((p) => relative(PKGS, p).split('\\').join('/'));
     expect(offenders, 'use openWhatsApp() from lib/share/whatsapp.ts').toEqual([]);
   });

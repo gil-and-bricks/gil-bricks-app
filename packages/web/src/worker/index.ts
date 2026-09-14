@@ -49,6 +49,15 @@ import { consume, identityOf, sweepRateLimits, type RateLimitRule } from './lib/
 export interface Env {
   ASSETS: { fetch: (request: Request) => Promise<Response> };
   DB: D1Database;
+  /**
+   * DP4 — saved packs' contents. See wrangler.jsonc for why R2 and not D1.
+   *
+   * OPTIONAL ON THE TYPE for the same reason EPC_BEARER_TOKEN is: an
+   * environment without the binding is a real state, not a type error, and the
+   * routes below say so plainly rather than throwing. Every test harness in
+   * this package builds an Env without it.
+   */
+  PACKS?: R2Bucket;
   JWT_SECRET: string;
   GOOGLE_CLIENT_SECRET: string;
   TURNSTILE_SECRET: string;
@@ -401,6 +410,15 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
   // whether or not anything else enforces it — and a test proves it with
   // foreign keys switched OFF.
   const ownDeals = 'SELECT id FROM deals WHERE user_id = ?';
+  /**
+   * DP4 — THE SAVED PACKS' CONTENTS, read before the rows that point at them.
+   * Once `deal_packs` is deleted there is nothing left that knows the keys, so
+   * the objects would be orphaned in the bucket for ever — holding photographs
+   * belonging to somebody who has just deleted their account.
+   */
+  const packKeys = ((await env.DB.prepare('SELECT r2_key FROM deal_packs WHERE user_id = ?')
+    .bind(user.sub).all<{ r2_key: string }>().catch(() => ({ results: [] }))).results ?? [])
+    .map((r) => r.r2_key);
   stmts.push(
     env.DB.prepare(`DELETE FROM deal_facts WHERE deal_id IN (${ownDeals})`).bind(user.sub),
     env.DB.prepare(`DELETE FROM deal_verdicts WHERE deal_id IN (${ownDeals})`).bind(user.sub),
@@ -415,6 +433,10 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     // is image bytes they gave us, so "delete everything" plainly includes it.
     env.DB.prepare('DELETE FROM business_profiles WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM pack_declarations WHERE user_id = ?').bind(user.sub),
+    // DP4 — and every saved pack. The R2 objects go too, below: a row deleted
+    // without its object leaves the sourcer's photographs in a bucket after
+    // they asked for everything to be deleted.
+    env.DB.prepare('DELETE FROM deal_packs WHERE user_id = ?').bind(user.sub),
     env.DB.prepare('DELETE FROM deals WHERE user_id = ?').bind(user.sub),
   );
   stmts.push(
@@ -431,6 +453,11 @@ async function handleDeleteAccount(request: Request, env: Env): Promise<Response
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(user.sub),
   );
   await env.DB.batch(stmts);
+  // The bytes, after the rows. A failure here must not leave the account
+  // half-deleted, so it never throws — the rows are already gone either way.
+  if (env.PACKS !== undefined) {
+    for (const key of packKeys) await env.PACKS.delete(key).catch(() => undefined);
+  }
   if (unsubId) await attemptKitRow(env, { id: unsubId, email: user.email, first_name: '', action: 'unsubscribe', attempts: 0 });
   return json({ ok: true }, 200, { 'Set-Cookie': clearSessionCookie() });
 }
@@ -644,6 +671,17 @@ async function handleListDeals(request: Request, env: Env): Promise<Response> {
     const board = await boardWindow(env.DB, user.sub);
     // Coerce the SQLite 0/1 auction flag to a real boolean for the client.
     const deals = board.rows.map((r) => ({ ...r, is_auction: r.is_auction === 1 }));
+    /**
+     * DP4 — WHICH DEALS ALREADY HAVE A PACK.
+     *
+     * The card had no way to say one existed, so a sourcer had to open the
+     * builder to find out. One query for the whole board, ids only.
+     */
+    const packed = features.dealPack
+      ? new Set(((await env.DB.prepare('SELECT deal_id FROM deal_packs WHERE user_id = ?')
+        .bind(user.sub).all<{ deal_id: string }>()).results ?? []).map((r) => r.deal_id))
+      : new Set<string>();
+    for (const d of deals) (d as { has_pack?: boolean }).has_pack = packed.has(d.id);
     const liveCount = board.counts.live;
     // P5: the facts travel with the board so the browser can apply them and
     // re-score with core — the server never scores anything itself.
@@ -689,6 +727,23 @@ async function handleDeleteDeal(request: Request, env: Env, dealId: string): Pro
   // (the cap) still counts, permanently leaking a slot and hiding the row from the board.
   // Deleting it changes NO flag-off response (they all read saved_deals only); it's a
   // no-op when there is no such pipeline deal.
+  /**
+   * DP4 — THE SAVED PACK GOES WITH THE DEAL, and the privacy policy says so in
+   * those words: "Deleting the deal deletes the saved pack and stops the link
+   * working." A row left behind would keep a bearer link alive for a document
+   * about a deal that no longer exists.
+   *
+   * The R2 key is read first, because deleting the row destroys the only
+   * pointer to the bytes.
+   */
+  const packRow = await env.DB.prepare('SELECT r2_key FROM deal_packs WHERE deal_id = ? AND user_id = ?')
+    .bind(dealId, user.sub).first<{ r2_key: string }>().catch(() => null);
+  await env.DB.prepare('DELETE FROM deal_packs WHERE deal_id = ? AND user_id = ?')
+    .bind(dealId, user.sub).run().catch(() => undefined);
+  if (packRow !== null && env.PACKS !== undefined) {
+    await env.PACKS.delete(packRow.r2_key).catch(() => undefined);
+  }
+
   await deleteDeal(env.DB, user.sub, dealId);
   return json({ ok: true });
 }
@@ -979,7 +1034,7 @@ async function handleBrokerFactFind(request: Request, env: Env, url: URL): Promi
 
   const row = await env.DB
     .prepare('SELECT * FROM bridging_factfinds WHERE token_hash = ?')
-    .bind(await hashToken(token))
+    .bind(await hashShareToken(token))
     .first<FactFindRow>();
   const now = new Date().toISOString();
   // Used once, and only inside its window. Either way the answer is the same
@@ -1160,6 +1215,111 @@ async function handlePutPackProfile(request: Request, env: Env): Promise<Respons
        updated_at = excluded.updated_at`,
   ).bind(user.sub, name, accent, logo, new Date().toISOString()).run();
   return json({ ok: true });
+}
+
+/* ── DP4: saving a pack to its deal, and the link that makes sharing work ── */
+
+/** 16 bytes of platform entropy, base64url. Never Math.random for a credential. */
+function newShareToken(): string {
+  const raw = crypto.getRandomValues(new Uint8Array(16));
+  return btoa(String.fromCharCode(...raw)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/** Only the HASH is stored, so a leaked copy of the table yields no live links. */
+async function hashShareToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** A saved pack is capped: photographs are the only part that can run away. */
+const PACK_MAX_BYTES = 6 * 1024 * 1024;
+
+async function handleSavePack(request: Request, env: Env): Promise<Response> {
+  if (!features.dealPack) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  let body: Record<string, unknown>;
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return json({ error: 'bad request' }, 400);
+  }
+  const dealId = field(body.deal, 64);
+  if (dealId === '') return json({ error: 'no deal' }, 400);
+
+  // THE DEAL MUST BE THEIRS. Without this, a token would let anyone attach a
+  // pack to anyone's deal id.
+  const owns = await env.DB.prepare('SELECT id FROM deals WHERE id = ? AND user_id = ?')
+    .bind(dealId, user.sub).first();
+  if (!owns) return json({ error: 'not found' }, 404);
+
+  const bucket = env.PACKS;
+  if (bucket === undefined) return json({ error: 'saving is unavailable' }, 503);
+
+  const contents = JSON.stringify(body.pack ?? {});
+  if (contents.length > PACK_MAX_BYTES) return json({ error: 'pack too big' }, 413);
+
+  const key = `packs/${user.sub}/${dealId}.json`;
+  await bucket.put(key, contents, { httpMetadata: { contentType: 'application/json' } });
+
+  // THE TOKEN SURVIVES A RE-SAVE. A link already sent to an investor must not
+  // die because the sourcer changed a page.
+  const existing = await env.DB.prepare('SELECT token_hash FROM deal_packs WHERE deal_id = ? AND user_id = ?')
+    .bind(dealId, user.sub).first<{ token_hash: string }>();
+  const now = new Date().toISOString();
+  let token = '';
+  let tokenHash = existing?.token_hash ?? '';
+  if (tokenHash === '') {
+    token = newShareToken();
+    tokenHash = await hashShareToken(token);
+  }
+  await env.DB.prepare(
+    `INSERT INTO deal_packs (deal_id, user_id, token_hash, r2_key, size_bytes, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(deal_id) DO UPDATE SET r2_key = excluded.r2_key,
+       size_bytes = excluded.size_bytes, updated_at = excluded.updated_at`,
+  ).bind(dealId, user.sub, tokenHash, key, contents.length, now, now).run();
+
+  // The raw token is returned ONCE on the save that created it. After that only
+  // its hash exists here, so a later save re-reads nothing and returns nothing.
+  return json({ ok: true, token, savedAt: now, bytes: contents.length });
+}
+
+async function handleGetSavedPack(request: Request, env: Env): Promise<Response> {
+  if (!features.dealPack) return json({ error: 'not found' }, 404);
+  const user = await currentUser(request, env);
+  if (!user) return json({ error: 'not signed in' }, 401);
+  const dealId = new URL(request.url).searchParams.get('deal') ?? '';
+  if (dealId === '') return json({ error: 'no deal' }, 400);
+  const row = await env.DB.prepare('SELECT r2_key, updated_at FROM deal_packs WHERE deal_id = ? AND user_id = ?')
+    .bind(dealId, user.sub).first<{ r2_key: string; updated_at: string }>();
+  if (!row || env.PACKS === undefined) return json({ saved: false });
+  const obj = await env.PACKS.get(row.r2_key);
+  if (obj === null) return json({ saved: false });
+  return json({ saved: true, savedAt: row.updated_at, pack: JSON.parse(await obj.text()) });
+}
+
+/**
+ * THE SHARED PACK, BY TOKEN. A bearer credential on purpose: an investor has no
+ * account here. `noindex` and `no-referrer` because the pack carries the
+ * sourcer's AML, ICO and insurance details.
+ */
+async function handleSharedPack(token: string, env: Env): Promise<Response> {
+  if (!features.dealPack) return json({ error: 'not found' }, 404);
+  if (!/^[A-Za-z0-9_-]{16,64}$/.test(token)) return json({ error: 'not found' }, 404);
+  const row = await env.DB.prepare('SELECT r2_key FROM deal_packs WHERE token_hash = ?')
+    .bind(await hashShareToken(token)).first<{ r2_key: string }>();
+  if (!row || env.PACKS === undefined) return json({ error: 'not found' }, 404);
+  const obj = await env.PACKS.get(row.r2_key);
+  if (obj === null) return json({ error: 'not found' }, 404);
+  return new Response(await obj.text(), {
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'private, no-store',
+      'x-robots-tag': 'noindex, nofollow',
+      'referrer-policy': 'no-referrer',
+    },
+  });
 }
 
 async function handlePostPackDeclaration(request: Request, env: Env): Promise<Response> {
@@ -1847,6 +2007,34 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (pathname === '/api/pack/profile' && method === 'GET') return handleGetPackProfile(request, env);
     if (pathname === '/api/pack/profile' && method === 'PUT') return handlePutPackProfile(request, env);
     if (pathname === '/api/pack/declaration' && method === 'POST') return handlePostPackDeclaration(request, env);
+    if (pathname === '/api/pack/save' && method === 'POST') return handleSavePack(request, env);
+    if (pathname === '/api/pack/saved' && method === 'GET') return handleGetSavedPack(request, env);
+    if (pathname.startsWith('/api/pack/shared/') && method === 'GET') {
+      return handleSharedPack(pathname.slice('/api/pack/shared/'.length), env);
+    }
+    /**
+     * /p/<token> — one prerendered shell, served for every token.
+     *
+     * The token never takes part in the build (a static route cannot enumerate
+     * them, and baking one into dist/ would publish it), so Astro emits a
+     * single shell at /p/_/ and this hands it to any token-shaped path. The
+     * shell then fetches the pack from /api/pack/shared/<token>, which is where
+     * the authorisation actually happens.
+     */
+    if (features.dealPack && method === 'GET' && /^\/p\/[A-Za-z0-9_-]{16,64}\/?$/.test(pathname)) {
+      const shell = new URL(request.url);
+      shell.pathname = '/p/_/';
+      const res = await env.ASSETS.fetch(new Request(shell.toString(), request));
+      return new Response(res.body, {
+        status: res.status,
+        headers: {
+          ...Object.fromEntries(res.headers),
+          'x-robots-tag': 'noindex, nofollow',
+          'referrer-policy': 'no-referrer',
+          'cache-control': 'private, no-store',
+        },
+      });
+    }
     if (pathname === '/api/health' && method === 'GET') return handleHealth(request, env);
     if (pathname === '/api/attention' && method === 'GET') return handleAttention(request, env);
     if (pathname === '/api/deals/dead' && method === 'GET') return handleTerminalPage(request, env, url, 'dead');

@@ -6,7 +6,8 @@
  * against values worked out independently.
  */
 import { describe, expect, it } from 'vitest';
-import { PACK_PAPER, accentReadsOnPaper, contrast, luminance, onAccent } from './accent';
+import { ACCENT_PALETTE } from '../../config/pack';
+import { PACK_PAPER, accentReadsOnPaper, contrast, hueOf, luminance, onAccent } from './accent';
 
 describe('relative luminance', () => {
   it('matches the specification at the ends of the range', () => {
@@ -67,5 +68,39 @@ describe('the accent as TEXT on the paper — the check that does bite', () => {
 
   it('fails a mid grey on paper too, at 2.45:1', () => {
     expect(accentReadsOnPaper('#9aa3ad')).toBe(false);
+  });
+});
+
+describe('DP4 — the preset palette is the SAFE set', () => {
+  it('every preset clears 7:1 on the pack’s paper', () => {
+    // Not 4.5:1. A preset must never be the thing that trips the "too pale"
+    // warning — that warning exists for the custom picker.
+    for (const c of ACCENT_PALETTE) {
+      expect(contrast(c.hex, PACK_PAPER), `${c.name} ${c.hex}`).toBeGreaterThanOrEqual(7);
+    }
+  });
+
+  it('spreads across the hue wheel instead of stacking up on blue', () => {
+    /**
+     * THE FAULT THIS CATCHES. The old six had Ink blue 225°, Slate 215° and
+     * Indigo 246° — three blues inside 31° — and a 143° dead arc with no
+     * preset in it at all. A palette can pass every contrast check and still
+     * offer no real choice.
+     */
+    const hues = ACCENT_PALETTE
+      .map((c) => hueOf(c.hex))
+      .filter((h) => h >= 0)
+      .sort((a, b) => a - b);
+    const gaps = hues.map((h, i) => (i === 0 ? h + 360 - (hues[hues.length - 1] as number) : h - (hues[i - 1] as number)));
+    expect(Math.max(...gaps), `hues ${hues.join(',')}`).toBeLessThanOrEqual(90);
+  });
+
+  it('offers a neutral, for a document that wants no colour', () => {
+    const neutral = ACCENT_PALETTE.filter((c) => {
+      const n = parseInt(c.hex.slice(1), 16);
+      const r = (n >> 16) & 255; const g = (n >> 8) & 255; const b = n & 255;
+      return Math.max(r, g, b) - Math.min(r, g, b) <= 24;
+    });
+    expect(neutral.length, 'no near-grey preset').toBeGreaterThanOrEqual(1);
   });
 });

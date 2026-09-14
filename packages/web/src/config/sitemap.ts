@@ -32,6 +32,10 @@ export const HIDDEN_FROM_SEARCH: readonly string[] = [
   '/diagnostics',
   // DP1 — somebody's own investor pack, built from their own saved deal.
   '/pack',
+  // DP4 — a saved pack behind a share link. One route, matched at runtime for
+  // every token, so the path here is the source spelling rather than a URL
+  // anybody visits. It must never be advertised: the link is the credential.
+  '/p/[token]',
 ];
 
 /**

@@ -1,3 +1,4 @@
+import { cloneElement } from 'preact';
 /**
  * DP2 — THE PACK. Seven designed sheets, not a white page with writing on it.
  *
@@ -105,6 +106,17 @@ function Est({ on }: { on: boolean }) {
   return on ? <span class="pk-est">{PACK_COPY.basis.estimateTag}</span> : null;
 }
 
+/**
+ * Zoom is applied to the PAGE, never to a wrapper around it, so the controls
+ * sitting beside a page are not scaled down with it. Cloning here rather than
+ * threading a style through every page builder keeps the page functions
+ * ignorant of the preview entirely.
+ */
+function withZoom(page: preact.JSX.Element, zoom: number): preact.JSX.Element {
+  const prev = (page.props as { style?: Record<string, unknown> }).style ?? {};
+  return cloneElement(page, { style: { ...prev, zoom } });
+}
+
 /** The locked furniture, at the foot of every sheet. Never optional. */
 function Foot({ n, total }: { n: number; total: number }) {
   return (
@@ -183,25 +195,62 @@ function Level({ level }: { level: PackFloorPlan['levels'][number] }) {
   );
 }
 
-export function PackDocument({ model }: { model: PackModel }) {
+/**
+ * DP4 — WHAT `chrome` IS, AND WHY IT IS A PROP RATHER THAN MARKUP IN HERE.
+ *
+ * The builder puts each page's own controls in the gutter BESIDE that page, so
+ * a sourcer adjusts the thing they are looking at. Those controls are the
+ * builder's, not the document's — the document is what an investor receives —
+ * so this component never authors them. It leaves a slot, and the builder fills
+ * it. Print, the export, the tests and the shared-link view pass nothing and
+ * get exactly the document they got before.
+ *
+ * `zoom` moved from the wrapper to the PAGE for the same reason: a wrapper zoom
+ * scales whatever is inside it, which at 390px means a 41% control. Zooming
+ * each page leaves its sibling chrome at full size, with no counter-scaling to
+ * get wrong. `zoom` rather than `transform: scale` is unchanged and deliberate —
+ * it reflows, so the row's height is right and the page scrolls properly.
+ */
+export interface PackChrome {
+  (key: string, index: number, total: number): preact.JSX.Element | null;
+}
+
+export function PackDocument(
+  { model, chrome, zoom }: { model: PackModel; chrome?: PackChrome; zoom?: number },
+) {
   const m = model;
   const accent = /^#[0-9a-fA-F]{6}$/.test(m.branding.accentColour) ? m.branding.accentColour : undefined;
   const shot = (src: string) => (m.branding.duotone ? 'pk-shot pk-duo' : 'pk-shot');
 
-  /* ---- 1. THE COVER: a full-bleed photograph, their logo, the address, one
-        figure. The one page that has to make somebody keep reading. ---- */
-  /** Only when the cover has no photograph to fill it. Three at most. */
+  /* ---- 1. THE COVER ---- */
+  /**
+   * A PHOTOGRAPH, NOT A WASH.
+   *
+   * The cover used to put the photograph full-bleed behind the whole sheet and
+   * lay a scrim over it dark enough to guarantee white type anywhere on the
+   * page. That works for a stock hero shot and destroys an ordinary one: the
+   * operator added a photo of a house and got "a faint background image across
+   * the whole A4". It was doing exactly what it was built to do, and what it
+   * was built to do was wrong.
+   *
+   * The photograph now OWNS A REGION and is not dimmed at all. Type never
+   * crosses it, so nothing has to be crushed to keep the type readable — the
+   * words sit on a solid ink band below, which is also where the contrast
+   * guarantee comes from. The one gradient left is a short fade at the join,
+   * and that is a joint, not a scrim.
+   */
   const hasCoverShot = has(m, SECTION.photos) && m.photos[0] !== undefined;
-  const coverStrip = hasCoverShot ? [] : m.strip.slice(0, 3);
+  /** The figures fill the band when there is no photograph to fill the sheet. */
+  const coverStrip = hasCoverShot ? m.strip.slice(0, 3) : m.strip.slice(0, 3);
 
   const cover = (n: number, total: number) => (
-    <section class="pk-page pk-cover is-bleed" key="cover">
+    <section class={`pk-page pk-cover is-bleed${hasCoverShot ? ' has-shot' : ''}`} key="cover">
       {hasCoverShot
         ? (
-          <>
-            <div class="pk-cover-shot"><img src={m.photos[0]} alt="" class={m.branding.duotone ? 'pk-duo' : undefined} /></div>
-            <div class="pk-cover-scrim" />
-          </>
+          <div class="pk-cover-shot">
+            <img src={m.photos[0]} alt="" class={m.branding.duotone ? 'pk-duo' : undefined} />
+            <div class="pk-cover-join" />
+          </div>
         )
         : <div class="pk-cover-plain" />}
       <div class="pk-cover-inner">
@@ -266,7 +315,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const returnsPage = hero === null ? null : (n: number, total: number) => (
     <section class="pk-page is-ink" key="returns">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.returns.eyebrow} title={PACK_COPY.returns.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.returns.eyebrow} title={PACK_COPY.returns.heading} />
         <div class="pk-hero">
           <p class="pk-hero-fig">{hero.value}</p>
           <p class="pk-hero-lab">{hero.label}<Est on={hero.projected} /></p>
@@ -309,7 +358,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const numbersPage = !numbersHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="numbers">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.numbers.eyebrow} title={PACK_COPY.numbers.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.numbers.eyebrow} title={PACK_COPY.numbers.heading} />
         <div class="pk-fig">
           <p class="pk-chart-head">
             {m.waterfallStacks
@@ -339,7 +388,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const planPage = !planHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="plan">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.property.eyebrow} title={PACK_COPY.property.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.property.eyebrow} title={PACK_COPY.property.heading} />
         {has(m, SECTION.scope) && m.scope.length > 0 && (
           <div class="pk-fig">
             <p class="pk-chart-head">{PACK_COPY.property.scopeHead(String(m.scope.length))}</p>
@@ -369,7 +418,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const areaPage = !areaHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="area">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.area.eyebrow} title={PACK_COPY.area.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.area.eyebrow} title={PACK_COPY.area.heading} />
         {m.area.length > 0 && (
           <div class="pk-fig">
             <div class="pk-strip">
@@ -406,7 +455,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const compsPage = m.comps.length === 0 ? null : (n: number, total: number) => (
     <section class="pk-page" key="comps">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.comps.eyebrow} title={PACK_COPY.comps.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.comps.eyebrow} title={PACK_COPY.comps.heading} />
           <div class="pk-fig">
             <p class="pk-chart-head">{PACK_COPY.comps.head(String(m.comps.filter((c) => !c.subject).length))}</p>
             {m.mapImage !== null && (
@@ -453,12 +502,22 @@ export function PackDocument({ model }: { model: PackModel }) {
   );
 
   /* ---- 6. THEIR PHOTOGRAPHS, full-bleed and disciplined. ---- */
-  const photosPage = !(has(m, SECTION.photos) && m.photos.length > 1) ? null : (n: number, total: number) => (
+  /**
+   * THE GALLERY TAKES WHATEVER THE COVER DID NOT.
+   *
+   * It used to require `photos.length > 1` whether or not the cover was using
+   * one, so a sourcer with a single photograph and "Photograph on the cover"
+   * switched OFF had a photo in the pack that appeared nowhere, and two
+   * checkboxes that both did nothing. Now the cover consumes the first shot
+   * only when it is switched on, and every remaining photograph lands here.
+   */
+  const galleryShots = hasCoverShot ? m.photos.slice(1) : m.photos;
+  const photosPage = galleryShots.length === 0 ? null : (n: number, total: number) => (
     <section class="pk-page is-bleed" key="photos">
       <div class="pk-shots-full">
         <div class="pk-shots" style="height:100%">
-          {m.photos.slice(1, 5).map((src, i) => (
-            <img class={`${shot(src)}${i === 0 && m.photos.length === 2 ? ' pk-shot-lead' : ''}`} src={src} alt="" key={src} />
+          {galleryShots.slice(0, 4).map((src, i) => (
+            <img class={`${shot(src)}${i === 0 && galleryShots.length === 1 ? ' pk-shot-lead' : ''}`} src={src} alt="" key={src} />
           ))}
         </div>
       </div>
@@ -470,7 +529,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const basisPage = (n: number, total: number) => (
     <section class="pk-page" key="basis">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.basis.eyebrow} title={PACK_COPY.basis.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.basis.eyebrow} title={PACK_COPY.basis.heading} />
         <dl class="pk-basis-list">
           {[m.hero, ...m.strip, ...m.costs, ...m.returns]
             .filter((f): f is EvidencedFigure => f !== null)
@@ -530,7 +589,7 @@ export function PackDocument({ model }: { model: PackModel }) {
   const figuresPage = !figuresHasContent ? null : (n: number, total: number) => (
     <section class="pk-page" key="figures">
       <div class="pk-page-body">
-        <Opener n={n - 1} eyebrow={PACK_COPY.figures.eyebrow} title={PACK_COPY.figures.heading} />
+        <Opener n={contentNo(n)} eyebrow={PACK_COPY.figures.eyebrow} title={PACK_COPY.figures.heading} />
         <div class="pk-ledger">
           <div class="pk-ledger-col">
             <p class="pk-eyebrow">{PACK_COPY.figures.inHead}</p>
@@ -591,7 +650,20 @@ export function PackDocument({ model }: { model: PackModel }) {
    * basis page pinned last, because a pack that opens on its disclaimer or ends
    * on a photograph is not a pack. Everything between them is theirs to arrange.
    */
+  /**
+   * THE BIG NUMERAL COUNTS CONTENT PAGES, not the sheet's position.
+   *
+   * It was `n - 1`, which assumed the cover was always page one. Now that the
+   * cover can be switched off, that produced a page numbered "00" — and with
+   * the cover on and a page hidden it would have skipped a number. It counts
+   * from whatever the first non-cover sheet turns out to be.
+   */
+  const coverOn = has(m, SECTION.cover);
+  const contentNo = (n: number): number => (coverOn ? n - 1 : n);
+
   type Sheet = (n: number, total: number) => preact.JSX.Element;
+  /** Every sheet travels with its key so the gutter knows which page it is on. */
+  type Keyed = { key: string; render: Sheet };
   const movable: Record<string, Sheet | null> = {
     [SECTION.returns]: returnsPage,
     [SECTION.purchase]: numbersPage,
@@ -601,12 +673,72 @@ export function PackDocument({ model }: { model: PackModel }) {
     [SECTION.figures]: figuresPage,
     [SECTION.gallery]: photosPage,
   };
-  const middle = m.order
+  const middle: Keyed[] = m.order
     .filter((k) => has(m, k))
-    .map((k) => movable[k])
-    .filter((p): p is Sheet => p !== null && p !== undefined);
+    .map((k) => ({ key: k, render: movable[k] }))
+    .filter((x): x is Keyed => x.render !== null && x.render !== undefined);
 
-  const sheets: Sheet[] = [cover, ...middle, basisPage];
+  /**
+   * THE COVER HONOURS ITS OWN SWITCH. It did not: `sheets` listed `cover`
+   * unconditionally, so the Cover checkbox was wired to nothing and unticking
+   * it changed the document not at all — a control that lies about what it does.
+   */
+  const sheets: Keyed[] = [
+    ...(has(m, SECTION.cover) ? [{ key: SECTION.cover, render: cover }] : []),
+    ...middle,
+    { key: SECTION.basis, render: basisPage },
+  ];
+
+  /**
+   * SWITCHED-OFF PAGES STILL HAVE A ROW — IN THE BUILDER ONLY.
+   *
+   * Moving each page's controls beside its page had one consequence I did not
+   * see until the toggle matrix ran: switching a page OFF removed the page, and
+   * the page was carrying the only switch that could bring it back. Every
+   * section could be turned off exactly once and never again.
+   *
+   * So the builder keeps a slim placeholder where a hidden page would be — not
+   * an A4 sheet, a single line saying it is out — and the gutter stays beside
+   * it. The DOCUMENT is unchanged: `sheets` above is what gets rendered, printed
+   * and exported, and a hidden page is absent from all three. This is scaffolding
+   * for the person building, and `chrome` is what distinguishes them.
+   */
+  /**
+   * THE BUILDER'S ROW LIST: every page that COULD be in the pack, in order,
+   * each marked present or hidden. The document itself is `sheets` above and
+   * contains only what is switched on; this exists so a hidden page keeps the
+   * control that brings it back.
+   */
+  /** What the DEAL has, regardless of what is switched on. */
+  const couldRender: Record<string, boolean> = {
+    [SECTION.returns]: returnsPage !== null,
+    [SECTION.purchase]: numbersHasContent,
+    [SECTION.plan]: m.scope.length > 0 || m.runway !== null || m.floorPlan !== null,
+    [SECTION.area]: areaHasContent,
+    [SECTION.comps]: m.comps.length > 0,
+    [SECTION.figures]: figuresHasContent,
+    [SECTION.gallery]: m.photos.length > 0,
+  };
+
+  type Row = { key: string; render: Sheet | null };
+  const rows: Row[] = chrome === undefined
+    ? sheets.map((x) => ({ key: x.key, render: x.render }))
+    : [
+      { key: SECTION.cover, render: has(m, SECTION.cover) ? cover : null },
+      /**
+       * A ROW IS OFFERED ONLY WHERE A PAGE COULD EXIST.
+       *
+       * `couldRender` asks the DATA, never the switches: a gallery with no
+       * photographs and a plan page on a deal with no scope, no runway and no
+       * floor plan can never produce a sheet, so neither gets a row and neither
+       * gets a control. That is the dead-toggle class closed at the root — not
+       * a control that is disabled, a control that is not written.
+       */
+      ...m.order
+        .filter((k) => movable[k] !== undefined && couldRender[k] === true)
+        .map((k) => ({ key: k, render: has(m, k) ? (movable[k] ?? null) : null })),
+      { key: SECTION.basis, render: basisPage },
+    ];
   const total = sheets.length;
 
   return (
@@ -617,7 +749,32 @@ export function PackDocument({ model }: { model: PackModel }) {
           and a preview that hides the locked disclaimer is a preview that lies
           about the document — on a screen whose whole job is to show the user
           what they are about to send somebody. */}
-      {sheets.map((sheet, i) => sheet(i + 1, total))}
+      {rows.map((row, i) => {
+        const gutter = chrome === undefined ? null : chrome(row.key, i, rows.length);
+        if (row.render === null) {
+          /* Hidden, or empty: a line in the builder, nothing in the document. */
+          return (
+            <div class="pk-sheet is-off" key={`sheet-${row.key}`}>
+              {gutter}
+              <div class="pk-ghost" data-chrome>{PACK_COPY.gutter.notInPack}</div>
+            </div>
+          );
+        }
+        const pageNo = sheets.findIndex((x) => x.key === row.key) + 1;
+        const page = row.render(pageNo, total);
+        /**
+         * NO CHROME, NO WRAPPER. Print, the export and every test render the
+         * document exactly as they did before this existed — the builder is the
+         * only caller that passes `chrome`, and the only one that pays for it.
+         */
+        if (gutter === null) return zoom === undefined ? page : withZoom(page, zoom);
+        return (
+          <div class="pk-sheet" key={`sheet-${row.key}`}>
+            {gutter}
+            {zoom === undefined ? page : withZoom(page, zoom)}
+          </div>
+        );
+      })}
     </div>
   );
 }

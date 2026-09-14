@@ -60,6 +60,27 @@
     // free plan allows cron triggers, so this stays at £0.
     "crons": ["*/15 * * * *", "0 6 * * *"]
   },
+  /**
+   * DP4 — WHERE A SAVED PACK'S CONTENTS LIVE.
+   *
+   * D1 holds the pointer (which deal, whose, the token hash); the pack's own
+   * contents — chosen sections, their order, the sourcer's words and their
+   * photographs — go here. D1 is the wrong home for that: its maximum SQL
+   * statement is 100,000 bytes and a free database is 500 MB, so a handful of
+   * photographs per deal would exhaust it. R2's free tier is 10 GB with no
+   * egress charge, and Cloudflare's own storage guidance points blobs here.
+   *
+   * STILL NO UPLOAD ENDPOINT. Photographs arrive as JSON data URIs on an
+   * ordinary POST, exactly as the logo has since DP1, so the Worker still never
+   * calls formData() and the test asserting that is untouched.
+   */
+  "r2_buckets": [
+    {
+      "binding": "PACKS",
+      "bucket_name": "gil-bricks-packs"
+    }
+  ],
+
   "d1_databases": [
     {
       "binding": "DB",

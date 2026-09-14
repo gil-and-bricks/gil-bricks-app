@@ -119,6 +119,16 @@ export async function buildPackHtml(root: HTMLElement, title: string, lang: stri
   // that, or every reader gets the sender's window width baked in.
   doc.removeAttribute('style');
   for (const el of [...doc.querySelectorAll<HTMLElement>('[style*="zoom"]')]) el.style.removeProperty('zoom');
+  /**
+   * THE BUILDER'S FURNITURE NEVER REACHES THE INVESTOR.
+   *
+   * Each page's controls live in the gutter beside it, which is inside the `.pk`
+   * element this clones — adjacency is the whole point of them. So they are
+   * marked `data-chrome` and removed here. Without this line the sourcer posts
+   * an investor a document with "Not in the pack" buttons down the side of it.
+   * packShare.test.ts asserts the export contains none.
+   */
+  for (const el of [...doc.querySelectorAll('[data-chrome]')]) el.remove();
 
   const fonts = await inlineFonts();
   const esc = (t: string): string => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));
@@ -142,36 +152,30 @@ export async function buildPackHtml(root: HTMLElement, title: string, lang: stri
   return out;
 }
 
-export type ShareOutcome = 'shared' | 'saved' | 'cancelled';
+export type ShareOutcome = 'saved';
 
 /**
- * SHARE IF THE DEVICE CAN, SAVE IF IT CANNOT.
+ * DP4 — THE OS SHARE SHEET IS GONE, AND THE RULE THAT FORBIDS IT IS ABSOLUTE AGAIN.
  *
- * `navigator.share` with a file is the phone's own share sheet — WhatsApp, Mail,
- * AirDrop, Files, whatever the reader actually uses. It does not exist on most
- * desktops and refuses some file types on some platforms, so the capability is
- * ASKED (`canShare`), never assumed, and the answer when it says no is a plain
- * download of the identical file rather than an apology.
+ * DP3 used the Web Share API here and narrowed the codebase's "a control that
+ * names a destination must go to that destination" rule to allow it. That was
+ * the wrong call and the operator caught it: pressing Share opened AirDrop,
+ * Mail, Messages and Notes — the same fault the WhatsApp button had weeks
+ * earlier, wearing a different label.
  *
- * A CANCELLED SHARE IS NOT A FAILURE. Dismissing the sheet rejects with
- * AbortError; that is the user changing their mind and must not become an error
- * message or a surprise download.
+ * It was reached for because a 1.7MB file cannot be handed to WhatsApp or to a
+ * mail client any other way. That part is true, and documented: wa.me carries a
+ * phone number and `text` and nothing else, text/html is not even a sendable
+ * WhatsApp document type, and RFC 6068 has no attachment concept — the word
+ * does not appear anywhere in it. A URL SCHEME CANNOT CARRY A FILE.
+ *
+ * What both WILL carry is a LINK. So the pack is saved to its deal first, and
+ * what goes to WhatsApp or to the mail client is the link to it — direct, with
+ * no menu in between. Downloading the file stays as its own separate button,
+ * for somebody who genuinely wants the file.
  */
-export async function sharePack(
-  html: string, filename: string, shareTitle: string, mode: 'share' | 'save',
-): Promise<ShareOutcome> {
+export function downloadPack(html: string, filename: string): ShareOutcome {
   const file = new File([html], filename, { type: 'text/html' });
-  const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (mode === 'share' && typeof nav.share === 'function' && nav.canShare?.({ files: [file] }) === true) {
-    try {
-      await nav.share({ files: [file], title: shareTitle });
-      return 'shared';
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return 'cancelled';
-      // Anything else (a platform that lied about canShare) falls through to
-      // the download, because the user asked for their pack and should get it.
-    }
-  }
   const url = URL.createObjectURL(file);
   const a = document.createElement('a');
   a.href = url;

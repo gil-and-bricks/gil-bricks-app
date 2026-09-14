@@ -20,6 +20,9 @@ const MIGRATIONS = [
   '0007_deal_is_auction.sql', '0008_deal_verdict_line.sql', '0012_deal_sold_evidence.sql',
   '0013_deal_changes.sql', '0014_folded_facts_and_room_sizes.sql', '0015_deal_dates_and_staleness.sql',
   '0016_deal_deaths.sql', '0017_deal_viewing_date.sql', '0018_chain_risk_ack.sql', '0019_bridging_factfind.sql', '0021_change_cash_needed.sql',
+  // DP4 — saved packs. The board asks which deals have one on every load,
+  // so every harness that boots the Worker needs this table to exist.
+  '0028_deal_pack.sql', '0029_saved_packs.sql',
 ];
 
 function makeD1(sqlite: DatabaseSync): D1Database {

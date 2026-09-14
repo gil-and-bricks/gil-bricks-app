@@ -891,7 +891,12 @@ export function DealBoard() {
               {features.dealPack && (
                 <a class="btn-action dc-pack" href={`/pack?deal=${encodeURIComponent(d.id)}`}>
                   {BOARD_COPY.card.pack}
-                  <span class="sr-only">{BOARD_COPY.card.packFor(d.title)}</span>
+                  {/* DP4 — a pack exists for this deal. The card said nothing
+                      before, so the only way to find out was to open it. */}
+                  {d.has_pack === true && <span class="dc-pack-tick" aria-hidden="true">✓</span>}
+                  <span class="sr-only">
+                    {d.has_pack === true ? BOARD_COPY.card.packSaved(d.title) : BOARD_COPY.card.packFor(d.title)}
+                  </span>
                 </a>
               )}
             </div>

@@ -36,7 +36,7 @@ import { areaHighlights, loadAreaFacts, type HighlightSources } from '../../lib/
 import { compsFrom, growthFrom, heroAndStrip, waterfallFrom, type GrowthModel } from '../../lib/pack/packData';
 import { partsSumToTotal } from '@gil-bricks/core';
 import { ownWeeksFrom } from '../analyser/RefurbSection';
-import { PackComposer, type Branding } from './PackComposer';
+import { PackComposer, type Base, type Branding } from './PackComposer';
 import { PackDeclaration } from './PackDeclaration';
 import { NEUTRAL_ACCENT } from './PackProfile';
 import type { AreaHighlight, CompRow, PackCompliance, PackModel } from './PackDocument';
@@ -63,7 +63,7 @@ interface DeclarationRow {
   pi_expiry: string;
 }
 
-type Base = Omit<PackModel, 'on' | 'order' | 'photos' | 'summary' | 'investorName' | 'branding'>;
+
 
 const param = (k: string): string => {
   if (typeof window === 'undefined') return '';
@@ -125,9 +125,20 @@ export function PackApp() {
         businessName: body.profile?.business_name ?? '',
         accentColour: body.profile?.accent_colour === '' || body.profile == null ? NEUTRAL_ACCENT : body.profile.accent_colour,
         logoDataUri: body.profile?.logo_data_uri ?? '',
-        // Duotone is on by default: it is what turns a set of mismatched phone
-        // photographs into something that looks like one branded set.
-        duotone: true,
+        /**
+         * DUOTONE IS OFF BY DEFAULT NOW, AND WAS THE SECOND HALF OF "MY PHOTO
+         * BECAME A FAINT BACKGROUND".
+         *
+         * The reasoning for `true` was real — it makes a set of mismatched phone
+         * photographs look like one branded set — but it applied a heavy
+         * recolour to the very first photograph anybody added, before they had
+         * chosen a colour or knew the treatment existed. With a dark accent it
+         * repaints the photograph in that colour and the subject disappears.
+         *
+         * A photograph looks like a photograph until the sourcer asks for
+         * something else. The tint is still one press away, beside the photos.
+         */
+        duotone: false,
       });
 
       if (dealId === '') { setReady(true); return; }
@@ -244,6 +255,7 @@ export function PackApp() {
   const { hero, strip } = heroAndStrip(numbers);
 
   const base: Base = {
+    dealId,
     address: deal.title,
     strategy: deal.strategy,
     preparedOn: today(),

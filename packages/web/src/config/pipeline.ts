@@ -622,6 +622,7 @@ export const BOARD_COPY = {
     /** DP1 — the door to the investor deal pack, from the deal it is about. */
     pack: 'Create deal pack',
     packFor: (title: string): string => `Make an investor deal pack for ${title}`,
+    packSaved: (title: string): string => `Open the saved deal pack for ${title}`,
     parkReasonsLabel: (title: string) => `Why are you parking ${title}?`,
     keepIt: 'Keep it',
     skippedStage: 'Skipped a stage — your call.',
