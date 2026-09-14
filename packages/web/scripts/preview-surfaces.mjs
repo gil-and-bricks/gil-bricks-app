@@ -150,6 +150,19 @@ console.log('  While this runs, three config files hold fake values: do not comm
 console.log('  It listens on every interface, so use a network you trust.');
 console.log('');
 
-const args = ['wrangler', 'dev', '--ip', '0.0.0.0', '--port', '8787', ...forwarded];
+/**
+ * `--local-upstream localhost` — WITHOUT IT THIS TOOL SHOWS NOTHING (DM1).
+ *
+ * wrangler takes the hostname a locally-run Worker sees from the first `routes`
+ * entry in wrangler.jsonc, so once the product got its own domain the Worker
+ * started here saw `http://proplaunch.ai/...` — and `isPreviewEnv` refuses a
+ * public host, which is exactly what makes /dev/preview impossible on the
+ * deployed site. The five surfaces would have 404'd with no clue why.
+ *
+ * It does not cost the phone. The guard allows localhost AND a private-range
+ * address; pinning the Worker's own view to localhost satisfies it for every
+ * caller, and the phone still reaches the page over the LAN address it typed.
+ */
+const args = ['wrangler', 'dev', '--ip', '0.0.0.0', '--port', '8787', '--local-upstream', 'localhost', ...forwarded];
 const child = spawn('npx', args, { cwd: WEB, stdio: 'inherit' });
 child.on('exit', (code) => { restore(); process.exit(code ?? 0); });

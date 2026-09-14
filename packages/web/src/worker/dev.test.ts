@@ -7,6 +7,9 @@
  * product whose whole rulebook is enforced by tests. It has one now.
  */
 import { describe, expect, it } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { isLocalHost, isPreviewEnv, handleDevPreview, phoneNote } from './dev';
 import type { Env } from './index';
 
@@ -84,4 +87,58 @@ describe('the preview cannot exist in production', () => {
       expect((body.match(/Laptop only/g) ?? []).length).toBe(2);
     });
   });
+});
+
+/**
+ * DM1 — A GATE THAT BOOTS A LOCAL WORKER MUST BOOT IT AS LOCALHOST.
+ *
+ * The guard above is deliberately strict: a dev route needs a localhost host,
+ * and that is what makes it inert on the deployed site. The trap is that
+ * wrangler takes the hostname a LOCALLY-RUN Worker sees from the first `routes`
+ * entry in wrangler.jsonc — so the moment the product got a custom domain, a
+ * Worker started on localhost:8788 began seeing `http://proplaunch.ai/...` and
+ * every dev route correctly refused it. Two gates went dark and the symptom
+ * ("signing in did not land on the board") named neither cause nor fix.
+ *
+ * The answer was never to loosen the guard. It was `--local-upstream localhost`
+ * in the gates that boot a Worker. This fails if a future one forgets, or if
+ * someone reaches for the guard instead.
+ */
+describe('the gates that boot a local Worker keep the dev door reachable', () => {
+  const read = (p: string): string => readFileSync(fileURLToPath(new URL(p, import.meta.url)), 'utf8');
+  const CONFIG = read('../../wrangler.jsonc');
+
+  /** Every script that starts its own `wrangler dev`. Found, not listed. */
+  const SCRIPTS_DIR = fileURLToPath(new URL('../../scripts/', import.meta.url));
+  const booters = readdirSync(SCRIPTS_DIR)
+    .filter((f) => f.endsWith('.mjs'))
+    .map((f) => ({ name: f, body: readFileSync(join(SCRIPTS_DIR, f), 'utf8') }))
+    .filter((f) => /['"]wrangler['"][\s\S]{0,80}['"]dev['"]/.test(f.body) || /wrangler',\s*\['dev'/.test(f.body));
+
+  it('finds the scripts that boot one — a check over an empty list proves nothing', () => {
+    // preview-surfaces.mjs is here because this test found it: it boots a
+    // Worker too, is guarded by isPreviewEnv, and was equally dark after the
+    // domain move — the operator's own five-surface preview, which nothing
+    // else exercises.
+    expect(booters.map((b) => b.name).sort())
+      .toEqual(['check-pack.mjs', 'check-signed-in.mjs', 'preview-surfaces.mjs']);
+  });
+
+  it('only matters while wrangler.jsonc actually carries a route', () => {
+    // If the routes ever go away this whole hazard goes with them, and this
+    // test should be deleted rather than left asserting a flag nobody needs.
+    expect(CONFIG).toMatch(/"routes"\s*:\s*\[/);
+    expect(CONFIG).toMatch(/"custom_domain"\s*:\s*true/);
+  });
+
+  it('every one of them boots the Worker as localhost', () => {
+    for (const b of booters) {
+      expect(b.body, `${b.name} boots a local Worker without --local-upstream localhost`)
+        .toContain("'--local-upstream', 'localhost'");
+    }
+  });
+
+  // (An earlier version also asserted these scripts never NAME isDevEnv. That
+  //  measured prose, not behaviour: the gates' own failure message quotes the
+  //  guard by name, which is the most useful thing it says. Dropped.)
 });
