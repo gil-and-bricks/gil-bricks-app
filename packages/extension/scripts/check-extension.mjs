@@ -282,6 +282,21 @@ async function walk(testCase) {
         problems.push(`the panel never reached a state it could send from. It said: "${said.slice(0, 200)}"`);
       } else {
         ok('the panel read the listing and offered to send it');
+
+        /**
+         * EITHER IT WORKS OR IT IS NOT OFFERED.
+         *
+         * Every portal image is blocked in this gate, so the plan genuinely
+         * cannot load here — and the panel must therefore NOT offer to measure
+         * it. That is the whole fix: the offer used to appear for any truthy
+         * value, which is how Zoopla listings ended up offering a measure tool
+         * over a bare filename. With the image unreachable the offer has to be
+         * withdrawn, and this is what proves it withdraws.
+         */
+        const offersMeasure = await panel.getByRole('button', { name: /Open the measure tool/ }).count();
+        if (offersMeasure > 0) {
+          problems.push('the panel offers to measure a floor plan it could not load');
+        } else ok('and it does not offer to measure a plan that will not load');
         for (const wanted of testCase.panelSays) {
           if (wanted.test(said)) ok(`the panel shows ${wanted.source}`);
           else problems.push(`the panel never showed ${wanted.source} — it said: "${said.slice(0, 200)}"`);

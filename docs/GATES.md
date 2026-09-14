@@ -12,8 +12,8 @@ you can only read one column, read the second.
 
 | Gate | Command | What it observes | What it does NOT |
 |---|---|---|---|
-| **Unit — core** | `npm test -w packages/core` | The maths, the Deal Score, the extractors against saved pages. 584 tests. | Nothing in a browser. |
-| **Unit — web** | `npm test -w packages/web` | The ratchets, the copy rules, the Worker's routes called directly. 1,519 tests. | Nothing rendered. |
+| **Unit — core** | `npm test -w packages/core` | The maths, the Deal Score, the extractors against saved pages. 590 tests. | Nothing in a browser. |
+| **Unit — web** | `npm test -w packages/web` | The ratchets, the copy rules, the Worker's routes called directly. 1,524 tests. | Nothing rendered. |
 | **Unit — extension** | `npm test -w packages/extension` | The panel's modules, and the BUILT manifest (see note). 132 tests. | The extension running. |
 | **Flags off** | `npm run test:flags-off` | The whole web suite, and a build, with every feature flag off. | — |
 | **Copy length** | `npm run copy-gate -w packages/web` | Visible text blocks on 21 built pages at **two widths**. | Whether the words are true. |
@@ -69,26 +69,27 @@ confirm that door returns a bare 404, rather than assuming it. What it therefore
 cannot catch is a deployment fault: a missing secret, a Cloudflare setting, or a
 migration that did not run on the remote database.
 
-## Known-broken, written down rather than hidden
+## Known-broken — both cleared 2026-09-14
 
-- **Zoopla floor plans never reach the analyser.** Zoopla stores a floor plan as
-  `{"filename": "<hash>.jpg"}` with no URL anywhere on the page, and the
-  extractor does not turn it into an address; `handoff.ts` then drops it, because
-  it only writes `fp` for an `https` value. Both Zoopla goldens record bare
-  filenames. Recorded and dated in `listing.test.ts` (`KNOWN_BROKEN`) and in the
-  extension gate's `CASES`. Both fail if a third appears, **and** if one is fixed
-  without being struck off the list. Fixing the extractor is a product change and
-  has not been made.
-- **A Rightmove auction listing hands off with no auction flag.** The fixture
-  `rightmove-reduced-terrace-leasehold` says "Modern Method of Auction" twice in
-  its description, and `config.ts` already knows that phrase — but the Rightmove
-  extractor records `isAuction` as `unavailable-on-this-portal`, so `auction=1`
-  never travels and the board never warns about the legal pack. Zoopla's auction
-  flag works. Asserted as absent in the extension gate's `CASES`, dated, so it
-  fails the day it starts working.
+Both faults the new gates found have been **fixed**, and both assertions are now
+flipped to expect working, so a regression fails rather than going quiet.
+
+- **Zoopla floor plans reach the analyser.** Zoopla carries plans as
+  `{"filename": "<hash>.jpg"}`; one function now turns filenames into addresses
+  for photographs and plans alike, using the prefix read from the page itself.
+  The resulting URL answers 200 from Zoopla's own CDN. The ledger in
+  `listing.test.ts` is empty and the gate asserts the invariant outright.
+- **A Rightmove auction is flagged.** The flag is read from the listing's own
+  wording through the one shared matcher (`wording.ts`) — the same config
+  patterns the on-screen warning uses. A match says true; no match still says
+  `unavailable`, never `false`. All four non-auction fixtures stay unflagged.
+- **The measure tool is offered only if the plan loads.** Not "if the value is
+  truthy" — the browser is asked, and the offer is withdrawn if it will not
+  render. The extension gate blocks every portal image and asserts the offer
+  disappears.
 - **The two portals disagree on case** — a Rightmove panel line reads "Terraced",
   a Zoopla one "terraced". Matched case-insensitively in the extension gate
-  rather than quietly normalised, for the same reason.
+  rather than quietly normalised; still unfixed, and cosmetic.
 
 ## Still not verified by anything
 
