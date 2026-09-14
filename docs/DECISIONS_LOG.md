@@ -2,6 +2,101 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-14 — CA1: the area trajectory panel
+
+What an area has actually done with prices, and what the arithmetic says if it
+repeated itself. Never a forecast, and the wording is most of the work.
+
+### The research document did not arrive
+
+The sprint brief said a research document was pasted below it. It was not — the
+message contained the numbered requirements and nothing else. The brief is
+self-sufficient and says "this prompt wins" where the two disagree, so it was
+built to the brief. Nothing here rests on a document I could not read. **If the
+document contained figures or sources beyond the brief, they are not in this
+build.**
+
+### Judgment calls
+
+**1. Variability is shown over twenty years, not the scenarios' ten.**
+The brief anchors the scenarios to the last ten years, and they are. But
+measured over ten years Telford and Wrekin's worst year is +0.2% and not one
+year fell; over twenty it is −14.9% with three falling years. The same holds for
+the West Midlands (−12.8%) and England (−12.1%): the last decade contains no
+housing downturn, so a ten-year window makes every area in the country look like
+it has never fallen. The whole point of that section is to stop the history
+reading as a smooth line, so it uses every year the data gives and names the
+window.
+
+**2. "Fall back to the local authority" became "fall back to the region".**
+The brief says to fall back to the local authority when an area has fewer than
+thirty sales. But UK HPI's smallest geography IS the local authority, so there
+is nothing finer to fall back FROM. The rule is implemented where it can bite:
+the floor guards whatever geography is about to be quoted, and a thin local
+authority steps out to its region — with `fellBackFrom` naming the area it could
+not use, on screen. In today's data no local authority is under thirty (the
+minimum is 96), so this will rarely fire; it is tested with synthetic data.
+
+**3. Affordability is the ONS residence-based ratio, and says so.**
+ONS publishes two house-price-to-earnings ratios. The workplace-based one — the
+more commonly quoted — exists in exactly one form: a single XLSX, updated once a
+year. The residence-based one is published as a keyless CSV at local authority,
+region and country level. They are different numbers for the same place
+(Hartlepool: 4.74 against 4.86). Rather than add a hand-rolled XLSX parser to a
+monthly job, this uses the CSV and NAMES the measure on screen — "ONS
+residence-based ratio, 2025. A workplace-based one exists and differs." Quietly
+serving one under the other's name would have been the dishonest option.
+
+**4. The trailing-year sales count understates, on purpose.**
+UK HPI publishes the index sooner than the sales volume: in the 2026-06 file
+England's last two months carry no volume at all, and the three before them read
+36k, 45k and 45k against a settled run-rate near 65k. The count sums the twelve
+most recent months that HAVE a volume, which means those partial months are
+included as-is. The total therefore reads low. That is the safe direction for a
+floor whose job is to suppress thin data: it can withhold a figure that would
+have been fine, and can never show one that should have been withheld. The copy
+says "registered", and the data publishes the month the window ends at.
+
+**5. Two new data files rather than a field on every sector.**
+The panel needs each sector's local authority, which the published data did not
+carry. Adding a field to the sector files would mean regenerating and
+re-uploading the entire set — hours of pipeline and a great many Class A
+operations — to carry twenty bytes. Instead: `area-codes.json` (interned:
+9,731 sectors against 330 distinct codes) and `area-trajectory.json`. Both are
+fetched only when somebody opens the panel.
+
+**6. Ten years ships, flagged, and the flag is the point.**
+See the report. On a £220,000 property the five-year band is £228k–£347k; the
+ten-year band is £237k–£546k. Ten years is labelled illustrative, the chart
+draws five, and the ten-year block carries its own warning that the honest range
+is very wide.
+
+**7. Two words are exempt from the banned list, and each must be a denial.**
+`areaTrajectory.test.ts` fails on forecast, predict, projected, projection,
+expected and "will be". Two strings are exempt by name — the closed line ("Not
+a forecast") and the honest sentence ("Nobody can forecast a local market") —
+and each is then held to actually containing its denial, so the exemption cannot
+be used to smuggle a claim in under a permitted word.
+
+**8. The honest sentence is over the N5 limit, by name.**
+Three sentences, about forty-five words, recorded as an exemption in
+copy.test.ts with a test that fails if it ever fits the rule (which would mean
+somebody had cut it). It is the disclosure the panel rests on.
+
+### The Deal Score
+
+Untouched, and proved twice. `areaTrajectoryScore.test.ts` scores four real
+deals with the flag forced on and forced off and compares the WHOLE returned
+object, plus a non-vacuity check that the score can move at all; and it asserts
+the boundary structurally — the scoring engine imports nothing from the area
+module, no strategy calculator does either, the panel writes no strategy
+parameter, and the four islands pass it nothing but a sector and a price.
+
+### Rollback
+
+`features.areaTrajectory = false`. The line is not rendered, neither data file
+is fetched, and nothing else on the analyser moves.
+
 ## 2026-09-13 — L1: the page reads in the order it is built in
 
 ### Refurb is its own card, and the verdict moved to the bottom
