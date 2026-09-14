@@ -15,6 +15,7 @@
  * It restores each value before moving on, so one finding cannot mask the next.
  */
 import { chromium } from 'playwright-core';
+import { chromeArgs } from './lib/chrome.mjs';
 
 const B = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -56,7 +57,7 @@ const PREREQUISITE = {
   'sf-opCostPctAgent': { id: 'sf-mgmt', value: 'agent' },
 };
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: CHROME, args: chromeArgs() });
 const dead = [];
 const moved = [];
 

@@ -21,6 +21,7 @@
  * a person would accept out loud.
  */
 import { chromium } from 'playwright-core';
+import { chromeArgs } from './lib/chrome.mjs';
 import { readdirSync, statSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { join, relative, dirname } from 'node:path';
@@ -100,7 +101,7 @@ const withDeal = (p) => {
 };
 
 const pages = builtPages().sort();
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: CHROME, args: chromeArgs() });
 const fails = [];
 
 for (const [vpName, viewport, isMobile] of [['desktop', { width: 1440, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {

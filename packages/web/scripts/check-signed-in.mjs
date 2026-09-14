@@ -53,6 +53,7 @@
  * exists, there is nothing else to load.
  */
 import { chromium } from 'playwright-core';
+import { chromeArgs } from './lib/chrome.mjs';
 import { spawn, execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -144,7 +145,7 @@ try {
     note(`the Worker never came up on ${B}\n${workerLog.slice(-800)}`);
   } else {
     ok(`the Worker is answering on ${B}`);
-    browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+    browser = await chromium.launch({ executablePath: CHROME, args: chromeArgs() });
 
     for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
       console.log(`\n=== ${name} ===`);

@@ -15,6 +15,7 @@
  * schedule beside the journey.
  */
 import { chromium } from 'playwright-core';
+import { chromeArgs } from './lib/chrome.mjs';
 import { mkdirSync } from 'node:fs';
 
 const BASE = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
@@ -38,7 +39,7 @@ const basemapFeatures = (page) => page.evaluate(() => {
   return map.queryRenderedFeatures({ layers: ids }).length;
 }).catch(() => -1);
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: CHROME, args: chromeArgs() });
 
 for (const dev of [
   { name: 'desktop', opts: { viewport: { width: 1280, height: 1000 } } },

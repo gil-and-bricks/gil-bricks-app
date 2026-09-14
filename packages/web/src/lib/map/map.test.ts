@@ -72,7 +72,13 @@ describe('style sanity', () => {
     // from the data host config names, and from nowhere else.
     expect(tilesUrl()).toBe(`pmtiles://${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/map/ew.pmtiles`);
     expect(style.glyphs).toBe('/map/fonts/{fontstack}/{range}.pbf');
+    // ABSOLUTE, not just present. MapLibre rejects a relative sprite URL and
+    // the failure is invisible until the style is RELOADED — a context loss —
+    // at which point the map stops healing itself. `toContain` passed happily
+    // while that was broken (DM1).
     expect(style.sprite).toContain('/map/sprites/v4/dark');
+    expect(style.sprite, 'MapLibre refuses a relative sprite URL').toMatch(/^https:\/\//);
+    expect(() => new URL(style.sprite as string)).not.toThrow();
     const json = JSON.stringify(style);
     expect(json).not.toMatch(/api\.protomaps\.com|demotiles|maptiler|mapbox/);
   });

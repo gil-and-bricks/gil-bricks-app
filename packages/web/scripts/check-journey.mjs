@@ -23,6 +23,7 @@
  * rest is a declared gap, not a covered one.
  */
 import { chromium } from 'playwright-core';
+import { chromeArgs } from './lib/chrome.mjs';
 
 const B = process.argv[2] ?? process.env.BASE ?? 'https://proplaunch.ai';
 const CHROME = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
@@ -47,7 +48,7 @@ const fails = [];
 const note = (step, msg) => { fails.push(`${step}: ${msg}`); console.log(`    ✗ ${msg}`); };
 const ok = (msg) => console.log(`    ✓ ${msg}`);
 
-const browser = await chromium.launch({ executablePath: CHROME, args: ['--no-sandbox'] });
+const browser = await chromium.launch({ executablePath: CHROME, args: chromeArgs() });
 
 for (const [vpName, viewport, isMobile] of [['desktop', { width: 1440, height: 900 }, false], ['phone', { width: 390, height: 844 }, true]]) {
   console.log(`\n=== ${vpName} ===`);

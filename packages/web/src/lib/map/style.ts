@@ -134,12 +134,20 @@ export function buildMapStyle(): MapStyleSpec {
     version: 8,
     // our own origin — never a third-party CDN (GDPR + self-hosting rule)
     glyphs: '/map/fonts/{fontstack}/{range}.pbf',
-    // ROOT-RELATIVE, like the glyphs above. It used to be absolute off
-    // siteConfig.liveUrl, which quietly tied the map to whatever host the app
-    // was served from — and on the old host after the domain move (DM1) that
-    // made the sprite a CROSS-ORIGIN fetch that connect-src would refuse.
-    // Relative, it is correct on every host by construction.
-    sprite: '/map/sprites/v4/dark',
+    /**
+     * ABSOLUTE, AND IT HAS TO BE. MapLibre validates this field and refuses a
+     * root-relative value outright — "Invalid sprite URL …, must be absolute" —
+     * even though `glyphs` one line above is happily relative.
+     *
+     * DM1 tried making it relative, on the reasoning that an absolute URL ties
+     * the map to one host. The basemap still drew, because sprites are only
+     * icons, so it looked fine; what broke was RECOVERY. On a WebGL context
+     * loss the style is reloaded, the sprite URL is re-validated, the style
+     * fails, and the map drops to its fallback instead of healing. The map gate
+     * caught it and nothing else did. map.test.ts now asserts absoluteness so
+     * the unit tests catch it too.
+     */
+    sprite: `${siteConfig.liveUrl.replace(/\/+$/, '')}/map/sprites/v4/dark`,
     sources: {
       protomaps: {
         type: 'vector',
