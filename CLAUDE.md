@@ -188,6 +188,20 @@ never states or implies a decision about anyone's finance.
   is appended at map mount, after ours, so equal specificity loses. Assert the
   computed value or the pixels — a test that greps our own file for a
   declaration passes while the browser ignores it (C3).
+- A test that reads `.output`, `dist/` or any BUILT artefact must be the file
+  that OWNS the build. Vitest runs files in parallel, so a second file reading
+  the same directory races a rebuild — and the `if (x === null) return;` someone
+  added to stop the flake makes six assertions pass in silence. The extension's
+  manifest gates sat like that for weeks (M5).
+- A skipped test is a LIE unless the skip itself fails. `if (manifest === null)
+  return;` and `if (!existsSync(p)) return;` are the shape. Assert the
+  precondition, loudly, with the command that fixes it.
+- Never assert with `toContain` when the claim is "ONLY". Four `toContain` calls
+  proving four good origins are present said nothing about a fifth hostile one,
+  and the test's own title said "only" (M5). Compare the SET.
+- A selector in a gate must exist. `.board-live` did not, so the check silently
+  fell back to `main` and passed by coincidence — the parked section happened to
+  be collapsed (M5). Grep for the class before you assert on it.
 - When you get something wrong, add a line here so it never repeats.
 
 ## Do NOT (permanent exclusions)
