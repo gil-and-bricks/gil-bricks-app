@@ -111,6 +111,24 @@ try {
 /* ── boot the real Worker over a throwaway database ─────────────────────── */
 const state = mkdtempSync(join(tmpdir(), 'gb-signed-in-'));
 const FAKE = [
+  /**
+   * THE HOSTNAME THE LOCAL WORKER THINKS IT IS SERVING.
+   *
+   * WITHOUT THIS THE DEV DOOR IS SHUT AND THE GATE CANNOT SIGN IN. wrangler
+   * takes the hostname a locally-run Worker sees from the first `routes` entry
+   * in wrangler.jsonc, so the moment the product got its own domain (DM1) the
+   * Worker booted here started seeing `http://proplaunch.ai/...` instead of
+   * `http://localhost:PORT/...` — on a server reachable only on localhost.
+   *
+   * `isDevEnv` (worker/dev.ts) requires a localhost host, and that requirement
+   * is exactly what keeps /auth/dev-login inert in production. So every
+   * dev-only route began answering a bare 404 and this gate could not sign in.
+   * The guard was right; the boot was wrong.
+   *
+   * `--local-upstream` is the local-mode knob for precisely this ("Host to act
+   * as origin in local mode"). Nothing about the product's own gate is relaxed.
+   */
+  '--local-upstream', 'localhost',
   '--var', 'DEV_LOGIN:on',
   '--var', 'JWT_SECRET:gate-only-not-a-real-secret',
   '--var', 'GOOGLE_CLIENT_SECRET:not-a-real-secret',
@@ -145,6 +163,34 @@ try {
     note(`the Worker never came up on ${B}\n${workerLog.slice(-800)}`);
   } else {
     ok(`the Worker is answering on ${B}`);
+
+    /**
+     * THE DEV DOOR, ASKED BEFORE A BROWSER IS EVEN LAUNCHED.
+     *
+     * Everything this gate does starts with signing in through /auth/dev-login,
+     * and that route is guarded by `isDevEnv` — DEV_LOGIN set AND a localhost
+     * host. When the guard refuses, the route answers a bare 404 exactly as if
+     * it did not exist, the browser lands on a 404 page, and the only thing the
+     * gate used to say was "signing in did not land on the board", which names
+     * neither the cause nor the fix. That symptom cost an hour once (DM1).
+     *
+     * Asked here, with the two reasons it can fail spelled out.
+     */
+    const doorCode = await fetch(`${B}/auth/dev-login`, { redirect: 'manual' })
+      .then((r) => r.status, () => 0);
+    if (doorCode !== 302) {
+      const seen = await fetch(`${B}/api/health`).then((r) => r.url, () => '');
+      note([
+        `the dev door is shut: GET /auth/dev-login answered ${doorCode}, expected 302.`,
+        `    Nothing below can run. isDevEnv (worker/dev.ts) needs BOTH:`,
+        `      1. DEV_LOGIN=on  — passed on the command line above, so this is rarely it;`,
+        `      2. a localhost request host — and wrangler takes the host a LOCAL Worker`,
+        `         sees from the first "routes" entry in wrangler.jsonc, not from --port.`,
+        `    If wrangler.jsonc has a custom-domain route, boot with --local-upstream localhost`,
+        `    (this script already does). Health check resolved as: ${seen || 'unknown'}`,
+      ].join('\n'));
+    } else {
+    ok('the dev door is open on this local Worker (302 to the board)');
     browser = await chromium.launch({ executablePath: CHROME, args: chromeArgs() });
 
     for (const [name, viewport] of [['desktop', { width: 1440, height: 900 }], ['phone', { width: 390, height: 844 }]]) {
@@ -342,6 +388,7 @@ try {
       if (noise.length === 0) ok('nothing in the browser complained, all the way through');
       await ctx.close();
     }
+  }
   }
 } finally {
   await browser?.close().catch(() => undefined);
