@@ -1,13 +1,10 @@
 import { defineContentScript } from '#imports';
-import {
-  isListingUrl, pageFindings, portalForUrl, priceBand, getSector, postcodeToSector,
-  sectorTypeLetter, salesFromSector, type BandOutcome, type NormalisedListing,
-} from '@gil-bricks/core';
+import { isListingUrl, pageFindings, portalForUrl } from '@gil-bricks/core';
 import { coreConfig, EXTENSION_FLAGS } from '@gil-bricks/core/config';
 import { extractCurrentPage, EXTRACT_MESSAGE } from '../src/extractPage';
 import { mountOpener, retireOpener, OPENER_CSS, OPEN_PANEL_MESSAGE, PANEL_OPEN_MESSAGE } from '../src/opener';
 import { mountChips, removeChips } from '../src/chips';
-import { lookupEpcArea } from '../src/epcLookup';
+import { priceFor } from '../src/price';
 import { getOpenerHidden, setOpenerHidden, getChipsHidden, setChipsHidden, getChipsOn } from '../src/store';
 
 /**
@@ -22,55 +19,6 @@ import { getOpenerHidden, setOpenerHidden, getChipsHidden, setChipsHidden, getCh
  * (see src/opener.ts), and a click on our own button is the one gesture the API
  * accepts from a content script.
  */
-/**
- * X4 — THE PRICE POSITION, FOR THE PAGE THE PERSON IS ACTUALLY ON.
- *
- * Everything else the extension puts on a portal's page is a worry or a gap.
- * This is the one thing that is neither, and the one thing nobody else can
- * give them: the asking price against what similar-sized homes of the same type
- * actually SOLD for nearby — Land Registry joined to EPC floor areas.
- *
- * TWO CHEAP READS, BOTH ALREADY PERMITTED. The sector file is 3-4KB and the data
- * host answers `access-control-allow-origin: *`, so a content script may fetch
- * it directly; the EPC lookup goes through our own Worker on proplaunch.ai,
- * which is already in host_permissions. Nothing new is asked for.
- *
- * IT REFUSES OFTEN, AND THAT IS THE DESIGN. No floor area, fewer than five
- * comparable sales, a spread too wide to have a middle — each returns null and
- * the box simply carries the chips. A missing line is a state, not a failure.
- */
-async function priceFor(listing: NormalisedListing): Promise<BandOutcome | null> {
-  try {
-    const postcode = listing.postcode.value;
-    const price = listing.askingPrice.value;
-    if (!postcode || !price) return null;
-    const pc = postcodeToSector(postcode);
-    if (!pc.inEnglandWales) return null;
-
-    // The listing's own size where it gives one; the EPC register where it does
-    // not. We never ask the person for it — that is ours to fetch.
-    let area = listing.floorAreaSqm.status === 'found' ? listing.floorAreaSqm.value : null;
-    if (!area && listing.address.value?.paon) {
-      const got = await lookupEpcArea(postcode, listing.address.value.paon, listing.address.value.saon ?? '');
-      if (got.ok && got.source === 'register') area = got.sqm;
-    }
-    if (!area || area <= 0) return null;
-
-    const sector = await getSector(pc.sector);
-    const band = priceBand({
-      type: sectorTypeLetter(listing.propertyType.value),
-      floorAreaSqm: area,
-      askingPrice: price,
-      sales: salesFromSector(sector),
-      now: new Date(),
-    });
-    return band;
-  } catch {
-    // A page we do not own is the last place to surface our own plumbing.
-    return null;
-  }
-}
-
 export default defineContentScript({
   matches: ['*://*.rightmove.co.uk/*', '*://*.zoopla.co.uk/*'],
   runAt: 'document_idle',

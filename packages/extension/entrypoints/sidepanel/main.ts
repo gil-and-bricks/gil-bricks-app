@@ -56,8 +56,8 @@ import {
   TRIAGE_COPY,
   FINDING_COPY,
   triageNumbers,
-  priceBand,
-  sectorTypeLetter,
+  bandForListing,
+  resolveListingArea,
   salesFromSector,
   detectFlags,
   nearestSectors,
@@ -883,16 +883,31 @@ async function todaysAttention(): Promise<number> {
 /** The ctx for the currently-loaded listing — a stale fetch only acts on this one. */
 let activeCtx: Ctx | null = null;
 
+/**
+ * X5 — the band the panel LAST DISPLAYED, for the cross-surface test.
+ *
+ * The panel and the chips on the portal's page must produce the same comparison
+ * for the same property, and "must" is only worth anything if something checks.
+ * This is the panel's half of that check: what it actually rendered, not what a
+ * test rebuilt from the same inputs and called agreement.
+ */
+let lastBandForTest: BandOutcome | null = null;
+export const __lastBand = (): BandOutcome | null => lastBandForTest;
+
+/**
+ * X5 — the ORDER lives in core (`resolveListingArea`), shared with the chips on
+ * the portal's page. What stays here is the display-only `range`, which the box
+ * has no use for: a listing that gives "70-80 m²" has given a span, and only the
+ * panel has room to say so.
+ */
 function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['floorAreaSource']; range: PanelView['floorAreaRange'] } {
   const l = ctx.listing!;
   const range = l.floorAreaSqmRange.status === 'found' ? l.floorAreaSqmRange.value : null;
-  if (l.floorAreaSqm.status === 'found' && l.floorAreaSqm.value) return { sqm: l.floorAreaSqm.value, source: 'listing', range };
-  // The REGISTER first: it is the real certificate, and it answers for houses
-  // that have not sold in twenty years — which our sold-data join never could.
-  if (ctx.registerArea) return { sqm: ctx.registerArea.sqm, source: 'epc-register', range: null };
-  const epc = floorAreaFromSector(ctx.sector, l.address.value, l.postcode.value);
-  if (epc) return { sqm: epc, source: 'epc-sector', range: null };
-  return { sqm: null, source: 'none', range: null };
+  const got = resolveListingArea(
+    { listing: l, sector: ctx.sector, registerAreaSqm: ctx.registerArea?.sqm ?? null },
+    floorAreaFromSector,
+  );
+  return { sqm: got.sqm, source: got.source, range: got.source === 'listing' ? range : null };
 }
 
 /**
@@ -943,14 +958,15 @@ function draw(ctx: Ctx): void {
     country, depositPct, legals, funding,
   });
 
-  const band = priceBand({
-    type: sectorTypeLetter(ctx.listing.propertyType.value),
-    floorAreaSqm: fa.sqm ?? 0,
-    askingPrice: ctx.listing.askingPrice.value ?? 0,
-    sales: salesFromSector(ctx.sector),
-    widerSales: ctx.widerSales ?? undefined,
+  // X5 — the ONE assembly, shared with the chips. Neither surface owns a copy.
+  const { band } = bandForListing({
+    listing: ctx.listing,
+    sector: ctx.sector,
+    registerAreaSqm: ctx.registerArea?.sqm ?? null,
+    widerSales: ctx.widerSales,
     now: new Date(),
-  });
+  }, floorAreaFromSector);
+  lastBandForTest = band;
 
   const flags = detectFlags({
     text: `${ctx.listing.description.value ?? ''}`,
@@ -1075,11 +1091,10 @@ async function lookupArea(ctx: Ctx): Promise<void> {
 async function widenIfNeeded(ctx: Ctx, faSqm: number | null): Promise<void> {
   if (!ctx.sectorId || !ctx.listing || ctx.widerSales !== null) return;
   if (!faSqm || faSqm <= 0) return;
-  const first = priceBand({
-    type: sectorTypeLetter(ctx.listing.propertyType.value), floorAreaSqm: faSqm,
-    askingPrice: ctx.listing.askingPrice.value ?? 0,
-    sales: salesFromSector(ctx.sector), now: new Date(),
-  });
+  const first = bandForListing({
+    listing: ctx.listing, sector: ctx.sector,
+    registerAreaSqm: ctx.registerArea?.sqm ?? null, now: new Date(),
+  }, floorAreaFromSector).band;
   if (first.kind !== 'none' || first.reason !== 'too-few') return;
   try {
     const index = await getSectorsIndex();
@@ -1216,6 +1231,12 @@ export function __mountForTest(
   opts: {
     sector?: SectorFile | null; strategy?: StrategyId; settings?: Record<string, string>;
     criteria?: Criteria; sectorLoad?: SectorLoad; manualPaon?: string; widerSales?: BandSale[] | null;
+    /**
+     * X5 — what the EPC register answered, as `lookupArea` would have set it.
+     * Present so a test can hand the panel and the chips the SAME register
+     * answer rather than doctoring a listing for one of them.
+     */
+    registerAreaSqm?: number | null;
   } = {},
 ): void {
   const ctx: Ctx = {
@@ -1224,7 +1245,8 @@ export function __mountForTest(
     sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null,
     widerSales: opts.widerSales ?? null,
     ewReject: null, ewRejectReason: null,
-    manualPaon: opts.manualPaon ?? '', registerArea: null,
+    manualPaon: opts.manualPaon ?? '',
+    registerArea: typeof opts.registerAreaSqm === 'number' ? { sqm: opts.registerAreaSqm } : null,
     openerHidden: false, reminders: true, chipsOn: false, attention: 0,
     sectorLoad: opts.sectorLoad ?? 'ok',
   };

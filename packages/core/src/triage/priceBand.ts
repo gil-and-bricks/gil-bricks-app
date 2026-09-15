@@ -35,6 +35,9 @@
  * that describes no actual house.
  */
 
+import type { ListingAddress, NormalisedListing } from '../listing/types';
+import type { SectorFile } from '../data/types';
+
 /** One sold record, as the sector files carry them. */
 export interface BandSale {
   date: string;
@@ -173,4 +176,100 @@ export function salesFromSector(
     floorAreaSqm: typeof s.floorAreaSqm === 'number' ? s.floorAreaSqm : null,
     ppsqm: typeof s.ppsqm === 'number' ? s.ppsqm : null,
   }));
+}
+
+/**
+ * X5 — ONE ASSEMBLY OF THE PRICE COMPARISON, FOR EVERY SURFACE THAT SHOWS IT.
+ *
+ * `priceBand` is the maths and always was shared. What was NOT shared was the
+ * work of deciding what to hand it — which floor area to use, and whether to
+ * widen — and two surfaces had grown two different answers:
+ *
+ *   THE PANEL resolved the area from the listing, then the EPC register, then
+ *     the sector's own EPC-joined sold data, and passed `widerSales` so a thin
+ *     sector could widen to its neighbours.
+ *   THE BOX on the portal's page resolved the area from the listing and the
+ *     register only, and never widened at all.
+ *
+ * Measured on one real listing with one sector: the panel returned a widened
+ * range and the box returned "too few". Same property, same data, two answers,
+ * on two surfaces a person can have open at once.
+ *
+ * That is the fault this project keeps meeting — two paths agreeing until one
+ * changes — so the assembly lives here now and neither surface owns a copy.
+ */
+
+/** Where a floor area came from. `none` means nothing could supply one.
+ *  Named for the LISTING to avoid colliding with the EPC module's own AreaSource. */
+export type ListingAreaSource = 'listing' | 'epc-register' | 'epc-sector' | 'none';
+
+export interface ResolveAreaInput {
+  listing: Pick<NormalisedListing, 'floorAreaSqm' | 'address' | 'postcode'>;
+  /** The subject's own sector, whose sold rows carry EPC-joined floor areas. */
+  sector: SectorLike | null;
+  /** What the EPC register answered, where it was asked. */
+  registerAreaSqm?: number | null;
+}
+
+/**
+ * The sector, as both callers hold it. Typed as the real thing rather than a
+ * narrow shape: the area lookup this takes as a callback reads more of it than
+ * the band does, and a loose type here just moves the cast somewhere worse.
+ */
+export type SectorLike = SectorFile;
+
+/** The signature of `floorAreaFromSector`, which both callers pass in. */
+export type AreaFromSector = (
+  sector: SectorFile | null | undefined,
+  address: ListingAddress | null | undefined,
+  postcode?: string | null,
+) => number | null;
+
+/**
+ * THE ORDER, AND WHY IT IS THIS ORDER. The listing's own figure first, because
+ * it is what the seller published. Then the EPC register, which is the real
+ * certificate and answers for houses that have not sold in twenty years. Then
+ * the sector's own sold data, which can only answer where this address has sold
+ * before. Anything else is nothing, and nothing is an honest answer.
+ */
+export function resolveListingArea(
+  input: ResolveAreaInput,
+  fromSector: AreaFromSector,
+): { sqm: number | null; source: ListingAreaSource } {
+  const l = input.listing;
+  if (l.floorAreaSqm.status === 'found' && l.floorAreaSqm.value) {
+    return { sqm: l.floorAreaSqm.value, source: 'listing' };
+  }
+  const reg = input.registerAreaSqm;
+  if (typeof reg === 'number' && reg > 0) return { sqm: reg, source: 'epc-register' };
+  const fromSold = fromSector(input.sector, l.address.value, l.postcode.value);
+  if (fromSold) return { sqm: fromSold, source: 'epc-sector' };
+  return { sqm: null, source: 'none' };
+}
+
+export interface BandForListingInput extends ResolveAreaInput {
+  listing: NormalisedListing;
+  /** Neighbouring sectors' sales, used ONLY if the subject's cannot reach five. */
+  widerSales?: readonly BandSale[] | null;
+  now: Date;
+}
+
+/**
+ * The comparison one surface should show for one listing, and the area it rests
+ * on. Every caller gets the same answer because there is only one of these.
+ */
+export function bandForListing(
+  input: BandForListingInput,
+  fromSector: AreaFromSector,
+): { band: BandOutcome; areaSqm: number | null; areaSource: ListingAreaSource } {
+  const area = resolveListingArea(input, fromSector);
+  const band = priceBand({
+    type: sectorTypeLetter(input.listing.propertyType.value),
+    floorAreaSqm: area.sqm ?? 0,
+    askingPrice: input.listing.askingPrice.value ?? 0,
+    sales: salesFromSector(input.sector),
+    widerSales: input.widerSales ?? undefined,
+    now: input.now,
+  });
+  return { band, areaSqm: area.sqm, areaSource: area.source };
 }
