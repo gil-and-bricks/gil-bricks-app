@@ -35,6 +35,8 @@ function listing(over: Partial<NormalisedListing> = {}): NormalisedListing {
     floorPlanImageUrls: missing(), photoUrls: missing(), newBuild: found(false),
     listingUpdate: missing(), firstVisibleDate: missing(),
     description: found('A terrace.'), isAuction: unavailable(),
+  epcUrls: unavailable(), councilTaxBand: unavailable(), leaseYearsRemaining: unavailable(),
+  annualGroundRent: unavailable(), annualServiceCharge: unavailable(),
     ...over,
   } as NormalisedListing;
 }

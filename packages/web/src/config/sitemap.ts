@@ -24,6 +24,8 @@ import { features } from './features';
 export const HIDDEN_FROM_SEARCH: readonly string[] = [
   '/account',
   '/deals',
+  // X2 — one of somebody's own deals. As private as the board it came from.
+  '/deals/deal',
   '/start',
   '/styleguide',
   '/terms',

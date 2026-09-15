@@ -1,7 +1,7 @@
 {
   "portal": "rightmove",
   "extractorVersion": "rm-1.0.0",
-  "configVersion": "2026-09-02",
+  "configVersion": "2026-09-15",
   "source": "embedded",
   "listingId": {
     "value": "167112923",
@@ -104,5 +104,27 @@
   "isAuction": {
     "value": true,
     "status": "found"
+  },
+  "epcUrls": {
+    "value": [
+      "https://media.rightmove.co.uk/property-epc/4f7b438cb/167112923/4f7b438cb5e6a52a083fc754086e458f.png"
+    ],
+    "status": "found"
+  },
+  "councilTaxBand": {
+    "value": "B",
+    "status": "found"
+  },
+  "leaseYearsRemaining": {
+    "value": null,
+    "status": "missing"
+  },
+  "annualGroundRent": {
+    "value": null,
+    "status": "missing"
+  },
+  "annualServiceCharge": {
+    "value": null,
+    "status": "missing"
   }
 }

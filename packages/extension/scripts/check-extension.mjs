@@ -307,6 +307,20 @@ async function walk(testCase) {
          * carries no score, since the two went in the same sprint and a score
          * creeping back is the regression that matters most.
          */
+        /**
+         * X2 — WITH THE CHIPS SWITCH OFF, NOTHING IS ON THEIR PAGE.
+         *
+         * `EXTENSION_FLAGS.onPageChips` defaults to false because Rightmove's
+         * terms of use clause 8.3 prohibits a user overlaying material on their
+         * platform, and that is the operator's call rather than our default.
+         * This is the gate that says the default is real: the built extension,
+         * on a real listing, in a real Chrome, injects nothing at all.
+         */
+        const injected = await listing.locator('gb-findings').count();
+        if (injected > 0) {
+          problems.push(`the on-page chips injected ${injected} element(s) while the switch is OFF`);
+        } else ok('and with the chips switch off, nothing is injected on their page');
+
         const measureGone = await panel.getByRole('button', { name: /measure|Measure/ }).count();
         if (measureGone > 0) problems.push('the measure tool is back on the panel — X1 removed it');
         else ok('the measure tool is gone');

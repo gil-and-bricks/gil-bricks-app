@@ -527,10 +527,23 @@
    which a stage can be pushed out of view. (The old `min-width: 720px` block that
    made this a scrolling row is deliberately gone — see the note above.) */
 
-/* The card: glass + thin lime border, readable in a second. A link that re-opens
-   the analyser with the deal's state restored (read-only this sprint). */
+/* The card: glass + thin lime border, readable in a second. Tapping it opens the
+   DEAL'S OWN PAGE, where everything that is not a glance now lives.
+
+   X2 — EVERY CARD IS THE SAME SIZE. Before this, a card grew a block because
+   this deal happened to carry a survey, or a change nobody had read yet, and
+   its neighbour did not — so the board was a jumble, and the one thing a board
+   is for is comparing things at a glance, which you cannot do when they are not
+   the same shape.
+
+   The height is FIXED rather than min-height'd, because a minimum is not a
+   promise: one long verdict line and the card is taller again. The two lines
+   that can run long are clamped, and the rest of the card is a known number of
+   fixed rows, so this height is the sum of its parts rather than a guess. */
 .deal-card {
   display: flex; flex-direction: column; gap: var(--space-3);
+  height: 15.5rem;
+  overflow: hidden;
   padding: var(--pad-card);
   background: var(--glass-bg);
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -568,7 +581,14 @@
   font-weight: 700; font-size: var(--text-sm); line-height: 1.3;
   letter-spacing: 0.01em;
   /* Two lines reserved: nearly every address takes one or two, so this is the
-     card's identity slot rather than a hole (P12). A longer one still runs on. */
+     card's identity slot rather than a hole (P12).
+     X2 — and now two lines is also the CEILING. It used to say "a longer one
+     still runs on", which was fine when the card grew with it; with a fixed
+     card height a third line ran straight into the score beneath it. Measured
+     at 306px wide: an 86-character address took three lines and overlapped the
+     7.2 under it. Clamped, with the ellipsis doing the honest thing. */
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden;
   min-height: calc(1.3em * 2);
 }
 /* the answer sits immediately under the address it belongs to */
@@ -2020,6 +2040,63 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
   .at-record, .at-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 0 var(--space-4); }
 }
 
+/* ── X2: the board's notices, and the deal's own page ───────────────────────
+   The four things that need you — a changed answer, a moved score, chain risk,
+   a re-trade — used to sit inside the cards, which is most of why no two were
+   the same height. They are notifications about a deal rather than card
+   furniture, so they moved up here where something demanding attention belongs,
+   keeping every action they had. */
+.board-notices { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
+
+/* The verdict and the step are the only two lines on a card that can run long,
+   so they are the two that are clamped. Everything else is one fixed row. */
+.deal-card .dc-verdict {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+/* ONE line, not two. Two was enough room in principle and not in practice: the
+   card's own overflow then sliced the second line in half, which looks like a
+   rendering fault rather than a deliberate truncation. One line, ellipsed, and
+   the whole step is on the deal's own page. */
+.deal-card .dc-step {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+/* The actions sit on the floor of the card, so every card's controls line up
+   across a row whatever the verdict above them did. */
+.deal-card .dc-actions { margin-top: auto; }
+
+/* The deal's own page. Room to explain, which a card never had. */
+.dp { display: flex; flex-direction: column; gap: var(--space-4); }
+.dp-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.dp-title { margin: 0; font-family: var(--font-display); font-size: var(--text-lg); }
+.dp-meta { display: flex; align-items: center; gap: var(--space-3); margin: 0; }
+.dp-verdict { margin: 0; }
+.dp-step { margin: 0; color: var(--dim); }
+.dp-h2 { margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: var(--text-md); }
+.dp-state { padding: var(--space-4) 0; color: var(--dim); }
+.dp-actions { display: flex; align-items: center; gap: var(--space-4); margin: 0; }
+.dp-back { color: var(--accent); }
+.dd { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* The two groups of findings. Told apart by a heading AND an edge colour, never
+   by colour alone. */
+.df { display: flex; flex-direction: column; gap: var(--space-3); }
+.df-group { padding-left: var(--space-3); border-left: 3px solid var(--line); }
+/* The tone names come from core (FINDING_TONE), so the two kinds are coloured
+   the same here as on the chips the extension puts on the portal's page. They
+   are pink and yellow, not risk and gap — an earlier cut of this styled
+   `.df-risk`, which no element has ever had, so the edge simply did not draw. */
+.df-pink { border-left-color: var(--action); }
+.df-yellow { border-left-color: var(--verdict-amber); }
+.df-head { margin: 0 0 var(--space-2); font-family: var(--font-display); font-size: var(--text-sm); }
+.df-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.df-item { display: flex; flex-direction: column; gap: 2px; }
+.df-label { font-weight: 600; }
+.df-why { color: var(--dim); font-size: var(--text-xs); line-height: 1.45; }
+.df-none { margin: 0; }
+.df-none-why { margin: 0; color: var(--dim); font-size: var(--text-xs); line-height: 1.45; }
+
 /* ---------- R3: the listing photo carousel --------------------------------
    Namespaced rc- throughout, so deleting this block removes the whole visual
    design of the feature and nothing else. It sits ABOVE the itemised list and
@@ -2107,3 +2184,4 @@ html[data-verdict] .sticky-verdict { margin-top: calc(-1 * var(--sv-reserve)); }
 .rc-tip-means { font-size: var(--text-sm); }
 .rc-tip-caveat, .rc-tip-reg { font-size: var(--text-xs); color: var(--text-dim); }
 .rc-tick { align-self: flex-start; margin-top: var(--space-2); }
+

@@ -101,3 +101,14 @@ export const setNotifiedKeys = (keys: string[]) => setLocal('gb:notifiedKeys', k
 export interface AttentionSnapshot { count: number; at: number }
 export const getAttention = () => getLocal<AttentionSnapshot>('gb:attention', { count: 0, at: 0 });
 export const setAttention = (a: AttentionSnapshot) => setLocal('gb:attention', a);
+
+/**
+ * X2 — the on-page chips, hidden for ONE property.
+ *
+ * Keyed by listing id, so hiding them on a flat you have already decided about
+ * never hides them on the next one. "Hide" has to mean hide, and it has to mean
+ * hide only what they were looking at.
+ */
+const chipsKey = (id: string): string => `gb:chips-hidden:${id}`;
+export const getChipsHidden = (id: string) => getLocal<boolean>(chipsKey(id), false);
+export const setChipsHidden = (id: string) => setLocal(chipsKey(id), true);

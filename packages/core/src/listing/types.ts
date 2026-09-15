@@ -68,6 +68,34 @@ export interface NormalisedListing {
   firstVisibleDate: Field<string>;
   description: Field<string>;
   isAuction: Field<boolean>;
+
+  /**
+   * X2 — THE FIVE FIELDS A LISTING IS SUPPOSED TO CARRY AND OFTEN DOES NOT.
+   *
+   * These exist so the product can say "the listing does not give this", which
+   * is a fair question for the agent and a small signal in itself. They are read
+   * for exactly one purpose and the THREE-WAY STATUS IS THE WHOLE POINT:
+   *
+   *   found       — the portal published it, and here it is.
+   *   missing     — this portal publishes this field, and this listing has not
+   *                 filled it in. THIS is the only status that may raise a chip.
+   *   unavailable — this portal never exposes it at all. Saying "no ground rent"
+   *                 because Zoopla does not publish ground rent would be us
+   *                 inventing a fact about a lease from our own blind spot.
+   *
+   * Nothing downstream may collapse those last two together. See
+   * `packages/core/src/findings/`.
+   */
+  /** EPC certificate images/PDFs the listing carries. Empty array = none given. */
+  epcUrls: Field<string[]>;
+  /** Council tax band letter, e.g. "B". */
+  councilTaxBand: Field<string>;
+  /** Years left on the lease. Only meaningful on a leasehold listing. */
+  leaseYearsRemaining: Field<number>;
+  /** Annual ground rent in £. */
+  annualGroundRent: Field<number>;
+  /** Annual service charge in £. */
+  annualServiceCharge: Field<number>;
 }
 
 /** Why an extraction failed — the UI turns these into plain English. */

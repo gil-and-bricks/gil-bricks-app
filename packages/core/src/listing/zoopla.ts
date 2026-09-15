@@ -49,6 +49,37 @@ function addressFrom(displayAddress: string | undefined, paon: string | undefine
   return Object.keys(addr).length ? addr : null;
 }
 
+/**
+ * X2 — read one entry out of Zoopla's "More information" detail list.
+ *
+ * Those entries are objects shaped {title, value, key, description}, and the
+ * KEY comes AFTER the value — so `valueAfter(flight, key)` returns the
+ * description, not the figure. This finds the object by its key and reads the
+ * value that belongs to it.
+ *
+ * The flight text holds PLAIN JSON — `"key":"council_tax_band"`, not escaped
+ * quotes. It reads as escaped when you print it, because printing it escapes it;
+ * matching the printed form finds nothing at all, silently, on every listing.
+ *
+ * Three outcomes, kept apart on purpose:
+ *   undefined — no such entry on the page: this portal is not publishing it.
+ *   null      — the entry is there and says "Not available": the LISTING does
+ *               not give it, which is a fair thing to point out.
+ *   string    — the actual value.
+ */
+export function zooplaDetailValue(flight: string, key: string): string | null | undefined {
+  const at = flight.indexOf(`"key":"${key}"`);
+  if (at < 0) return undefined;
+  // Walk back to the start of this object and read its "value" member.
+  const start = flight.lastIndexOf('{', at);
+  if (start < 0) return undefined;
+  const m = /"value":"([^"]*)"/.exec(flight.slice(start, at));
+  if (!m) return null;
+  const v = m[1].trim();
+  if (v === '' || /^not available$/i.test(v) || /^unknown$/i.test(v)) return null;
+  return v;
+}
+
 function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, url?: string): NormalisedListing {
   const p = config.zoopla.paths;
   const ld = getLdJson(doc, config.zoopla.fallback.ldType)[0] ?? {};
@@ -68,6 +99,28 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
   const displayAddress = valueAfter(flight, p.displayAddress) as string | undefined;
   const paon = valueAfter(flight, p.propertyNumberOrName) as string | undefined;
   const town = valueAfter(flight, p.postTownName) as string | undefined;
+
+  /**
+   * X2 — WHAT ZOOPLA PUBLISHES, AND WHAT IT SIMPLY DOES NOT.
+   *
+   * Zoopla's model carries an `epc` object and a council-tax entry in its detail
+   * list. It carries NOTHING for lease length, ground rent or service charge —
+   * not an empty field, no field at all. So those three are `unavailable` here
+   * and can never raise a chip: telling somebody a lease has no ground rent
+   * because Zoopla does not publish ground rent would be inventing a fact about
+   * their lease out of our own blind spot.
+   *
+   * Council tax is the interesting one. Zoopla prints the words "Not available"
+   * as the VALUE when an agent has not supplied a band — which is the listing
+   * saying it does not know, not the portal failing to publish. That is exactly
+   * `missing`, and it is read as such.
+   */
+  const epcObj = valueAfter(flight, p.epc) as Record<string, unknown> | null | undefined;
+  const hasEpcField = epcObj !== undefined;
+  const epcUrls = epcObj && typeof epcObj === 'object'
+    ? Object.values(epcObj).filter((v): v is string => typeof v === 'string' && /^https?:\/\//i.test(v))
+    : [];
+  const ctBandRaw = zooplaDetailValue(flight, p.councilTaxBandKey);
 
   const postcode =
     typeof postalCodeRaw === 'string' && postalCodeRaw
@@ -178,6 +231,15 @@ function fromEmbedded(doc: Document, flight: string, config: ExtractorConfig, ur
     firstVisibleDate: fieldOf(typeof publishedOn === 'string' ? toIsoDate(publishedOn) ?? publishedOn : null),
     description: fieldOf(typeof ld.description === 'string' ? ld.description : null),
     isAuction: typeof pricing?.isAuction === 'boolean' ? found(pricing.isAuction) : missing<boolean>(),
+
+    // X2 — see the note above. Two Zoopla publishes, three it does not.
+    epcUrls: hasEpcField ? found(epcUrls) : unavailable<string[]>(),
+    councilTaxBand: ctBandRaw === undefined
+      ? unavailable<string>()
+      : (ctBandRaw === null ? missing<string>() : found(ctBandRaw)),
+    leaseYearsRemaining: unavailable<number>(),
+    annualGroundRent: unavailable<number>(),
+    annualServiceCharge: unavailable<number>(),
   };
 }
 
@@ -224,6 +286,13 @@ function fromFallback(doc: Document, config: ExtractorConfig, url?: string): Nor
     firstVisibleDate: fieldOf(typeof ld.datePosted === 'string' ? toIsoDate(ld.datePosted) ?? ld.datePosted : null),
     description: fieldOf(description),
     isAuction: unavailable<boolean>(),
+    // The fallback path never read the flight model, so it knows nothing about
+    // any of these — `missing` would blame the agent for our own parse failure.
+    epcUrls: unavailable<string[]>(),
+    councilTaxBand: unavailable<string>(),
+    leaseYearsRemaining: unavailable<number>(),
+    annualGroundRent: unavailable<number>(),
+    annualServiceCharge: unavailable<number>(),
   };
 }
 

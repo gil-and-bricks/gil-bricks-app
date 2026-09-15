@@ -92,6 +92,30 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
   const auctionRaw = getPath(pd, p.auction);
   const descriptionRaw = getPath(pd, p.description) as string | undefined;
 
+  /**
+   * X2 — the five fields a listing is supposed to carry. Rightmove publishes all
+   * five in its page model, so every one of them is genuinely readable here and
+   * an absence is genuinely the LISTING's absence, not ours.
+   *
+   * `livingCosts` and `tenure` are objects the model always emits; their members
+   * are null when the agent left them blank. So the OBJECT's presence is what
+   * separates "this portal does not do this" from "this agent did not fill it
+   * in" — without that check, a Rightmove redesign that dropped livingCosts
+   * entirely would turn every listing in the country into "no council tax band".
+   */
+  const epcGraphs = getPath(pd, p.epcGraphs);
+  const epcUrls = Array.isArray(epcGraphs)
+    ? epcGraphs.map((g) => (g as { url?: string })?.url).filter((u): u is string => typeof u === 'string' && /^https:\/\//i.test(u))
+    : null;
+  const livingCosts = getPath(pd, 'livingCosts');
+  const hasLivingCosts = livingCosts !== null && typeof livingCosts === 'object';
+  const tenureObj = getPath(pd, 'tenure');
+  const hasTenureObj = tenureObj !== null && typeof tenureObj === 'object';
+  const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null);
+  const ctBand = getPath(pd, p.councilTaxBand);
+  // Rightmove writes 0 for "not stated", which is not a lease of zero years.
+  const leaseYears = num(getPath(pd, p.leaseYearsRemaining));
+
   return {
     portal: 'rightmove',
     extractorVersion: RIGHTMOVE_EXTRACTOR_VERSION,
@@ -137,6 +161,32 @@ function fromEmbedded(pd: Record<string, unknown>, config: ExtractorConfig, url?
     isAuction: typeof auctionRaw === 'boolean'
       ? found(auctionRaw)
       : (auctionInWording(descriptionRaw, config.signals) ? found(true) : unavailable<boolean>()),
+
+    // X2 — see the note above the reads. `missing` only where the container was
+    // there and the value was not; `unavailable` where the container itself has
+    // gone, because that is our blind spot and not the listing's omission.
+    epcUrls: Array.isArray(epcGraphs) ? found(epcUrls ?? []) : unavailable<string[]>(),
+    /**
+     * A BAND IS A LETTER. Rightmove writes the sentinel "DELETED" where a band
+     * has been withdrawn, and an earlier cut of this accepted it as a band —
+     * which would have printed "Council tax band DELETED" at somebody. England
+     * runs A-H and Wales A-I, so anything that is not a single letter in that
+     * range is the listing not giving one.
+     */
+    councilTaxBand: hasLivingCosts
+      ? (typeof ctBand === 'string' && /^[A-I]$/i.test(ctBand.trim())
+        ? found(ctBand.trim().toUpperCase())
+        : missing<string>())
+      : unavailable<string>(),
+    leaseYearsRemaining: hasTenureObj
+      ? (leaseYears === null ? missing<number>() : found(leaseYears))
+      : unavailable<number>(),
+    annualGroundRent: hasLivingCosts
+      ? (num(getPath(pd, p.annualGroundRent)) === null ? missing<number>() : found(num(getPath(pd, p.annualGroundRent)) as number))
+      : unavailable<number>(),
+    annualServiceCharge: hasLivingCosts
+      ? (num(getPath(pd, p.annualServiceCharge)) === null ? missing<number>() : found(num(getPath(pd, p.annualServiceCharge)) as number))
+      : unavailable<number>(),
   };
 }
 
@@ -177,6 +227,19 @@ function fromFallback(doc: Document, config: ExtractorConfig, url?: string): Nor
     firstVisibleDate: missing<string>(),
     description: fieldOf(description),
     isAuction: na<boolean>(),
+    /**
+     * X2 — UNAVAILABLE, NEVER MISSING, ON THE FALLBACK PATH.
+     *
+     * This is the og:-tag fallback: the page model did not parse, so none of
+     * these were looked for. `missing` would mean "the listing did not give it",
+     * which would raise a chip on every listing whose model we failed to read —
+     * turning our own parse failure into an accusation against the agent.
+     */
+    epcUrls: na<string[]>(),
+    councilTaxBand: na<string>(),
+    leaseYearsRemaining: na<number>(),
+    annualGroundRent: na<number>(),
+    annualServiceCharge: na<number>(),
   };
 }
 

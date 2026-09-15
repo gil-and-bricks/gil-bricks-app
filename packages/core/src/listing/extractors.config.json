@@ -1,5 +1,5 @@
 {
-  "configVersion": "2026-09-02",
+  "configVersion": "2026-09-15",
   "rightmove": {
     "paths": {
       "listingId": "id",
@@ -18,7 +18,12 @@
       "outcode": "address.outcode",
       "incode": "address.incode",
       "displayAddress": "address.displayAddress",
-      "auction": "auction"
+      "auction": "auction",
+      "epcGraphs": "epcGraphs",
+      "councilTaxBand": "livingCosts.councilTaxBand",
+      "leaseYearsRemaining": "tenure.yearsRemainingOnLease",
+      "annualGroundRent": "livingCosts.annualGroundRent",
+      "annualServiceCharge": "livingCosts.annualServiceCharge"
     },
     "fallback": {
       "meta": {
@@ -34,6 +39,8 @@
       "listingId": "listingId",
       "pricing": "pricing",
       "tenure": "tenure",
+      "epc": "epc",
+      "councilTaxBandKey": "council_tax_band",
       "counts": "counts",
       "floorArea": "floorArea",
       "floorPlan": "floorPlan",

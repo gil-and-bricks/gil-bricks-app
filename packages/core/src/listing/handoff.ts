@@ -5,6 +5,7 @@
  * parser reads back everything the extension writes.
  */
 import { strategyById } from '../strategies';
+import { allFindings, findingCodes } from '../findings/findings';
 import type { StrategyId } from '../score/scoreDeal';
 import type { NormalisedListing } from './types';
 import type { Criteria } from './criteria';
@@ -40,6 +41,21 @@ export function propertyTypeToCode(t?: string | null): '' | 'D' | 'S' | 'T' | 'F
  * separate and deliberate product decision, not this parameter's job.
  */
 export const SUBJECT_TENURE_PARAM = 'subjectTenure';
+
+/**
+ * X2 — THE FINDINGS, AS CODES.
+ *
+ * Short codes, never sentences. The wording lives in `findings/copy.ts` keyed by
+ * code, so the deal's own page renders the current words rather than whatever
+ * phrasing happened to be current on the day the deal was saved — and a URL
+ * that has to survive a 2000-character cap does not spend 60 characters saying
+ * "the listing does not give a lease length".
+ *
+ * They belong on the deal's own page, not on the board's card: a card is a
+ * glance, and four findings on it would be four more things to read on a
+ * surface whose whole job is to be scanned.
+ */
+export const FINDINGS_PARAM = 'finds';
 
 /**
  * Portal tenure wording → the F/L code the rest of the app uses.
@@ -176,6 +192,8 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
   }
   // X1.1 — the subject's own tenure, under its own name (see SUBJECT_TENURE_PARAM).
   set(SUBJECT_TENURE_PARAM, tenureToCode(listing.tenure.value));
+  // X2 — what this listing said and did not say, as codes.
+  set(FINDINGS_PARAM, findingCodes(allFindings(listing)));
   set('beds', listing.bedrooms.value);
   set('baths', listing.bathrooms.value);
   set('paon', listing.address.value?.paon);

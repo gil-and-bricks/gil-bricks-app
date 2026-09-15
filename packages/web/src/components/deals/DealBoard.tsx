@@ -13,7 +13,7 @@ import { COPY } from '../../config/copy';
 import { loadMe, me, meUnknown, openLoginWall } from '../../lib/auth/session';
 import { getSector, strategies, type SectorFile } from '@gil-bricks/core';
 import { features } from '../../config/features';
-import { dealHref } from '../../lib/deals/deal';
+import { dealPageHref, dealHref } from '../../lib/deals/deal';
 import { DealFacts } from './DealFacts';
 import { applyFacts, factMoves, factNotes, factTypeFor, previousValueFor, type DealFact } from '../../lib/deals/facts';
 import { cashIsNews, isNews, unseen, type DealChange } from '../../lib/deals/changes';
@@ -727,9 +727,10 @@ export function DealBoard() {
         onDragStart={(e) => { setDragId(d.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; }}
         onDragEnd={() => { setDragId(''); setDropStage(''); }}
       >
-        {/* The link carries the FACT-CORRECTED params: once a quote exists, the
-            analyser opens on the quote, not the original guess (P5). */}
-        <a class="dc-title" href={dealHref(d.strategy, paramsFor(d), verdict.action === 'score' ? d.id : undefined, d.id, factsAsOf(d.id), factsFor(d.id).map((f) => f.fact_type))}>{d.title}</a>
+        {/* X2 — the card opens the DEAL'S OWN PAGE. The analyser is one more
+            click from there, and everything that used to make these cards
+            different heights lives on that page now. */}
+        <a class="dc-title" href={dealPageHref(d.id)}>{d.title}</a>
         <span class="dc-meta">
           {verdict.scored && (
             <span class={`board-score ${verdict.cls}`} aria-label={BOARD_COPY.card.scoreLabel((d.current_score as number).toFixed(1))}>
@@ -744,135 +745,9 @@ export function DealBoard() {
             reason it can't be scored. Never a bare dash. */}
         <p class={`dc-verdict ${verdict.scored ? 'v-' + verdict.cls : 'v-unscored'}`}>{verdict.line}</p>
 
-        {/* P7 — what that score rests on. Quiet, and never a second number. */}
-        {features.evidenceChips && verdict.scored && (
-          <EvidenceChips
-            strategy={d.strategy}
-            inputs={evidenceInputsFor({ ...d, url_params: paramsFor(d) }, factsFor(d.id))}
-            score={(d.current_score as number).toFixed(1)}
-            /* Pressable ONLY where the fact could actually be recorded: the facts
-               feature on, and a deal still live. A bought or dead deal takes no
-               new facts, so its chips stay inert rather than offering a door
-               that is shut (P12). */
-            onFix={features.dealFacts && isLive(d)
-              ? (factType) => setFixFor({ dealId: d.id, factType })
-              : undefined}
-          />
-        )}
-
-        {auctionWarn && (
-          <p class="dc-auction" role="note">⚠ {COPY.account.auctionWarning}</p>
-        )}
-
         {step !== '' && <p class={`dc-step step-${age}`}>{step}</p>}
 
         {note && note.id === d.id && <p class="dc-note" role="status">{note.text}</p>}
-
-        {/* P6 — the answer changed. It stays until it has been seen, and it is
-            the first thing on the card after the verdict itself. */}
-        {features.verdictChanges && unseen(changes, d.id).map((c) => (
-          <DealChangeNote
-            change={c}
-            dealTitle={d.title}
-            busy={busy}
-            onDismiss={() => void dismissChange(d, c.id)}
-            onPark={() => void parkKilled(d, c.id)}
-          />
-        ))}
-
-        {/* D4 — the sold-price rule changed under a saved score. Say what it was
-            and what it is now; never move the number without being asked. */}
-        {(() => {
-          const mv = moveFor(d);
-          return mv === null ? null : (
-            <div class="dc-moved" role="status">
-              <p class="dc-moved-h">{SCORE_MOVED_COPY.heading}</p>
-              <p class="dc-moved-line">{SCORE_MOVED_COPY.line(mv.from.toFixed(1), mv.to.toFixed(1))}</p>
-              <p class="hint">{SCORE_MOVED_COPY.why}</p>
-              <button
-                type="button"
-                class="btn-secondary"
-                disabled={busy}
-                aria-label={SCORE_MOVED_COPY.acceptLabel(d.title)}
-                onClick={() => void acceptMove(d, mv)}
-              >
-                {busy ? SCORE_MOVED_COPY.busy : SCORE_MOVED_COPY.accept}
-              </button>
-            </div>
-          );
-        })()}
-
-        {/* P11 — accepted is not safe. Once per deal, at the stage where deals
-            actually die, and gone as soon as it has been read. */}
-        {chainRiskDue(d) && (
-          <ChainRiskCard dealTitle={d.title} busy={busy} onDismiss={() => void dismissChainRisk(d)} />
-        )}
-
-        {/* P11 — what it is worth NOW, and the words to ask for it. */}
-        {(() => {
-          const rt = retradeOn(d);
-          return rt === null ? null : (
-            <RetradeRadar
-              maxOffer={rt.maxOffer === null ? null : fmtMoney(rt.maxOffer)}
-              message={rt.message}
-              busy={busy}
-            />
-          );
-        })()}
-
-        {/* Only a LIVE deal takes NEW facts: the pipeline ends at purchase, and a
-            bought deal's score is the record of what you bought on. The facts
-            already recorded are that record, so the list always stays — only the
-            add and remove controls go (D3). */}
-        {features.dealFacts && (
-          <DealFacts
-            dealId={d.id}
-            dealTitle={d.title}
-            strategy={d.strategy}
-            facts={factsFor(d.id)}
-            busy={busy}
-            canAdd={isLive(d)}
-            openWith={fixFor?.dealId === d.id ? fixFor.factType : ''}
-            onOpened={() => setFixFor(null)}
-            onAdd={(t, val, n) => addFact(d, t, val, n)}
-            onRemove={(id) => removeFact(d, id)}
-          />
-        )}
-
-        {features.dealDates && isLive(d) && (
-          <DealDates
-            dealId={d.id}
-            dealTitle={d.title}
-            stage={d.stage}
-            isAuction={d.is_auction}
-            dates={datesOf(d)}
-            busy={busy}
-            onSet={(key, value) => void setDate(d, key, value)}
-          />
-        )}
-
-        {/* P10 — the dates, in the calendar they already check. Only offered when
-            the deal actually holds one, and never promising the reminder. */}
-        {features.calendarExport && features.dealDates && hasExportableDate(d) && (
-          <CalendarButton
-            dealTitle={d.title}
-            build={() => icsFor(d)}
-            filename={icsFilename(d.title)}
-            busy={busy}
-            onDone={(ok) => setNote({ id: d.id, text: ok ? CALENDAR.saved : CALENDAR.failed })}
-          />
-        )}
-
-        {features.verdictChanges && verdict.scored && hasScoreHistory(d) && <ScoreHistory dealId={d.id} dealTitle={d.title} />}
-
-        {/* A fact that cannot move this strategy's maths says why, and never
-            invents a cost (P5). */}
-        {features.dealFacts && evidenceUnknown(d) && d.current_score !== null && (
-          <p class="dc-fact-note" role="note">{BOARD_COPY.card.factNoEvidence}</p>
-        )}
-        {features.dealFacts && factNotes(d.strategy, factsFor(d.id)).map((n) => (
-          <p class="dc-fact-note" role="note">{n.label}: {n.note}</p>
-        ))}
 
         {d.status === 'live' && (
           <>
@@ -940,6 +815,72 @@ export function DealBoard() {
         <p class="today-only-here">{TODAY_COPY.onlyHere}</p>
         <p class="board-count">{counterLine(tallies, cap)}</p>
       </div>
+
+      {/*
+        X2 — THE THINGS THAT NEED YOU, ALL IN ONE PLACE.
+        These four used to live inside the cards, which is most of why no two
+        cards were the same height. They are not card furniture: each one is a
+        notification about a deal, with an action that has to stay reachable —
+        dismissing a change, parking a deal the answer just killed, accepting a
+        moved score. So they moved UP rather than away, keeping every handler
+        they had, and the board now shows them together at the top where
+        something demanding attention belongs.
+      */}
+      {(() => {
+        const rows = deals.filter((d) => isLive(d)).flatMap((d) => {
+          const busy = isBusy(d.id);
+          const out: preact.JSX.Element[] = [];
+          if (features.verdictChanges) {
+            for (const c of unseen(changes, d.id)) {
+              out.push(
+                <DealChangeNote
+                  key={`ch-${c.id}`}
+                  change={c}
+                  dealTitle={d.title}
+                  busy={busy}
+                  onDismiss={() => void dismissChange(d, c.id)}
+                  onPark={() => void parkKilled(d, c.id)}
+                />,
+              );
+            }
+          }
+          const mv = moveFor(d);
+          if (mv !== null) {
+            out.push(
+              <div class="dc-moved" role="status" key={`mv-${d.id}`}>
+                <p class="dc-moved-h">{SCORE_MOVED_COPY.heading}</p>
+                <p class="dc-moved-line">{d.title} — {SCORE_MOVED_COPY.line(mv.from.toFixed(1), mv.to.toFixed(1))}</p>
+                <p class="hint">{SCORE_MOVED_COPY.why}</p>
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  disabled={busy}
+                  aria-label={SCORE_MOVED_COPY.acceptLabel(d.title)}
+                  onClick={() => void acceptMove(d, mv)}
+                >
+                  {busy ? SCORE_MOVED_COPY.busy : SCORE_MOVED_COPY.accept}
+                </button>
+              </div>,
+            );
+          }
+          if (chainRiskDue(d)) {
+            out.push(<ChainRiskCard key={`cr-${d.id}`} dealTitle={d.title} busy={busy} onDismiss={() => void dismissChainRisk(d)} />);
+          }
+          const rt = retradeOn(d);
+          if (rt !== null) {
+            out.push(
+              <RetradeRadar
+                key={`rt-${d.id}`}
+                maxOffer={rt.maxOffer === null ? null : fmtMoney(rt.maxOffer)}
+                message={rt.message}
+                busy={busy}
+              />,
+            );
+          }
+          return out;
+        });
+        return rows.length === 0 ? null : <div class="board-notices">{rows}</div>;
+      })()}
 
       <div class="board-stages">
         {columns.map((col) => (

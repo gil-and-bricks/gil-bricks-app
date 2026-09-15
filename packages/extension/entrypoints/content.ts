@@ -1,9 +1,10 @@
 import { defineContentScript } from '#imports';
-import { isListingUrl } from '@gil-bricks/core';
-import { coreConfig } from '@gil-bricks/core/config';
+import { isListingUrl, pageFindings, portalForUrl } from '@gil-bricks/core';
+import { coreConfig, EXTENSION_FLAGS } from '@gil-bricks/core/config';
 import { extractCurrentPage, EXTRACT_MESSAGE } from '../src/extractPage';
 import { mountOpener, retireOpener, OPENER_CSS, OPEN_PANEL_MESSAGE, PANEL_OPEN_MESSAGE } from '../src/opener';
-import { getOpenerHidden, setOpenerHidden } from '../src/store';
+import { mountChips, removeChips } from '../src/chips';
+import { getOpenerHidden, setOpenerHidden, getChipsHidden, setChipsHidden } from '../src/store';
 
 /**
  * Declarative content script on Rightmove/Zoopla ONLY. It rides the existing
@@ -58,7 +59,41 @@ export default defineContentScript({
       });
     };
 
+    /**
+     * X2 — THE CHIPS, BEHIND A SWITCH THAT DEFAULTS TO OFF.
+     *
+     * Rightmove's terms of use prohibit a USER overlaying material on their
+     * platform (clause 8.3). That binds the operator as a user of their site,
+     * not this product, and the realistic worst case is the operator's own
+     * access being withdrawn — but it is an explicit clause, so it is their
+     * call and not a default we take for them. One edit to EXTENSION_FLAGS in
+     * @gil-bricks/core turns all of this off; the side panel reads no flag and
+     * is completely unaffected either way.
+     */
+    const showChips = async (): Promise<void> => {
+      if (!EXTENSION_FLAGS.onPageChips) return;
+      if (!isListingUrl(location.href)) { removeChips(document); return; }
+      const portal = portalForUrl(location.href);
+      if (!portal) return;
+      const res = await extractCurrentPage();
+      if (!res.ok) return; // nothing honest to say about a page we could not read
+      const id = res.listing.listingId.value ?? '';
+      // "Hide" is remembered for THAT property, never for the portal.
+      if (id !== '' && await getChipsHidden(id)) { removeChips(document); return; }
+      // The URL can change while the read is in flight — a single-page app does
+      // that constantly — so never paint findings from the listing they left.
+      if (!isListingUrl(location.href)) return;
+      mountChips({
+        doc: document,
+        portal,
+        findings: pageFindings(res.listing),
+        brand: coreConfig.siteName,
+        onHide: () => { if (id !== '') void setChipsHidden(id); },
+      });
+    };
+
     void offer();
+    void showChips();
     // Both portals are single-page apps: the URL changes without a reload, so
     // the button has to follow the person from a search into a listing.
     // Compare WITHOUT the hash: both portals use hash routes for the gallery and
@@ -70,7 +105,11 @@ export default defineContentScript({
       if (withoutHash() === last) return;
       last = withoutHash();
       document.getElementById('gb-open-panel')?.remove();
+      // Take OUR nodes off the old listing before reading the new one, so a slow
+      // read can never leave one property's findings sitting on another's page.
+      removeChips(document);
       void offer();
+      void showChips();
     }, 1000);
   },
 });

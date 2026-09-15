@@ -40,7 +40,7 @@ export * from './strategy-calc/rental';
 export * from './strategies';
 
 // Shared config (R2 data base URL, socials, per-strategy YouTube links).
-export { coreConfig, youtubeFor } from './config';
+export { coreConfig, youtubeFor, EXTENSION_FLAGS, type ExtensionFlagName } from './config';
 
 // EPC register lookup: the shared answer shape and the address matching (E1).
 export * from './epc/types';
@@ -97,3 +97,6 @@ export * from './triage/nearby';
 export * from './triage/flexibility';
 // X1 item 7 — the official social marks, one source for panel and web.
 export * from './brand/socialMarks';
+// X2 — the findings shown as chips on the portal's page and grouped on the deal page.
+export * from './findings/findings';
+export * from './findings/copy';

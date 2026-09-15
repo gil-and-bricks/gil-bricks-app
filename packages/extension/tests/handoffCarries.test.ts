@@ -35,8 +35,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  extractListing, portalForUrl, FALLBACK_CONFIG, SUBJECT_TENURE_PARAM,
-  type NormalisedListing,
+  extractListing, portalForUrl, FALLBACK_CONFIG, SUBJECT_TENURE_PARAM, FINDINGS_PARAM,
+  findingsFromCodes, type NormalisedListing,
 } from '@gil-bricks/core';
 import { __mountForTest } from '../entrypoints/sidepanel/main.ts';
 
@@ -157,6 +157,20 @@ describe('the handoff still carries everything, named one by one', () => {
     expect(p.get(SUBJECT_TENURE_PARAM)).toBe('F');
   });
 
+  /**
+   * X2 — WHAT THE LISTING SAID AND DID NOT SAY, as codes rather than sentences.
+   * They belong on the deal's own page, so they have to reach it.
+   */
+  it('a Rightmove listing: the findings, as short codes', () => {
+    const p = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url));
+    const raw = p.get(FINDINGS_PARAM);
+    expect(raw, 'the finds parameter').not.toBeNull();
+    const codes = findingsFromCodes(raw);
+    expect(codes.length, 'a real listing has something to say').toBeGreaterThan(0);
+    expect(codes, 'this one is leasehold').toContain('LEASE');
+    expect(raw!.length, 'codes, never sentences').toBeLessThan(60);
+  });
+
   it('a Rightmove listing: the arrived-from-extension marker', () => {
     expect(sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url)).get('src')).toBe('ext');
   });
@@ -267,7 +281,7 @@ describe('the handoff still carries everything, named one by one', () => {
     const p = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url), { criteria: CRITERIA, manualArea: '82' });
     const MUST_CONTAIN = [
       'postcode', 'price', 'type', 'beds', 'baths', 'area', 'areaSrc',
-      'subjectTenure',
+      'subjectTenure', 'finds',
       'minCashflow', 'minRoi', 'minIcr', 'minProfit',
       'fp', 'ph', 'auction', 'src',
     ];

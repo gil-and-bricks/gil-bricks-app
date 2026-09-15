@@ -53,3 +53,14 @@ export function dealShareText(title: string, keyFigure: string, url: string): st
   if (keyFigure !== '') bits.push(keyFigure);
   return `${bits.join(' — ')} ${url}`;
 }
+
+/**
+ * X2 — the deal's OWN page.
+ *
+ * A query parameter rather than a path segment because the site is static:
+ * deals are per-person and fetched from the Worker, so there is nothing to
+ * prerender and a dynamic route would demand one.
+ */
+export function dealPageHref(dealId: string): string {
+  return `/deals/deal/?id=${encodeURIComponent(dealId)}`;
+}

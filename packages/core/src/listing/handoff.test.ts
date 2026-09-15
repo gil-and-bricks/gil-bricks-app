@@ -20,6 +20,8 @@ const base = (): NormalisedListing => ({
   floorPlanImageUrls: missing(), photoUrls: missing(), newBuild: found(false),
   listingUpdate: missing(), firstVisibleDate: missing(),
   description: found('A terrace.'), isAuction: unavailable(),
+  epcUrls: unavailable(), councilTaxBand: unavailable(), leaseYearsRemaining: unavailable(),
+  annualGroundRent: unavailable(), annualServiceCharge: unavailable(),
 } as unknown as NormalisedListing);
 
 const read = (q: string) => criteriaFromParams(new URLSearchParams(q));

@@ -75,7 +75,7 @@ export const EXTRACTOR_CONFIG_KEY = 'config/extractors.json';
 
 /** Shipped fallback — the source of truth for the CURRENT extractor targets. */
 export const FALLBACK_CONFIG: ExtractorConfig = {
-  configVersion: '2026-09-02',
+  configVersion: '2026-09-15',
   rightmove: {
     paths: {
       listingId: 'id',
@@ -95,6 +95,13 @@ export const FALLBACK_CONFIG: ExtractorConfig = {
       incode: 'address.incode',
       displayAddress: 'address.displayAddress',
       auction: 'auction',
+      // X2 — the five fields a listing is supposed to carry. Rightmove
+      // publishes all of them in its page model.
+      epcGraphs: 'epcGraphs',
+      councilTaxBand: 'livingCosts.councilTaxBand',
+      leaseYearsRemaining: 'tenure.yearsRemainingOnLease',
+      annualGroundRent: 'livingCosts.annualGroundRent',
+      annualServiceCharge: 'livingCosts.annualServiceCharge',
     },
     fallback: { meta: { title: 'og:title', url: 'og:url', description: 'og:description', image: 'og:image' } },
   },
@@ -103,6 +110,9 @@ export const FALLBACK_CONFIG: ExtractorConfig = {
       listingId: 'listingId',
       pricing: 'pricing',
       tenure: 'tenure',
+      // X2 — Zoopla publishes these two and nothing for lease/ground rent/service charge.
+      epc: 'epc',
+      councilTaxBandKey: 'council_tax_band',
       counts: 'counts',
       floorArea: 'floorArea',
       floorPlan: 'floorPlan',

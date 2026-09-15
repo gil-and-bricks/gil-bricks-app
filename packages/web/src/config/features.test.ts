@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { features, stickyVerdictActive } from './features';
+import { EXTENSION_FLAGS } from '@gil-bricks/core';
 
 /** Every flag in code has a row in docs/FEATURE_FLAGS.md (and vice versa) — the
  * operator's rollback sheet can never drift from what the build actually reads. */
@@ -11,6 +12,28 @@ describe('feature flags (Reversibility charter)', () => {
 
   it('every flag in features.ts is documented, and every documented flag exists', () => {
     expect(documented).toEqual(Object.keys(features).sort());
+  });
+
+  /**
+   * X2 — THE MIRROR CANNOT DRIFT.
+   *
+   * `onPageChips` is DEFINED in @gil-bricks/core, because the extension ships as
+   * its own artefact and cannot import this file. This registry mirrors it so
+   * every flag the product has is still listed in one place. A mirror that could
+   * disagree with its source would be exactly the second source of truth the
+   * charter forbids — so it is asserted, not trusted.
+   */
+  it('the extension flags mirrored here match their definition in core', () => {
+    for (const [name, value] of Object.entries(EXTENSION_FLAGS)) {
+      expect(
+        (features as unknown as Record<string, boolean>)[name],
+        `features.${name} disagrees with EXTENSION_FLAGS.${name} — one switch, two answers`,
+      ).toBe(value);
+    }
+  });
+
+  it('the on-page chips default to OFF — clause 8.3 is the operator’s call', () => {
+    expect(EXTENSION_FLAGS.onPageChips, 'see docs/FEATURE_FLAGS.md').toBe(false);
   });
 
   it('every flag is a plain boolean (no strings, no env lookups)', () => {

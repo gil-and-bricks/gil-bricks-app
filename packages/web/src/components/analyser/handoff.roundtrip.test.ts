@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import {
-  buildAnalyserHandoff, customKeysFor, found, missing, strategyById, thresholdsFor,
-  SUBJECT_TENURE_PARAM, type NormalisedListing,
+  buildAnalyserHandoff, customKeysFor, found, missing, unavailable, strategyById, thresholdsFor,
+  SUBJECT_TENURE_PARAM, FINDINGS_PARAM, findingsFromCodes, type NormalisedListing,
 } from '@gil-bricks/core';
 import { parseQuery, initStrategyParams, strategyParams, toQuery, state, type StrategyFieldSpec } from './state';
 
@@ -45,6 +45,8 @@ const listing: NormalisedListing = {
   firstVisibleDate: missing(),
   description: found('x'),
   isAuction: missing(),
+  epcUrls: unavailable(), councilTaxBand: unavailable(), leaseYearsRemaining: unavailable(),
+  annualGroundRent: unavailable(), annualServiceCharge: unavailable(),
 };
 
 describe('analyser handoff round-trips through the web parser', () => {
@@ -74,7 +76,7 @@ describe('analyser handoff round-trips through the web parser', () => {
      * these therefore has its own named assertion below; the set only says "this
      * is not a form field", never "stop checking this".
      */
-    const META_KEYS = new Set(['src', 'areaSrc', SUBJECT_TENURE_PARAM]);
+    const META_KEYS = new Set(['src', 'areaSrc', SUBJECT_TENURE_PARAM, FINDINGS_PARAM]);
     // every subject field this listing supplies MUST actually be written (so a
     // dropped write fails here rather than being silently skipped by the loop)
     for (const k of ['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon', 'saon']) {
@@ -103,6 +105,19 @@ describe('analyser handoff round-trips through the web parser', () => {
      * any/F/L, so the subject's tenure would be clamped away AND would silently
      * narrow the evidence the engine draws on.
      */
+    /**
+     * X2 — THE FINDINGS TRAVEL AS CODES, and like the tenure they are a fact
+     * about the deal rather than a field on this form. They are shown on the
+     * deal's own page, which is why they must survive the trip.
+     */
+    expect(params[FINDINGS_PARAM], 'this listing has no floor area and no plan').toBeTruthy();
+    expect(findingsFromCodes(params[FINDINGS_PARAM]).length).toBeGreaterThan(0);
+    expect(params[FINDINGS_PARAM].length, 'codes, never sentences').toBeLessThan(60);
+    expect(
+      new URLSearchParams(toQuery(state.value, strategyParams.value).replace(/^\?/, '')).get(FINDINGS_PARAM),
+      'carried, not discarded',
+    ).toBe(params[FINDINGS_PARAM]);
+
     expect(params[SUBJECT_TENURE_PARAM], 'this listing is freehold').toBe('F');
     expect(params.tenure, 'the comps filter is not ours to set').toBeUndefined();
     expect(subject.tenure, 'and it stays at its own default').toBe('any');

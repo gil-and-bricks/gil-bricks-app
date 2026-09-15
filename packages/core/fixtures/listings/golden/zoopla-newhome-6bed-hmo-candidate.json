@@ -1,7 +1,7 @@
 {
   "portal": "zoopla",
   "extractorVersion": "zpl-1.0.0",
-  "configVersion": "2026-09-02",
+  "configVersion": "2026-09-15",
   "source": "embedded",
   "listingId": {
     "value": "73981776",
@@ -103,5 +103,25 @@
   "isAuction": {
     "value": false,
     "status": "found"
+  },
+  "epcUrls": {
+    "value": [],
+    "status": "found"
+  },
+  "councilTaxBand": {
+    "value": "C",
+    "status": "found"
+  },
+  "leaseYearsRemaining": {
+    "value": null,
+    "status": "unavailable-on-this-portal"
+  },
+  "annualGroundRent": {
+    "value": null,
+    "status": "unavailable-on-this-portal"
+  },
+  "annualServiceCharge": {
+    "value": null,
+    "status": "unavailable-on-this-portal"
   }
 }

@@ -24,6 +24,10 @@ const HIDDEN: Record<string, string> = {
     + 'x-robots-tag and no-referrer with the pack itself; this is the page that frames it.',
   'account.astro': 'someone’s own account page — private, and useless to a stranger',
   'deals.astro': 'someone’s own deal pipeline — private; this is the Lighthouse 66 and it is correct',
+  'deals/deal.astro':
+    'X2 — ONE of someone’s own deals, with what the listing said about it and the facts they '
+    + 'have recorded against it. As private as the board it came from, and meaningless to a '
+    + 'stranger: it renders nothing at all without the signed-in caller’s own data.',
   'start.astro': 'a short pointer at the right tool; the tools it points to are the pages worth finding',
   'styleguide.astro': 'an internal reference, linked from nowhere',
   'terms.astro': 'a document for people already using the app, reached from the footer',

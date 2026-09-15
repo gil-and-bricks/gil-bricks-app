@@ -166,3 +166,67 @@ describe('and the rendered panel does not reintroduce any of it', () => {
     }
   });
 });
+
+/**
+ * X2 — AND THE SAME LAW ON THE PORTAL'S OWN PAGE.
+ *
+ * The chips are injected onto Rightmove and Zoopla, beside an agent's name. A
+ * blessing there carries more apparent authority than one in our own panel,
+ * because it looks like it belongs to the page — so the rule is not merely the
+ * same, it matters more.
+ *
+ * This sweeps the FINDING copy and the chip renderer's own literals, with the
+ * identical detector, so nothing can be endorsed by being injected instead of
+ * panelled.
+ */
+describe('the injected chips never bless anything either', () => {
+  const CHIPS = join(dirname(fileURLToPath(import.meta.url)), '../../../extension/src/chips.ts');
+  const DEAL_PAGE = join(dirname(fileURLToPath(import.meta.url)), '../../../web/src/components/deals');
+
+  it('the chip source is where this test thinks it is', () => {
+    expect(existsSync(CHIPS), `no chips module at ${CHIPS}`).toBe(true);
+    expect(existsSync(DEAL_PAGE), `no deal components at ${DEAL_PAGE}`).toBe(true);
+  });
+
+  it('no endorsement word is in the findings copy', async () => {
+    const { FINDING_COPY, FINDINGS_COPY } = await import('../findings/copy');
+    const said: string[] = [];
+    for (const w of Object.values(FINDING_COPY)) said.push(w.label, w.why);
+    for (const v of Object.values(FINDINGS_COPY)) if (typeof v === 'string') said.push(v);
+    expect(said.length).toBeGreaterThan(20);
+    for (const s of said) {
+      for (const word of FORBIDDEN) {
+        // "not an all clear" is the one place a forbidden word may appear, and
+        // only as the thing being DENIED — which is the opposite of a blessing.
+        if (/not an all clear/i.test(s)) continue;
+        expect(new RegExp(`\\b${word}\\b`, 'i').test(s), `"${word}" in: ${s}`).toBe(false);
+      }
+    }
+  });
+
+  it('no endorsement word reaches the portal’s page through a chip literal', () => {
+    for (const file of [CHIPS, ...readdirSync(DEAL_PAGE).filter((f) => /^Deal(Findings|Detail|Page)\.tsx$/.test(f)).map((f) => join(DEAL_PAGE, f))]) {
+      const src = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, ' ')
+        .replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
+      const literals = [...src.matchAll(/'([^'\\\n]{4,})'|"([^"\\\n]{4,})"|`([^`\\\n$]{4,})`/g)]
+        .map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+      const isCode = (s: string): boolean => /[.(){};=]|\|\||=>|\bconst\b/.test(s) && !/[a-z] [a-z]+ [a-z]/i.test(s);
+      for (const word of FORBIDDEN) {
+        const rx = new RegExp(`\\b${word}\\b`, 'i');
+        const hits = literals.filter((s) => rx.test(s) && /\s/.test(s) && !isCode(s));
+        expect(hits, `${file} has "${word}" in a user-facing literal: ${JSON.stringify(hits.slice(0, 2))}`).toEqual([]);
+      }
+    }
+  });
+
+  /** And it must still bite: a blessing planted in the findings copy is caught. */
+  it('the injected detector bites on a real endorsement', () => {
+    const planted = ['Looks like good value here', 'A great buy for the area', 'A safe bet'];
+    const isCode = (s: string): boolean => /[.(){};=]|\|\||=>|\bconst\b/.test(s) && !/[a-z] [a-z]+ [a-z]/i.test(s);
+    for (const s of planted) {
+      const caught = FORBIDDEN.some((w) => new RegExp(`\\b${w}\\b`, 'i').test(s) && !isCode(s));
+      expect(caught, `not caught: ${s}`).toBe(true);
+    }
+  });
+});

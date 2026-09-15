@@ -1,0 +1,21 @@
+---
+/**
+ * X2 — the deal's own page. One deal, asked for by id: /deals/deal/?id=…
+ *
+ * A query parameter rather than a dynamic route because the site is static and
+ * deals are per-person, fetched from the Worker by the signed-in caller. There
+ * is nothing to prerender per deal, and a dynamic route would need one.
+ */
+import AppShell from '../../layouts/AppShell.astro';
+import { DealPage } from '../../components/deals/DealPage';
+import { siteConfig } from '../../site.config';
+import { features } from '../../config/features';
+
+if (!features.dealPipeline) return Astro.redirect('/account');
+---
+
+<AppShell title={`This deal — ${siteConfig.siteName}`} description="One saved deal: its score, its next step, and what the listing said." noindex>
+  <div class="board-wrap">
+    <DealPage client:load />
+  </div>
+</AppShell>

@@ -1,3 +1,4 @@
+import { EXTENSION_FLAGS } from '@gil-bricks/core';
 /**
  * Feature flags — the ONE place a user-facing feature is switched on or off
  * (CLAUDE.md → Reversibility charter). Flipping a flag here IS the rollback:
@@ -264,6 +265,13 @@ export interface FeatureFlags {
    * rows and the map popups offer a search, as before. */
   subjectLookup: boolean;
   /**
+   * X2 — chips injected onto Rightmove's and Zoopla's own listing pages by the
+   * EXTENSION. Defined in @gil-bricks/core (the extension cannot import this
+   * file) and mirrored here so the central registry lists every flag the
+   * product has. `features.test.ts` fails if the two disagree.
+   */
+  onPageChips: boolean;
+  /**
    * CA1 — the area trajectory panel: a collapsed line inside the verdict card
    * that opens to show what the local authority has actually done with prices
    * (5, 10 and 20 years from the UK House Price Index), how that compares to
@@ -330,6 +338,8 @@ export const features: FeatureFlags = {
   homeVideo: true,
   homeWhyFree: true,
   subjectLookup: true,
+  // Mirrored, never re-decided — the value lives in EXTENSION_FLAGS.
+  onPageChips: EXTENSION_FLAGS.onPageChips,
   areaTrajectory: true,
   dealPack: true,
 };

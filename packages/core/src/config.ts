@@ -96,3 +96,37 @@ export const coreConfig = {
 export function youtubeFor(strategyId: string): string {
   return (coreConfig.youtube as Record<string, string>)[strategyId] ?? coreConfig.socials.youtube;
 }
+
+/**
+ * X2 — FLAGS THE EXTENSION CAN ACTUALLY READ.
+ *
+ * ── WHY THIS IS NOT IN packages/web/src/config/features.ts ──────────────────
+ * The charter says every feature flag lives in that one file. The extension
+ * cannot import it: it ships as a separate artefact and depends on exactly one
+ * package, `@gil-bricks/core`. Putting the flag there and a copy here would be
+ * two sources of truth for one switch — precisely what the rule exists to stop.
+ *
+ * So the flag is DEFINED once, here, in the package both surfaces already read,
+ * and `features.ts` MIRRORS it so the central registry still lists every flag
+ * the product has and `docs/FEATURE_FLAGS.md` still documents it. A test
+ * (`features.test.ts`) fails if the two ever disagree, so the mirror cannot
+ * drift into a second source. Turning the feature off is one edit, in this file.
+ *
+ * ── WHY onPageChips DEFAULTS TO OFF ─────────────────────────────────────────
+ * Rightmove's terms of use prohibit a USER overlaying material on their
+ * platform — clause 8.3, in those words. That binds the operator as a user of
+ * their site, not this product, and the realistic worst case is the operator's
+ * own account being withdrawn. PaTMa, PropertyData and PropBar have all done
+ * this for years and none has been challenged.
+ *
+ * It is still an explicit clause, so it is the operator's decision to make and
+ * not a default we take on their behalf. Off until they turn it on, and one
+ * line here turns it off again — with the side panel completely unaffected,
+ * because nothing in the panel reads this.
+ */
+export const EXTENSION_FLAGS = {
+  /** Chips injected onto the portal's own listing page. See the note above. */
+  onPageChips: false,
+} as const;
+
+export type ExtensionFlagName = keyof typeof EXTENSION_FLAGS;
