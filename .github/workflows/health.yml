@@ -43,7 +43,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Say something, or stop saying it
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           CODE: ${{ steps.ask.outputs.code }}
           BODY: ${{ steps.ask.outputs.body }}
@@ -136,7 +136,7 @@ jobs:
       # Distinct title, so it can never be confused with the app's own report.
       - name: Raise an issue if this failed
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const TITLE = 'The health poller itself failed';

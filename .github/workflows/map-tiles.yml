@@ -54,7 +54,7 @@ jobs:
       # problem, not one per month: a repeat failure comments on the open one.
       - name: Raise an issue if this failed
         if: failure()
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const TITLE = 'The map tiles refresh failed';
