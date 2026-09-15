@@ -11,10 +11,16 @@
  * This drives the REAL writer: it loads a full handoff, changes a field the way
  * a person would, and fails if any arriving parameter is not still there.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { Window } from 'happy-dom';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { features } from '../../config/features';
 import { READ_ONCE } from './arrival';
-import { CRITERIA_PARAMS, FLOORPLAN_PARAM, PHOTOS_PARAM, MEASURED_PARAMS } from '@gil-bricks/core';
+import {
+  CRITERIA_PARAMS, FLOORPLAN_PARAM, PHOTOS_PARAM, MEASURED_PARAMS,
+  buildAnalyserHandoff, extractListing, portalForUrl, FALLBACK_CONFIG,
+} from '@gil-bricks/core';
 
 /** A handoff with every field the extension can send, all at once. */
 const ARRIVING: Record<string, string> = {
@@ -46,6 +52,26 @@ const FIELDS = [
   { key: 'gdv', kind: 'number' as const, default: '' },
   { key: 'refurbCost', kind: 'number' as const, default: '' },
 ];
+
+/**
+ * TIMERS ARE FAKE HERE, AND THAT IS NOT A DETAIL.
+ *
+ * `writeUrl` debounces its `history.replaceState` by 250ms. With real timers, a
+ * write scheduled by a PREVIOUS test's module instance fires during the `await
+ * import(...)` below and replaces the address — so the next test's
+ * `initStrategyParams` captures its carried parameters from somebody else's
+ * URL, and the criteria module (which reads the URL at import time) reads that
+ * one too.
+ *
+ * Measured: with real timers the address went 1678 chars, 1678, 462, 53 across
+ * four tests in this file, and the fourth then "lost" fp, ph, auction and all
+ * four criteria. That is a test artefact and not a product fault — in a browser
+ * there is one module instance and the debounce always writes the whole query —
+ * but it is exactly the shape of failure this file exists to detect, so it must
+ * not be able to manufacture one.
+ */
+beforeEach(() => { vi.useFakeTimers(); });
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 /**
  * The criteria module reads the URL when it is IMPORTED, exactly as it does in
@@ -185,5 +211,86 @@ describe('a handoff survives being edited', () => {
     const { written, updateStrategy } = await loadWith('postcode=SA1+2QJ&price=100000&somethingNew=abc');
     updateStrategy({ gdv: '1' });
     expect(written().get('somethingNew')).toBe('abc');
+  });
+});
+
+
+/**
+ * THE TWO SIDES, JOINED — X1.
+ *
+ * Everything above this drives the analyser's writer against a HAND-WRITTEN
+ * fixture of what the extension is believed to send. That is one list short of
+ * the fault this file exists for: if the extension stopped emitting `ph`
+ * tomorrow, the fixture here would still contain it, every assertion would pass,
+ * and the photographs would be gone from the product.
+ *
+ * So this block does not describe the handoff. It BUILDS one, from a real saved
+ * Rightmove listing through the real `buildAnalyserHandoff`, feeds it to the
+ * real analyser state, edits a field the way a person does, and then demands
+ * that every parameter the extension ACTUALLY produced is still in the address.
+ *
+ * Neither side's list is consulted. The extension's real output is the
+ * expectation, and it is compared against the writer's real output.
+ */
+describe('a REAL extension handoff survives being edited', () => {
+  // Resolved from the working directory, not from import.meta.url: this file
+  // runs in a happy-dom environment whose document URL is an http one, so
+  // fileURLToPath on a relative import URL throws. vitest's cwd is packages/web.
+  const CORPUS = join(process.cwd(), '..', 'core', 'fixtures', 'listings');
+
+  function realHandoff(): Record<string, string> {
+    const url = 'https://www.rightmove.co.uk/properties/167112923';
+    const html = readFileSync(join(CORPUS, 'rightmove', 'rightmove-reduced-terrace-leasehold.html'), 'utf8');
+    const w = new Window({
+      url,
+      settings: { disableJavaScriptEvaluation: true, disableJavaScriptFileLoading: true, disableCSSFileLoading: true },
+    });
+    w.document.write(html);
+    const res = extractListing(portalForUrl(url)!, w.document as unknown as Document, FALLBACK_CONFIG, url);
+    if (!res.ok) throw new Error(`the corpus listing no longer extracts: ${res.reason}`);
+    return buildAnalyserHandoff(res.listing, {
+      strategy: 'btl',
+      floorAreaSqm: 82,
+      fields: {},
+      criteria: { minCashflow: 150, minRoi: 8, minIcr: 1.25, minProfit: 20_000 },
+    }).params;
+  }
+
+  it('produces a handoff with the things only a listing can give', () => {
+    const p = realHandoff();
+    // A guard on the guard: if this ever came back thin, every assertion in the
+    // two tests below would pass on an empty set.
+    for (const key of ['postcode', 'price', 'type', 'beds', 'baths', FLOORPLAN_PARAM, PHOTOS_PARAM, 'auction', 'src']) {
+      expect(p[key], `${key} must be in the extension's real output`).toBeTruthy();
+    }
+  });
+
+  it.each([
+    ['nothing touched', (_m: Record<string, any>) => undefined],
+    ['a strategy field edited', (m: Record<string, any>) => m.updateStrategy({ gdv: '131000' })],
+    ['a property field edited', (m: Record<string, any>) => m.update({ price: '105000' })],
+    ['the area cleared and retyped', (m: Record<string, any>) => { m.update({ area: '' }); m.update({ area: '90' }); }],
+  ])('loses nothing the extension sent, with %s', async (_label, act) => {
+    const sent = realHandoff();
+    const mod = await loadWith(new URLSearchParams(sent).toString());
+    act(mod);
+    const out = mod.written();
+    const readOnceKeys: string[] = [...READ_ONCE];
+    const criteria: string[] = Object.values(CRITERIA_PARAMS);
+    const lost = Object.keys(sent)
+      .filter((k) => !readOnceKeys.includes(k))
+      .filter((k) => features.criteriaHandoff || !criteria.includes(k))
+      .filter((k) => !out.has(k));
+    expect(lost, `the extension sent these and the analyser dropped them: ${lost.join(', ')}`).toEqual([]);
+  });
+
+  it('and the photographs and floor plan arrive byte-identical after an edit', async () => {
+    const sent = realHandoff();
+    const mod = await loadWith(new URLSearchParams(sent).toString());
+    mod.updateStrategy({ gdv: '131000' });
+    const out = mod.written();
+    expect(out.get(PHOTOS_PARAM), 'every photograph, unchanged').toBe(sent[PHOTOS_PARAM]);
+    expect(out.get(FLOORPLAN_PARAM), 'and the plan').toBe(sent[FLOORPLAN_PARAM]);
+    expect((out.get(PHOTOS_PARAM) ?? '').split(/\s+/).filter(Boolean)).toHaveLength(12);
   });
 });

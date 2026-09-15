@@ -11,8 +11,8 @@ import { describe, expect, it } from 'vitest';
 import { coreConfig } from '@gil-bricks/core/config';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { scoreListing, smartDefaults, found, missing, type NormalisedListing, type SectorFile } from '@gil-bricks/core';
-import { renderTriage, type PanelView } from '../entrypoints/sidepanel/main.ts';
+import { found, missing, type NormalisedListing, type SectorFile } from '@gil-bricks/core';
+import { __mountForTest } from '../entrypoints/sidepanel/main.ts';
 
 /** vitest runs with cwd = packages/extension. */
 const EXT = resolve(process.cwd());
@@ -46,16 +46,10 @@ describe('the panel can never be injected into by a listing page', () => {
       schemaVersion: 1, sector: 'SA1 8', country: 'W92000004', updatedAt: '2026-08-31T00:00:00Z', sales: [],
       stats: { count: 20, typicalPrice: 180000, typicalPpsqm: 2200, p10Price: 120000, p90Price: 230000 },
     } as SectorFile;
-    const view = {
-      screen: 'triage', listing, strategy: 'btl' as const, unknowns: {},
-      result: scoreListing(listing, { strategy: 'btl', unknowns: {}, sector }),
-      suggestions: smartDefaults('btl', listing, sector, null),
-      settings: {}, criteria: {}, floorAreaSqm: null, floorAreaSource: 'none',
-      floorAreaRange: null, manualAreaInput: '', usingSuggested: false,
-    } as unknown as PanelView;
-
     document.body.innerHTML = '<main id="app"></main>';
-    renderTriage(view);
+    // Drive the REAL controller, not a hand-assembled view: the escaping has to
+    // hold on the path the panel actually renders through.
+    __mountForTest(listing, { sector });
     const host = document.getElementById('app') as HTMLElement;
     // The markup is present as TEXT and absent as DOM — the whole point.
     expect(host.querySelectorAll('img')).toHaveLength(0);

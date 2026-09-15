@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { socialMark, SOCIAL_MARK_SIZES } from '@gil-bricks/core';
 import { ANALYSER_SECTIONS } from './analyserSections';
 
 /**
@@ -17,6 +18,24 @@ const header = read('components/site/Header.astro');
  *  footer. The guarantees did not move: they are asserted against wherever the
  *  artwork actually lives now. */
 const marks = read('components/site/SocialMarks.astro');
+/**
+ * X1 — THE ARTWORK MOVED, THE GUARANTEES DID NOT.
+ *
+ * The two marks are now described once in @gil-bricks/core and rendered by both
+ * the web app and the extension's side panel, which used to carry its own
+ * hand-traced monochrome copy. So every assertion about the ARTWORK is made
+ * against core — by calling it, not by grepping it — while the assertions about
+ * LAYOUT stay on the component that does the laying out.
+ *
+ * This matters more than a tidy refactor: the size checks below used to scan
+ * this component's stylesheet with a regex, and a regex that finds nothing
+ * passes. Moving the sizes without moving the checks would have left four green
+ * assertions that no longer looked at anything.
+ */
+const markSource = readFileSync(
+  fileURLToPath(new URL('../../../core/src/brand/socialMarks.ts', import.meta.url)),
+  'utf8',
+);
 const strip = read('components/analyser/SectionStrip.astro');
 const css = read('styles/analyser.css');
 
@@ -69,13 +88,48 @@ describe('the social marks are the official ones', () => {
   });
 
   it('YouTube is YouTube red and Instagram carries ITS OWN gradient stops', () => {
-    expect(marks).toContain('fill="#FF0000"');
+    const yt = socialMark('youtube', 'header');
+    const fills = yt.shapes.map((sh) => sh.attrs.fill);
+    expect(fills, 'the badge is YouTube red').toContain('#FF0000');
+    expect(fills, 'and the play triangle is white').toContain('#fff');
+
     // Naming the element was not enough — swapping a stop to lime kept the
     // element and passed. The stops themselves are the brand.
+    const ig = socialMark('instagram', 'header');
+    const stops = ig.gradients.flatMap((g) => g.stops.map((st) => st.color));
     for (const stop of ['#FFDD55', '#FF543E', '#C837AB', '#3771C8', '#6600FF']) {
-      expect(marks, `Instagram stop ${stop}`).toContain(stop);
+      expect(stops, `Instagram stop ${stop}`).toContain(stop);
     }
-    expect(marks, 'no brand lime inside either mark').not.toMatch(/stop-color="#dcff00"/i);
+    const everyColour = [...stops, ...ig.shapes.map((sh) => sh.attrs.fill ?? ''), ...fills];
+    for (const c of everyColour) {
+      expect(c.toLowerCase(), 'no brand lime inside either mark').not.toContain('#dcff00');
+    }
+    // currentColor is how the old hand-traced panel icon got recoloured.
+    expect(everyColour.join(' ')).not.toContain('currentColor');
+  });
+
+  /**
+   * X1 — THE EXTENSION AND THE WEB APP DRAW THE SAME TWO MARKS.
+   *
+   * Not "both look official": byte-identical geometry, because there is only one
+   * description of it. The panel had its own monochrome tracing for months.
+   */
+  it('the extension renders from this same source, so the two cannot drift', () => {
+    const panel = readFileSync(
+      fileURLToPath(new URL('../../../extension/entrypoints/sidepanel/main.ts', import.meta.url)),
+      'utf8',
+    );
+    expect(panel, 'the panel asks core for the marks').toContain("socialMark(");
+    // The old tracing, named so it can never quietly come back.
+    expect(panel, 'no hand-drawn path left in the panel')
+      .not.toContain('M12 2.2c3.2 0 3.6 0 4.9.07');
+    expect(panel, 'and nothing recoloured').not.toContain("setAttribute('fill', 'currentColor')");
+    // Same geometry object for both surfaces — only the gradient ids differ.
+    const web = socialMark('instagram', 'header');
+    const ext = socialMark('instagram', 'panel');
+    expect(ext.viewBox).toBe(web.viewBox);
+    expect(ext.shapes.map((sh) => sh.attrs.d)).toEqual(web.shapes.map((sh) => sh.attrs.d));
+    expect(ext.gradients[0].id, 'but the ids are namespaced apart').not.toBe(web.gradients[0].id);
   });
 
   it('they are self-hosted — inline, with nothing fetched from a CDN', () => {
@@ -99,35 +153,56 @@ describe('the social marks are the official ones', () => {
   /** H1 — a square glyph and a wide badge at the same dimensions are never
    *  optically equal. C2 left both at 18px square and the YouTube mark, which
    *  fills only 16.2 of its 24 units of height, read a third smaller. */
-  it('they are sized SEPARATELY, because their shapes are not the same', () => {
-    const style = marks.slice(marks.indexOf('<style>'));
-    const ig = /\.mark-ig \{ width: ([\d.]+)px; height: ([\d.]+)px; \}/.exec(style);
-    const yt = /\.mark-yt \{ width: ([\d.]+)px; height: ([\d.]+)px; \}/.exec(style);
-    expect(ig, 'instagram has its own size').not.toBeNull();
-    expect(yt, 'youtube has its own size').not.toBeNull();
-    const [iw, ih] = [Number(ig![1]), Number(ig![2])];
-    const [yw, yh] = [Number(yt![1]), Number(yt![2])];
-    expect(iw, 'instagram is square').toBe(ih);
-    expect(yw, 'youtube is wider than it is tall').toBeGreaterThan(yh);
-    expect(yw, 'and wider than instagram, or it looks smaller').toBeGreaterThan(iw);
-    expect(yh, 'while being shorter, which is what its artwork is').toBeLessThan(ih);
-    // measured in painted pixels at 320, 390 and 1280: ratio 1.00-1.05
-    const area = (w: number, h: number) => Math.sqrt(w * h);
-    expect(Math.abs(area(yw, yh) - area(iw, ih)) / area(iw, ih), 'within 10% by geometric mean').toBeLessThan(0.1);
+  it.each(['header', 'footer', 'panel'] as const)(
+    'on %s they are sized SEPARATELY, because their shapes are not the same',
+    (place) => {
+      const size = SOCIAL_MARK_SIZES[place];
+      const { w: iw, h: ih } = size.instagram;
+      const { w: yw, h: yh } = size.youtube;
+      expect(iw, 'instagram is square').toBe(ih);
+      expect(yw, 'youtube is wider than it is tall').toBeGreaterThan(yh);
+      expect(yw, 'and wider than instagram, or it looks smaller').toBeGreaterThan(iw);
+      expect(yh, 'while being shorter, which is what its artwork is').toBeLessThan(ih);
+      // measured in painted pixels at 320, 390 and 1280: ratio 1.00-1.05
+      const area = (w: number, h: number) => Math.sqrt(w * h);
+      expect(
+        Math.abs(area(yw, yh) - area(iw, ih)) / area(iw, ih),
+        'within 10% by geometric mean',
+      ).toBeLessThan(0.1);
+    },
+  );
+
+  /**
+   * The old version of this scanned the component's stylesheet with a regex and
+   * asserted inside the loop. When the sizes moved, the regex matched nothing,
+   * the loop ran zero times, and the test went green having checked nothing at
+   * all. It now reads the table itself, and asserts the table is not empty.
+   */
+  it('and the web marks are BIGGER than the 18px C2 left them at', () => {
+    const widths = [
+      SOCIAL_MARK_SIZES.header.instagram.w, SOCIAL_MARK_SIZES.header.youtube.w,
+      SOCIAL_MARK_SIZES.footer.instagram.w, SOCIAL_MARK_SIZES.footer.youtube.w,
+    ];
+    expect(widths, 'the sizes must actually be there to check').toHaveLength(4);
+    for (const w of widths) expect(w, 'no mark went backwards').toBeGreaterThan(18);
   });
 
-  it('and they are BIGGER than the 18px C2 left them at', () => {
+  it('the component renders the sizes it is given, rather than restating them', () => {
+    expect(marks, 'sizes come from core').toContain('SOCIAL_MARK_SIZES[place]');
     const style = marks.slice(marks.indexOf('<style>'));
-    for (const m of style.matchAll(/width: ([\d.]+)px/g)) {
-      expect(Number(m[1]), 'no mark went backwards').toBeGreaterThan(18);
-    }
+    expect(style, 'and are not hardcoded a second time in the stylesheet')
+      .not.toMatch(/\.mark-(ig|yt)\s*\{[^}]*width:/);
   });
 
   it('ONE component serves the header and the footer, so they cannot drift', () => {
     expect(read('components/site/Header.astro')).toContain('<SocialMarks place="header" />');
     expect(read('components/site/Footer.astro')).toContain('<SocialMarks place="footer" />');
-    // two inline SVGs on one page must not fight over a gradient id
-    expect(marks).toContain('pl-ig-a-${place}');
+    // two inline SVGs on one page must not fight over a gradient id — core
+    // namespaces them, and the component passes its own place through.
+    expect(markSource).toContain('pl-ig-a-${place}');
+    expect(marks).toContain("socialMark('instagram', place)");
+    expect(socialMark('instagram', 'header').gradients[0].id)
+      .not.toBe(socialMark('instagram', 'footer').gradients[0].id);
   });
 });
 

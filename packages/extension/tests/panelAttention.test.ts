@@ -5,7 +5,7 @@
  * sentence about how far any of it reaches.
  */
 import { describe, expect, it, beforeEach, vi } from 'vitest';
-import { scoreListing, smartDefaults, found, missing, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
+import { priceBand, detectFlags, triageNumbers, found, missing, type NormalisedListing, type SectorFile, type StrategyId } from '@gil-bricks/core';
 import { attentionBar, renderEmpty, renderFailure, renderSettings, renderTriage, type PanelView } from '../entrypoints/sidepanel/main.ts';
 import { ATTENTION_COPY } from '../src/attention';
 
@@ -25,13 +25,16 @@ const sector = (): SectorFile => ({
 }) as SectorFile;
 function view(over: Partial<PanelView> = {}): PanelView {
   const strategy = (over.strategy ?? 'btl') as StrategyId;
-  const unknowns = over.unknowns ?? {};
   return {
-    screen: 'triage', listing, strategy, unknowns,
-    result: over.result ?? scoreListing(listing, { strategy, unknowns, sector: sector() }),
-    suggestions: smartDefaults(strategy, listing, sector(), null),
+    screen: 'triage', listing, strategy,
+    numbers: triageNumbers({
+      askingPrice: listing.askingPrice.value ?? null, floorAreaSqm: null,
+      country: 'W92000004', depositPct: 25, legals: 1500,
+    }),
+    band: priceBand({ type: 'F', floorAreaSqm: 0, askingPrice: 170000, sales: [], now: new Date() }),
+    flags: detectFlags({ text: 'x', tenure: listing.tenure.value ?? null }),
     settings: {}, criteria: {}, floorAreaSqm: null, floorAreaSource: 'none', floorAreaRange: null,
-    manualAreaInput: '', usingSuggested: false, ...over,
+    manualAreaInput: '', ...over,
   };
 }
 

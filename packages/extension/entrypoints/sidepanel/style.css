@@ -1,6 +1,12 @@
-/* PropLaunch (by Gil & Bricks) side-panel brand styling. Self-hosted fonts (no CDN). Narrow
-   single-column layout (~360-400px), verdict first. Lime is only ever an accent
-   or a fill under near-black text — never a background under white text. */
+/* X1 — THE TRIAGE PANEL'S STYLING.
+   One screen, no scrolling, two zones. Self-hosted fonts (no CDN). Lime is only
+   ever an accent or a fill under near-black text — never a background under
+   white text.
+
+   WIDTH. 468px, up from 420px: about half an inch wider, which is what lets a
+   label and its figure sit on one line instead of wrapping. The rule that
+   governs everything below it is that if the panel does not fit, the answer is
+   LESS ON THE PANEL — never a scrollbar. */
 
 @font-face { font-family: 'Montserrat'; font-weight: 600; font-display: swap; src: url('/fonts/montserrat-latin-600-normal.woff2') format('woff2'); }
 @font-face { font-family: 'Montserrat'; font-weight: 700; font-display: swap; src: url('/fonts/montserrat-latin-700-normal.woff2') format('woff2'); }
@@ -27,6 +33,9 @@
   --green: #7ddf6a;
   --amber: #ffc861;
   --red: #ff9d9d;
+  /* ONE width for the header, the hint and the card, so nothing sits off-edge
+     from anything else. Changing this moves all three together. */
+  --panel-w: 468px;
 }
 
 * { box-sizing: border-box; }
@@ -36,11 +45,11 @@ body {
   color: var(--text);
   font-family: var(--font-body);
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.4;
   background: linear-gradient(180deg, #070014 0%, #1d022f 45%, #230138 75%, #050008 100%);
   background-attachment: fixed;
 }
-.panel { padding: 14px; max-width: 420px; margin: 0 auto; }
+.panel { padding: 10px 14px 14px; max-width: var(--panel-w); margin: 0 auto; }
 
 .glass {
   background: rgba(255, 255, 255, 0.05);
@@ -55,434 +64,208 @@ body {
 @media (prefers-reduced-transparency: reduce) { .glass { background: #140322; backdrop-filter: none; -webkit-backdrop-filter: none; } }
 @media (hover: none) { .glass { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); } }
 
-.card { padding: 16px; }
-.eyebrow { margin: 0 0 10px; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.75rem; color: var(--accent); }
-
-/* Verdict chip */
-.deal-score {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
-  padding: 12px 14px; border-radius: 12px; border: 1px solid var(--accent);
-  background: rgba(220, 255, 0, 0.06);
-}
-.ds-score { display: inline-flex; align-items: baseline; gap: 2px; }
-.ds-score strong { font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: var(--accent); line-height: 1; }
-.ds-outof { color: var(--text-dim); font-size: 0.9rem; }
-.ds-light { font-size: 1.25rem; line-height: 1; }
-.ds-verdict { font-family: var(--font-display); font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.9rem; }
-.ds-headline { flex: 1 1 100%; color: var(--text); font-size: 1rem; font-weight: 600; }
-.deal-score.ds-good .ds-light { color: var(--green); }
-.deal-score.ds-marginal .ds-light { color: var(--amber); }
-.deal-score.ds-walk .ds-light { color: var(--red); }
-
-.binding-note { margin: 12px 0 0; color: var(--text); font-size: 0.9rem; }
-.binding-label { font-weight: 700; }
-
-.components { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 6px; }
-.component { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 8px; font-size: 0.85rem; }
-.c-name { color: var(--text-dim); }
-.c-points { color: var(--text-dim); font-variant-numeric: tabular-nums; min-width: 62px; text-align: right; }
-.c-status { justify-self: start; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
-.st-green { color: var(--green); }
-.st-amber { color: var(--amber); }
-.st-red { color: var(--red); }
-.st-unknown { color: var(--text-dim); }
-
-.sample-note { margin: 14px 0 0; color: var(--text-dim); font-size: 0.78rem; border-top: 1px solid rgba(255, 255, 255, 0.12); padding-top: 10px; }
-
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
-
-/* E5: read-from-page listing view */
-.read-head { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; }
-.read-portal { font-family: var(--font-display); font-weight: 700; text-transform: capitalize; }
-.read-source { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; }
-.read-fail { margin: 8px 0 0; color: var(--text); font-size: 0.92rem; border-left: 2px solid var(--amber); padding-left: 10px; }
-/* E7.1 — priced outside the local market, works on no strategy. */
-.out-of-market { margin: 10px 0 0; color: var(--text); font-size: 0.92rem; font-weight: 600; border-left: 2px solid var(--accent); padding-left: 10px; }
-/* E7.1 — a remembered rent that didn't fit this property was cleared. */
-.suggest-note.cleared-note { color: var(--amber); }
-.fields { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; }
-.field-row { display: grid; grid-template-columns: 9.5em auto 1fr; align-items: baseline; gap: 8px; font-size: 0.88rem; }
-.f-label { color: var(--text-dim); }
-.f-status { justify-self: start; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.03em; min-width: 0; }
-.f-status:empty { display: none; }
-.f-value { color: var(--text); font-variant-numeric: tabular-nums; }
-
-/* E6: live listing panel */
+.card { padding: 12px 16px 14px; }
+.eyebrow { margin: 0 0 8px; font-family: var(--font-display); font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; font-size: 0.75rem; color: var(--accent); }
 .empty-msg { margin: 6px 0 0; color: var(--text-dim); font-size: 1rem; }
-.prop-addr { margin: 0 0 2px; font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
-.prop-facts { margin: 0 0 12px; color: var(--text-dim); font-size: 0.9rem; }
 
-.strategy-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
-.strat-btn { font-family: var(--font-display); font-weight: 700; font-size: 0.82rem; padding: 7px 4px; border-radius: 10px; border: 1px solid var(--accent); background: transparent; color: var(--text); cursor: pointer; }
+/* The property line — what you are looking at, and nothing more. */
+.prop-addr { margin: 0 0 2px; font-family: var(--font-display); font-weight: 700; font-size: 1.02rem; line-height: 1.25; }
+.prop-facts { margin: 0 0 10px; color: var(--text-dim); font-size: 0.85rem; }
+
+/* One heading style for both zones and the two blocks under them, so nothing on
+   the panel claims more importance than anything else by typography alone. */
+.zone-head {
+  margin: 11px 0 5px;
+  font-family: var(--font-display); font-weight: 800; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent);
+}
+.numbers > .zone-head:first-child { margin-top: 0; }
+
+/* ---- ZONE ONE: the numbers ------------------------------------------------
+   A label on the left, a figure on the right, and where a figure rests on an
+   assumption, the assumption directly under it. The figures are tabular so the
+   column of pounds lines up and can be read down. */
+.num-row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 2px 12px; margin: 0 0 3px; }
+.num-label { color: var(--text-dim); font-size: 0.88rem; }
+.num-value { font-family: var(--font-display); font-weight: 700; font-size: 1rem; font-variant-numeric: tabular-nums; }
+.num-basis { grid-column: 1 / -1; margin: 1px 0 0; color: var(--text-dim); font-size: 0.72rem; line-height: 1.35; }
+
+/* The one input left on the panel: the floor area, and only when nothing else
+   could supply it. It is what unlocks £/m² and the comparison. */
+.area-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; margin: 6px 0 0; }
+.area-field {
+  width: 6.5em; padding: 6px 9px; border-radius: 8px;
+  border: 1px solid var(--accent); background: rgba(255, 255, 255, 0.05);
+  color: var(--text); font-size: 0.95rem; font-family: var(--font-body);
+}
+
+/* ---- The price comparison -------------------------------------------------
+   A POSITION, never an adjective. The caveat below it is permanent and is not
+   decoration: it is the sentence that stops "below the range" being read as
+   "worth buying". */
+.band-position {
+  margin: 0 0 4px; padding: 6px 9px; border-radius: 9px;
+  font-weight: 600; font-size: 0.86rem; line-height: 1.3;
+  background: rgba(255, 255, 255, 0.05); border-left: 3px solid var(--text-dim);
+}
+/* The three positions are told apart by a neutral edge colour and by their
+   WORDS. None of them is green: a green bar is a tick, and a tick is a verdict
+   this panel is not entitled to give. */
+.band-within { border-left-color: var(--text-dim); }
+.band-above { border-left-color: var(--amber); }
+.band-below { border-left-color: var(--text-dim); }
+.band-range { margin: 0 0 2px; font-family: var(--font-display); font-weight: 700; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.band-basis { margin: 0; color: var(--text-dim); font-size: 0.74rem; }
+.band-widened { margin: 2px 0 0; color: var(--amber); font-size: 0.74rem; }
+.band-caveat { margin: 5px 0 0; color: var(--text-dim); font-size: 0.73rem; line-height: 1.32; }
+.band-none { margin: 0; color: var(--text); font-size: 0.86rem; line-height: 1.4; }
+.band-why { margin: 3px 0 0; color: var(--text-dim); font-size: 0.76rem; }
+
+/* Beside any neighbourhood statistic, permanently. */
+.area-caveat { margin: 7px 0 0; padding-top: 7px; border-top: 1px solid rgba(255, 255, 255, 0.1); color: var(--text-dim); font-size: 0.72rem; line-height: 1.4; }
+
+/* ---- ZONE TWO: the flags --------------------------------------------------
+   Amber, never red: red is a stop, and none of these stops anything. They are
+   things to ask about. */
+.flag-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.flag {
+  display: grid; gap: 0; padding: 5px 9px; border-radius: 8px;
+  background: rgba(255, 200, 97, 0.08); border-left: 3px solid var(--amber);
+}
+.flag-text { font-size: 0.86rem; font-weight: 600; color: var(--text); }
+.flag-found { color: var(--text-dim); font-size: 0.74rem; font-style: italic; }
+.flag-verify { margin: 5px 0 0; color: var(--text-dim); font-size: 0.74rem; }
+/* SILENCE IS NOT AN ALL CLEAR. The empty state is deliberately as visible as a
+   flag would be — a quiet panel that looked like nothing at all would read as
+   permission. */
+.flags-none { margin: 0; color: var(--text); font-size: 0.86rem; }
+.flags-none-why { margin: 3px 0 0; padding-left: 9px; border-left: 2px solid var(--text-dim); color: var(--text-dim); font-size: 0.75rem; line-height: 1.32; }
+
+/* ---- Possible flexibility ------------------------------------------------- */
+.flex-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.flex-line { font-size: 0.84rem; color: var(--text); }
+.flex-caveat { margin: 5px 0 0; color: var(--text-dim); font-size: 0.74rem; }
+
+/* ---- The handoff ----------------------------------------------------------
+   At the bottom, after everything, and carrying everything. The strategy
+   buttons sit with it because choosing a strategy is choosing which analyser
+   opens — it is part of this button, not a lever on the numbers above. */
+.handoff { margin: 11px 0 0; padding-top: 10px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.strategy-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 0 0 9px; }
+.strat-btn { font-family: var(--font-display); font-weight: 700; font-size: 0.78rem; padding: 6px 4px; border-radius: 9px; border: 1px solid var(--accent); background: transparent; color: var(--text); cursor: pointer; }
 .strat-btn.active { background: var(--accent); color: #0a0a0a; }
+.send-btn { display: block; width: 100%; margin: 0; padding: 11px; border-radius: 12px; border: none; background: var(--accent); color: #0a0a0a; font-family: var(--font-display); font-weight: 800; font-size: 0.98rem; cursor: pointer; }
+.send-btn:hover { filter: brightness(1.05); }
+/* THE ONE THING IN THIS PANEL WE WANT PRESSED. */
+.send-btn-action { background: var(--action); color: var(--action-ink); }
+.handoff-why { margin: 5px 0 0; color: var(--text-dim); font-size: 0.72rem; line-height: 1.32; }
 
-.deal-score.ds-pending { border-style: dashed; background: rgba(255, 255, 255, 0.04); display: block; }
-.deal-score.ds-pending .ds-verdict { display: block; color: var(--text-dim); }
-.deal-score.ds-pending .ds-headline { display: block; margin-top: 4px; font-weight: 600; }
-
-.input-row { display: grid; grid-template-columns: 1fr; gap: 4px; margin: 12px 0 0; }
-.input-label { font-weight: 700; font-size: 0.9rem; }
-.input-field { width: 100%; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--accent); background: rgba(255,255,255,0.05); color: var(--text); font-size: 1rem; }
-.input-field::placeholder { color: rgba(255,255,255,0.45); }
-
-.floor-area { margin: 12px 0 0; color: var(--text-dim); font-size: 0.85rem; }
-
-.assumptions { margin: 12px 0 0; }
-.assumptions-summary { cursor: pointer; font-weight: 700; font-size: 0.9rem; color: var(--accent); }
+/* ---- Settings ------------------------------------------------------------- */
+.settings-link { display: inline-block; margin: 8px 0 0; padding: 0; background: none; border: none; color: var(--accent); font-family: var(--font-body); font-weight: 600; font-size: 0.85rem; cursor: pointer; text-decoration: underline; }
+.settings-title { margin: 16px 0 8px; font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; color: var(--text); }
 .assume-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.85rem; }
 .assume-label { color: var(--text-dim); }
 .assume-field { width: 8.5em; padding: 5px 8px; border-radius: 8px; border: 1px solid rgba(220,255,0,0.5); background: rgba(255,255,255,0.05); color: var(--text); }
-
-.send-btn { display: block; width: 100%; margin: 16px 0 0; padding: 12px; border-radius: 12px; border: none; background: var(--accent); color: #0a0a0a; font-family: var(--font-display); font-weight: 800; font-size: 1rem; cursor: pointer; }
-.send-btn:hover { filter: brightness(1.05); }
-/* THE ONE THING IN THIS PANEL WE WANT PRESSED. `send-btn` is shared by three
-   controls — send the deal, open the measure tool, use a measurement — and only
-   the first is a primary call to action. The other two are offers, and keeping
-   them lime is what lets this one read as the priority. */
-.send-btn-action { background: var(--action); color: var(--action-ink); }
-
-/* E6 review fixes: pending price row shows prose, empty pills hidden */
-.c-status:empty { display: none; }
-.component-note { grid-template-columns: 1fr auto; }
-.component-note .c-note { grid-column: 1 / -1; color: var(--text-dim); font-size: 0.8rem; }
-
-/* E7: triage + settings */
-.settings-link { display: inline-block; margin: 14px 0 0; padding: 0; background: none; border: none; color: var(--accent); font-family: var(--font-body); font-weight: 600; font-size: 0.9rem; cursor: pointer; text-decoration: underline; }
-.settings-sub { margin-top: 16px; }
-.suggest-note { display: block; margin-top: 3px; color: var(--text-dim); font-size: 0.75rem; }
-
-/* ---- Seller Signals (E8) — negotiation context, separate from the score ---- */
-.seller-signals {
-  margin-top: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  padding: 0;
-}
-.ss-summary {
-  list-style: none;
-  cursor: pointer;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 10px;
-  padding: 10px 12px;
-}
-.ss-summary::-webkit-details-marker { display: none; }
-.ss-summary::after {
-  content: '▾';
-  margin-left: auto;
-  color: var(--text-dim);
-  transition: transform 0.15s ease;
-}
-.seller-signals[open] .ss-summary::after { transform: rotate(180deg); }
-.ss-title {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-dim);
-  width: 100%;
-}
-.ss-band {
-  font-size: 0.82rem;
-  font-weight: 600;
-  padding: 3px 9px;
-  border-radius: 999px;
-  border: 1px solid currentColor;
-}
-.ss-band.ss-strong { color: var(--accent); }
-.ss-band.ss-some { color: var(--amber); }
-.ss-band.ss-none { color: var(--text-dim); }
-.ss-band.ss-warn { color: var(--red); }
-.ss-band.ss-caution { color: var(--amber); }
-.ss-body { padding: 0 12px 12px; border-top: 1px solid rgba(255, 255, 255, 0.1); }
-.ss-time { width: 100%; margin: 2px 0 0; color: var(--text-dim); font-size: 0.8rem; }
-.ss-read { margin-top: 10px; }
-.ss-read-head { margin: 0 0 4px; font-size: 0.9rem; font-weight: 700; color: var(--text); }
-.ss-evidence { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.ss-ev { font-size: 0.85rem; display: flex; flex-direction: column; }
-.ss-ev-label { font-weight: 600; }
-.ss-ev-phrase { color: var(--text-dim); font-style: italic; font-size: 0.8rem; }
-.ss-ev-src { color: var(--text-dim); font-size: 0.75rem; }
-.ss-empty { margin: 0; color: var(--text-dim); font-size: 0.85rem; }
-.ss-note { margin: 4px 0 0; color: var(--text-dim); font-size: 0.78rem; }
-.ss-worth { margin: 10px 0 0; padding-left: 10px; border-left: 2px solid var(--accent); font-size: 0.84rem; color: var(--text); }
-.ss-foot { margin: 12px 0 0; color: var(--text-dim); font-size: 0.75rem; }
-
-/* ---- E8.1: money inputs, levers, change signal, costs card, auction card ---- */
+.settings-note { margin: 4px 0 0; color: var(--text-dim); font-size: 0.8rem; line-height: 1.4; }
 .money-wrap { position: relative; display: flex; align-items: center; }
 .money-prefix { position: absolute; left: 10px; color: var(--text-dim); pointer-events: none; font-size: 1rem; }
 .money-input { padding-left: 22px; }
 
-.settings-title { margin: 18px 0 8px; font-family: var(--font-display); font-weight: 800; font-size: 0.95rem; color: var(--text); }
-.settings-title.settings-sub { margin-top: 22px; font-size: 0.85rem; }
+/* ---- Failure states — one heading, one sentence, one action ---------------- */
+.fail-head { margin: 6px 0 6px; font-family: var(--font-display); font-weight: 800; font-size: 1.02rem; color: var(--text); }
+.fail-body { margin: 0; color: var(--text-dim); font-size: 0.9rem; line-height: 1.45; }
+.fail-action { margin: 8px 0 0; color: var(--text); font-size: 0.88rem; font-weight: 600; border-left: 2px solid var(--accent); padding-left: 10px; }
+/* England & Wales-only — a distinct honest block inside the listing card. */
+.ew-reject { margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
 
-/* Auction warning — prominent, above the components. */
-.auction-card { margin: 12px 0; padding: 12px 14px; border: 2px solid var(--amber); border-radius: 12px; background: rgba(255, 200, 97, 0.08); }
-.auction-head { margin: 0 0 8px; font-family: var(--font-display); font-weight: 800; font-size: 0.92rem; color: var(--amber); }
-.auction-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
-.auction-point { font-size: 0.86rem; color: var(--text); }
-
-/* Cashflow before/after tax (item 4). */
-.c-cashflow-lead { display: block; grid-column: 1 / -1; margin-top: 3px; font-weight: 700; font-size: 0.86rem; color: var(--text); }
-.c-cashflow-sub { display: block; grid-column: 1 / -1; color: var(--text-dim); font-size: 0.76rem; }
-
-/* "What you need to put in" costs card. */
-.costs-card { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--accent); border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
-.costs-head { margin: 0 0 4px; font-family: var(--font-display); font-weight: 800; font-size: 0.92rem; color: var(--accent); }
-.costs-intro { margin: 0 0 8px; color: var(--text-dim); font-size: 0.8rem; }
-.costs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
-.costs-line { display: flex; justify-content: space-between; gap: 10px; font-size: 0.88rem; }
-.costs-label { color: var(--text-dim); }
-.costs-amount { font-variant-numeric: tabular-nums; }
-.costs-total { display: flex; justify-content: space-between; gap: 10px; margin: 10px 0 0; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.14); font-weight: 800; }
-.costs-total-amount { color: var(--accent); font-variant-numeric: tabular-nums; }
-.costs-split { margin: 8px 0 0; color: var(--text-dim); font-size: 0.78rem; }
-.costs-note { margin: 6px 0 0; color: var(--amber); font-size: 0.76rem; }
-
-/* Front levers + change signal. */
-.levers { margin: 14px 0 0; }
-.levers-head { margin: 0 0 8px; font-family: var(--font-display); font-weight: 700; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-dim); }
-.levers-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.lever { display: flex; flex-direction: column; gap: 3px; }
-.lever-label { font-size: 0.78rem; color: var(--text-dim); }
-.lever-field { padding: 7px 9px; font-size: 0.92rem; }
-.change-signal { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; background: rgba(220, 255, 0, 0.12); border-left: 3px solid var(--accent); color: var(--text); font-size: 0.82rem; font-weight: 600; animation: gb-fade 0.3s ease; }
-@keyframes gb-fade { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .change-signal { animation: none; } }
-
-/* Seller Signals expander — a proper labelled lime control (item 8). */
-.ss-expander { margin-left: auto; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--accent); color: var(--accent); font-weight: 700; font-size: 0.8rem; white-space: nowrap; }
-.ss-summary::after { content: none; }
-.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
-
-/* ---- E9.1: floor-plan measure overlay ---- */
-.floorplan-card { margin-top: 14px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; background: rgba(255,255,255,0.04); }
-.fp-head { margin: 0 0 6px; font-family: var(--font-display); font-weight: 700; font-size: 0.95rem; letter-spacing: 0.01em; color: var(--text); }
-.fp-prompt { margin: 6px 0 10px; color: var(--text-dim); font-size: 0.86rem; line-height: 1.4; }
-.fp-note { margin: 6px 0 0; color: var(--text-dim); font-size: 0.8rem; }
-.fp-fit-head { margin: 12px 0 4px; font-size: 0.88rem; font-weight: 700; }
-.fp-foot { margin: 12px 0 0; color: var(--text-dim); font-size: 0.75rem; }
-.measure-tools { display: flex; gap: 6px; margin: 8px 0; }
-.measure-canvas { width: 100%; max-width: 360px; border: 1px solid var(--accent); border-radius: 8px; background: rgba(255,255,255,0.03); touch-action: none; display: block; }
-.measure-readout { margin: 8px 0; font-size: 0.9rem; color: var(--text); min-height: 1.2em; }
-
-/* ---- E10: brand header, socials, first-run, YouTube help, failure states ---- */
-/* Persistent header (outside #app): transparent logo left, socials right. */
+/* ---- Brand header ---------------------------------------------------------
+   THE WORDMARK AND THE CREDIT SHARE A BASELINE, not just a column. The credit
+   used to hang under a 31px image with nothing aligning the two, so at any
+   width they read as two unrelated objects rather than one signature. They are
+   now one baseline-aligned row: the credit sits ON the wordmark's baseline,
+   with its own optical nudge, and the pair grows and shrinks together. */
 .gb-header {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  max-width: 420px; margin: 0 auto; padding: 12px 14px 4px;
+  max-width: var(--panel-w); margin: 0 auto; padding: 10px 16px 2px;
 }
-.gb-brand { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.gb-logo { height: 30px; width: auto; display: block; }
-.gb-maker { font-size: 0.62rem; letter-spacing: 0.04em; color: var(--text-dim); text-transform: uppercase; }
-.gb-socials { display: flex; align-items: center; gap: 4px; }
+.gb-brand { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
+/* The artwork is CROPPED to its ink (603x75), so the box IS the mark and the
+   image's bottom edge is the wordmark's own foot. That is what makes
+   `align-items: baseline` on the row above actually align the two. The panel
+   used to load the uncropped 900x225 original, which carried ~6px of invisible
+   padding down its left side at render size — so no amount of CSS could line
+   the credit up with a "P" that started somewhere inside its own box. */
+.gb-logo { height: 25px; width: auto; display: block; }
+.gb-maker {
+  font-size: 0.6rem; letter-spacing: 0.05em; color: var(--text-dim); text-transform: uppercase;
+  white-space: nowrap;
+}
+.gb-socials { display: flex; align-items: center; gap: 2px; }
 .gb-social {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 34px; height: 34px; border-radius: 9px; color: var(--accent);
+  width: 32px; height: 32px; border-radius: 9px;
   text-decoration: none; border: 1px solid transparent;
+  /* They are a credit, not a call to action — and no lime chrome of ours is
+     painted around somebody else's mark. */
+  opacity: 0.85; transition: opacity 120ms ease;
 }
-.gb-social:hover { border-color: var(--accent); background: rgba(220, 255, 0, 0.08); }
-.gb-social-icon { width: 20px; height: 20px; display: block; }
+.gb-social:hover, .gb-social:focus-visible { opacity: 1; }
+/* Sized separately, by geometric mean — a square glyph and a wide badge at the
+   same dimensions are never optically equal. The numbers come from core
+   (SOCIAL_MARK_SIZES.panel) and are restated here only because CSS cannot read
+   them; `headerRail.test.ts` pins the table itself. */
+.gb-social-icon { display: block; }
+.gb-mark-ig { width: 20px; height: 20px; }
+.gb-mark-yt { width: 24px; height: 16.2px; }
 
 /* First-run hint — one quiet, dismissible line. Never lime under white text. */
 .gb-firstrun {
   display: flex; align-items: flex-start; gap: 10px;
-  max-width: 420px; margin: 4px auto 0; padding: 10px 12px;
+  max-width: var(--panel-w); margin: 4px auto 0; padding: 9px 12px;
   border-left: 3px solid var(--accent); border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
 }
-.gb-firstrun-msg { margin: 0; color: var(--text-dim); font-size: 0.82rem; line-height: 1.4; }
+.gb-firstrun-msg { margin: 0; color: var(--text-dim); font-size: 0.8rem; line-height: 1.4; }
 .gb-firstrun-x {
   flex: 0 0 auto; margin-left: auto; background: none; border: none; cursor: pointer;
   color: var(--text-dim); font-size: 0.95rem; line-height: 1; padding: 2px 4px; border-radius: 6px;
 }
 .gb-firstrun-x:hover { color: var(--text); }
 
-/* Per-strategy YouTube help — near the verdict, plain link, never a pop-up. */
-.yt-prompt { margin: 8px 0 0; color: var(--text-dim); font-size: 0.82rem; }
-.yt-link { color: var(--accent); font-weight: 600; text-decoration: underline; }
-.yt-link:hover { filter: brightness(1.08); }
+/* ---- What is waiting on the board, and the switch that silences it --------- */
+.gb-attention {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 0 10px; padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,0.18); border-left: 3px solid var(--accent);
+  border-radius: 12px; background: rgba(220, 255, 0, 0.06);
+}
+.gb-attention-n { font-weight: 700; font-size: 0.88rem; color: var(--text); }
+.gb-attention-open {
+  background: none; border: none; padding: 6px 0; min-height: 44px;
+  color: var(--accent); font-family: var(--font-body); font-weight: 600; font-size: 0.84rem;
+  cursor: pointer; text-decoration: underline;
+}
 
-/* Structured failure states — one heading, one sentence, one action. */
-.fail-head { margin: 6px 0 6px; font-family: var(--font-display); font-weight: 800; font-size: 1.05rem; color: var(--text); }
-.fail-body { margin: 0; color: var(--text-dim); font-size: 0.92rem; line-height: 1.45; }
-.fail-action { margin: 8px 0 0; color: var(--text); font-size: 0.9rem; font-weight: 600; border-left: 2px solid var(--accent); padding-left: 10px; }
-/* England & Wales-only — a distinct honest block inside the listing card. */
-.ew-reject { margin: 4px 0 0; padding: 10px 0 0; border-top: 1px solid rgba(255, 255, 255, 0.12); }
-
-/* ---- E10: visible keyboard focus everywhere (WCAG 2.1 AA — 2.4.7) ---- */
-/* The panel had no focus styling; native rings can vanish on the dark gradient.
-   A high-contrast lime ring, offset so it's visible against lime-bordered fields. */
+/* ---- Accessibility -------------------------------------------------------- */
+/* Native focus rings can vanish on the dark gradient. A high-contrast lime ring,
+   offset so it is visible against lime-bordered fields. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: 6px;
 }
-/* On a lime-filled control (active strat button, send button) the lime ring would
-   be invisible — use a dark ring plus the lime one for a guaranteed edge. */
+/* On a lime-filled control the lime ring would be invisible — a dark ring plus
+   the lime one gives a guaranteed edge either way. */
 .strat-btn.active:focus-visible, .send-btn:focus-visible {
   outline: 2px solid #070014;
   box-shadow: 0 0 0 4px var(--accent);
 }
 @media (prefers-contrast: more) {
   .glass { background: #140322; }
-  .c-name, .prop-facts, .fp-note, .yt-prompt, .gb-firstrun-msg, .fail-body { color: #ffffff; }
+  .prop-facts, .num-label, .num-basis, .band-basis, .band-caveat, .area-caveat,
+  .flag-found, .flag-verify, .flags-none-why, .flex-caveat, .handoff-why,
+  .gb-firstrun-msg, .fail-body { color: #ffffff; }
 }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 
-/* ---- P7: evidence chips — what this score rests on ----------------------- */
-/* The same three states the deal card and the analyser show, from the same
-   shared rules: filled = evidenced, outline = assumed, dashed = nobody knows. */
-.ev-block { display: flex; flex-direction: column; gap: 4px; margin: 6px 0 0; }
-.ev-chips { list-style: none; display: flex; flex-wrap: wrap; gap: 4px; margin: 0; padding: 0; }
-.ev-chip {
-  font-size: 11px; line-height: 1.4; padding: 1px 8px; border-radius: 999px;
-  border: 1px solid var(--line, rgba(255,255,255,0.18)); color: var(--dim, rgba(255,255,255,0.7));
-}
-.ev-chip.ev-evidenced { background: #dcff00; border-color: #dcff00; color: #0b0b0b; font-weight: 600; }
-.ev-chip.ev-assumed { color: var(--text, #fff); }
-.ev-chip.ev-unknown { border-style: dashed; }
-.ev-line { margin: 0; font-size: 11px; line-height: 1.35; color: var(--dim, rgba(255,255,255,0.7)); }
-
-/* ---- P10: what is waiting on the board, and the switch that silences it --- */
-/* One line above whatever the panel is showing, and one click to the board.
-   It only ever appears when today's count says something is waiting. */
-.gb-attention {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
-  margin: 0 0 10px; padding: 8px 12px;
-  border: 1px solid var(--line, rgba(255,255,255,0.18)); border-left: 3px solid var(--accent);
-  border-radius: 12px; background: rgba(220, 255, 0, 0.06);
-}
-.gb-attention-n { font-family: var(--font-head, inherit); font-weight: 700; font-size: 0.9rem; color: var(--text, #fff); }
-.gb-attention-open {
-  background: none; border: none; padding: 8px 0; min-height: 44px;
-  color: var(--accent); font-family: var(--font-body); font-weight: 600; font-size: 0.85rem;
-  cursor: pointer; text-decoration: underline;
-}
-.gb-attention-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-/* The honest limit, under the reminders switch. Quiet, and never a warning. */
-.settings-note { margin: 4px 0 0; color: var(--dim, rgba(255,255,255,0.7)); font-size: 0.8rem; line-height: 1.4; }
-
-/* E9 — the one line under the tax amount saying which rules made it. */
-.costs-note { display: block; margin: -2px 0 6px; }
-.costs-note-text { font-size: 11px; opacity: 0.7; }
-
-/* ---------- T1: the room tracer ------------------------------------------
-   Every rule is prefixed .tp- or .traceplan and nothing outside the module
-   uses them, so the whole visual design can be replaced by deleting this
-   block. `touch-action: none` on the surface is not styling: without it the
-   browser claims the gesture for its own pan and zoom before the second
-   pointermove arrives, and the trace fights the page. */
-.traceplan { display: flex; flex-direction: column; gap: 10px; }
-.tp-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.tp-title { font-size: 1rem; margin: 0; }
-.tp-intro { margin: 0; font-size: .85rem; opacity: .8; }
-.tp-caveat { margin: 0; font-size: .75rem; opacity: .7; }
-
-.tp-surface {
-  position: relative; width: 100%; aspect-ratio: 4 / 5;
-  border: 1px solid rgba(255,255,255,.15); border-radius: 10px; overflow: hidden;
-  background: #0d0d0f;
-}
-.tp-svg {
-  width: 100%; height: 100%; display: block;
-  /* The gesture is ours, not the browser's. */
-  touch-action: none; -webkit-user-select: none; user-select: none;
-}
-/* The plan is a BACKDROP: faint enough that the traced walls read on top of it,
-   strong enough to see a corner through. */
-.tp-plan { opacity: .45; }
-
-.tp-walls { fill: none; stroke: #dcff00; stroke-width: 2; stroke-linejoin: round; }
-.tp-room { fill: rgba(220,255,0,.18); stroke: #dcff00; stroke-width: 2; stroke-linejoin: round; }
-.tp-dot { fill: #0d0d0f; stroke: #dcff00; stroke-width: 2; }
-/* The first corner grows once closing is possible, so the target you are aiming
-   at is visibly the target. */
-.tp-dot-close { fill: #dcff00; }
-.tp-dot-held { stroke: #fff; stroke-width: 3; }
-.tp-wall-len { fill: #fff; font-size: 11px; font-weight: 600; paint-order: stroke; stroke: #0d0d0f; stroke-width: 3px; }
-.tp-scale-dot { fill: #4cc2ff; }
-.tp-scale-line { stroke: #4cc2ff; stroke-width: 2; stroke-dasharray: 4 3; }
-
-/* The loupe. Offset ABOVE the finger by the module's own tolerance, never under
-   it — the whole reason the control exists. */
-.tp-loupe-ring { fill: none; stroke: rgba(255,255,255,.9); stroke-width: 2; }
-.tp-cross { stroke: #ff3b30; stroke-width: 1.5; }
-
-.tp-chrome { display: flex; flex-direction: column; gap: 8px; }
-.tp-status { margin: 0; font-size: .85rem; font-weight: 600; }
-.tp-error:empty { display: none; }
-.tp-error { margin: 0; font-size: .8rem; color: #ff8a80; }
-.tp-scale-row, .tp-trace-row, .tp-accept { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.tp-label { font-size: .8rem; opacity: .8; flex: 1 1 100%; }
-.tp-input {
-  flex: 1 1 7rem; min-height: 44px; padding: 8px 10px; border-radius: 8px;
-  border: 1px solid rgba(255,255,255,.2); background: transparent; color: inherit; font: inherit;
-}
-/* 44px minimum on every control: these are pressed with a thumb, often one-handed. */
-.tp-btn {
-  min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer;
-  border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit;
-  font: inherit; font-size: .85rem; font-weight: 600;
-}
-.tp-btn:disabled { opacity: .4; cursor: default; }
-.tp-btn-primary { background: #dcff00; color: #0d0d0f; border-color: #dcff00; }
-.tp-btn-quiet { border-style: dashed; opacity: .8; }
-/* `display: flex` on these rows OVERRIDES the browser's own [hidden] rule, so
-   a hidden row stayed on screen — the scale controls sat under the result.
-   Caught by rendering the finished surface and reading it back. */
-.traceplan [hidden] { display: none !important; }
-.tp-area { margin: 0; font-size: 1.5rem; font-weight: 800; }
-.tp-range { margin: 0; font-size: .85rem; opacity: .85; }
-
-/* ---------- T2: levels, the zoom nudge and the calibration chooser ---------
-   Still entirely tp- prefixed, so deleting this block and the T1 one above
-   removes the whole feature's design in two cuts. */
-
-/* The level bar. A row of pressed/unpressed buttons rather than a dropdown:
-   switching storey is the most repeated action in a multi-level trace, and a
-   dropdown costs two taps every time. Scrolls sideways rather than wrapping,
-   so the surface below never moves as levels are added. */
-.tp-levels { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
-.tp-level {
-  flex: 0 0 auto; min-height: 40px; padding: 6px 12px; border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.25); background: transparent; color: inherit;
-  font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; white-space: nowrap;
-}
-.tp-level.is-on { background: #dcff00; color: #0d0d0f; border-color: #dcff00; }
-.tp-level-add { border-style: dashed; }
-
-/* The zoom nudge: prominent once, then gone for good. Not a toast — it must not
-   disappear on its own while somebody is reading it. */
-.tp-zoom-note {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  padding: 10px 12px; border-radius: 10px;
-  background: rgba(220,255,0,.1); border: 1px solid rgba(220,255,0,.3);
-}
-.tp-zoom-text { margin: 0; font-size: .85rem; flex: 1 1 12rem; }
-
-/* The four ways to size a plan, stacked so each one's reason can sit with it. */
-.tp-options { display: flex; flex-direction: column; gap: 6px; }
-.tp-options .tp-btn { text-align: left; }
-.tp-scale-panel { display: flex; flex-direction: column; gap: 10px; }
-.tp-subhead { margin: 0; font-size: .95rem; }
-.tp-dim-box, .tp-room-box { display: flex; flex-direction: column; gap: 6px; }
-.tp-sized-by { margin: 0; font-size: .9rem; font-weight: 600; }
-.tp-sized-by:empty { display: none; }
-
-/* The rooms on this level, each renameable in place. */
-.tp-room-list { display: flex; flex-direction: column; gap: 6px; }
-.tp-room-row { display: flex; gap: 8px; align-items: center; }
-.tp-room-name-input { flex: 1 1 auto; }
-.tp-room-area { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
-.tp-totals { display: flex; flex-direction: column; gap: 2px; }
-.tp-level-total { margin: 0; font-size: .85rem; opacity: .85; font-variant-numeric: tabular-nums; }
-
-/* A finished room's name and area, drawn on the plan itself. */
-.tp-room-name {
-  fill: #fff; font-size: 11px; font-weight: 600;
-  paint-order: stroke; stroke: #0d0d0f; stroke-width: 3px;
-}
-.tp-dot-done { stroke-width: 1.5; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }

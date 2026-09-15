@@ -85,3 +85,15 @@ export * from './area/trajectory';
 
 export * from './tools/equity';
 export * from './tools/rentalYield';
+
+// X1 — the extension's triage panel: the price comparison, the evidenced flags,
+// and every word the panel says. Maths and copy in core so the panel renders
+// and never decides (charter rule 3), and so one test can sweep all the words.
+export * from './triage/priceBand';
+export * from './triage/flags';
+export * from './triage/copy';
+export * from './triage/numbers';
+export * from './triage/nearby';
+export * from './triage/flexibility';
+// X1 item 7 — the official social marks, one source for panel and web.
+export * from './brand/socialMarks';

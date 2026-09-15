@@ -133,21 +133,31 @@ describe('pink is on the primary actions, and on nothing else', () => {
 
   it('the extension sends the deal on the pink button', () => {
     const main = read('packages/extension/entrypoints/sidepanel/main.ts');
-    expect(main).toMatch(/'send-btn send-btn-action', 'Send to my analyser/);
+    // X1 renamed it: "Send to my analyser" became "Run the full numbers", which
+    // says what happens rather than where it goes.
+    const line = main.split('\n').find((l) => l.includes('send-btn send-btn-action'));
+    expect(line, 'the pink button must exist').toBeDefined();
+    expect(line, 'and it is the handoff button that carries it').toContain('C.handoff.action');
   });
 
   /**
-   * THE OTHER HALF. `send-btn` is shared by three controls in the panel and only
-   * one is a call to action; if the modifier were ever dropped onto the other
-   * two, every button in the panel would be loud and none would lead.
+   * THE OTHER HALF, REWRITTEN FOR X1.
+   *
+   * This used to name the panel's two LIME offers — "Open the measure tool" and
+   * "Use N m² as floor area" — and check the pink modifier had not spread to
+   * them. Both were removed with the measure tool, so the old test could only
+   * ever look for lines that no longer exist.
+   *
+   * The guarantee it was protecting still matters and is now stated directly:
+   * the panel has exactly ONE send-btn, and it is the pink one. If a second
+   * button ever appears, this fails and somebody has to decide which of the two
+   * leads — rather than both being loud and neither leading.
    */
-  it('the extension leaves its two offers lime', () => {
+  it('the extension has exactly one primary button, and it is the pink one', () => {
     const main = read('packages/extension/entrypoints/sidepanel/main.ts');
-    for (const offer of ['Open the measure tool', 'as floor area']) {
-      const line = main.split('\n').find((l) => l.includes(offer) && l.includes('send-btn'));
-      expect(line, `no send-btn line for "${offer}"`).toBeDefined();
-      expect(line, `"${offer}" is an offer, not an instruction — it stays lime`).not.toContain('send-btn-action');
-    }
+    const buttons = main.split('\n').filter((l) => /e\('button', '[^']*send-btn/.test(l));
+    expect(buttons, 'one call to action on the panel, not two').toHaveLength(1);
+    expect(buttons[0]).toContain('send-btn-action');
   });
 
   /**

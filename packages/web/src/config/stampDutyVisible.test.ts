@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { TRIAGE_COPY } from '@gil-bricks/core';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { stampDuty } from '@gil-bricks/core';
@@ -140,8 +141,20 @@ describe('the fact the page relies on comes from the engine, not from the page',
 describe('the extension panel says it too', () => {
   const panel = readFileSync(fileURLToPath(new URL('../../../extension/entrypoints/sidepanel/main.ts', import.meta.url)), 'utf8');
 
-  it('renders the note under the tax amount', () => {
-    expect(panel).toContain("line.note !== undefined");
-    expect(panel).toContain("costs-note");
+  /**
+   * X1 — THE PANEL STILL SAYS WHAT MADE THE TAX, in a different place.
+   *
+   * It used to render the cash-needed card's per-line note. The card went with
+   * the deal score, and zone one now computes the tax itself — at the
+   * ADDITIONAL-PROPERTY rate, because that is what this audience pays and the
+   * surcharge is usually most of the bill. That assumption is the thing a
+   * reader must not have to guess at, so it is asserted here.
+   */
+  it('names the tax and states the assumption underneath it', () => {
+    expect(panel, 'the figure is labelled').toContain('C.numbers.stampDuty');
+    expect(panel, 'and Wales is named separately').toContain('C.numbers.stampDutyWales');
+    expect(panel, 'with the assumption directly under it').toContain('C.numbers.stampDutyBasis');
+    // And the assumption actually says which rate, in the copy the panel reads.
+    expect(TRIAGE_COPY.numbers.stampDutyBasis.toLowerCase()).toMatch(/additional/);
   });
 });

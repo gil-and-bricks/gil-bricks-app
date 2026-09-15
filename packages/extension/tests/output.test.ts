@@ -101,10 +101,19 @@ describe('shared library is bundled, not fetched', () => {
   it('inlines @gil-bricks/core scoring into the side-panel chunk', () => {
     const chunks = readdirSync(join(OUT, 'chunks')).filter((f) => f.endsWith('.js'));
     const blob = chunks.map((f) => read(join('chunks', f))).join('\n');
-    // a copy string that only exists in @gil-bricks/core (E2.1 templates)
-    expect(blob).toContain('makes the risk worth it');
-    // and the sample headline the panel renders
-    expect(blob).toContain('short of the');
+    /**
+     * X1 — THE SENTINELS HAD TO MOVE WITH THE PANEL.
+     *
+     * These were two strings from the deal-score copy, which the triage panel no
+     * longer imports. A sentinel for code that is no longer there proves nothing
+     * about the code that is: the point of this gate is that core is BUNDLED into
+     * the chunk rather than fetched, so the sentinel must be a string the panel
+     * genuinely pulls from core today.
+     *
+     * Both of these live only in @gil-bricks/core/src/triage/copy.ts.
+     */
+    expect(blob, 'the price-comparison caveat comes from core').toContain('Cheap for the size can mean cheap for a reason');
+    expect(blob, 'and so does the silence-is-not-an-all-clear line').toContain('Not an all clear');
   });
 
   it('loads its script and styles from local relative paths only', () => {

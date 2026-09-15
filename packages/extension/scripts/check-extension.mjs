@@ -14,7 +14,7 @@
  * So this loads THE BUILD. Not the source, not a mock: `.output/chrome-mv3`,
  * the same folder Chrome's "Load unpacked" takes, into a real Chrome, and then
  * does what a person does — opens a listing, sees the button, opens the panel,
- * reads what it says, and presses "Send to my analyser". It fails if the URL
+ * reads what it says, and presses "Run the full numbers". It fails if the URL
  * that comes out is missing anything the listing had.
  *
  * WHERE THE LISTING COMES FROM, and why it is not fetched. The corpus at
@@ -267,7 +267,7 @@ async function walk(testCase) {
       panel.on('pageerror', (e) => consoleErrors.push(`panel threw: ${String(e.message).slice(0, 140)}`));
       await panel.goto(`chrome-extension://${extId}/sidepanel.html`, { waitUntil: 'domcontentloaded' });
       await listing.bringToFront();
-      const send = panel.getByRole('button', { name: /Send to my analyser/ });
+      const send = panel.getByRole('button', { name: /Run the full numbers/ });
       // Polled rather than awaited: a portal SPA can re-write its own URL while
       // we watch, and the panel redraws each time, so an element handle goes
       // stale under a plain waitFor.
@@ -293,10 +293,22 @@ async function walk(testCase) {
          * over a bare filename. With the image unreachable the offer has to be
          * withdrawn, and this is what proves it withdraws.
          */
-        const offersMeasure = await panel.getByRole('button', { name: /Open the measure tool/ }).count();
-        if (offersMeasure > 0) {
-          problems.push('the panel offers to measure a floor plan it could not load');
-        } else ok('and it does not offer to measure a plan that will not load');
+        /**
+         * X1 — THE MEASURE TOOL IS GONE, AND THIS IS WHERE THAT IS PROVED.
+         *
+         * This used to check that the panel did not OFFER to measure a plan it
+         * could not load. With the tool removed the old check can only ever
+         * pass, which makes it a green line that looks at nothing. It now
+         * asserts the removal itself — and, in the same breath, that the panel
+         * carries no score, since the two went in the same sprint and a score
+         * creeping back is the regression that matters most.
+         */
+        const measureGone = await panel.getByRole('button', { name: /measure|Measure/ }).count();
+        if (measureGone > 0) problems.push('the measure tool is back on the panel — X1 removed it');
+        else ok('the measure tool is gone');
+        if (/\b\d(\.\d)?\s*\/\s*10\b/.test(said) || /walk away|marginal/i.test(said)) {
+          problems.push(`the panel is showing a score or a verdict again: "${said.slice(0, 160)}"`);
+        } else ok('and there is no score and no verdict anywhere on it');
         for (const wanted of testCase.panelSays) {
           if (wanted.test(said)) ok(`the panel shows ${wanted.source}`);
           else problems.push(`the panel never showed ${wanted.source} — it said: "${said.slice(0, 200)}"`);
@@ -310,7 +322,7 @@ async function walk(testCase) {
           handoff = ctx.pages().map((p) => p.url())
             .find((u) => !before.has(u) && !u.startsWith('chrome-extension')) ?? null;
         }
-        if (handoff === null) problems.push('pressing "Send to my analyser" opened no tab at all');
+        if (handoff === null) problems.push('pressing "Run the full numbers" opened no tab at all');
       }
     }
 
@@ -329,6 +341,27 @@ async function walk(testCase) {
         problems.push(`the handoff opened ${url.pathname}, not ${testCase.wantRoute}`);
       } else ok(`and on the right page for the strategy (${url.pathname})`);
       const q = url.searchParams;
+
+      /**
+       * EVERY PARAMETER, BY NAME, HARDCODED HERE.
+       *
+       * The photograph and floor-plan parameters once went missing from BOTH
+       * the writer and the checker at the same time, because the checker took
+       * its expectations from a list the writer also read. The two agreed
+       * perfectly about nothing and every test passed. Three days went into it.
+       *
+       * So this list is typed out. It is not imported, not derived from
+       * `buildAnalyserHandoff`, and not looped over anything the build owns. If
+       * a parameter stops being written, nothing in the product can quietly
+       * stop this file asking for it.
+       */
+      const MUST_CARRY = ['postcode', 'price', 'type', 'beds', 'baths', 'fp', 'ph', 'src'];
+      for (const key of MUST_CARRY) {
+        const got = q.get(key);
+        if (got === null || got === '') problems.push(`the handoff is missing "${key}" — it carried it before X1`);
+      }
+      if (MUST_CARRY.every((k) => (q.get(k) ?? '') !== '')) ok('every named parameter is in the handoff');
+
       for (const [key, want] of Object.entries(testCase.expect)) {
         const got = q.get(key);
         if (want === null) {
