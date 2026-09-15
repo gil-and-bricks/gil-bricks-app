@@ -52,14 +52,32 @@ const mountBoard = async (d: Record<string, unknown>) => {
   for (let i = 0; i < 12; i += 1) await act(async () => { await Promise.resolve(); });
 };
 
+/**
+ * THE FLAGS THESE TESTS DEPEND ON, SAID OUT LOUD — and put back afterwards.
+ *
+ * CI runs the whole suite a second time with EVERY flag off, because the
+ * charter promises that state is still a coherent product. A test that assumes
+ * a score is on screen fails there, correctly: with `dealScore` off there is no
+ * score to find. So the flags are set here rather than inherited, and restored
+ * in `afterEach` so this file cannot leak its state into another.
+ */
+const saved = { ...features };
 beforeEach(() => {
   features.dealPipeline = true;
   features.dealFacts = true;
+  features.dealScore = true;
+  features.evidenceChips = true;
+  features.dealDates = true;
   resetMe();
   host = document.createElement('div');
   document.body.appendChild(host);
 });
-afterEach(() => { render(null, host); host.remove(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  render(null, host);
+  host.remove();
+  vi.unstubAllGlobals();
+  Object.assign(features, saved);
+});
 
 describe('reading the deal it was asked for', () => {
   it('takes the id from its own address', () => {
