@@ -1,0 +1,17 @@
+---
+/**
+ * S1 — emits one JSON-LD graph into the head.
+ *
+ * INVISIBLE BY CONSTRUCTION. `<script type="application/ld+json">` renders no
+ * text and occupies no box, so adding it cannot move a single pixel or change a
+ * single word a person reads. The before/after visual diff for this sprint is
+ * the proof of that rather than the claim.
+ *
+ * It takes a ready-made graph string rather than building one, so every page
+ * decides for itself what it is — and a page that says nothing gets nothing,
+ * which is what keeps the structured data from becoming richer than the page.
+ */
+interface Props { json: string }
+const { json } = Astro.props;
+---
+<script type="application/ld+json" is:inline set:html={json} />

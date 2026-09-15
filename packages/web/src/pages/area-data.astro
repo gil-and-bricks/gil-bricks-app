@@ -1,12 +1,27 @@
 ---
 import AppShell from '../layouts/AppShell.astro';
+import { dataset, graph, SD_COPY } from '../config/structuredData';
 import { AreaApp } from '../components/area/AreaApp';
 import { siteConfig } from '../site.config';
 import { siteConfig as sc } from '../site.config';
 const dataBase = sc.dataBaseUrl.replace(/\/+$/, '');
 ---
 
-<AppShell title={`Area data — ${siteConfig.siteName}`} description="What the sold data says about any England & Wales postcode: prices, trend, activity and deprivation.">
+<AppShell
+  title={`Area data — ${siteConfig.siteName}`}
+  description="What the sold data says about any England & Wales postcode: prices, trend, activity and deprivation."
+  jsonLd={graph([
+    dataset({
+      name: SD_COPY.areaName,
+      description: SD_COPY.areaDescription,
+      url: `${siteConfig.liveUrl.replace(/\/+$/, '')}/area-data/`,
+      /* The refresh date a person can also see on the page. manifest.json
+         is the single as-of source; this is the same value, not a second one. */
+      asOf: siteConfig.dataAsOf,
+      spatial: SD_COPY.spatial,
+    }),
+  ])}
+>
   {/* In the HEAD now that the shell exposes the slot (D5) — earlier than a
       body-level preload, which is the whole point of a preload. The postcode
       file cannot be named until we know the outcode, so it is started from the

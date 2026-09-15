@@ -6,6 +6,7 @@
  * Every word comes from src/config/home.ts.
  */
 import AppShell from '../layouts/AppShell.astro';
+import { graph, organisation, softwareApplication, SD_COPY } from '../config/structuredData';
 import { siteConfig } from '../site.config';
 import { analyseBtl, scoreDeal, strategies, fmtPct, type BtlInputs } from '@gil-bricks/core';
 import { HOME } from '../config/home';
@@ -50,7 +51,19 @@ const deal = features.dealScore ? scoreDeal('btl', exampleInputs) : null;
 const tier = deal === null ? '' : deal.verdict === 'good' ? 'ds-good' : deal.verdict === 'marginal' ? 'ds-marginal' : 'ds-walk';
 ---
 
-<AppShell title={`${siteConfig.siteName} — free England & Wales deal analyser`} description={HOME.lead}>
+<AppShell
+  title={`${siteConfig.siteName} — free England & Wales deal analyser`}
+  description={HOME.lead}
+  jsonLd={graph([
+    organisation(),
+    softwareApplication({
+      name: SD_COPY.homeName,
+      description: SD_COPY.homeDescription,
+      url: `${siteConfig.liveUrl.replace(/\/+$/, '')}/`,
+      features: SD_COPY.homeFeatures,
+    }),
+  ])}
+>
   {/* H1 — the page leads with WHAT IT DOES. The name and the maker were here
       twice: once in the header, then again as the h1 and a line under it. A
       stranger from a YouTube comment has ten seconds and does not need to be

@@ -8,6 +8,7 @@ import '@fontsource/poppins/latin-600.css';
 import '../styles/tokens.css';
 import '../styles/global.css';
 import { siteConfig } from '../site.config';
+import StructuredData from '../components/site/StructuredData.astro';
 // Above-the-fold faces, preloaded so the font-display:swap repaint happens
 // early instead of re-anchoring LCP seconds later on slow connections.
 import poppins400 from '@fontsource/poppins/files/poppins-latin-400-normal.woff2?url';
@@ -18,11 +19,19 @@ interface Props {
   title?: string;
   description?: string;
   noindex?: boolean;
+  /**
+   * S1 — a JSON-LD graph for this page, built by the page from
+   * config/structuredData.ts. Absent on pages that have nothing honest to say
+   * about themselves, which is most of them: a noindex account page is not a
+   * software application and must not claim to be one.
+   */
+  jsonLd?: string;
 }
 const {
   title = siteConfig.siteName,
   description = siteConfig.tagline,
   noindex = false,
+  jsonLd,
 } = Astro.props;
 ---
 
@@ -44,6 +53,9 @@ const {
     {/* Pages that need their own head tags (a canonical URL on the public tool
         pages, T1) put them here. Most pages need nothing. */}
     <slot name="head" />
+    {/* S1 — never on a noindex page: a page we ask search engines to ignore has
+        no business describing itself to them. */}
+    {jsonLd !== undefined && !noindex && <StructuredData json={jsonLd} />}
   </head>
   <body>
     <slot />

@@ -1,5 +1,6 @@
 ---
 import AppShell from '../../layouts/AppShell.astro';
+import { graph, softwareApplication, SD_COPY } from '../../config/structuredData';
 import { AnalyserApp } from '../../components/analyser/AnalyserApp';
 import { StickyVerdict } from '../../components/analyser/StickyVerdict';
 import SectionStrip from '../../components/analyser/SectionStrip.astro';
@@ -18,7 +19,18 @@ const { config } = Astro.props;
 const requiredKeys = REQUIRED_UNKNOWNS[config.id].map((u) => u.key);
 ---
 
-<AppShell title={`${config.name} analyser — ${siteConfig.siteName}`} description={config.tagline}>
+<AppShell
+  title={`${config.name} analyser — ${siteConfig.siteName}`}
+  description={config.tagline}
+  jsonLd={graph([
+    softwareApplication({
+      name: SD_COPY.analyserName(config.name),
+      description: SD_COPY.analyserDescription(config.name),
+      url: `${siteConfig.liveUrl.replace(/\/+$/, '')}/${Astro.params.strategy}/analyser/`,
+      features: SD_COPY.analyserFeatures,
+    }),
+  ])}
+>
   {/* D5 — the two bands that arrive WITH JavaScript are decided HERE, in the
       head, before a single pixel is painted, so nothing below them ever jumps:
       the "brought over from the extension" note, and the sticky verdict bar.
