@@ -2,6 +2,50 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-15 — Sprint X2: on-page chips and the deal's own page
+
+### The research document did not arrive — again
+
+The prompt said one was pasted; the message ended at the Report line. This is the second sprint running. Item 6 carried the legal point I would most have wanted from it (Rightmove's clause 8.3) inline, so nothing was blocked, and the prompt wins over the document by the operator's own instruction. Flagged rather than invented.
+
+### What a chip may say, and the three-way status that keeps it honest
+
+- **A gap is raised ONLY on `missing`.** `Field.status` has three values, and the whole reason is this feature. `missing` means the portal publishes the field and the agent left it blank — a fair thing to point out. `unavailable-on-this-portal` means the portal does not publish it at all, and the blind spot is ours. Zoopla publishes nothing for lease length, ground rent or service charge; a "No ground rent" chip there would invent a fact about somebody's lease, printed beside their agent's name, on their agent's page.
+- **NO GAP MAY BE RAISED FROM A FALLBACK READ, and this was nearly missed.** When the page model does not parse, both extractors drop to the og: meta tags — a path that records almost every field as `missing`, because `missing` is also what "we looked and it was not there" means. Without the `source === 'embedded'` gate, one Rightmove redesign would have put "No floor plan", "No floor area" and "No tenure" on every listing in the country, accusing thousands of agents of an omission that was our parser breaking. Caught by a parallel investigation, not by me.
+- **The lease questions only apply to a lease.** Rightmove emits blank ground-rent and service-charge fields on freehold houses too, so without a tenure check every freehold house would have carried "No ground rent" — which is not an omission on a freehold, it is the correct answer.
+- **"DELETED" is not a council tax band.** Rightmove writes that sentinel where a band has been withdrawn, and the first cut accepted it as a band — which would have printed "Council tax band DELETED" at somebody. Bands are a single letter A–I (Wales runs to I); anything else is the listing not giving one.
+- **Zoopla's literal "Not available" IS a gap**, not an unavailable field: that is the listing saying it does not know, which is worth asking about.
+- **An older listing shape must never take the handoff down.** `allFindings` now runs inside `buildAnalyserHandoff`. A caller holding a pre-X2 listing hands over an object without the five new fields, and a thrown TypeError there would lose the whole handoff — photographs, floor plan, auction flag, everything. A field that is not there is our version skew, so it is silence, never a chip.
+
+### Two bugs found by checking rather than assuming
+
+- **`FALLBACK_CONFIG` is a SECOND copy of the extractor config, in TypeScript.** Adding the five new paths to `extractors.config.json` did nothing: the shipped config is `config.ts`, and the JSON is an artefact a test holds equal to it. The first probe came back "EPC unavailable, council tax missing" on listings I had already seen carrying both — which is what said so.
+- **The Zoopla flight text holds PLAIN JSON, not escaped JSON.** It reads as escaped when you print it, because printing it escapes it. Matching the printed form (`\"key\":\"…"`) found nothing at all, silently, on every listing — and a reader that finds nothing looks exactly like a portal that publishes nothing.
+- **`.df-risk` was a class no element ever had.** The tone names come from core (`FINDING_TONE`) and are pink and yellow, not risk and gap, so the coloured edge on the deal page simply did not draw. A test caught it within a minute of being written.
+
+### On somebody else's page
+
+- **It goes behind a switch that defaults to OFF.** Rightmove's terms of use clause 8.3 prohibits a user overlaying material on their platform. That binds the operator as a user of their site rather than this product, and the realistic worst case is their own access being withdrawn — but it is an explicit clause and therefore their call, not a default we take for them. One edit to `EXTENSION_FLAGS` turns it off.
+- **The flag could NOT live in `features.ts`, and the charter says flags live nowhere else.** The extension ships as its own artefact and depends on one package, `@gil-bricks/core`; it cannot import the web's config. A flag there plus a copy here would be two sources of truth for one switch — exactly what the rule exists to stop. So it is DEFINED once in core and MIRRORED in `features.ts`, which keeps the central registry complete and `docs/FEATURE_FLAGS.md` accurate, with a test that fails if the two ever disagree. Recorded as a deliberate reading of the charter rather than an exception to it.
+- **Closed shadow roots, and the host is `all: initial`.** Closed so the portal's own scripts cannot read or rewrite what we put on their page; `all: initial` so an inherited `font-size: 0` from their stylesheet cannot reach the host box.
+- **Measured, in a real browser, on both saved pages: ZERO elements change x, ZERO change width.** Eleven ancestors grow by exactly our box height and everything below moves down — which is what inserting a visible element does, and is the honest limit of the claim. happy-dom has no layout, so this could only be checked in Chrome.
+- **Anchored by the most stable thing each portal offers.** Rightmove publishes `data-testid` attributes on the tenure line, the EPC block and the photo collage — written for their own tests, which is what makes them outlive a restyle. Zoopla publishes almost none on its content (its testids are ads, scripts and chrome), so it is anchored by MEANING and TEXT: `section[aria-labelledby="key-info"]`, then the list item titled "Tenure" or "Council tax band". Its gallery has no stable hook at all, so its box falls back to the heading — by design, not by accident.
+- **No path drops a finding on the floor.** A missing anchor boxes it; a missing box anchor falls through to the heading, then to `<main>`, then to `<body>`. Tested by stripping every `data-testid` off a real page and asserting all three findings still appear.
+- **A chip is an identifier, not a lesson.** Three words maximum, backed by a character limit, and never a sentence — the label IS the message and the line of why is behind a tap. Three rather than two because the shortest honest name for several of these needs three ("No floor plan", "Cash buyers only"), and a cap that forced worse English would be the wrong rule. "No council tax band" was the one casualty, shortened to "No tax band".
+
+### The board, and the page that made it possible
+
+- **Every card is now exactly the same height — measured at 282px across six deals** whose content varies the way real deals vary, including an 86-character address, a three-line verdict and a card with nothing but a title. `scrollHeight === clientHeight` on all six: nothing is being cut.
+- **Fixed height, not `min-height`.** A minimum is not a promise: one long verdict line and the card is taller than its neighbour again, which is the whole thing this set out to stop.
+- **The address clamp was a real overlap, seen only in a browser.** `.dc-title` reserved two lines and let a longer one "run on" — fine when the card grew with it. With a fixed height, an 86-character address took three lines and ran straight into the score beneath it. The step line then had the opposite problem: clamped to two lines, the card's own overflow sliced the second in half, which reads as a rendering fault rather than a deliberate truncation. One line, ellipsed.
+- **The four notices moved UP, not away.** A changed answer, a moved score, chain risk and a re-trade are notifications about a deal with actions that have to stay reachable — dismissing, parking, accepting. Deleting them from the card without a home would have been a function loss, so they now sit together above the board where something demanding attention belongs, keeping every handler they had.
+- **A moved test is not a deleted test.** `DealBoard.evidence.test.ts` guards a line that must not lie (P5.1); the line moved to the deal page, so the test now drives that surface. Bite-tested: stubbing the render out fails two of its five cases.
+
+### Words
+
+- **No jargon, tested.** BMV, off-market, motivated seller, stacking, distressed and six more are asserted absent from every finding's words. Somebody who reads our wording and repeats it to an agent is marked out by it, and that damages them.
+- **The endorsement test now covers the injected copy too.** A blessing on the portal's page carries more apparent authority than one in our own panel, because it looks like it belongs there — so the rule matters more, not less. Bite-tested by planting "Often good value if you move fast" in the chip copy: two tests fail.
+
 ## 2026-09-15 — Sprint X1: the extension, rebuilt as a triage tool
 
 ### The law, and what it cost
