@@ -18,8 +18,8 @@
     "@gil-bricks/core": "*"
   },
   "devDependencies": {
-    "@types/chrome": "^0.2.8",
-    "happy-dom": "^20.13.1",
-    "wxt": "^0.20.6"
+    "@types/chrome": "^0.2.9",
+    "happy-dom": "^20.14.5",
+    "wxt": "^0.21.4"
   }
 }
