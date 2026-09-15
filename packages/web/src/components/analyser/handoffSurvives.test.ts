@@ -19,7 +19,7 @@ import { features } from '../../config/features';
 import { READ_ONCE } from './arrival';
 import {
   CRITERIA_PARAMS, FLOORPLAN_PARAM, PHOTOS_PARAM, MEASURED_PARAMS,
-  buildAnalyserHandoff, extractListing, portalForUrl, FALLBACK_CONFIG,
+  buildAnalyserHandoff, extractListing, portalForUrl, FALLBACK_CONFIG, SUBJECT_TENURE_PARAM,
 } from '@gil-bricks/core';
 
 /** A handoff with every field the extension can send, all at once. */
@@ -260,7 +260,7 @@ describe('a REAL extension handoff survives being edited', () => {
     const p = realHandoff();
     // A guard on the guard: if this ever came back thin, every assertion in the
     // two tests below would pass on an empty set.
-    for (const key of ['postcode', 'price', 'type', 'beds', 'baths', FLOORPLAN_PARAM, PHOTOS_PARAM, 'auction', 'src']) {
+    for (const key of ['postcode', 'price', 'type', 'beds', 'baths', SUBJECT_TENURE_PARAM, FLOORPLAN_PARAM, PHOTOS_PARAM, 'auction', 'src']) {
       expect(p[key], `${key} must be in the extension's real output`).toBeTruthy();
     }
   });
@@ -282,6 +282,40 @@ describe('a REAL extension handoff survives being edited', () => {
       .filter((k) => features.criteriaHandoff || !criteria.includes(k))
       .filter((k) => !out.has(k));
     expect(lost, `the extension sent these and the analyser dropped them: ${lost.join(', ')}`).toEqual([]);
+  });
+
+  /**
+   * THE SUBJECT'S TENURE, NAMED (X1.1).
+   *
+   * The loop above would notice it going missing, but only for as long as the
+   * extension keeps emitting it — and the whole lesson of this file is that a
+   * check which reads its expectations from the thing under test asks nothing.
+   * This names the parameter and the value, and it is asserted against EVERY
+   * edit path, because `subjectTenure` is not a form field and unowned keys are
+   * exactly the shape that used to be discarded on the first write.
+   */
+  it.each([
+    ['nothing touched', (_m: Record<string, any>) => undefined],
+    ['a strategy field edited', (m: Record<string, any>) => m.updateStrategy({ gdv: '131000' })],
+    ['a property field edited', (m: Record<string, any>) => m.update({ price: '105000' })],
+    ['the postcode cleared and retyped', (m: Record<string, any>) => { m.update({ postcode: '' }); m.update({ postcode: 'SA5 8BD' }); }],
+  ])('the subject tenure is still in the address with %s', async (_label, act) => {
+    const sent = realHandoff();
+    expect(sent[SUBJECT_TENURE_PARAM], 'the fixture must actually be leasehold').toBe('L');
+    const mod = await loadWith(new URLSearchParams(sent).toString());
+    act(mod);
+    expect(
+      mod.written().get(SUBJECT_TENURE_PARAM),
+      'a leasehold flat that arrives looking freehold is the lease nobody asked about',
+    ).toBe('L');
+  });
+
+  /** And it must never be written into the comparables filter by accident. */
+  it('never sets the analyser’s comparables tenure filter', async () => {
+    const sent = realHandoff();
+    const mod = await loadWith(new URLSearchParams(sent).toString());
+    mod.update({ price: '105000' });
+    expect(mod.written().get('tenure'), 'the comps filter stays at its default').toBeNull();
   });
 
   it('and the photographs and floor plan arrive byte-identical after an edit', async () => {

@@ -5,7 +5,22 @@
  * an unfixable "these numbers don't work together".
  */
 import { describe, expect, it } from 'vitest';
-import { criteriaFromParams, criteriaToParams } from './handoff';
+import { buildAnalyserHandoff, criteriaFromParams, criteriaToParams, SUBJECT_TENURE_PARAM } from './handoff';
+import { found, missing, unavailable } from './types';
+import type { NormalisedListing } from './types';
+
+/** A minimal readable listing — every tenure test varies one field of this. */
+const base = (): NormalisedListing => ({
+  portal: 'rightmove', extractorVersion: 'rm-1.0.0', configVersion: 't', source: 'embedded',
+  listingId: found('9'), url: found('https://www.rightmove.co.uk/properties/9'),
+  postcode: found('SA1 2HG'), outcode: found('SA1'),
+  address: found({ paon: '9', street: 'Earl Street', town: 'Swansea' }),
+  askingPrice: found(150_000), propertyType: found('Terraced'), tenure: found('FREEHOLD'),
+  bedrooms: found(3), bathrooms: found(1), floorAreaSqm: found(80), floorAreaSqmRange: missing(),
+  floorPlanImageUrls: missing(), photoUrls: missing(), newBuild: found(false),
+  listingUpdate: missing(), firstVisibleDate: missing(),
+  description: found('A terrace.'), isAuction: unavailable(),
+} as unknown as NormalisedListing);
 
 const read = (q: string) => criteriaFromParams(new URLSearchParams(q));
 const set = (c: ReturnType<typeof read>) => Object.values(c).filter((v) => v !== undefined);
@@ -38,5 +53,55 @@ describe('criteria read back out of a URL', () => {
   it('an empty set is no criteria at all', () => {
     expect(set(read(''))).toEqual([]);
     expect(criteriaToParams({})).toEqual({});
+  });
+});
+
+/**
+ * X1.1 — THE SUBJECT'S TENURE TRAVELS.
+ *
+ * It never had. The panel showed it, the flags read it, and the analyser was
+ * never told — so a leasehold flat arrived looking exactly like a freehold
+ * house, and the deal saved from it recorded no lease at all.
+ */
+describe('the subject tenure', () => {
+  const withTenure = (t: string | null): Record<string, string> =>
+    buildAnalyserHandoff(
+      { ...base(), tenure: t === null ? missing() : found(t) } as NormalisedListing,
+      { strategy: 'btl' },
+    ).params;
+
+  it.each([
+    ['FREEHOLD', 'F'],
+    ['Freehold', 'F'],
+    ['LEASEHOLD', 'L'],
+    ['Leasehold', 'L'],
+  ])('carries %s as %s', (word, code) => {
+    expect(withTenure(word)[SUBJECT_TENURE_PARAM]).toBe(code);
+  });
+
+  /**
+   * SHARE OF FREEHOLD IS A LEASE. Matching "freehold" first would call it
+   * freehold and hide the lease — the one thing the buyer has to ask about.
+   */
+  it('calls share of freehold what it is: leasehold', () => {
+    expect(withTenure('Share of Freehold')[SUBJECT_TENURE_PARAM]).toBe('L');
+    expect(withTenure('share of freehold')[SUBJECT_TENURE_PARAM]).toBe('L');
+  });
+
+  it('says nothing when the listing said nothing', () => {
+    expect(withTenure(null)[SUBJECT_TENURE_PARAM]).toBeUndefined();
+    expect(withTenure('')[SUBJECT_TENURE_PARAM]).toBeUndefined();
+    expect(withTenure('commonhold')[SUBJECT_TENURE_PARAM], 'an unknown word is not a guess').toBeUndefined();
+  });
+
+  /**
+   * IT MUST NOT BE CALLED `tenure`. That key belongs to the analyser's
+   * comparables filter, whose allowed values are any/F/L — writing the subject's
+   * tenure into it would be clamped away AND would silently narrow the
+   * comparables the engine draws on.
+   */
+  it('never writes the analyser’s own comparables-filter key', () => {
+    expect(withTenure('LEASEHOLD').tenure, 'that key is the comps filter, not the subject').toBeUndefined();
+    expect(SUBJECT_TENURE_PARAM).not.toBe('tenure');
   });
 });

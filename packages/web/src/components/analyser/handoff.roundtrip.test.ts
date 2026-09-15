@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { buildAnalyserHandoff, customKeysFor, found, missing, strategyById, thresholdsFor, type NormalisedListing } from '@gil-bricks/core';
-import { parseQuery, initStrategyParams, strategyParams, type StrategyFieldSpec } from './state';
+import {
+  buildAnalyserHandoff, customKeysFor, found, missing, strategyById, thresholdsFor,
+  SUBJECT_TENURE_PARAM, type NormalisedListing,
+} from '@gil-bricks/core';
+import { parseQuery, initStrategyParams, strategyParams, toQuery, state, type StrategyFieldSpec } from './state';
 
 /**
  * Round-trip contract (E6): every param the extension writes for "Send to my
@@ -62,9 +65,16 @@ describe('analyser handoff round-trips through the web parser', () => {
     const strat = strategyParams.value;
 
     const SUBJECT_KEYS = new Set(['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon', 'saon']);
-    // Metadata the web reads once at load and never parses into field state (E11):
-    // the arrival marker and the floor-area provenance. Excluded from round-trip.
-    const META_KEYS = new Set(['src', 'areaSrc']);
+    /**
+     * Metadata the web reads once at load and never parses into field state
+     * (E11): the arrival marker, the floor-area provenance and — since X1.1 —
+     * the subject's own tenure.
+     *
+     * EXEMPTING A KEY FROM A DERIVED LOOP IS HOW A TEST GOES QUIET. Every one of
+     * these therefore has its own named assertion below; the set only says "this
+     * is not a form field", never "stop checking this".
+     */
+    const META_KEYS = new Set(['src', 'areaSrc', SUBJECT_TENURE_PARAM]);
     // every subject field this listing supplies MUST actually be written (so a
     // dropped write fails here rather than being silently skipped by the loop)
     for (const k of ['postcode', 'price', 'type', 'area', 'beds', 'baths', 'paon', 'saon']) {
@@ -81,6 +91,27 @@ describe('analyser handoff round-trips through the web parser', () => {
     // the listing has no floor area of its own (floorAreaSqm missing) but 68 was
     // resolved elsewhere, so it is honestly 'carried', never claimed off the listing
     expect(params.areaSrc).toBe('carried');
+
+    /**
+     * X1.1 — THE SUBJECT'S TENURE IS WRITTEN, IS NOT PARSED INTO THE FORM, AND
+     * IS NOT THE COMPARABLES FILTER.
+     *
+     * All three matter. It must travel (a leasehold flat arriving as a freehold
+     * house is the lease nobody asked about); it must not become form state
+     * (nothing on the page edits it); and it must never land in `tenure`, which
+     * the analyser owns as its comps filter — that key's allowed values are
+     * any/F/L, so the subject's tenure would be clamped away AND would silently
+     * narrow the evidence the engine draws on.
+     */
+    expect(params[SUBJECT_TENURE_PARAM], 'this listing is freehold').toBe('F');
+    expect(params.tenure, 'the comps filter is not ours to set').toBeUndefined();
+    expect(subject.tenure, 'and it stays at its own default').toBe('any');
+    // Carried through the writer untouched, which is what "not a form field" has
+    // to mean in practice — present in the address after the page writes it.
+    expect(
+      new URLSearchParams(toQuery(state.value, strategyParams.value).replace(/^\?/, '')).get(SUBJECT_TENURE_PARAM),
+      'carried, not discarded',
+    ).toBe('F');
 
     // spot-check the important mappings
     expect(subject.postcode).toBe('SA1 8AJ');

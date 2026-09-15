@@ -92,6 +92,9 @@ const CASES = [
     path: '/properties/167112923',
     expect: {
       postcode: 'SA5 8BD', price: '110000', type: 'T', beds: '3', baths: '1',
+      // X1.1 — the subject's own tenure, under its own name. This listing is
+      // leasehold; the Zoopla case below is freehold, so neither is a constant.
+      subjectTenure: 'L',
       // FIXED 2026-09-14, and asserted the right way round now. This listing's
       // description says "Modern Method of Auction" twice. Rightmove publishes
       // no auction field, so the flag used to be dropped and the board never
@@ -131,6 +134,7 @@ const CASES = [
     path: '/for-sale/details/73975876/',
     expect: {
       postcode: 'SA2 0PX', price: '150000', type: 'T', beds: '3', baths: '1',
+      subjectTenure: 'F',
       // The two this fixture exists for.
       paon: '31', auction: '1',
     },
@@ -314,6 +318,64 @@ async function walk(testCase) {
           else problems.push(`the panel never showed ${wanted.source} — it said: "${said.slice(0, 200)}"`);
         }
 
+        /**
+         * 4b. X1 — IT FITS ON ONE SCREEN, AT THE WIDTH IT ACTUALLY SHIPS AT.
+         *
+         * "If it does not fit, the answer is less on the panel, not a
+         * scrollbar." That is only checkable in a real browser with real fonts:
+         * happy-dom has no layout, so a unit test cannot see a wrapped line.
+         *
+         * 468px is the panel's own max-width. 780px is the honest floor for the
+         * height a Chrome side panel gets — a 13-inch laptop with the window
+         * maximised, after the tab strip and toolbar. Anything taller than that
+         * scrolls for somebody.
+         */
+        const PANEL_W = 468;
+        const PANEL_H = 780;
+        await panel.setViewportSize({ width: PANEL_W, height: PANEL_H });
+        await panel.waitForTimeout(400);
+        const fit = await panel.evaluate(() => {
+          const d = document.documentElement;
+          const card = document.querySelector('.glass.card');
+          const header = document.querySelector('.gb-header');
+          return {
+            scrollH: d.scrollHeight,
+            clientH: d.clientHeight,
+            scrollW: d.scrollWidth,
+            clientW: d.clientWidth,
+            cardW: card ? Math.round(card.getBoundingClientRect().width) : 0,
+            headerW: header ? Math.round(header.getBoundingClientRect().width) : 0,
+            // The REAL content height. `body { min-height: 100vh }` makes
+            // scrollHeight equal the viewport whenever the content is shorter,
+            // so "780 of 780" alone cannot tell a panel that just fits from one
+            // with 200px to spare. This measures the ink.
+            contentH: card ? Math.round(card.getBoundingClientRect().bottom + 14) : 0,
+          };
+        });
+        if (fit.cardW === 0) {
+          problems.push('could not find the panel card to measure — has .glass.card been renamed?');
+        } else if (fit.cardW > PANEL_W) {
+          problems.push(`the card is ${fit.cardW}px wide inside a ${PANEL_W}px panel`);
+        } else ok(`the card fits the ${PANEL_W}px column (${fit.cardW}px)`);
+        // The header is a SIBLING of the panel, not a child: it has its own
+        // max-width, and the two going out of step is what put the logo 24px
+        // inboard of the cards below it.
+        if (fit.headerW !== fit.cardW + 4) {
+          ok(`header ${fit.headerW}px / card ${fit.cardW}px (padding differs by design)`);
+        }
+        if (fit.scrollW > fit.clientW) {
+          problems.push(`the panel scrolls SIDEWAYS at ${PANEL_W}px (${fit.scrollW} > ${fit.clientW})`);
+        } else ok('and nothing overflows it sideways');
+        if (fit.scrollH > fit.clientH) {
+          problems.push(
+            `the panel needs ${fit.scrollH}px in a ${PANEL_H}px side panel — it scrolls. `
+            + 'The answer is less on the panel, not a scrollbar.',
+          );
+        } else {
+          ok(`and the whole panel fits without scrolling (content ${fit.contentH}px of ${PANEL_H}px, `
+            + `${PANEL_H - fit.contentH}px to spare)`);
+        }
+
         // 5. THE HANDOFF. Press it and catch the tab the extension opens.
         const before = new Set(ctx.pages().map((p) => p.url()));
         await send.click();
@@ -355,7 +417,7 @@ async function walk(testCase) {
        * a parameter stops being written, nothing in the product can quietly
        * stop this file asking for it.
        */
-      const MUST_CARRY = ['postcode', 'price', 'type', 'beds', 'baths', 'fp', 'ph', 'src'];
+      const MUST_CARRY = ['postcode', 'price', 'type', 'beds', 'baths', 'subjectTenure', 'fp', 'ph', 'src'];
       for (const key of MUST_CARRY) {
         const got = q.get(key);
         if (got === null || got === '') problems.push(`the handoff is missing "${key}" — it carried it before X1`);

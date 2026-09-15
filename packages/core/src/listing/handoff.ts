@@ -20,6 +20,44 @@ export function propertyTypeToCode(t?: string | null): '' | 'D' | 'S' | 'T' | 'F
   return '';
 }
 
+/**
+ * X1.1 — THE SUBJECT'S OWN TENURE.
+ *
+ * WHY IT IS NOT CALLED `tenure`. The analyser already owns a `tenure` parameter
+ * and it is the COMPARABLES FILTER, whose only legal values are 'any', 'F' and
+ * 'L'. Writing the subject's tenure into it would do one of two bad things:
+ * `tenure=FREEHOLD` is not an allowed value, so `parseQuery` clamps it back to
+ * the default and — because the key is owned by the form — it is not carried
+ * through either, so it would vanish silently. And `tenure=F` would quietly
+ * narrow the comparables the analyser draws on, which is a change to what the
+ * engine computes, made as a side effect of a handoff.
+ *
+ * So it travels under its own name, as a fact about the deal rather than a
+ * setting on the page — the same shape as `auction` and `areaSrc`. It is carried
+ * through every edit untouched and stored with the deal.
+ *
+ * If the comparables filter should follow the subject's tenure, that is a
+ * separate and deliberate product decision, not this parameter's job.
+ */
+export const SUBJECT_TENURE_PARAM = 'subjectTenure';
+
+/**
+ * Portal tenure wording → the F/L code the rest of the app uses.
+ *
+ * "Share of freehold" is checked BEFORE "freehold" and resolves to LEASEHOLD,
+ * because that is what it legally is: a long lease, plus a share in the company
+ * that owns the freehold. Matching "freehold" first would call it freehold and
+ * hide the lease — the very thing a buyer needs to ask about.
+ */
+export function tenureToCode(t?: string | null): '' | 'F' | 'L' {
+  if (!t) return '';
+  const s = t.toLowerCase();
+  if (/share\s+of\s+freehold/.test(s)) return 'L';
+  if (/leasehold/.test(s)) return 'L';
+  if (/freehold/.test(s)) return 'F';
+  return '';
+}
+
 export interface HandoffInputs {
   strategy: StrategyId;
   /** Resolved floor area in sqm (listing / EPC / manual). */
@@ -136,6 +174,8 @@ export function buildAnalyserHandoff(listing: NormalisedListing, h: HandoffInput
       ? 'listing'
       : 'carried';
   }
+  // X1.1 — the subject's own tenure, under its own name (see SUBJECT_TENURE_PARAM).
+  set(SUBJECT_TENURE_PARAM, tenureToCode(listing.tenure.value));
   set('beds', listing.bedrooms.value);
   set('baths', listing.bathrooms.value);
   set('paon', listing.address.value?.paon);

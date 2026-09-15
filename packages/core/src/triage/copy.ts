@@ -127,12 +127,11 @@ export const TRIAGE_COPY = {
    * X1 item 9 — the handoff, at the bottom, after everything.
    *
    * The list in `why` is the list the handoff ACTUALLY carries, checked by name
-   * in `handoffCarries.test.ts`. Tenure is deliberately absent: it has never
-   * travelled, and a sentence promising it would be the panel telling the user
-   * something the URL does not do. See docs/DECISIONS_LOG.md (X1).
+   * in `handoffCarries.test.ts`. Tenure joined it in X1.1 — it had never
+   * travelled, so the sentence named it only once the URL really did.
    */
   handoff: {
     action: 'Run the full numbers',
-    why: 'Carries the price, size, type, address, photos and floor plan.',
+    why: 'Carries the price, size, type, tenure, address, photos and floor plan.',
   },
 } as const;

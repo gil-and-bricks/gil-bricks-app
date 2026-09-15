@@ -34,7 +34,10 @@ import { Window } from 'happy-dom';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { extractListing, portalForUrl, FALLBACK_CONFIG, type NormalisedListing } from '@gil-bricks/core';
+import {
+  extractListing, portalForUrl, FALLBACK_CONFIG, SUBJECT_TENURE_PARAM,
+  type NormalisedListing,
+} from '@gil-bricks/core';
 import { __mountForTest } from '../entrypoints/sidepanel/main.ts';
 
 const CORPUS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'core', 'fixtures', 'listings');
@@ -135,6 +138,25 @@ describe('the handoff still carries everything, named one by one', () => {
     expect(p.get('auction'), 'the auction marker').toBe('1');
   });
 
+  /**
+   * THE SUBJECT'S TENURE (X1.1). It never travelled before this: the panel
+   * showed it, the flags read it, and the analyser was told nothing — so a
+   * leasehold flat arrived looking exactly like a freehold house.
+   */
+  it('a Rightmove listing: the subject tenure, under its own name', () => {
+    const p = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url));
+    expect(p.get(SUBJECT_TENURE_PARAM), 'this listing is leasehold').toBe('L');
+    // NOT the analyser's `tenure` key — that one is the comparables filter, and
+    // writing the subject into it would be clamped away AND would silently
+    // narrow the evidence the engine draws on.
+    expect(p.has('tenure'), 'the comps filter is not ours to set').toBe(false);
+  });
+
+  it('a Zoopla freehold listing carries F, so neither value is a constant', () => {
+    const p = sentParams(listingFor(ZOOPLA.file, ZOOPLA.url));
+    expect(p.get(SUBJECT_TENURE_PARAM)).toBe('F');
+  });
+
   it('a Rightmove listing: the arrived-from-extension marker', () => {
     expect(sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url)).get('src')).toBe('ext');
   });
@@ -215,6 +237,26 @@ describe('the handoff still carries everything, named one by one', () => {
   });
 
   /**
+   * THE HANDOFF MUST FIT IN THE DEAL RECORD.
+   *
+   * `parseAnalyserDeal` stores the query string as `urlParams` and SLICES IT AT
+   * 2000 CHARACTERS. Nothing warns: a longer handoff is cut mid-parameter and a
+   * saved deal quietly comes back with half a photograph URL.
+   *
+   * Measured today, with every parameter and all four criteria: Rightmove 1693,
+   * Zoopla 1372. The headroom is real but not large, and it is almost entirely
+   * the twelve photograph addresses — about 95 characters each. If a portal
+   * lengthens its media URLs, this is what says so, rather than the deals board.
+   */
+  it('fits inside the 2000 characters a saved deal can keep', () => {
+    for (const c of [RIGHTMOVE, ZOOPLA]) {
+      const p = sentParams(listingFor(c.file, c.url), { criteria: CRITERIA, manualArea: '82' });
+      const len = p.toString().length;
+      expect(len, `${c.file} handoff is ${len} chars — parseAnalyserDeal slices at 2000`).toBeLessThan(1900);
+    }
+  });
+
+  /**
    * THE WHOLE SET, IN ONE PLACE — written out, not derived.
    *
    * The per-parameter tests above could each be deleted one at a time without
@@ -225,6 +267,7 @@ describe('the handoff still carries everything, named one by one', () => {
     const p = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url), { criteria: CRITERIA, manualArea: '82' });
     const MUST_CONTAIN = [
       'postcode', 'price', 'type', 'beds', 'baths', 'area', 'areaSrc',
+      'subjectTenure',
       'minCashflow', 'minRoi', 'minIcr', 'minProfit',
       'fp', 'ph', 'auction', 'src',
     ];
