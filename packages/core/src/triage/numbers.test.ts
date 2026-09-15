@@ -72,3 +72,54 @@ describe('triageNumbers', () => {
     }
   });
 });
+
+/**
+ * THE ONE THING A STRATEGY GENUINELY CHANGES ON THIS PANEL.
+ *
+ * With no rent, no end value and no refurb, the strategy buttons had nothing to
+ * move: every strategy fell back to the same 25% deposit and the same £1,500 of
+ * legals, so pressing one changed a highlight and nothing else. That is a dead
+ * control, and a dead control on a panel that claims to help you decide is worse
+ * than no control.
+ *
+ * What DOES differ is how the purchase is funded. A bridge charges an
+ * arrangement fee on the loan — real cash, on day one, on no listing anywhere.
+ */
+describe('funding, and why the strategy buttons are not decoration', () => {
+  const at = (funding?: Parameters<typeof triageNumbers>[0]['funding']) =>
+    triageNumbers({ ...BASE, askingPrice: 164_000, floorAreaSqm: 82, funding });
+
+  it('a mortgage purchase has no arrangement fee', () => {
+    const n = at({ kind: 'mortgage' });
+    expect(n.arrangementFee).toBeNull();
+  });
+
+  it('a bridge charges its fee on the LOAN, not the price', () => {
+    const n = at({ kind: 'bridging', loanPct: 75, arrangementPct: 2 });
+    // 2% of 75% of £164,000 = £2,460.
+    expect(n.arrangementFee).toBe(2_460);
+  });
+
+  it('and that fee is real cash, so it is in the cash needed', () => {
+    const mortgage = at({ kind: 'mortgage' });
+    const bridge = at({ kind: 'bridging', loanPct: 75, arrangementPct: 2 });
+    expect(bridge.cashNeeded! - mortgage.cashNeeded!).toBe(2_460);
+  });
+
+  it('defaults to a mortgage when nothing says otherwise', () => {
+    expect(at().arrangementFee).toBeNull();
+    expect(at().cashNeeded).toBe(at({ kind: 'mortgage' }).cashNeeded);
+  });
+
+  it('a bigger bridge costs a bigger fee', () => {
+    const small = at({ kind: 'bridging', loanPct: 60, arrangementPct: 2 });
+    const big = at({ kind: 'bridging', loanPct: 80, arrangementPct: 2 });
+    expect(big.arrangementFee!).toBeGreaterThan(small.arrangementFee!);
+  });
+
+  it('no price means no fee to quote, rather than a fee of zero', () => {
+    const n = triageNumbers({ ...BASE, askingPrice: null, floorAreaSqm: 82, funding: { kind: 'bridging' } });
+    expect(n.arrangementFee).toBeNull();
+    expect(n.cashNeeded).toBeNull();
+  });
+});

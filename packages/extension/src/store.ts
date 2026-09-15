@@ -112,3 +112,14 @@ export const setAttention = (a: AttentionSnapshot) => setLocal('gb:attention', a
 const chipsKey = (id: string): string => `gb:chips-hidden:${id}`;
 export const getChipsHidden = (id: string) => getLocal<boolean>(chipsKey(id), false);
 export const setChipsHidden = (id: string) => setLocal(chipsKey(id), true);
+
+/**
+ * X3 — THE OPERATOR'S OWN SWITCH FOR THE ON-PAGE CHIPS.
+ *
+ * Off until they turn it on. Rightmove's terms prohibit a USER overlaying
+ * material on their platform, so injecting anything is their decision to make
+ * rather than a default we take for them — but it is now one tap in Settings,
+ * not an edit to a TypeScript file they will never open.
+ */
+export const getChipsOn = () => getLocal<boolean>('gb:chips-on', false);
+export const setChipsOn = (on: boolean) => setLocal('gb:chips-on', on);

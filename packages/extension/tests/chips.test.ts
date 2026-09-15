@@ -55,12 +55,39 @@ beforeEach(() => { document.body.innerHTML = ''; });
 
 describe('the switch', () => {
   /**
+   * X3 — TWO SWITCHES, AND THE ONE THAT DECIDES IS THE OPERATOR'S.
+   *
    * Rightmove's terms of use clause 8.3 prohibits a user overlaying material on
-   * their platform. That is the operator's call to make, so it is off until
-   * they make it.
+   * their platform, so injecting anything stays the operator's call. What moved
+   * is WHERE they make it: the flag below is the kill switch (false and nothing
+   * injects, whatever anyone has ticked), and the CHOICE is now a setting in the
+   * panel, off until they turn it on.
+   *
+   * It used to be only the flag, which meant the feature was invisible to the
+   * person it was built for — they could not find it, and told us so.
    */
-  it('defaults to OFF', () => {
-    expect(EXTENSION_FLAGS.onPageChips).toBe(false);
+  it('the feature is available, and the choice is the operator’s', () => {
+    expect(EXTENSION_FLAGS.onPageChips, 'the kill switch permits it').toBe(true);
+  });
+
+  it('nothing is injected until the operator’s own setting says so', () => {
+    const content = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'entrypoints', 'content.ts'), 'utf8');
+    const fn = content.slice(content.indexOf('const showChips'));
+    const setting = fn.indexOf('getChipsOn()');
+    const firstRead = fn.indexOf('extractCurrentPage');
+    expect(setting, 'the setting is consulted').toBeGreaterThan(-1);
+    expect(setting, 'before the page is read at all').toBeLessThan(firstRead);
+  });
+
+  it('the setting defaults to off', () => {
+    const store = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'store.ts'), 'utf8');
+    expect(store).toMatch(/getChipsOn = \(\) => getLocal<boolean>\('gb:chips-on', false\)/);
+  });
+
+  it('and the operator can reach it without opening a file', () => {
+    const panel = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'entrypoints', 'sidepanel', 'main.ts'), 'utf8');
+    expect(panel, 'a switch in the panel’s own Settings').toContain('gb-chips-on');
+    expect(panel).toContain('onChips');
   });
 
   it('the panel reads no such flag, so turning it off cannot touch the panel', () => {

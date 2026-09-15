@@ -26,6 +26,27 @@
  */
 import { stampDuty, type StampCountry } from '../maths/stampduty';
 
+/**
+ * HOW THE PURCHASE IS FUNDED, which is the one thing about a strategy that
+ * genuinely changes the cash you need on day one.
+ *
+ * A MORTGAGE takes a deposit and nothing else up front. A BRIDGE takes the same
+ * kind of deposit AND an arrangement fee charged on the loan — typically 2% of
+ * 75% of the price, which on a £164,000 house is £2,460 of real money that
+ * appears nowhere on the listing and that people routinely forget.
+ *
+ * That difference is why the strategy buttons are not decoration: BTL and HMO
+ * are mortgage purchases, Flip and BRRRR default to a bridge, and the cash
+ * needed genuinely differs between them.
+ */
+export interface Funding {
+  kind: 'mortgage' | 'bridging';
+  /** Bridging only: the share of the price the bridge advances, percent. */
+  loanPct?: number;
+  /** Bridging only: the arrangement fee charged on that loan, percent. */
+  arrangementPct?: number;
+}
+
 export interface TriageNumbersInput {
   askingPrice: number | null;
   floorAreaSqm: number | null;
@@ -34,6 +55,8 @@ export interface TriageNumbersInput {
   depositPct: number;
   /** Conveyancing and survey, from strategy config. */
   legals: number;
+  /** How this strategy funds the purchase. Defaults to a mortgage. */
+  funding?: Funding;
   /** Transaction date for the band tables; injected so it is testable. */
   date?: string;
 }
@@ -44,9 +67,11 @@ export interface TriageNumbers {
   ppsqm: number | null;
   /** SDLT in England, LTT in Wales — the label differs, the field does not. */
   purchaseTax: number | null;
-  /** Deposit + tax + legals. Null without a price, never a partial total. */
+  /** Deposit + tax + legals (+ the bridge fee). Null without a price. */
   cashNeeded: number | null;
   depositPct: number;
+  /** The bridging arrangement fee, where the strategy uses a bridge. */
+  arrangementFee: number | null;
   isWales: boolean;
 }
 
@@ -56,7 +81,10 @@ export function triageNumbers(input: TriageNumbersInput): TriageNumbers {
   const isWales = input.country === 'W92000004';
 
   if (price === null) {
-    return { askingPrice: null, ppsqm: null, purchaseTax: null, cashNeeded: null, depositPct: input.depositPct, isWales };
+    return {
+      askingPrice: null, ppsqm: null, purchaseTax: null, cashNeeded: null,
+      depositPct: input.depositPct, arrangementFee: null, isWales,
+    };
   }
 
   // 'additional' is the honest default for this audience. A tool for investors
@@ -65,12 +93,19 @@ export function triageNumbers(input: TriageNumbersInput): TriageNumbers {
   const purchaseTax = Math.round(tax.value.tax);
   const deposit = Math.round((price * input.depositPct) / 100);
 
+  // The bridge's arrangement fee is cash on day one, and it is on no listing.
+  const f = input.funding;
+  const arrangementFee = f?.kind === 'bridging'
+    ? Math.round((price * (f.loanPct ?? 75) / 100) * ((f.arrangementPct ?? 2) / 100))
+    : null;
+
   return {
     askingPrice: price,
     ppsqm: area === null ? null : Math.round(price / area),
     purchaseTax,
-    cashNeeded: deposit + purchaseTax + Math.round(input.legals),
+    cashNeeded: deposit + purchaseTax + Math.round(input.legals) + (arrangementFee ?? 0),
     depositPct: input.depositPct,
+    arrangementFee,
     isWales,
   };
 }

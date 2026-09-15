@@ -2,7 +2,17 @@
  * X2 — EVERY WORD A FINDING CAN SAY, keyed by its code.
  *
  * ── THE RULE THAT GOVERNS ALL OF IT ─────────────────────────────────────────
- * THIS IS AN IDENTIFIER, NOT A LESSON.
+ * THIS IS AN IDENTIFIER, NOT A LESSON — AND IT MUST NOT READ THE PAGE BACK.
+ *
+ * The first cut of these named the fact: "the listing mentions auction", "the
+ * listing says leasehold". On a listing from an agent called Peter Alan Auctions
+ * with a guide price on it, that is worth nothing — the reader can see it. The
+ * finding is the thing they CANNOT see.
+ *
+ * So the LABEL names the thing, in two or three words, and the line names the
+ * CONSEQUENCE or the QUESTION: not "this is an auction" but that the buyer's fee
+ * is often around 5% on top and is often not on the listing. That is the number
+ * that kills the deal and nobody tells you.
  *
  * A chip is TWO OR THREE WORDS. There are no sentences on the portal's page. Tap
  * one and it gives ONE SHORT LINE of why, and nothing more. This product has a
@@ -41,64 +51,67 @@ export interface FindingWords {
 }
 
 export const FINDING_COPY: Record<FindingCode, FindingWords> = {
-  // ── RISKS — always what the LISTING SAYS, never what is true ──────────────
+  // ── RISKS ────────────────────────────────────────────────────────────────
+  // The LABEL names the thing. The line names the CONSEQUENCE, because the
+  // thing itself is already on the page and repeating it is worth nothing.
   LEASE: {
     label: 'Leasehold',
-    why: 'You own it for a fixed term. Ask the length, the ground rent and the service charge.',
+    why: 'Under about 80 years left costs tens of thousands to extend. Ask the years and the charges.',
   },
   AUCT: {
     label: 'Auction',
-    why: 'Read the legal pack before you bid. Fees and deadlines are different.',
+    why: 'The buyer’s fee is often around 5% on top, and is often not on the listing. Ask what it is.',
   },
   TENANT: {
     label: 'Tenant in situ',
-    why: 'You inherit the tenancy and its terms. Ask to see them.',
+    why: 'You cannot view it freely, you inherit their rent and their arrears, and vacant possession can take months.',
   },
   CASH: {
     label: 'Cash buyers only',
-    why: 'The listing says no mortgage. Ask why before you spend on a survey.',
+    why: 'Usually means no lender will touch it. A problem if you need a mortgage; the point if you are refinancing.',
   },
   CONSTR: {
     label: 'Non-standard construction',
-    why: 'Some lenders decline these. Check with a broker before you offer.',
+    why: 'Many lenders decline outright, which cuts your buyers when you sell as well as your options now.',
   },
   COMM: {
     label: 'Commercial nearby',
-    why: 'Commercial neighbours can affect lending, noise and resale.',
+    why: 'Some lenders decline flats over food or licensed premises, and it narrows who can buy it from you later.',
   },
 
-  // ── GAPS — the portal publishes it and this listing did not fill it in ────
+  // ── GAPS ─────────────────────────────────────────────────────────────────
+  // Not "the listing does not say X" — what the missing X would have told you.
   NOPLAN: {
     label: 'No floor plan',
-    why: 'Nothing on the listing shows the layout. Ask the agent for one.',
+    why: 'You cannot judge the layout or whether a room splits. Ask for one before you travel.',
   },
   NOEPC: {
     label: 'No EPC',
-    why: 'Sellers must provide one. Ask for the certificate.',
+    why: 'It is the only free read on the size and the running costs. Ask for the certificate.',
   },
   NOAREA: {
     label: 'No floor area',
-    why: 'Without a size you cannot compare the price with anything.',
+    why: 'Without a size the price cannot be compared with anything.',
   },
   NOTEN: {
     label: 'No tenure',
-    why: 'The listing does not say freehold or leasehold. Ask.',
+    why: 'Freehold and leasehold are different purchases. Ask which before anything else.',
   },
   NOCT: {
     label: 'No tax band',
-    why: 'The listing gives no council tax band. Ask the agent.',
+    why: 'A band or two out is a few hundred a year on a rental you may be paying between tenants.',
   },
   NOLEASE: {
     label: 'No lease length',
-    why: 'A short lease costs a lot to extend. Ask how many years are left.',
+    why: 'A short lease is the single most expensive thing to find out late. Ask the years left.',
   },
   NOGR: {
     label: 'No ground rent',
-    why: 'The listing does not give the ground rent. Ask what it is and how it rises.',
+    why: 'A doubling ground rent can make a flat unmortgageable. Ask the figure and how it rises.',
   },
   NOSC: {
     label: 'No service charge',
-    why: 'The listing does not give the service charge. Ask for the last three years.',
+    why: 'It comes straight off the rent every month. Ask for the last three years, not the quoted figure.',
   },
 };
 

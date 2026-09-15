@@ -112,21 +112,26 @@ export function youtubeFor(strategyId: string): string {
  * (`features.test.ts`) fails if the two ever disagree, so the mirror cannot
  * drift into a second source. Turning the feature off is one edit, in this file.
  *
- * ── WHY onPageChips DEFAULTS TO OFF ─────────────────────────────────────────
+ * ── onPageChips IS THE CAPABILITY, NOT THE CHOICE ───────────────────────────
  * Rightmove's terms of use prohibit a USER overlaying material on their
  * platform — clause 8.3, in those words. That binds the operator as a user of
- * their site, not this product, and the realistic worst case is the operator's
- * own account being withdrawn. PaTMa, PropertyData and PropBar have all done
- * this for years and none has been challenged.
+ * their site, not this product, and the realistic worst case is their own
+ * account being withdrawn. PaTMa, PropertyData and PropBar have all done this
+ * for years and none has been challenged.
  *
- * It is still an explicit clause, so it is the operator's decision to make and
- * not a default we take on their behalf. Off until they turn it on, and one
- * line here turns it off again — with the side panel completely unaffected,
- * because nothing in the panel reads this.
+ * It is still an explicit clause, so it stays the operator's decision. What
+ * changed in X3 is WHERE that decision is made: it was a code edit, which meant
+ * the feature was invisible to the person it was built for. It is now a switch
+ * in the panel's own Settings, OFF until they turn it on — so nothing is
+ * injected without their say-so, and saying so takes one tap.
+ *
+ * This flag is the kill switch behind that: false here and the content script
+ * will not inject on any page whatever the setting says, which is what makes it
+ * one edit to withdraw the feature entirely. The side panel reads neither.
  */
 export const EXTENSION_FLAGS = {
-  /** Chips injected onto the portal's own listing page. See the note above. */
-  onPageChips: false,
+  /** Whether the on-page chips may be offered at all. See the note above. */
+  onPageChips: true,
 } as const;
 
 export type ExtensionFlagName = keyof typeof EXTENSION_FLAGS;

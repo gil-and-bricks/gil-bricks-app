@@ -22,10 +22,14 @@
      same value, because the panel ships as a separate artefact with its own
      stylesheet. `brandTokens.test.ts` in the web package fails if the two ever
      disagree, so the duplication cannot silently drift.
-     Measured: near-black on this pink is 5.79:1 — passes AA. White is 3.56:1
-     and fails, which is why the ink is dark. */
-  --action: #ff2d78;
-  --action-ink: #070014;
+     THE INK IS WHITE, AND THE PINK MOVED TO LET IT BE.
+     White on the old #ff2d78 measures 3.56:1 — below the 4.5:1 AA needs, which
+     is why the ink was near-black. White was asked for, so the FILL darkened
+     instead of the rule bending: white on #e0185f measures 4.70:1 and passes,
+     and near-black on it would have been 4.39:1 and failed, so the swap is in
+     one direction only. Same hue, one step down in lightness. */
+  --action: #e0185f;
+  --action-ink: #ffffff;
   --text: #ffffff;
   --text-dim: rgba(255, 255, 255, 0.7);
   --font-display: 'Montserrat', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -133,8 +137,8 @@ body {
   background: rgba(255, 200, 97, 0.08); border-left: 3px solid var(--amber);
 }
 .flag-text { font-size: 0.86rem; font-weight: 600; color: var(--text); }
-.flag-found { color: var(--text-dim); font-size: 0.74rem; font-style: italic; }
-.flag-verify { margin: 5px 0 0; color: var(--text-dim); font-size: 0.74rem; }
+/* What it MEANS, not what the page already said. */
+.flag-why { color: var(--text-dim); font-size: 0.74rem; line-height: 1.35; }
 /* SILENCE IS NOT AN ALL CLEAR. The empty state is deliberately as visible as a
    flag would be — a quiet panel that looked like nothing at all would read as
    permission. */
@@ -151,7 +155,8 @@ body {
    buttons sit with it because choosing a strategy is choosing which analyser
    opens — it is part of this button, not a lever on the numbers above. */
 .handoff { margin: 9px 0 0; padding-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.12); }
-.strategy-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; margin: 0 0 7px; }
+/* First thing on the card: it is the first decision, and it moves the numbers. */
+.strategy-switch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 0 0 9px; }
 .strat-btn { font-family: var(--font-display); font-weight: 700; font-size: 0.78rem; padding: 6px 4px; border-radius: 9px; border: 1px solid var(--accent); background: transparent; color: var(--text); cursor: pointer; }
 .strat-btn.active { background: var(--accent); color: #0a0a0a; }
 .send-btn { display: block; width: 100%; margin: 0; padding: 10px; border-radius: 12px; border: none; background: var(--accent); color: #0a0a0a; font-family: var(--font-display); font-weight: 800; font-size: 0.98rem; cursor: pointer; }
@@ -188,16 +193,20 @@ body {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
   max-width: var(--panel-w); margin: 0 auto; padding: 10px 16px 2px;
 }
-.gb-brand { display: flex; align-items: baseline; gap: 7px; min-width: 0; }
-/* The artwork is CROPPED to its ink (603x75), so the box IS the mark and the
-   image's bottom edge is the wordmark's own foot. That is what makes
-   `align-items: baseline` on the row above actually align the two. The panel
-   used to load the uncropped 900x225 original, which carried ~6px of invisible
-   padding down its left side at render size — so no amount of CSS could line
-   the credit up with a "P" that started somewhere inside its own box. */
+/* THE CREDIT SITS UNDER THE WORDMARK, LEFT-ALIGNED WITH IT. Third time asked.
+   X1 put the two on one baseline, which reads fine in a mock-up and badly in
+   life: the cropped wordmark is 201px wide, so on a 468px header the credit
+   landed halfway across and finished under the Instagram icon.
+   A COLUMN is what was asked for, and it is only honest now because the artwork
+   is cropped to its ink (603x75). The panel used to load the uncropped 900x225
+   original, whose alpha box starts at x=46 — about 6px of invisible padding at
+   render size — so a column then put the credit at x=0 and the visible "P" 6px
+   in, which is why it never looked aligned and why it kept coming back. */
+.gb-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .gb-logo { height: 25px; width: auto; display: block; }
 .gb-maker {
-  font-size: 0.6rem; letter-spacing: 0.05em; color: var(--text-dim); text-transform: uppercase;
+  display: block; margin: 0;
+  font-size: 0.58rem; letter-spacing: 0.05em; color: var(--text-dim); text-transform: uppercase;
   white-space: nowrap;
 }
 .gb-socials { display: flex; align-items: center; gap: 2px; }

@@ -66,22 +66,62 @@ describe('the panel never blesses', () => {
     }
   });
 
-  it('never claims a thing is ABSENT — only that it was not found', () => {
-    // "No red flags FOUND" is honest. "No red flags" is a claim about a
-    // property nobody has visited.
-    expect(TRIAGE_COPY.flags.nothing).toMatch(/found/i);
+  it('never claims a thing is ABSENT — only that we found none in what we read', () => {
+    /**
+     * "No red flags FOUND" is honest. "No red flags" is a claim about a property
+     * nobody has visited.
+     *
+     * X3 shortened this line to "Nothing flagged from this listing." — which
+     * keeps the guarantee by SCOPING it ("from this listing") rather than by
+     * using the word "found". So what is asserted here is the guarantee: the
+     * empty state must say where it looked, and must never be a bare "no red
+     * flags".
+     */
+    expect(
+      TRIAGE_COPY.flags.nothing,
+      'the empty state must say what it looked at — "found", or the listing itself',
+    ).toMatch(/\bfound\b|\bfrom this listing\b|\bin this listing\b/i);
+    expect(TRIAGE_COPY.flags.nothing, 'never a bare claim about the property')
+      .not.toMatch(/^(there are )?no (red )?flags\.?$/i);
     expect(TRIAGE_COPY.flags.nothingWhy).toMatch(/not an all clear/i);
     for (const s of ALL) {
       expect(s, `"${s}" asserts freehold`).not.toMatch(/\bis freehold\b|\bno flood\b|\bnot listed\b/i);
     }
   });
 
-  it('every text-derived flag is worded as READ, not as established', () => {
-    for (const k of ['leasehold', 'auction', 'tenantInSitu', 'cashBuyers',
-      'nonStandardConstruction', 'commercialBelow'] as const) {
-      expect(TRIAGE_COPY.flags[k], k).toMatch(/^The listing (says|mentions)/);
+  /**
+   * X3 — THE GUARANTEE SURVIVED THE REWRITE; THE WORDING DID NOT.
+   *
+   * This used to require every flag to start "The listing says…", which was the
+   * honest shape when the flag NAMED the fact. But naming the fact was worth
+   * nothing: "the listing mentions auction", on a listing from an agent called
+   * Peter Alan Auctions with a guide price on it, tells a reader what they can
+   * already see. The flags now name the CONSEQUENCE.
+   *
+   * The thing that must not change is that we never assert a fact about a
+   * property nobody has inspected. A consequence line keeps that promise by
+   * being HEDGED — often, usually, can, many — or by being a QUESTION to put to
+   * the agent. A flat assertion is what this now forbids.
+   */
+  it('every risk names a consequence, hedged or asked — never a flat assertion', async () => {
+    const { FINDING_COPY } = await import('../findings/copy');
+    const HEDGE = /\b(often|usually|can|could|may|might|some|many|about|sometimes)\b/i;
+    const ASKS = /\bask\b/i;
+    for (const code of ['LEASE', 'AUCT', 'TENANT', 'CASH', 'CONSTR', 'COMM'] as const) {
+      const why = FINDING_COPY[code].why;
+      expect(
+        HEDGE.test(why) || ASKS.test(why),
+        `${code} states a consequence as certain: "${why}" — hedge it or ask it`,
+      ).toBe(true);
     }
-    expect(TRIAGE_COPY.flags.verify).toMatch(/verify/i);
+  });
+
+  it('and no finding claims the property IS the thing, only what would follow', async () => {
+    const { FINDING_COPY } = await import('../findings/copy');
+    for (const [code, w] of Object.entries(FINDING_COPY)) {
+      const said = `${w.label} ${w.why}`;
+      expect(said, `${code} asserts a fact about the property`).not.toMatch(/\bthis property is\b|\bit is definitely\b|\bwill be\b/i);
+    }
   });
 
   it('the price comparison states a POSITION, in the exact words the brief set', () => {

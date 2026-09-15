@@ -32,8 +32,14 @@ describe('feature flags (Reversibility charter)', () => {
     }
   });
 
-  it('the on-page chips default to OFF — clause 8.3 is the operator’s call', () => {
-    expect(EXTENSION_FLAGS.onPageChips, 'see docs/FEATURE_FLAGS.md').toBe(false);
+  /**
+   * X3 — the flag is the CAPABILITY; the operator's own switch in the panel is
+   * the choice, and that is what defaults to off. The flag being true is what
+   * lets the switch exist at all; turning the flag off withdraws the feature
+   * whatever anyone has ticked.
+   */
+  it('the on-page chips are available for the operator to switch on', () => {
+    expect(EXTENSION_FLAGS.onPageChips, 'see docs/FEATURE_FLAGS.md').toBe(true);
   });
 
   it('every flag is a plain boolean (no strings, no env lookups)', () => {

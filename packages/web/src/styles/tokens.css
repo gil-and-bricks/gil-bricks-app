@@ -44,8 +44,11 @@
      White was the first choice and was dropped on the measurement: at the size
      these labels actually render (16px/600) AA Large does not apply, so 3.56:1
      is a fail, not a judgement call. Change --action and the gate re-measures. */
-  --action: #ff2d78;
-  --action-ink: #070014;        /* near-black text on the action fill */
+  /* White on the old #ff2d78 measured 3.56:1 — below AA. White was wanted, so
+     the FILL darkened rather than the rule bending: white on #e0185f is 4.70:1
+     and passes. Same hue, one step down in lightness. */
+  --action: #e0185f;
+  --action-ink: #ffffff;        /* white text on the action fill — 4.70:1 */
   --bg-0: #070014;
   --bg-1: #1d022f;
   --bg-2: #230138;

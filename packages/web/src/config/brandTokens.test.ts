@@ -72,18 +72,28 @@ describe('the action colour clears AA where it is actually used', () => {
   });
 
   /**
-   * THE ONE THAT CAUGHT IT. White was the specified ink and it does not pass;
-   * this records the measurement so nobody reinstates it by eye. If a future
-   * shade IS dark enough for white, this fails and the comment above should be
-   * rewritten rather than the test deleted.
+   * THE SHADE DID CHANGE, AND THIS IS THE REWRITE IT ASKED FOR.
+   *
+   * The old version of this test recorded that white FAILED on #ff2d78 (3.56:1)
+   * and said: "if this now passes, the shade changed — reconsider --action-ink
+   * rather than deleting this test." White was then asked for on the button, so
+   * the FILL moved rather than the rule bending: #e0185f, the same hue one step
+   * darker, where white measures 4.70:1 and passes.
+   *
+   * What is pinned now is the PROPERTY rather than one answer: whichever ink and
+   * fill are chosen, the ink must pass and the rejected alternative must be
+   * measurably worse — so nobody can flip the ink back by eye and land on a
+   * combination that looks fine and is not.
    */
-  it('white would still fail on this shade — which is why the ink is dark', () => {
-    const white = contrast('#ffffff', ACTION);
+  it('the chosen ink beats the one it was chosen over, and both are measured', () => {
+    const chosen = contrast(ACTION_INK, ACTION);
+    const other = contrast(ACTION_INK.toLowerCase() === '#ffffff' ? '#070014' : '#ffffff', ACTION);
+    expect(chosen, `${ACTION_INK} on ${ACTION} is ${chosen.toFixed(2)}:1`).toBeGreaterThanOrEqual(AA_TEXT);
     expect(
-      white,
-      `white on ${ACTION} is ${white.toFixed(2)}:1. If this now passes ${AA_TEXT}, the shade changed — `
-      + 'reconsider --action-ink rather than deleting this test.',
-    ).toBeLessThan(AA_TEXT);
+      chosen,
+      `the ink was chosen over the alternative, which measures ${other.toFixed(2)}:1 — `
+      + 'if the alternative is now better, the shade moved and this should be rewritten, not deleted.',
+    ).toBeGreaterThan(other);
   });
 
   /** A guard on the guard: an unreadable token would make every check vacuous. */

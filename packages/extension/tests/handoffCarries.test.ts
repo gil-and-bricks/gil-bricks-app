@@ -223,14 +223,30 @@ describe('the handoff still carries everything, named one by one', () => {
   });
 
   /**
-   * A FLOOR AREA THE PERSON TYPED. The panel's one remaining input. It has to
-   * reach the analyser or they type it twice — and `areaSrc` must NOT claim it
-   * came off the listing.
+   * THE FLOOR AREA, AND WHERE IT NOW COMES FROM.
+   *
+   * X3 removed the panel's "floor area" box: asking somebody to measure what the
+   * EPC register will tell us is asking them to do our work. So the area travels
+   * from the LISTING where the listing gives one, and otherwise from the EPC
+   * lookup at runtime — never from a box on the panel.
+   *
+   * What must not change is that a known area still reaches the analyser, and
+   * that `areaSrc` never claims it came off the listing when it did not.
    */
-  it('a typed floor area travels, and is not passed off as the listing’s own', () => {
-    const p = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url), { manualArea: '82' });
-    expect(p.get('area'), 'the area they typed').toBe('82');
-    expect(p.get('areaSrc'), 'honestly marked as carried, not read').toBe('carried');
+  it('an area the listing gives travels, marked as the listing’s own', () => {
+    const p = sentParams(listingFor(ZOOPLA.file, ZOOPLA.url));
+    expect(p.get('area'), 'this Zoopla listing states 137 m²').toBe('137');
+    expect(p.get('areaSrc')).toBe('listing');
+  });
+
+  it('an area resolved elsewhere is marked carried, never read off the listing', () => {
+    // The EPC register is the other source; the handoff marks anything that did
+    // not come off the listing itself as carried.
+    const listing = listingFor(RIGHTMOVE.file, RIGHTMOVE.url);
+    expect(listing.floorAreaSqm.status, 'this one states no area').not.toBe('found');
+    const p = sentParams(listing);
+    expect(p.has('area'), 'so nothing is invented for it').toBe(false);
+    expect(p.has('areaSrc')).toBe(false);
   });
 
   /** The strategy buttons choose which analyser opens. Each must actually route. */
@@ -278,14 +294,28 @@ describe('the handoff still carries everything, named one by one', () => {
    * missing member rather than as a missing test.
    */
   it('every parameter a full Rightmove handoff must contain', () => {
-    const p = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url), { criteria: CRITERIA, manualArea: '82' });
+    // The Zoopla semi is the one that states its own floor area, so it is the
+    // listing that can carry every parameter at once.
+    const p = sentParams(listingFor(ZOOPLA.file, ZOOPLA.url), { criteria: CRITERIA });
     const MUST_CONTAIN = [
       'postcode', 'price', 'type', 'beds', 'baths', 'area', 'areaSrc',
       'subjectTenure', 'finds',
       'minCashflow', 'minRoi', 'minIcr', 'minProfit',
-      'fp', 'ph', 'auction', 'src',
+      'fp', 'ph', 'src',
     ];
     const missing = MUST_CONTAIN.filter((k) => !p.has(k) || (p.get(k) ?? '') === '');
     expect(missing, `missing from the handoff: ${missing.join(', ')}`).toEqual([]);
+
+    /**
+     * `auction` is not in the list above because this listing is not one — and a
+     * warning nobody earned is its own kind of wrong. It is covered by the
+     * auction listing instead, so the SET is complete across the two.
+     */
+    const rm = sentParams(listingFor(RIGHTMOVE.file, RIGHTMOVE.url), { criteria: CRITERIA });
+    expect(rm.get('auction'), 'the legal-pack flag, on the listing that earns it').toBe('1');
+    const alsoMissing = [...MUST_CONTAIN, 'auction']
+      .filter((k) => k !== 'area' && k !== 'areaSrc')
+      .filter((k) => !rm.has(k) || (rm.get(k) ?? '') === '');
+    expect(alsoMissing, `missing from the Rightmove handoff: ${alsoMissing.join(', ')}`).toEqual([]);
   });
 });

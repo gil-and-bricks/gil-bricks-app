@@ -154,7 +154,9 @@ describe('the extension panel says it too', () => {
     expect(panel, 'the figure is labelled').toContain('C.numbers.stampDuty');
     expect(panel, 'and Wales is named separately').toContain('C.numbers.stampDutyWales');
     expect(panel, 'with the assumption directly under it').toContain('C.numbers.stampDutyBasis');
-    // And the assumption actually says which rate, in the copy the panel reads.
-    expect(TRIAGE_COPY.numbers.stampDutyBasis.toLowerCase()).toMatch(/additional/);
+    // And the assumption actually names the rate, in the copy the panel reads.
+    // X3 shortened it from "Assumes a second or additional property" — the
+    // words changed, the requirement did not: it must say WHICH rate.
+    expect(TRIAGE_COPY.numbers.stampDutyBasis.toLowerCase()).toMatch(/second|additional|higher/);
   });
 });

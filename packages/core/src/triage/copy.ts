@@ -28,11 +28,27 @@ export const TRIAGE_COPY = {
     returnOnCash: 'Return on the cash you put in (ROI)',
     noArea: 'No floor area in this listing',
     noAreaWhy: 'Add it in the analyser and the comparison works.',
-    areaLabel: 'Floor area (m²)',
+    /**
+     * X3 — WE ASK FOR THE HOUSE NUMBER, NOT THE FLOOR AREA.
+     *
+     * The panel used to put a "Floor area (m²)" box on screen, which is asking
+     * somebody to go and find something we can fetch. With a postcode and a
+     * house number the EPC register gives us the area — that is already built
+     * and it works. So the box is gone and this asks for the one thing only
+     * they can supply.
+     */
+    houseNumber: 'House number',
+    houseNumberWhy: 'We’ll fetch the floor area from the EPC register.',
     /** The tax assumes the higher rate, because that is what this audience pays. */
-    stampDutyBasis: 'Assumes a second or additional property.',
+    stampDutyBasis: 'At the second-property rate.',
     /** Never a single figure without saying what it rests on. */
-    cashNeededBasis: (depositPct: number): string => `Deposit ${depositPct}%, plus tax and legal costs.`,
+    cashNeededBasis: (depositPct: number): string => `Deposit ${depositPct}%, tax and legals.`,
+    /**
+     * The bridge's arrangement fee is cash on day one and appears on no
+     * listing. Naming it is most of why the strategy buttons matter.
+     */
+    cashNeededBridge: (depositPct: number, fee: string): string =>
+      `Deposit ${depositPct}%, tax, legals, and ${fee} bridging fee.`,
     noPrice: 'No asking price on this listing',
     /**
      * A listing that gives "70-80 m²" has not given a floor area, it has given
@@ -65,29 +81,35 @@ export const TRIAGE_COPY = {
     caveat: 'This compares size, not quality, across about 1,500 people — it cannot tell one street from the next. '
       + 'Cheap for the size can mean cheap for a reason.',
     tooFew: (n: number): string => `Only ${n} similar sales nearby. Not enough to compare against.`,
-    /** Shown when the floor-area box above is empty — it says where to fix it. */
-    needsArea: 'Add the floor area above to compare this against similar sales.',
+    /**
+     * X3 — this used to say "add the floor area above", pointing at a box that
+     * no longer exists. The area is fetched from the EPC register now, so the
+     * honest line says what is missing rather than issuing an instruction the
+     * panel cannot support.
+     */
+    needsArea: 'No floor area yet, so there is nothing to compare the price against.',
     spread: 'Prices here are too spread out to give a typical figure. Look at the sales themselves.',
   },
 
-  /** ZONE TWO — the flags. Silent unless it has something evidenced to say. */
+  /**
+   * ZONE TWO — the flags. Silent unless it has something evidenced to say.
+   *
+   * X3 — THE WORDING MOVED TO `findings/copy.ts` AND STOPPED READING THE PAGE
+   * BACK. It used to say "The listing mentions auction · Found: 'modern method
+   * of auction' · Verify with the agent" — three lines to tell somebody
+   * something already printed on the page they are looking at. It now says what
+   * the auction MEANS: the buyer's fee is often 5% on top and often not on the
+   * listing. One source of words for the panel, the injected chips and the
+   * deal's own page.
+   */
   flags: {
     heading: 'Worth checking',
-    leasehold: 'The listing says leasehold',
-    auction: 'The listing mentions auction',
-    tenantInSitu: 'The listing mentions a tenant in situ',
-    cashBuyers: 'The listing says cash buyers only',
-    nonStandardConstruction: 'The listing mentions non-standard construction',
-    commercialBelow: 'The listing mentions commercial premises nearby',
-    /** Every text-derived flag carries this. It was read, not established. */
-    verify: 'Verify with the agent.',
-    found: (words: string): string => `Found: “${words}”`,
     /**
      * SILENCE IS NOT AN ALL CLEAR, and it has to say so. A quiet panel is the
      * most dangerous state this thing has, because quiet reads as permission.
      */
-    nothing: 'No red flags found in the listing or in open data.',
-    nothingWhy: 'Not an all clear: condition, lease and the exact street need a viewing, a survey or a solicitor.',
+    nothing: 'Nothing flagged from this listing.',
+    nothingWhy: 'Not an all clear: condition, lease and the street need a viewing, a survey or a solicitor.',
   },
 
   /**
@@ -106,10 +128,18 @@ export const TRIAGE_COPY = {
    */
   flexibility: {
     heading: 'Possible flexibility',
+    /**
+     * X3 — ONLY PAST THE THRESHOLD.
+     *
+     * "On the market 4 days" is on the listing already, and repeating it back is
+     * worth nothing. Days on the market only mean something when the number is
+     * LONG — which is the config's own `longOnMarketDays` — or when the price has
+     * actually moved. Below that, this says nothing at all.
+     */
     listedFor: (days: number): string => `On the market ${days} days`,
-    reducedOn: (date: string): string => `Price reduced on ${date}`,
+    reducedOn: (date: string): string => `Reduced ${date}`,
     /** Never proof. The agent knows why they are selling; this tool does not. */
-    caveat: 'Signals, not proof. Only the agent knows why they are selling.',
+    caveat: 'Signals, not proof.',
   },
 
   /**
@@ -119,6 +149,12 @@ export const TRIAGE_COPY = {
    * next one rather than printed twice under the same figure.
    */
   areaCaveat: 'These cover about 1,500 people. They cannot tell one street from the next.',
+
+  /** X3 — the on-page chips switch, in the panel's own Settings. */
+  chips: {
+    label: 'Show findings on the listing page',
+    note: 'Adds small PropLaunch tags to Rightmove and Zoopla pages. Off by default — it is your call.',
+  },
 
   /** The way out of the panel and into the place that can actually ask questions. */
   settings: { link: 'Settings', back: '← Back to the listing' },
@@ -132,6 +168,6 @@ export const TRIAGE_COPY = {
    */
   handoff: {
     action: 'Run the full numbers',
-    why: 'Carries the price, size, type, tenure, address, photos and floor plan.',
+    why: 'Takes the photos, the floor plan and everything above with it.',
   },
 } as const;

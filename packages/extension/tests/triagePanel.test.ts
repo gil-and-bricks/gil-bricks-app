@@ -17,7 +17,7 @@
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
-  found, missing, unavailable, TRIAGE_COPY,
+  found, missing, unavailable, TRIAGE_COPY, FINDING_COPY,
   type NormalisedListing, type SectorFile,
 } from '@gil-bricks/core';
 import { __mountForTest, renderEmpty, renderFailure, failureFor } from '../entrypoints/sidepanel/main.ts';
@@ -167,38 +167,105 @@ describe('zone one — the numbers', () => {
     expect(txt()).toContain(C.numbers.areaFromRange(70, 80));
   });
 
-  it('the floor-area input appears only when nothing else could supply one', () => {
-    mount(listing(), { sector: sector([1800, 1900, 2000, 2100, 2200]) });
-    expect(document.getElementById('gb-area'), 'the listing gave 82 m²').toBeNull();
-    document.body.innerHTML = '<main id="app"></main>';
+  /**
+   * X3 — WE ASK FOR THE HOUSE NUMBER, NOT THE FLOOR AREA.
+   *
+   * There used to be a "Floor area (m²)" box here. Asking somebody to go and
+   * measure something we can look up is asking them to do our work: with a
+   * postcode and a house number the EPC register gives us the area, and that
+   * lookup was already built and already working.
+   */
+  it('never asks for the floor area — that is ours to fetch', () => {
     mount(listing({ floorAreaSqm: missing() }), { sector: sector([]) });
-    expect(document.getElementById('gb-area'), 'nothing else could').not.toBeNull();
+    expect(document.getElementById('gb-area'), 'the box is gone').toBeNull();
+    expect(txt()).not.toMatch(/floor area \(m²\)/i);
+  });
+
+  it('asks for the house number only when the listing gave neither', () => {
+    // The listing gives a house number, so there is nothing to ask for.
+    mount(listing({ floorAreaSqm: missing() }), { sector: sector([]) });
+    expect(document.getElementById('gb-paon'), 'the listing already gave “9”').toBeNull();
+    // No house number and no area: this is the one case worth asking about.
+    document.body.innerHTML = '<main id="app"></main>';
+    mount(listing({ floorAreaSqm: missing(), address: found({ street: 'Earl Street' }) }), { sector: sector([]) });
+    expect(document.getElementById('gb-paon')).not.toBeNull();
+    expect(txt(), 'and says why it wants it').toContain(C.numbers.houseNumberWhy);
+  });
+
+  it('and never asks at all once an area is known', () => {
+    mount(listing({ address: found({ street: 'Earl Street' }) }), { sector: sector([]) });
+    expect(listing().floorAreaSqm.status).toBe('found');
+    expect(document.getElementById('gb-paon')).toBeNull();
+  });
+
+  /** A remembered house number is in the box, so it is not retyped every visit. */
+  it('a remembered house number is shown in the box', () => {
+    mount(
+      listing({ floorAreaSqm: missing(), address: found({ street: 'Earl Street' }) }),
+      { sector: sector([]), manualPaon: '9' },
+    );
+    const input = document.getElementById('gb-paon') as HTMLInputElement;
+    expect(input).not.toBeNull();
+    expect(input.value).toBe('9');
+  });
+});
+
+/**
+ * X3 — THE STRATEGY BUTTONS, WHICH USED TO DO NOTHING AT ALL.
+ *
+ * Pressing one moved the highlight and changed not a single figure: every
+ * strategy fell back to the same 25% deposit and the same £1,500 of legals,
+ * because the config's own `funding` default was never read. A dead control on
+ * a panel whose job is to help somebody decide is worse than no control.
+ */
+describe('the strategy buttons', () => {
+  const FIVE = [1800, 1900, 2000, 2100, 2200];
+  const cashLine = (): string => {
+    const rows = [...document.querySelectorAll('.num-row')];
+    const row = rows.find((r) => r.textContent?.includes(C.numbers.cashNeeded));
+    return row?.textContent ?? '';
+  };
+
+  it('sit at the very top, above the address', () => {
+    mount(listing(), { sector: sector(FIVE) });
+    const said = txt();
+    const card = document.querySelector('.glass.card')!;
+    expect(card.firstElementChild?.className, 'the switch is the first thing on the card')
+      .toContain('strategy-switch');
+    expect(said.indexOf('BTL')).toBeLessThan(said.indexOf('Earl Street'));
+  });
+
+  it('pressing one changes the panel, not just the highlight', () => {
+    mount(listing(), { sector: sector(FIVE) });
+    const before = txt();
+    const beforeCash = cashLine();
+    (([...document.querySelectorAll('.strat-btn')] as HTMLButtonElement[])
+      .find((b) => b.textContent === 'Flip')!).click();
+    expect(document.querySelector('.strat-btn.active')?.textContent, 'the highlight moved').toBe('Flip');
+    expect(txt(), 'and so did the panel').not.toBe(before);
+    expect(cashLine(), 'the cash needed is the figure that moves').not.toBe(beforeCash);
   });
 
   /**
-   * A REMEMBERED FLOOR AREA MUST BE IN THE BOX, not merely in the maths.
-   *
-   * The panel stores what you typed per listing and reuses it. If the figure
-   * drives the £/m² but the box renders empty, the box is telling you it has
-   * nothing while the row above it uses the number — and you retype it every
-   * time you reopen the listing.
+   * A bridge charges an arrangement fee on the loan — real cash on day one, on
+   * no listing anywhere. That is the whole difference, and it is named.
    */
-  it('a remembered floor area is shown in the box, not just used silently', () => {
-    mount(listing({ floorAreaSqm: missing() }), { sector: sector([1800, 1900, 2000, 2100, 2200]), manualArea: '82' });
-    const input = document.getElementById('gb-area') as HTMLInputElement;
-    expect(input, 'the box is offered').not.toBeNull();
-    expect(input.value, 'and it holds what was typed last time').toBe('82');
-    expect(txt(), 'while the maths uses it too').toContain('£2,000');
+  it('a bridging strategy names the fee that a mortgage does not have', () => {
+    mount(listing(), { sector: sector(FIVE), strategy: 'flip' });
+    expect(txt(), 'Flip funds through a bridge').toMatch(/bridging fee/i);
+    document.body.innerHTML = '<main id="app"></main>';
+    mount(listing(), { sector: sector(FIVE), strategy: 'btl' });
+    expect(txt(), 'BTL is a mortgage purchase').not.toMatch(/bridging fee/i);
   });
 
-  it('typing a floor area produces the £/m² that was missing', () => {
-    mount(listing({ floorAreaSqm: missing() }), { sector: sector([1800, 1900, 2000, 2100, 2200]) });
-    expect(txt()).not.toContain(C.numbers.perSqm);
-    const input = document.getElementById('gb-area') as HTMLInputElement;
-    input.value = '82';
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    expect(txt()).toContain(C.numbers.perSqm);
-    expect(txt()).toContain('£2,000');
+  it('and the bridging cash needed is genuinely higher', () => {
+    const cashOf = (strategy: 'btl' | 'flip'): number => {
+      document.body.innerHTML = '<main id="app"></main>';
+      mount(listing(), { sector: sector(FIVE), strategy });
+      const m = /£([\d,]+)/.exec(cashLine().replace(C.numbers.cashNeeded, ''));
+      return Number((m?.[1] ?? '0').replace(/,/g, ''));
+    };
+    expect(cashOf('flip')).toBeGreaterThan(cashOf('btl'));
   });
 });
 
@@ -280,15 +347,9 @@ describe('the price comparison', () => {
     expect(said.match(/1,500 people/g), 'said once').toHaveLength(1);
   });
 
-  /**
-   * With no floor area the panel offers the box AND points at it. It used to
-   * also repeat "No floor area in this listing" underneath, one line below the
-   * empty box labelled "Floor area (m²)" — the same fact, twice, on one screen.
-   */
-  it('with no floor area it offers the box and points at it, once', () => {
+  it('with no floor area the comparison says what it is waiting for, once', () => {
     mount(listing({ floorAreaSqm: missing() }), { sector: sector(FIVE) });
-    expect(document.getElementById('gb-area'), 'the box is there to fill').not.toBeNull();
-    expect(txt(), 'and the comparison says what it is waiting for').toContain(C.band.needsArea);
+    expect(txt()).toContain(C.band.needsArea);
     expect(txt(), 'without restating it').not.toContain(C.numbers.noArea);
   });
 });
@@ -302,16 +363,32 @@ describe('zone two — the flags', () => {
     expect(txt(), 'silence must never read as permission').toContain(C.flags.nothingWhy);
   });
 
-  it('raises a flag from the listing’s own words, and shows the words', () => {
+  /**
+   * X3 — A FLAG NAMES THE CONSEQUENCE, NOT THE PAGE.
+   *
+   * It used to say "The listing says cash buyers only", then the matched phrase,
+   * then "verify with the agent" — three lines telling somebody something
+   * already printed in front of them. What they cannot see is WHY it matters.
+   */
+  it('raises a flag from the listing’s own words, and says what it MEANS', () => {
     mount(listing({ description: found('A terrace. Cash buyers only, please.') }), { sector: sector([]) });
-    expect(txt()).toContain(C.flags.cashBuyers);
-    expect(txt(), 'the reader judges the match themselves').toContain('cash buyers only');
-    expect(txt()).toContain(C.flags.verify);
+    expect(txt(), 'the label names the thing').toContain(FINDING_COPY.CASH.label);
+    expect(txt(), 'and the line names the consequence').toContain(FINDING_COPY.CASH.why);
+  });
+
+  it('never reads the page back at you', () => {
+    mount(listing({ tenure: found('LEASEHOLD'), description: found('For sale by auction.') }), { sector: sector([]) });
+    const said = txt();
+    // The old wording, named so it cannot creep back.
+    expect(said).not.toMatch(/the listing (says|mentions)/i);
+    expect(said, 'the matched phrase is on the page already').not.toMatch(/Found:/);
+    expect(said).not.toMatch(/verify with the agent/i);
   });
 
   it('reads the tenure field as well as the prose', () => {
     mount(listing({ tenure: found('LEASEHOLD') }), { sector: sector([]) });
-    expect(txt()).toContain(C.flags.leasehold);
+    expect(txt()).toContain(FINDING_COPY.LEASE.label);
+    expect(txt()).toContain(FINDING_COPY.LEASE.why);
   });
 
   it('never shows more than four', () => {

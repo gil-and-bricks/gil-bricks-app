@@ -4,7 +4,7 @@ import { coreConfig, EXTENSION_FLAGS } from '@gil-bricks/core/config';
 import { extractCurrentPage, EXTRACT_MESSAGE } from '../src/extractPage';
 import { mountOpener, retireOpener, OPENER_CSS, OPEN_PANEL_MESSAGE, PANEL_OPEN_MESSAGE } from '../src/opener';
 import { mountChips, removeChips } from '../src/chips';
-import { getOpenerHidden, setOpenerHidden, getChipsHidden, setChipsHidden } from '../src/store';
+import { getOpenerHidden, setOpenerHidden, getChipsHidden, setChipsHidden, getChipsOn } from '../src/store';
 
 /**
  * Declarative content script on Rightmove/Zoopla ONLY. It rides the existing
@@ -71,7 +71,10 @@ export default defineContentScript({
      * is completely unaffected either way.
      */
     const showChips = async (): Promise<void> => {
+      // The flag is the kill switch; the SETTING is the operator's own choice,
+      // and it is off until they make it. Both must say yes.
       if (!EXTENSION_FLAGS.onPageChips) return;
+      if (!(await getChipsOn())) { removeChips(document); return; }
       if (!isListingUrl(location.href)) { removeChips(document); return; }
       const portal = portalForUrl(location.href);
       if (!portal) return;
