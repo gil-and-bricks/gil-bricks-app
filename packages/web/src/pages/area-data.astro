@@ -1,10 +1,13 @@
 ---
 import AppShell from '../layouts/AppShell.astro';
-import { dataset, graph, SD_COPY } from '../config/structuredData';
+import { dataFreshness, dataset, graph, SD_COPY } from '../config/structuredData';
 import { AreaApp } from '../components/area/AreaApp';
 import { siteConfig } from '../site.config';
 import { siteConfig as sc } from '../site.config';
 const dataBase = sc.dataBaseUrl.replace(/\/+$/, '');
+
+/* S1 — read once at build time; invisible, non-fatal if the bucket is down. */
+const freshness = await dataFreshness();
 ---
 
 <AppShell
@@ -15,9 +18,10 @@ const dataBase = sc.dataBaseUrl.replace(/\/+$/, '');
       name: SD_COPY.areaName,
       description: SD_COPY.areaDescription,
       url: `${siteConfig.liveUrl.replace(/\/+$/, '')}/area-data/`,
-      /* The refresh date a person can also see on the page. manifest.json
-         is the single as-of source; this is the same value, not a second one. */
-      asOf: siteConfig.dataAsOf,
+      /* manifest.json is the single as-of source; this is that value read at
+         build time, not a second one invented here. */
+      asOf: freshness.modified,
+      covers: freshness.covers,
       spatial: SD_COPY.spatial,
     }),
   ])}

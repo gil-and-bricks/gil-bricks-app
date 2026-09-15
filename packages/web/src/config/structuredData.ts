@@ -89,7 +89,7 @@ export function softwareApplication(opts: {
  * on the page — which is the honest freshness signal, not a trick.
  */
 export function dataset(opts: {
-  name: string; description: string; url: string; asOf: string; spatial: string;
+  name: string; description: string; url: string; asOf: string; covers?: string; spatial: string;
 }): JsonLd {
   return {
     '@type': 'Dataset',
@@ -102,8 +102,44 @@ export function dataset(opts: {
     isAccessibleForFree: true,
     inLanguage: 'en-GB',
     spatialCoverage: opts.spatial,
-    ...(opts.asOf === '' ? {} : { dateModified: opts.asOf, temporalCoverage: opts.asOf }),
+    ...(opts.asOf === '' ? {} : { dateModified: opts.asOf }),
+    ...(opts.covers === '' || opts.covers === undefined ? {} : { temporalCoverage: opts.covers }),
   };
+}
+
+/**
+ * S1 — THE REFRESH DATE, READ AT BUILD TIME SO A CRAWLER CAN SEE IT.
+ *
+ * The honest freshness signal for this product is the monthly data refresh, and
+ * it was invisible to anything that does not run JavaScript. `dataAsOf` in
+ * site.config is deliberately EMPTY — manifest.json is the single as-of source
+ * (DATA_SCHEMA.md) and the browser fetches it at runtime — so the served HTML
+ * carried the words "as of" followed by nothing at all. Googlebot renders JS and
+ * would eventually see it; most other crawlers do not.
+ *
+ * Fetched here during the build and baked into the Dataset block, which is
+ * invisible markup, so nothing a person sees changes. NON-FATAL by design: if
+ * the manifest cannot be read the date is simply absent, exactly as it is today,
+ * and the build still succeeds. A deploy must never depend on a bucket being up.
+ */
+export async function dataFreshness(): Promise<{ modified: string; covers: string }> {
+  const none = { modified: '', covers: '' };
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(`${siteConfig.dataBaseUrl.replace(/\/+$/, '')}/manifest.json`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return none;
+    const m = (await res.json()) as { generatedAt?: string; ppdMonth?: string };
+    return {
+      // When the dataset was last produced, as a plain date.
+      modified: typeof m.generatedAt === 'string' ? m.generatedAt.slice(0, 10) : '',
+      // The latest month of sold data it contains.
+      covers: typeof m.ppdMonth === 'string' ? m.ppdMonth : '',
+    };
+  } catch {
+    return none;
+  }
 }
 
 /** One graph per page, so a crawler reads one block rather than several. */
