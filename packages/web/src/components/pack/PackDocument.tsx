@@ -1,4 +1,3 @@
-import { cloneElement } from 'preact';
 /**
  * DP2 — THE PACK. Seven designed sheets, not a white page with writing on it.
  *
@@ -78,6 +77,35 @@ export interface PackModel {
 const has = (m: PackModel, key: string): boolean => m.on.includes(key);
 
 /**
+ * WHICH SECTIONS THIS DEAL COULD PRODUCE A PAGE FOR — asked of the DATA, never
+ * of the switches.
+ *
+ * DP4's dead-toggle bug was a control offered for content that did not exist:
+ * "Your floor plan" on a deal with no floor plan could never do anything, and
+ * nothing said so. The document uses this to decide what to draw; the sidebar
+ * uses the SAME function to decide what to offer. If they ever disagreed, the
+ * bug would be back — so they cannot, because there is only one of them.
+ */
+export function sectionsWithContent(m: {
+  hero: PackModel['hero']; waterfall: PackModel['waterfall']; costs: PackModel['costs'];
+  returns: PackModel['returns']; scope: PackModel['scope']; runway: PackModel['runway'];
+  floorPlan: PackModel['floorPlan']; area: PackModel['area']; growth: PackModel['growth'];
+  comps: PackModel['comps']; photos: readonly string[];
+}): Record<string, boolean> {
+  return {
+    [SECTION.cover]: true,
+    [SECTION.returns]: m.hero !== null,
+    [SECTION.purchase]: m.waterfall.length > 0 || m.costs.length > 0 || m.returns.length > 0,
+    [SECTION.plan]: m.scope.length > 0 || m.runway !== null || m.floorPlan !== null,
+    [SECTION.area]: m.area.length > 0 || m.growth !== null,
+    [SECTION.comps]: m.comps.length > 0,
+    [SECTION.figures]: m.costs.length > 0 || m.returns.length > 0,
+    [SECTION.gallery]: m.photos.length > 0,
+    [SECTION.basis]: true,
+  };
+}
+
+/**
  * The comparable rows that fit, with the subject always among them.
  *
  * THE SUBJECT IS NEVER CUT. On a cheap purchase it sorted below eight dearer
@@ -104,17 +132,6 @@ const missing = (v: string) => (v.trim() === ''
 /** The tag every forward-looking figure wears. Not decoration. */
 function Est({ on }: { on: boolean }) {
   return on ? <span class="pk-est">{PACK_COPY.basis.estimateTag}</span> : null;
-}
-
-/**
- * Zoom is applied to the PAGE, never to a wrapper around it, so the controls
- * sitting beside a page are not scaled down with it. Cloning here rather than
- * threading a style through every page builder keeps the page functions
- * ignorant of the preview entirely.
- */
-function withZoom(page: preact.JSX.Element, zoom: number): preact.JSX.Element {
-  const prev = (page.props as { style?: Record<string, unknown> }).style ?? {};
-  return cloneElement(page, { style: { ...prev, zoom } });
 }
 
 /** The locked furniture, at the foot of every sheet. Never optional. */
@@ -196,28 +213,15 @@ function Level({ level }: { level: PackFloorPlan['levels'][number] }) {
 }
 
 /**
- * DP4 — WHAT `chrome` IS, AND WHY IT IS A PROP RATHER THAN MARKUP IN HERE.
+ * THE DOCUMENT, AND ONLY THE DOCUMENT.
  *
- * The builder puts each page's own controls in the gutter BESIDE that page, so
- * a sourcer adjusts the thing they are looking at. Those controls are the
- * builder's, not the document's — the document is what an investor receives —
- * so this component never authors them. It leaves a slot, and the builder fills
- * it. Print, the export, the tests and the shared-link view pass nothing and
- * get exactly the document they got before.
- *
- * `zoom` moved from the wrapper to the PAGE for the same reason: a wrapper zoom
- * scales whatever is inside it, which at 390px means a 41% control. Zooming
- * each page leaves its sibling chrome at full size, with no counter-scaling to
- * get wrong. `zoom` rather than `transform: scale` is unchanged and deliberate —
- * it reflows, so the row's height is right and the page scrolls properly.
+ * DP4 gave this a `chrome` slot so the builder could render each page's
+ * controls in a gutter beside it. DP5 took the controls back to the sidebar
+ * (see PackComposer), so the slot has no caller and is gone: this component
+ * renders sheets and nothing else again, and the preview scales them with one
+ * `zoom` on the wrapper exactly as it did before.
  */
-export interface PackChrome {
-  (key: string, index: number, total: number): preact.JSX.Element | null;
-}
-
-export function PackDocument(
-  { model, chrome, zoom }: { model: PackModel; chrome?: PackChrome; zoom?: number },
-) {
+export function PackDocument({ model }: { model: PackModel }) {
   const m = model;
   const accent = /^#[0-9a-fA-F]{6}$/.test(m.branding.accentColour) ? m.branding.accentColour : undefined;
   const shot = (src: string) => (m.branding.duotone ? 'pk-shot pk-duo' : 'pk-shot');
@@ -690,55 +694,13 @@ export function PackDocument(
   ];
 
   /**
-   * SWITCHED-OFF PAGES STILL HAVE A ROW — IN THE BUILDER ONLY.
+   * WHAT THE DEAL HAS, REGARDLESS OF WHAT IS SWITCHED ON.
    *
-   * Moving each page's controls beside its page had one consequence I did not
-   * see until the toggle matrix ran: switching a page OFF removed the page, and
-   * the page was carrying the only switch that could bring it back. Every
-   * section could be turned off exactly once and never again.
-   *
-   * So the builder keeps a slim placeholder where a hidden page would be — not
-   * an A4 sheet, a single line saying it is out — and the gutter stays beside
-   * it. The DOCUMENT is unchanged: `sheets` above is what gets rendered, printed
-   * and exported, and a hidden page is absent from all three. This is scaffolding
-   * for the person building, and `chrome` is what distinguishes them.
+   * Exported because the SIDEBAR needs exactly this answer and must not
+   * recompute it: a rail row offered for a page that can never render is the
+   * dead-toggle bug DP4 existed to kill. One source of truth, read by the
+   * document to decide what to draw and by the builder to decide what to offer.
    */
-  /**
-   * THE BUILDER'S ROW LIST: every page that COULD be in the pack, in order,
-   * each marked present or hidden. The document itself is `sheets` above and
-   * contains only what is switched on; this exists so a hidden page keeps the
-   * control that brings it back.
-   */
-  /** What the DEAL has, regardless of what is switched on. */
-  const couldRender: Record<string, boolean> = {
-    [SECTION.returns]: returnsPage !== null,
-    [SECTION.purchase]: numbersHasContent,
-    [SECTION.plan]: m.scope.length > 0 || m.runway !== null || m.floorPlan !== null,
-    [SECTION.area]: areaHasContent,
-    [SECTION.comps]: m.comps.length > 0,
-    [SECTION.figures]: figuresHasContent,
-    [SECTION.gallery]: m.photos.length > 0,
-  };
-
-  type Row = { key: string; render: Sheet | null };
-  const rows: Row[] = chrome === undefined
-    ? sheets.map((x) => ({ key: x.key, render: x.render }))
-    : [
-      { key: SECTION.cover, render: has(m, SECTION.cover) ? cover : null },
-      /**
-       * A ROW IS OFFERED ONLY WHERE A PAGE COULD EXIST.
-       *
-       * `couldRender` asks the DATA, never the switches: a gallery with no
-       * photographs and a plan page on a deal with no scope, no runway and no
-       * floor plan can never produce a sheet, so neither gets a row and neither
-       * gets a control. That is the dead-toggle class closed at the root — not
-       * a control that is disabled, a control that is not written.
-       */
-      ...m.order
-        .filter((k) => movable[k] !== undefined && couldRender[k] === true)
-        .map((k) => ({ key: k, render: has(m, k) ? (movable[k] ?? null) : null })),
-      { key: SECTION.basis, render: basisPage },
-    ];
   const total = sheets.length;
 
   return (
@@ -749,32 +711,7 @@ export function PackDocument(
           and a preview that hides the locked disclaimer is a preview that lies
           about the document — on a screen whose whole job is to show the user
           what they are about to send somebody. */}
-      {rows.map((row, i) => {
-        const gutter = chrome === undefined ? null : chrome(row.key, i, rows.length);
-        if (row.render === null) {
-          /* Hidden, or empty: a line in the builder, nothing in the document. */
-          return (
-            <div class="pk-sheet is-off" key={`sheet-${row.key}`}>
-              {gutter}
-              <div class="pk-ghost" data-chrome>{PACK_COPY.gutter.notInPack}</div>
-            </div>
-          );
-        }
-        const pageNo = sheets.findIndex((x) => x.key === row.key) + 1;
-        const page = row.render(pageNo, total);
-        /**
-         * NO CHROME, NO WRAPPER. Print, the export and every test render the
-         * document exactly as they did before this existed — the builder is the
-         * only caller that passes `chrome`, and the only one that pays for it.
-         */
-        if (gutter === null) return zoom === undefined ? page : withZoom(page, zoom);
-        return (
-          <div class="pk-sheet" key={`sheet-${row.key}`}>
-            {gutter}
-            {zoom === undefined ? page : withZoom(page, zoom)}
-          </div>
-        );
-      })}
+      {sheets.map((sheet, i) => sheet.render(i + 1, total))}
     </div>
   );
 }

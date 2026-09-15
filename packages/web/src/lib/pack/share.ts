@@ -119,16 +119,6 @@ export async function buildPackHtml(root: HTMLElement, title: string, lang: stri
   // that, or every reader gets the sender's window width baked in.
   doc.removeAttribute('style');
   for (const el of [...doc.querySelectorAll<HTMLElement>('[style*="zoom"]')]) el.style.removeProperty('zoom');
-  /**
-   * THE BUILDER'S FURNITURE NEVER REACHES THE INVESTOR.
-   *
-   * Each page's controls live in the gutter beside it, which is inside the `.pk`
-   * element this clones — adjacency is the whole point of them. So they are
-   * marked `data-chrome` and removed here. Without this line the sourcer posts
-   * an investor a document with "Not in the pack" buttons down the side of it.
-   * packShare.test.ts asserts the export contains none.
-   */
-  for (const el of [...doc.querySelectorAll('[data-chrome]')]) el.remove();
 
   const fonts = await inlineFonts();
   const esc = (t: string): string => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] ?? c));

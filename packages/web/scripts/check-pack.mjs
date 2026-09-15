@@ -264,14 +264,29 @@ try {
      * click, and no code path by which they can come off. The page still has to
      * be THERE, and still has to say once, quietly, that it always is.
      */
-    const lockedGut = page.locator('.pk-gut').filter({ hasText: /Always included/ });
-    const lockedCount = await lockedGut.count();
-    if (lockedCount === 0) throw new Error('no page says it is always included');
-    ok(`${lockedCount} locked page(s) say "Always included", once each`);
+    /**
+     * THE LOCKED SECTIONS HAVE NO CONTROL AT ALL, which is a stronger guarantee
+     * than a disabled checkbox and is what this checks.
+     *
+     * DP1 gave them three ticked-and-disabled rows; this used to strip the
+     * `disabled` attribute and click them to prove they snapped back. DP4 said
+     * it once instead, quietly, and DP5 kept that when the sidebar came back —
+     * so there is no row, nothing to un-disable, nothing to click, and no code
+     * path by which they can come off. The line still has to be THERE, and all
+     * three still have to be in the document.
+     */
+    const always = page.locator('.pk-always');
+    if (await always.count() !== 1) throw new Error('the "always included" line is not on the rail exactly once');
+    const alwaysText = await always.innerText();
+    for (const word of ['figure', 'registration', 'disclaimer']) {
+      if (!alwaysText.toLowerCase().includes(word)) throw new Error(`the always-included line does not mention ${word}`);
+    }
+    ok(`one line names all three locked sections: "${alwaysText.replace(/\s+/g, ' ').trim().slice(0, 64)}…"`);
 
-    const lockedSwitches = await lockedGut.locator('.pk-gut-eye').count();
-    if (lockedSwitches > 0) throw new Error(`a locked page offers ${lockedSwitches} visibility switch(es)`);
-    ok('and none of them offers a switch to turn it off');
+    for (const key of ['basis', 'compliance', 'disclaimer']) {
+      if (await page.locator(`#pk-s-${key}`).count() > 0) throw new Error(`the locked section "${key}" still has a switch`);
+    }
+    ok('and none of the three offers a control to switch it off');
 
     /* THE THREE LOCKED SECTIONS ARE STILL IN THE DOCUMENT. */
     const docText = (await page.locator('.pk').innerText()).replace(/\s+/g, ' ');

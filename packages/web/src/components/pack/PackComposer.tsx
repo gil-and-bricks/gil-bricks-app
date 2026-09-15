@@ -26,14 +26,13 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { checkFreeText, withLocked, type BannedHit } from '@gil-bricks/core';
 import {
   ACCENT_PALETTE, BANNED_COPY, BANNED_PHRASES, MOVABLE_SECTIONS,
-  PACK_COPY, PACK_PARTS, PACK_SECTIONS, PAGE_PARTS, SECTION,
+  PACK_COPY, PACK_FIELDS, PACK_PARTS, PACK_SECTIONS, SECTION,
 } from '../../config/pack';
 import { accentReadsOnPaper, onAccent } from '../../lib/pack/accent';
 import { buildPackHtml, downloadPack, packFilename } from '../../lib/pack/share';
 import { openWhatsApp } from '../../lib/share/whatsapp';
 import { FilePick } from './FilePick';
-import { PageGutter, type GutterPart } from './PageGutter';
-import { PackDocument, type PackModel } from './PackDocument';
+import { PackDocument, sectionsWithContent, type PackModel } from './PackDocument';
 
 /**
  * The document's data, minus everything the builder owns. Exported because
@@ -234,12 +233,23 @@ export function PackComposer({ base, branding, onBranding }: Props) {
   };
 
   /**
-   * WHICH OPTIONAL PARTS THIS DEAL ACTUALLY HAS.
+   * DP5 — THE RAIL IS BACK, AND SO IS THE RULE THAT MADE THE TOGGLES WORK.
    *
-   * The dead checkboxes were all one fault: a control offered for content that
-   * was not there. A part is listed only where the underlying figure, list or
-   * image exists, so a control that cannot act is never written.
+   * DP4 put each page's controls in a gutter beside that page. That fixed the
+   * five dead toggles, but it did so by rebuilding the layout, and the layout
+   * was the part DP3 had got right. The FIX was never the gutter — it was the
+   * rule underneath it: a control may only exist where the thing it controls
+   * does. That rule is a filter, and a filter works just as well on a sidebar.
+   *
+   * `sectionsWithContent` is the same function the document uses to decide
+   * what to draw, so the rail cannot offer a row for a page that will not
+   * render. A section that is switched OFF still keeps its row — the sidebar
+   * never had DP4's problem of a hidden page taking its own switch away with
+   * it, which is one piece of machinery this layout simply does not need.
    */
+  const contentful = sectionsWithContent({ ...base, photos });
+
+  /** A part is offered only where the underlying figure, list or image exists. */
   const partExists = (key: string): boolean => {
     if (key === SECTION.photos) return photos.length > 0;
     if (key === SECTION.scope) return base.scope.length > 0;
@@ -247,36 +257,7 @@ export function PackComposer({ base, branding, onBranding }: Props) {
     if (key === SECTION.floorplan) return base.floorPlan !== null;
     return false;
   };
-
-  const chrome = (key: string, index: number, total: number) => {
-    const sec = PACK_SECTIONS.find((x) => x.key === key);
-    if (sec === undefined) return null;
-    const locked = Boolean(sec.lockedWhy);
-    const i = order.indexOf(key);
-    const parts: GutterPart[] = (PAGE_PARTS[key] ?? [])
-      .filter(partExists)
-      .map((pk) => ({
-        key: pk,
-        label: PACK_PARTS.find((x) => x.key === pk)?.label ?? pk,
-        on: on.includes(pk),
-      }));
-    const field = key === SECTION.cover
-      ? { kind: 'investor' as const, value: investorName, onInput: setInvestorName }
-      : key === SECTION.purchase
-        ? { kind: 'summary' as const, value: summary, onInput: setSummary }
-        : undefined;
-    return (
-      <PageGutter
-        label={sec.label} index={index} total={total}
-        locked={locked} on={on.includes(key)} movable={sec.pinned === undefined}
-        canUp={i > 0} canDown={i >= 0 && i < order.length - 1}
-        parts={parts} field={field}
-        onToggle={() => toggle(key)}
-        onMove={(by) => move(key, by)}
-        onPart={(pk) => toggle(pk)}
-      />
-    );
-  };
+  const liveParts = PACK_PARTS.filter((x) => partExists(x.key));
 
   const accent = branding.accentColour === '' ? ACCENT_PALETTE[0].hex : branding.accentColour;
   const model: PackModel = {
@@ -289,12 +270,20 @@ export function PackComposer({ base, branding, onBranding }: Props) {
     investorName: refused.length > 0 ? '' : investorName,
   };
 
-  /** The rail, in reading order: pinned first, the movable ones, pinned last. */
+  /**
+   * The rail, in reading order: pinned first, the movable ones, pinned last —
+   * and ONLY sections this deal can actually produce a page for.
+   *
+   * The three locked rows are folded into one line at the foot rather than
+   * three rows wearing the same badge. That was a separate complaint ("do not
+   * give unchangeable things the same weight as changeable ones") and it is not
+   * a layout matter, so it survives the return to the sidebar.
+   */
   const rail = [
     ...PACK_SECTIONS.filter((s) => s.pinned === 'first'),
     ...order.map((k) => PACK_SECTIONS.find((s) => s.key === k)).filter((s): s is typeof PACK_SECTIONS[number] => s !== undefined),
-    ...PACK_SECTIONS.filter((s) => s.pinned === 'last'),
-  ];
+  ].filter((s) => contentful[s.key] === true);
+  const lockedRows = PACK_SECTIONS.filter((s) => s.lockedWhy !== undefined);
 
   return (
     <div class="pk-composer">
@@ -320,10 +309,67 @@ export function PackComposer({ base, branding, onBranding }: Props) {
         </div>
       </div>
 
+      {/* ---- the rail ------------------------------------------------ */}
+      <aside class="pk-side glass card" aria-label={PACK_COPY.composer.sections}>
+        <h2>{PACK_COPY.composer.sections}</h2>
+        <ul class="pk-sections">
+          {rail.map((s) => {
+            const movable = s.pinned === undefined;
+            const i = order.indexOf(s.key);
+            return (
+              <li class="pk-row" key={s.key}>
+                <input
+                  type="checkbox" id={`pk-s-${s.key}`}
+                  checked={on.includes(s.key)}
+                  onChange={() => toggle(s.key)}
+                />
+                <label class="pk-row-name" for={`pk-s-${s.key}`}>{s.label}</label>
+                {movable && (
+                  <span class="pk-row-move">
+                    {/**
+                      * `aria-disabled`, NOT `disabled`. Walk a section to the
+                      * top with the keyboard and a truly disabled button blurs
+                      * under the user's own focus, dropping them to the body.
+                      * This stays focusable and simply refuses.
+                      */}
+                    <button type="button" class="btn-link" aria-disabled={i <= 0}
+                      aria-label={PACK_COPY.composer.moveUp(s.label)}
+                      onClick={() => { if (i > 0) move(s.key, -1); }}>↑</button>
+                    <button type="button" class="btn-link" aria-disabled={i < 0 || i >= order.length - 1}
+                      aria-label={PACK_COPY.composer.moveDown(s.label)}
+                      onClick={() => { if (i >= 0 && i < order.length - 1) move(s.key, 1); }}>↓</button>
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+
+        {liveParts.length > 0 && (
+          <>
+            <h2>{PACK_COPY.composer.parts}</h2>
+            <ul class="pk-sections">
+              {liveParts.map((pt) => (
+                <li class="pk-row" key={pt.key}>
+                  <input type="checkbox" id={`pk-p-${pt.key}`} checked={on.includes(pt.key)}
+                    onChange={() => toggle(pt.key)} />
+                  <label class="pk-row-name" for={`pk-p-${pt.key}`}>{pt.label}</label>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        {/* Said ONCE, quietly, at the foot — not three rows with a badge each. */}
+        <p class="pk-always">
+          {PACK_COPY.gutter.always}: {lockedRows.map((s) => s.label.toLowerCase()).join(', ')}.
+        </p>
+      </aside>
+
       {/* ---- the document -------------------------------------------- */}
       <div class="pk-preview" ref={preview}>
-        <div class="pk-scale" ref={doc}>
-          <PackDocument model={model} chrome={chrome} zoom={zoom} />
+        <div class="pk-scale" style={{ zoom }} ref={doc}>
+          <PackDocument model={model} />
         </div>
       </div>
 
@@ -380,7 +426,29 @@ export function PackComposer({ base, branding, onBranding }: Props) {
           )}
         </div>
 
+        {/**
+          * DP4 RENAMED THESE AND DP5 KEEPS THE NAMES.
+          *
+          * They used to read "Who is it for? (optional)" and "Your summary of
+          * the deal (optional)", which the operator said meant nothing to him —
+          * fairly, because both describe a CATEGORY rather than an effect. They
+          * are named by what they do to the document now, and each says where it
+          * lands. That was a copy fix, not a layout one, so returning the
+          * controls to the sidebar does not undo it.
+          */}
+        <div class="field">
+          <label for="pk-f-investor">{PACK_FIELDS.investor}</label>
+          <input id="pk-f-investor" type="text" maxLength={120} value={investorName}
+            onInput={(e) => setInvestorName((e.target as HTMLInputElement).value)} />
+          <p class="hint">{PACK_FIELDS.investorHint}</p>
+        </div>
 
+        <div class="field">
+          <label for="pk-f-summary">{PACK_FIELDS.summary}</label>
+          <textarea id="pk-f-summary" rows={3} value={summary}
+            onInput={(e) => setSummary((e.target as HTMLTextAreaElement).value)} />
+          <p class="hint">{PACK_FIELDS.summaryHint}</p>
+        </div>
 
         <div class="field">
           <h2>{PACK_COPY.composer.photos}</h2>

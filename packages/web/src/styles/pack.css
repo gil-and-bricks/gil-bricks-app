@@ -500,7 +500,7 @@
  */
 .pk-composer {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 20rem;
+  grid-template-columns: 19.5rem minmax(0, 1fr) 20rem;
   gap: var(--space-3);
   align-items: start;
 }
@@ -584,80 +584,6 @@
    is on screen is genuinely the printed page and not a re-styled copy. */
 .pk-scale { transform-origin: top center; }
 
-/**
- * DP4 — THE GUTTER: one page's controls, beside that page.
- *
- * `.pk-sheet` is the pairing — controls left, sheet right — and it is a plain
- * grid row inside `.pk`, which matters twice. The sheet keeps its own `zoom`
- * so these controls are never scaled with it, and the export strips
- * `[data-chrome]` so none of this reaches the investor.
- */
-.pk-sheet {
-  display: grid;
-  grid-template-columns: 14rem minmax(0, auto);
-  gap: var(--space-3);
-  align-items: start;
-  justify-content: center;
-  margin-bottom: var(--space-4);
-}
-.pk-gut {
-  position: sticky; top: var(--space-3);
-  background: var(--glass-bg, rgba(255,255,255,.05));
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-card);
-  padding: var(--pad-card, var(--space-3));
-  display: flex; flex-direction: column; gap: var(--space-2);
-}
-/* A hidden page: a line where the sheet would be, so the switch stays reachable. */
-.pk-ghost {
-  border: 1px dashed var(--glass-border); border-radius: var(--radius-card);
-  padding: var(--space-3); text-align: center;
-  color: var(--text-dim); font-size: var(--text-xs);
-  background: rgba(255,255,255,.02);
-  min-height: 4rem; display: flex; align-items: center; justify-content: center;
-}
-.pk-sheet.is-off .pk-gut { opacity: .72; }
-
-.pk-gut-head { display: flex; align-items: baseline; gap: var(--space-2); }
-.pk-gut-num {
-  font: 800 var(--text-sm)/1 var(--font-display);
-  color: var(--accent); font-variant-numeric: tabular-nums;
-}
-.pk-gut-name { font-size: var(--text-sm); font-weight: 600; line-height: 1.25; }
-.pk-gut-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
-
-/* A visibility switch reads as one control, so it is one button. */
-.pk-gut-eye {
-  display: inline-flex; align-items: center; gap: 6px;
-  min-height: 2.25rem; padding: 0 var(--space-2);
-  border: 1px solid var(--glass-border); border-radius: 999px;
-  background: transparent; color: var(--text-dim);
-  font: inherit; font-size: var(--text-xs); cursor: pointer;
-}
-.pk-gut-eye[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
-.pk-gut-move { display: flex; gap: 4px; margin-left: auto; }
-.pk-gut-move .btn-link {
-  min-width: 2.25rem; min-height: 2.25rem;
-  display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--glass-border); border-radius: var(--radius-btn); padding: 0;
-}
-.pk-gut-move .btn-link[aria-disabled="true"] { opacity: .3; cursor: default; }
-
-/* Said once, quietly — not three boxes with the same badge beside them. */
-.pk-gut-locked { font-size: var(--text-xs); color: var(--text-dim); margin: 0; }
-
-.pk-gut-parts { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
-.pk-gut-part { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); cursor: pointer; }
-.pk-gut-part input { accent-color: var(--accent); width: 1.05rem; height: 1.05rem; cursor: pointer; }
-.pk-gut-field { margin: 0; }
-.pk-gut-field .hint { margin-top: 4px; }
-
-@media (max-width: 70rem) {
-  /* On a phone the controls sit ABOVE their page, not in a column beside it. */
-  .pk-sheet { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
-  .pk-gut { position: static; }
-}
-
 .pk-swatches { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 /**
  * `.field input` in analyser.css is (0,1,1) and sets `width: 100%`. A bare
@@ -675,31 +601,6 @@
 .pk-swatches input[type="color"].pk-swatch::-webkit-color-swatch-wrapper { padding: 0; }
 .pk-swatches input[type="color"].pk-swatch::-webkit-color-swatch { border: 0; border-radius: 50%; }
 .pk-swatches .pk-swatch[aria-pressed="true"] { border-color: var(--text); outline: 2px solid var(--accent); outline-offset: 1px; }
-/**
- * THE CUSTOM COLOUR CONTROL, made to look like a way in rather than a swatch.
- * A conic spectrum ring says "any colour" in the one glance the control gets,
- * and the + says it opens. The real <input type="color"> sits on top at full
- * size so the hit target, the focus ring and the keyboard behaviour are the
- * platform's, not a reimplementation of them.
- */
-.pk-custom { position: relative; display: inline-flex; width: 28px; height: 28px; }
-.pk-custom-ring {
-  position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
-  background: conic-gradient(#e5484d, #e8a020, #e2e838, #48c46a, #3aa6d8, #6e56cf, #d6409f, #e5484d);
-  padding: 2px;
-  -webkit-mask: radial-gradient(circle, transparent 0 8px, #000 9px);
-          mask: radial-gradient(circle, transparent 0 8px, #000 9px);
-}
-.pk-custom-plus {
-  position: absolute; inset: 0; pointer-events: none;
-  display: flex; align-items: center; justify-content: center;
-  font: 700 13px/1 var(--font-body); color: var(--text);
-  text-shadow: 0 0 3px rgba(0,0,0,.6);
-}
-/* The input keeps the hit area and the focus ring; the ring above draws the face. */
-.pk-swatches .pk-swatch-custom { opacity: 0; position: relative; z-index: 1; cursor: pointer; }
-.pk-swatches .pk-swatch-custom:focus-visible + .pk-custom-ring { outline: 2px solid var(--accent); outline-offset: 2px; }
-
 .pk-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: var(--space-2); }
 .pk-thumb { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-btn); }
 
@@ -728,6 +629,38 @@
   .pk-actions .btn-action, .pk-actions .btn-secondary { flex: 1 1 auto; justify-content: center; text-align: center; }
 }
 
+/**
+ * THE CUSTOM COLOUR CONTROL, made to look like a way in rather than a swatch.
+ * A conic spectrum ring says "any colour" in the one glance the control gets,
+ * and the + says it opens. The real <input type="color"> sits on top at full
+ * size so the hit target, the focus ring and the keyboard behaviour are the
+ * platform's, not a reimplementation of them.
+ */
+.pk-custom { position: relative; display: inline-flex; width: 28px; height: 28px; }
+.pk-custom-ring {
+  position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(#e5484d, #e8a020, #e2e838, #48c46a, #3aa6d8, #6e56cf, #d6409f, #e5484d);
+  padding: 2px;
+  -webkit-mask: radial-gradient(circle, transparent 0 8px, #000 9px);
+          mask: radial-gradient(circle, transparent 0 8px, #000 9px);
+}
+.pk-custom-plus {
+  position: absolute; inset: 0; pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  font: 700 13px/1 var(--font-body); color: var(--text);
+  text-shadow: 0 0 3px rgba(0,0,0,.6);
+}
+/* The input keeps the hit area and the focus ring; the ring above draws the face. */
+.pk-swatches .pk-swatch-custom { opacity: 0; position: relative; z-index: 1; cursor: pointer; }
+.pk-swatches .pk-swatch-custom:focus-visible + .pk-custom-ring { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Said once, at the foot of the rail — see PackComposer for why not three rows. */
+.pk-always {
+  font-size: var(--text-xs); color: var(--text-dim);
+  margin: var(--space-3) 0 0; padding-top: var(--space-2);
+  border-top: 1px solid var(--glass-border); line-height: 1.4;
+}
+
 /* The pack action on a deal card: a real button, sized to sit beside the
    stage picker rather than hide under it. */
 /* The shared link's page: a grey mount and the sheets, nothing else. */
@@ -750,9 +683,6 @@
 }
 
 @media print {
-  /* The builder's per-page controls are not the document. */
-  [data-chrome] { display: none !important; }
-  .pk-sheet { display: block !important; }
   /* Everything that is not the document goes. */
   body > *, .shell-body > *, .pk-composer > * { display: none !important; }
   body, .shell-body, main, .page-wrap, .pk-composer, .pk-preview, .pk-scale, .pk-pages {
