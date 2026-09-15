@@ -31,7 +31,8 @@
     "map-gate": "node scripts/verify-map-render.mjs",
     "signed-in-gate": "node scripts/check-signed-in.mjs",
     "pack-gate": "node scripts/check-pack.mjs",
-    "seo-gate": "node scripts/check-seo.mjs"
+    "seo-gate": "node scripts/check-seo.mjs",
+    "search-monitor": "node scripts/search-monitor.mjs"
   },
   "dependencies": {
     "@astrojs/preact": "^6.0.4",
