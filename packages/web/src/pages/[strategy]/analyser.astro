@@ -61,6 +61,12 @@ const requiredKeys = REQUIRED_UNKNOWNS[config.id].map((u) => u.key);
   {/* the comps engine needs these on every analysis — start them at HTML parse */}
   <link rel="preload" as="fetch" href={`${dataBase()}/manifest.json`} crossorigin />
   <link rel="preload" as="fetch" href={`${dataBase()}/sectors-index.json`} crossorigin />
+  {/* S2 — ukhpi.json is a STATIC file with no dependency on anything, yet it was
+      being discovered inside valueProperty and starting at ~593ms, after the
+      figures had already landed. It is what refines the last couple of numbers,
+      so preloading it shortens that tail. area-data has preloaded it since it
+      was built; the analyser, which needs it just as much, did not. */}
+  <link rel="preload" as="fetch" href={`${dataBase()}/ukhpi.json`} crossorigin />
   {/* ONE sticky verdict bar for all four strategies — mounted on the shared shell
       slot (features.stickyVerdict). It presents the mounted verdict island's
       snapshot; it computes nothing. */}

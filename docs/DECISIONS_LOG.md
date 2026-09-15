@@ -2,6 +2,23 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-15 — Sprint S2: performance, measured honestly
+
+- **My own step-1 number was wrong, and the trace corrected it.** I reported the analyser "settling" at 2,034ms. Watching the figures appear frame by frame: 3 at 340ms, **182 at 530ms**, 184 at 545ms, and the last two at 1,057ms with NO new elements — two text nodes refining in place. The page is complete at ~545ms; the 2,034ms was my harness's 800ms stability window plus a two-figure tail. The honest target was never 1.6 seconds.
+- **There is no main-thread problem at all.** Zero long tasks over 50ms, on any page, at either width. TBT is 0ms everywhere except 2ms on the analyser at 390px. Scoring is not the cost, and code-splitting would buy nothing.
+- **Nothing is fetched twice.** 60-odd requests on the analyser, zero duplicate URLs. The twelve sector fetches for comparables all start in the same millisecond and run in parallel.
+- **The one sequential chain is deliberate and correct.** Land Registry (409ms, +183ms) → ukhpi → area. `AnalyserApp` already starts the Land Registry lookup BEFORE comparables and awaits it after, with a comment saying why: it warms the cache so `valueProperty`'s own lookup does not make a second round trip. Left alone.
+- **The real find was images, and it was a 5.9× oversupply.** The header wordmark was served at 804×100 and displayed at 137×17 — 49KB on the critical path. The footer mark, 499×218 displayed at 76×33, 73KB. Resized to 603×75 and 293×128: **90KB saved, 32KB of it before first paint.**
+- **The aspect ratio mattered more than the size, and the diff proved it.** The first attempt used 300×131 for the footer — a ratio 0.05% off the original — and the maker credit came out ONE PIXEL wider on 52 of 56 page-widths. 293×128 preserves 499/218 to within 0.00007 and the diff is empty. A 1px width change is exactly the kind of thing that is invisible to a person and fatal to a promise that nothing moved.
+- **Pixel fidelity was checked, because a geometry diff cannot see image quality.** Compared at the sizes actually displayed, at DPR 1, 2 and 3: 1.0–2.4% of subpixels differ by more than 8/255, all of it resampling on anti-aliased edges. An earlier candidate at 536×67 showed 15% — not quantisation, but a bad resampling ratio, and it was rejected on that evidence rather than shipped because the file was smaller.
+- **Never upscale, whatever the saving.** 402×50 would have halved the bytes again, but 137 CSS px at DPR 3 needs 411, so a 3× screen would have rendered it soft. 603 and 293 both sit above their DPR-3 requirement.
+- **An existing test caught the asset change immediately** — `headerRail.test.ts` pins the intrinsic dimensions with the message "the attributes tell the truth about the file now". It was written after an earlier bug where stale width/height attributes made the maker credit 13% too big. It did its job.
+- **`ukhpi.json` is now preloaded on the analyser.** It is a static file with no dependency, and it was being discovered inside `valueProperty` and starting at ~593ms — after the figures had already landed. area-data has preloaded it since it was built; the analyser, which needs it just as much, did not.
+- **The queries and crons are clean, and this was checked across lines rather than by eye.** 72 SQL statements, **zero SELECTs without a WHERE** — the one that looked unbounded had its WHERE on the next line, bound by primary key and user. 26 indexes. The outbox cron is `LIMIT 100`; EPC lookups are rate-limited to 30 per 600s.
+- **Two pages disagree with themselves at 390px** — `/account/` and `/pack/`, both signed-out, both rendering a 111px header that settles to 68px. Observed, characterised, and NOT chased: it is pre-existing, Lighthouse CLS is ~0, and chasing it would have meant changing a layout during a sprint forbidden from changing layouts.
+- **`pc=` versus `postcode=` on two sibling pages.** area-data reads `pc`, comparables reads `postcode`. Not a bug — each is internally consistent — but it cost me a measurement run and would cost anyone else the same. Recorded rather than fixed: changing either is a user-visible URL change and this sprint may not make one.
+
+
 ## 2026-09-15 — Sprint S1 (part 2): search monitoring, and what the crawl report actually was
 
 - **`.env.local` on the data host is a 404 and always was.** Every made-up path returns the byte-identical 27,150-byte Cloudflare 404; `.env.local` is not special. The bucket is not listable (no XML listing on any prefix or `?list-type=2`), and 17 probed secret-shaped paths all 404.

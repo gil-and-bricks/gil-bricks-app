@@ -31,7 +31,17 @@ describe('the wordmark and the credit share a left edge', () => {
     // the credit began at 0. The asset is cropped to the glyph now, so the
     // declared size IS the mark and flex-start is true rather than approximate.
     expect(header).toContain('align-items: flex-start');
-    expect(header, 'the honest intrinsic size of the cropped asset').toContain('width="804" height="100"');
+    /**
+     * S2 — 603x75, NOT 804x100, and the ratio is identical: 8.04 either way.
+     *
+     * The asset was being served at 804x100 and displayed at 137x17 — a 5.9x
+     * oversupply on the critical path, 49KB for a wordmark. Resized to 603x75 it
+     * is 16.7KB, and 603 still exceeds what a 3x screen asks for (137 x 3 =
+     * 411), so it is never upscaled. The exact ratio matters more than the size:
+     * the first attempt used 300x131 for the FOOTER mark, whose ratio differed
+     * by 0.05%, and the maker credit came out one pixel wider on every page.
+     */
+    expect(header, 'the honest intrinsic size of the cropped asset').toContain('width="603" height="75"');
   });
 
   it('the gap between them is a spacing token, not a nudge', () => {
@@ -218,8 +228,10 @@ describe('the marks render at the size they always did', () => {
     // stale width/height (88x50) rather than the 44px that actually rendered,
     // which made the maker credit 13% bigger. 218/293 x 44 = 32.74.
     expect(footer).toMatch(/\.footer-maker img\s*\{[^}]*height:\s*33px/);
+    // S2 — 293x128 preserves 499/218 to within 0.00007, which is what keeps the
+    // rendered width of this paragraph byte-identical. 73KB → 14.4KB.
     expect(footer, 'the attributes tell the truth about the file now')
-      .toContain('width="499" height="218"');
+      .toContain('width="293" height="128"');
   });
 });
 
