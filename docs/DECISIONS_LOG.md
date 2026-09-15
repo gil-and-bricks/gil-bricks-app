@@ -2,6 +2,31 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-15 — Sprint X5: the panel and the box, proved to agree
+
+### I said they agreed. They did not.
+
+- **Closing X4 I wrote that the two paths "agree today" and that nothing yet asserted it.** Half of that was right. Driven before writing a line of the assertion, they already disagreed — and not subtly.
+- **Measured, on one real listing with one sector: the panel returned a WIDENED RANGE and the box returned "too few".** Same property, same data, two answers, on two surfaces somebody can have open side by side.
+- **Two differences, both in the work of DECIDING WHAT TO HAND `priceBand` rather than in the maths:**
+  - THE AREA. The panel resolved it from the listing, then the EPC register, then the sector's own EPC-joined sold rows. The box stopped at the register.
+  - THE WIDENING. The panel passed `widerSales` so a thin sector could widen to its neighbours. The box never widened at all.
+- The maths was shared from the start and was never the risk. What each surface handed it was.
+
+### Removed by construction, then proved by comparison
+
+- **`bandForListing` and `resolveListingArea` now live in core** and neither surface owns a copy. The order — listing, then register, then the sector's own sold data — is stated once. The box widens too, and only after its own sector has fallen short, which is when the fetches are worth making.
+- **`priceFor` moved out of `entrypoints/content.ts` into `src/price.ts`.** The entry point imports WXT's `#imports` virtual module, which does not resolve outside a WXT build — so nothing in that file could be driven by a test. The half that needed proving was sitting in the one file a test could not reach.
+- **The assertion compares OUTPUTS, not inputs.** Handing one set of inputs to `priceBand` twice would test the maths, which was never in doubt. Each side is driven through its own real entry point instead: the panel through the mounted controller, reading the band it actually rendered; the box through `priceFor` with its three reads stubbed to the same underlying data. Neither expectation is computed in the test — they are compared to each other.
+- **Twenty cases: four real listings × five sector shapes** (enough comparables, too thin with neighbours, too thin with nowhere to go, a spread with no middle, nothing at all), plus the widening pinned as its own case because that is where they really differed.
+- **A guard on the guard.** Every case passes trivially if both sides always return null, so one test asserts the matrix genuinely reaches `range`, `range/widened`, `none/too-few` and `spread`, and names any it fails to find.
+
+### The test was wrong twice before it was right, and both were instructive
+
+- **First it handed the panel a listing with the floor area spliced in while leaving the box to find its own.** Seven cases failed for a reason that was entirely in the test — it was comparing two different subjects. Both sides now take the same listing and the same register answer.
+- **Then it reached around a gate for one side only.** Both surfaces gate the EPC lookup on a house number; the panel's test seam bypassed that. On a listing with no house number NEITHER can get an area, and "both say no-area" is real agreement — so the test now only supplies a register answer where the register could actually have been asked.
+- **Bite-tested three ways, and it catches drift from either direction:** stop the box widening (4 fail, including the coverage guard), make the box ignore the register area (4 fail), stop the panel widening (4 fail).
+
 ## 2026-09-15 — Sprint X4: the price position on the portal's page
 
 ### The one line on their page that is not a worry
