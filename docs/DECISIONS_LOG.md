@@ -2,6 +2,50 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-15 — Sprint X3: the findings stop reading the page back
+
+### The chips were unreachable, and that was a design fault not a setting
+
+- **A flag in a TypeScript file is not a switch.** `onPageChips` defaulted to false for a real reason — Rightmove's clause 8.3 makes injecting the operator's call, not ours — but the only way to exercise that call was to edit `config.ts`, which meant the feature was invisible to the person it was built for. The flag is now the CAPABILITY (false and nothing injects, whatever anyone has ticked) and the CHOICE is a switch in the panel's own Settings, off until they turn it on. Same legal posture, one tap instead of a code edit.
+
+### Every finding now names the consequence, not the fact
+
+- **"The listing mentions auction" is worth nothing** on a listing from an agent called Peter Alan Auctions with a guide price on it. The reader can see it. The finding is the thing they cannot see: the buyer's fee is often around 5% on top and is often not on the listing. That is the number that kills the deal and nobody tells you.
+- All fourteen rewritten the same way. Cash buyers only now says what it usually MEANS — no lender will touch it, a problem if you need a mortgage and sometimes the point if you are refinancing. Leasehold names the 80-year cliff. Non-standard construction names the resale problem, not just the lending one.
+- **The matched phrase and "Verify with the agent" both went.** The phrase is printed on the page already, and the consequence line IS the prompt to verify. Three lines became two, and the two say more.
+- **One source of words for three surfaces.** The panel used to carry its own flag wording while the injected chips and the deal page used `FINDING_COPY`. They cannot drift now.
+- **A test had to be rewritten rather than deleted.** It required every flag to start "The listing says…", which was the honest shape when a flag named a fact. The guarantee underneath — never assert a fact about a property nobody has inspected — now holds by requiring each consequence to be HEDGED (often, usually, many, about) or to be a QUESTION. A flat assertion fails.
+
+### Things that were noise
+
+- **"On the market 4 days" is on the listing already.** Days on the market now appear only past the config's own `longOnMarketDays` threshold, and say nothing below it.
+- **A reduction belongs under the price it reduced.** It had a heading and a caveat of its own — three lines and 61px for one date. Under the asking price it is one line, in the place the reader is already looking.
+- **Measured: the longest listing went 771px → 705px in the harness, and the real-Chrome gate reads 719px of 780.** 61px to spare, where it had 9.
+
+### The floor-area box was asking for something we can fetch
+
+- **Removed, and replaced with a prompt for the house number.** With a postcode and a house number the EPC register gives us the area; that lookup was already built and already working. Asking somebody to go and measure something we can look up is asking them to do our work.
+- **The band's line was stale the moment the box went.** It still said "Add the floor area above", pointing at a control that no longer existed. It now says what is missing rather than issuing an instruction the panel cannot support.
+- The operator also reported that typing an area "did nothing". Driven through the real controller it did work — the £/m² and the range both appeared — so the report was most likely a listing where the widened comparison still could not reach five comparables. Recorded rather than dismissed; the box is gone either way.
+
+### The strategy buttons genuinely did nothing, and the reason was in the config
+
+- **They fired. Nothing else moved.** The click handler worked and the highlight changed; the panel's text was byte-identical before and after. `assumptionsFor` looked up a `deposit` key that only HMO has, so all four strategies fell back to the same 25% and the same £1,500 of legals.
+- **The real difference was sitting unread in the config.** Flip and BRRRR default to `funding: 'bridging'` with a 75% loan and a 2% arrangement fee charged on it; BTL and HMO are mortgage purchases with no such fee. On a £110,000 house that is £1,650 of cash on day one that appears on no listing anywhere — exactly the kind of number this product exists to surface. Cash needed now differs by strategy and names the fee.
+- **And they moved to the very top**, above the address. They are the first decision and they move the numbers; putting them at the bottom hid both facts.
+
+### Two design faults, one of which needed the rule to bend the other way
+
+- **"by Gil & Bricks" is back UNDER the wordmark, left-aligned.** X1 put the two on one baseline, which reads fine in a mock-up and badly in life: the cropped wordmark is 201px wide, so on a 468px header the credit landed halfway across and finished under the Instagram icon. A column is what was asked for three times, and it is only honest now because X1.1 cropped the artwork — a column over the old uncropped file put the credit at x=0 and the visible "P" 6px in, which is why it never looked right and kept coming back.
+- **The pink call to action has white text, and the pink moved to let it.** White on `#ff2d78` measures 3.56:1, below the 4.5:1 AA needs — which is why the ink was near-black and why an existing test recorded the measurement. White was asked for, so the FILL darkened rather than the rule bending: white on `#e0185f` is 4.70:1 and passes, and near-black on it would be 4.39:1 and fail, so the swap only works in one direction. Same hue, one step down. The test that caught it said "if this now passes, the shade changed — reconsider the ink rather than deleting this test", and that is what happened; it now pins the property (the chosen ink passes AND beats the alternative) rather than one answer.
+
+### PropBar, studied honestly
+
+- **10,000 installs, 3.89/5 from 54 votes.** Free tier is five searches a month; premium £49.99.
+- **What its users actually praise is the LISTING HISTORY** — when a property was listed, reduced, relisted, withdrawn — and spotting agents who raise a price in order to reduce it. One review credits the comparables with a £12,000 discount.
+- **That specific thing is closed to us by our own rule**, and it is worth being plain about that rather than pretending we could copy it: a listing price history is a portal dataset, and `docs/exclusions.md` forbids ingesting or storing one. PropBar builds it; we have ruled we will not.
+- **I checked a claim before reporting it and it was wrong.** I assumed our chips would usually have nothing to say. Across the six real listings they produce 1, 2, 2, 3, 6 and 7 findings — coverage is fine. The gap is different: everything we put on their page is a caveat or a gap, and none of it is about the PRICE, which is the one number we compute that nobody else can.
+
 ## 2026-09-15 — Sprint X2: on-page chips and the deal's own page
 
 ### The research document did not arrive — again
