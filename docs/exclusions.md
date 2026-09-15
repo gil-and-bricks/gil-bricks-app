@@ -28,6 +28,21 @@ for little value), or **compliance** (legal, privacy, or regulatory risk).
 - **Bedrooms column in comps** — free-data honesty: Land Registry sold prices carry no reliable bedroom counts.
 - **Bathrooms / parking / garden as comp filters** — free-data honesty: these attributes are absent from free data; filtering on guesses is dishonest.
 - **Live asking prices / rents** — free-data honesty: live portal data is licensed; we show sold/registered data only.
+- **Listing price history (listed / reduced / relisted / withdrawn)** — free-data
+  honesty. RULED OUT PERMANENTLY, 2026-09-15, and worth naming explicitly because
+  it is the feature competitors are most praised for and it will keep being
+  suggested. PropBar's best-reviewed capability is exactly this: showing when a
+  property was listed, reduced, relisted or withdrawn, and catching agents who
+  raise a price in order to reduce it. Building it requires INGESTING AND STORING
+  A TIME SERIES OF PORTAL ASKING PRICES — the dataset this document already
+  forbids two lines above, and the same dataset that rules out time-on-market and
+  auction results. Reading the single page the user has personally opened and
+  saying it back to them remains allowed; keeping a history of what that page
+  said last month is not. **We are not competing on listing history.** What we
+  compete on instead is the thing no portal shows and no competitor computes: the
+  asking price set against what similar-sized homes of the same type actually
+  SOLD for nearby — Land Registry joined to EPC floor areas — which is now the
+  first line of the on-page box. See docs/DECISIONS_LOG.md (X4).
 - **Scraping** — compliance: breaches portal terms of service and creates legal risk.
 - **Brevo** — simplicity: one marketing system only, and it is Kit.
 - **Sending email from the app** — compliance: deliverability and spam-law risk; golden rule 6 — Kit outbox row + Worker push only.

@@ -2,6 +2,24 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-15 — Sprint X4: the price position on the portal's page
+
+### The one line on their page that is not a worry
+
+- **Everything we injected was a risk or a gap.** Useful, relentlessly negative, and none of it answered the question somebody opens a listing with. The box now leads with the asking price set against what similar-sized homes of the same type actually SOLD for nearby — the one number the portal never shows and the one thing this product computes that nobody else does: Land Registry sold prices joined to EPC floor areas.
+- **It states a POSITION and the count, never an adjective.** On a real Swansea terrace: *"Below the typical range for this size and type · £1,392–£1,895/m² · 17 similar sales, last 3 years"*. £110,000 over 82m² is £1,341/m², below the £1,392 lower quartile. "Below the range" is a fact about arithmetic; "a bargain" would be a claim about a house nobody has seen.
+- **It refuses often, on real data, and that is the design.** The same run against a Swansea semi produced no line at all: only three similar sales exist in that sector, below the five the comparison requires. No floor area, too few comparables, or a spread too wide to have a middle each produce silence rather than a hedge.
+- **The caveat is permanent and carries both halves** — what the comparison cannot see and how coarse the data is: *"Compares size, not quality, across about 1,500 people. Cheap for the size can mean cheap for a reason."* Tighter than the panel's wording because it sits on somebody else's page; it loses neither fact.
+- **Two cheap reads, both already permitted.** The sector file is 2.6–4.2KB and the data host answers `access-control-allow-origin: *`, so a content script may fetch it directly; the EPC lookup goes through our own Worker on proplaunch.ai, already in host_permissions. No new permission was asked for.
+- **The chips go up first, with no network in the way.** A slow lookup must never hold back the warnings, and a single-page navigation mid-flight is checked twice — one property's price on another property's page would be the worst thing this could do.
+- **Two helpers moved into core** rather than being copied. The panel had its own type-letter and sales-mapping functions and the content script was about to grow a second pair. A property type read one way on the panel and another on the portal's page would put two different answers about one house on one screen.
+
+### We are not competing on listing history
+
+- **Ruled out permanently, and written into `docs/exclusions.md` so it stops being suggested.** PropBar's best-reviewed capability is the listing history — when a property was listed, reduced, relisted, withdrawn, and catching agents who raise a price in order to reduce it. One reviewer credits it with a £12,000 discount. It is genuinely the thing they have that we do not.
+- **Building it means ingesting and storing a time series of portal asking prices**, which is the dataset `exclusions.md` already forbids — the same rule that rules out time-on-market and auction results. Reading the single page the user has personally opened and saying it back to them stays allowed; keeping a record of what that page said last month does not.
+- **So the answer is not to copy it but to lead with what only we have.** That is the price position, and it is now the first thing on the box.
+
 ## 2026-09-15 — Sprint X3: the findings stop reading the page back
 
 ### The chips were unreachable, and that was a design fault not a setting
