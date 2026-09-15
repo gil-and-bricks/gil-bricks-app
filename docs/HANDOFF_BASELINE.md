@@ -30,6 +30,43 @@ The handoff's ability to carry all three is untouched and still exercised —
 simply no longer has a way to produce them, because measuring moved to the web
 app's own floor-plan tracer.
 
+## Added afterwards — `subjectTenure` (X1.1)
+
+The operator's must-arrive list included tenure. It had **never** travelled, and
+the panel's own copy claimed it did. Both were fixed: the copy first, so it
+stopped promising something the URL did not do, and then the parameter.
+
+**It is not called `tenure`.** That key already belongs to the analyser, as its
+comparables filter, and its only legal values are `any`, `F` and `L`. Writing
+the subject's tenure into it would do one of two bad things:
+
+- `tenure=FREEHOLD` is not an allowed value, so `parseQuery` clamps it back to
+  the default — and because the key is owned by the form it is not carried
+  through either. It would vanish silently, which is the exact failure this
+  document exists to prevent.
+- `tenure=F` would quietly narrow the comparables the analyser draws on. That is
+  a change to what the engine computes, made as a side effect of a handoff.
+
+So it travels as `subjectTenure`, carrying `F` or `L`, a fact about the deal
+rather than a setting on the page — the same shape as `auction` and `areaSrc`.
+"Share of freehold" resolves to `L`, because that is what it legally is: a long
+lease plus a share in the company that owns the freehold. Matching "freehold"
+first would have called it freehold and hidden the lease.
+
+Verified on the live site: arriving with `subjectTenure=L`, typing a rent of
+£850, and finding `rent=850`, `subjectTenure=L`, `fp`, both photographs,
+`auction=1` and `minIcr=1.25` all still in the address — with the comparables
+filter untouched.
+
+## A note on length
+
+`parseAnalyserDeal` stores the query string as `urlParams` and **slices it at
+2000 characters**. Nothing warns. Measured with every parameter and all four
+criteria: Rightmove **1693**, Zoopla **1372**. Almost all of the difference is
+the twelve photograph addresses at roughly 95 characters each, so a portal
+lengthening its media URLs is what would push this over. A test now fails at
+1900 rather than letting a saved deal come back with half a URL.
+
 ## Captured, listing by listing
 
 
