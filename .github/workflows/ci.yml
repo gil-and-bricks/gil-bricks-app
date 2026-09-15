@@ -170,6 +170,12 @@ jobs:
       # 2,170 unit tests and the copy gate were all green while the floor plan
       # surface was a 1048px black rectangle, because `aspect-ratio: 4/5` only
       # misbehaves on a wide viewport and nothing ever looked at one.
+      # S1 — the SEO gate reads the BUILT output (structured data, robots.txt, the
+      # noindex set), so it runs here with the other post-build gates rather than
+      # in vitest, which runs before anything is built.
+      - name: SEO gate
+        run: npm run seo-gate -w packages/web
+
       - name: Render gate
         env:
           CHROME_PATH: /usr/bin/google-chrome
