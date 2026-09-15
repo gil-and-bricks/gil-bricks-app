@@ -197,19 +197,19 @@ export function CompsModule({ result, stage = 'default', tooFew = false, article
   };
   const filterFields = (
         <div class="filter-strip" role="group" aria-label={COMPARABLES.filters.groupLabel}>
-          <label>{COMPARABLES.filters.radius.label} <Tooltip text={COMPARABLES.filters.why.radius} />
+          <label><span class="fl-head">{COMPARABLES.filters.radius.label} <Tooltip text={COMPARABLES.filters.why.radius} /></span>
             <select value={s.radius} onChange={(e) => setFilter({ radius: (e.target as HTMLSelectElement).value as never })}>
               <option value="auto">{COMPARABLES.filters.auto.radius(RADIUS_LABEL[inForce.radiusMiles])}</option>
               <option value="0.25">{COMPARABLES.filters.radius.quarterMile}</option><option value="0.5">{COMPARABLES.filters.radius.halfMile}</option><option value="1">{COMPARABLES.filters.radius.oneMile}</option>
             </select>
           </label>
-          <label>{COMPARABLES.filters.period.label} <Tooltip text={COMPARABLES.filters.why.period} />
+          <label><span class="fl-head">{COMPARABLES.filters.period.label} <Tooltip text={COMPARABLES.filters.why.period} /></span>
             <select value={s.period} onChange={(e) => setFilter({ period: (e.target as HTMLSelectElement).value as never })}>
               <option value="auto">{COMPARABLES.filters.auto.period(inForce.periodMonths)}</option>
               <option value="6">{COMPARABLES.filters.period.sixMonths}</option><option value="12">{COMPARABLES.filters.period.twelveMonths}</option><option value="24">{COMPARABLES.filters.period.twentyFourMonths}</option>
             </select>
           </label>
-          <label>{COMPARABLES.filters.propertyType.label} <Tooltip text={COMPARABLES.filters.why.type} />
+          <label><span class="fl-head">{COMPARABLES.filters.propertyType.label} <Tooltip text={COMPARABLES.filters.why.type} /></span>
             <select value={s.ctype} onChange={(e) => setFilter({ ctype: (e.target as HTMLSelectElement).value as never })}>
               <option value="auto">{s.type === '' ? COMPARABLES.filters.auto.typeUnknown : COMPARABLES.filters.auto.type}</option>
               <option value="all">{COMPARABLES.filters.propertyType.all}</option><option value="houses">{COMPARABLES.filters.propertyType.houses}</option><option value="D">{COMPARABLES.filters.propertyType.detached}</option>

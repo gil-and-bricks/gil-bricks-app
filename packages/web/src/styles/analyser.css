@@ -130,6 +130,9 @@
 /* comps */
 .filter-strip { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
 .filter-strip label { display: flex; flex-direction: column; gap: var(--space-1); font-size: var(--text-xs); color: var(--text-dim); }
+/* C1 — a filter's name and its 'i' on ONE line. The label is a flex COLUMN, so
+   the tooltip button became a row of its own under the word it explains. */
+.filter-strip .fl-head { display: inline-flex; align-items: center; gap: var(--space-1); }
 .filter-strip .pair { display: flex; gap: var(--space-1); }
 .filter-strip .pair input { width: 4.5rem; }
 .count-line { margin: 0 0 var(--space-1); }
