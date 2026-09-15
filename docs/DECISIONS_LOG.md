@@ -2,6 +2,61 @@
 
 A running record of choices made while building Gil & Bricks. Newest sprint at the top.
 
+## 2026-09-15 — Sprint X1: the extension, rebuilt as a triage tool
+
+### The law, and what it cost
+
+- **The panel may warn, may state facts, and may never bless.** No score, no verdict, no adjective. The reason is not squeamishness: no free dataset resolves below about 1,500 people, so the tool genuinely cannot see the street, the neighbours, the condition or the layout — the things that most often kill a deal. `triageCopy.test.ts` sweeps both `TRIAGE_COPY` and the panel's own string literals for *good, great, bargain, safe, opportunity, value* used as judgements, and `triagePanel.test.ts` sweeps the RENDERED text across six listing shapes. The detector over-matched at first — it caught `.value` property access and "end value", a real valuation term — so it carries two narrowings, and the narrowings are themselves tested so no hole opened.
+- **The price comparison returns a POSITION, never an adjective.** Within / above / below the typical range for this size and type in this area. "Below the range" is a fact about arithmetic; "a bargain" is a claim about a property nobody has seen. Cheap for the size very often means cheap for a reason, and the caveat saying so is permanent.
+- **The most dangerous state this panel has is silence**, because quiet reads as permission. An empty flags zone says "No red flags found in the listing or in open data" and then, in its own line, "Not an all clear: condition, lease and the exact street need a viewing, a survey or a solicitor."
+- **There is no negative flag and there cannot be one.** The absence of the word "leasehold" does not make a property freehold; it makes the listing silent. Every detector returns a flag or nothing, and nothing is reported as "not found in the listing", never as "not the case". A test asserts the panel never says *not leasehold*, *no flood*, *not listed* or *not an auction*.
+
+### Flood risk and listed buildings: asked for, refused, and the endpoints recorded
+
+Both were on the brief. Both were tested and neither ships. Recording the exact endpoints and failures so nobody spends a day rediscovering this:
+
+| Source | Endpoint | What happened | Why it disqualifies it |
+| --- | --- | --- | --- |
+| Environment Agency | `environment.data.gov.uk/flood-monitoring/id/floods` | Answers, but serves **live flood WARNINGS**, not flood risk | A listing viewed on a dry day returns nothing, which reads as "no flood risk". That is precisely the false reassurance this product must never give. |
+| Environment Agency | `environment.data.gov.uk/flood-monitoring/id/floodAreas?lat=&long=&dist=` (spatial) | **Timed out at 25s** | Unusable in a panel meant to answer in seconds, regardless of what it returns. |
+| Historic England | `services-eu1.arcgis.com/.../FeatureServer` | **HTTP 200 with no layers and no service description** | Nothing to query. A 200 that carries no data is worse than a 404, because it looks like success. |
+
+The rule applied is the same one used earlier for Article 4 directions and coal mining: **a wrong flag is worse than no flag.** If a working risk-classification endpoint turns up for either, both are a small addition — the flags module is a list of detectors and adding one is a config change.
+
+### Item 6, and the half of it that cannot be built
+
+- **Days on the market: yes.** Both portals publish a first-listed date on the page the user already has open. Reading that page is not building a portal dataset.
+- **A price reduction: the fact and the date, never the amount.** The brief asked for "price reduced by £X". Neither portal publishes the previous asking price in its page data — Rightmove marks "Reduced on <date>" and Zoopla usually shows nothing. To state an amount we would have to keep our own time series of portal asking prices, which is the exact dataset `docs/exclusions.md` forbids. So the panel says when, and says nothing about size.
+- **Region achieved-versus-asking: not built, and not buildable.** It needs asking prices paired to sold prices. Land Registry publishes only the sold half; the only source of the other half is the portals. A figure assembled from asking prices we had stored would breach the rule the product is built on, and one assembled from anything else would be a guess dressed as a statistic. The copy for it was **removed** rather than left sitting unused, because unused copy is a promise of a feature that does not exist.
+
+### The handoff, and the three-day bug it must never repeat
+
+- **A baseline was captured before a line was removed** — six real listings across both portals, driven through the real extractor, the real panel and the real "send" click. Diffed again afterwards. **Every surviving parameter is byte-identical**: `postcode`, `price`, `type`, `beds`, `baths`, `paon`, `area`, `areaSrc`, `fp`, `ph`, `auction`, `src` and the four criteria.
+- **Three parameters stopped travelling, all of them by request.** `rent` (the monthly-rent input was removed), `roomFails` and `roomsMeasured` (the measure tool was their only producer). The handoff's *capability* to carry all three is untouched and still asserted; the extension simply no longer produces them. The web app's own floor-plan tracer produces room geometry natively, which is where that work now lives.
+- **The gate names every parameter, literally.** `handoffCarries.test.ts` writes out `postcode`, `price`, `type`, `beds`, `baths`, `paon`, `area`, `areaSrc`, `fp`, `ph`, `auction`, `src` and the four criteria as string literals, with one assertion each and a whole-set check. Nothing is derived from a list the product also reads — that shared list is what let the photographs and the floor plan go missing from both the writer and the checker at once. `check-extension.mjs` carries its own hardcoded `MUST_CARRY` for the same reason. Proved to bite four ways: dropping photographs, dropping the floor plan, dropping criteria from the send call, and renaming the button class the gate clicks.
+- **The analyser round-trip is now driven by the extension's REAL output.** `handoffSurvives.test.ts` used a hand-written fixture of what the extension was *believed* to send — one list short of the fault it existed to catch. It now builds a handoff from a real saved listing through the real builder, feeds it to the real analyser state, edits fields, and demands every parameter the extension actually produced is still in the address.
+- **That new test immediately exposed a test-isolation fault**, and the evidence is worth keeping: with real timers the address shrank 1678 → 1678 → 462 → 53 characters across four tests, because `writeUrl`'s 250ms debounce from one test fired during the next test's `await import(...)`. The fourth test then "lost" `fp`, `ph`, `auction` and all four criteria. Not a product fault — in a browser there is one module instance — but a test file that can manufacture the failure it hunts is worthless. Fake timers now, with the measurement written into the file.
+
+### Design and structure
+
+- **Two zones and nothing else.** Zone one is the four figures derivable from the listing alone: asking price, £/m², the purchase tax and the cash needed. Zone two is the flags, silent unless evidenced, never more than four. Everything needing a real input — rent, end value, refurb, the levers — moved to the web app, which can ask properly and show its working.
+- **The purchase tax assumes an ADDITIONAL property, and says so on screen.** This is a tool for investors, the surcharge is usually most of the bill, and quoting the owner-occupier rate would understate the cash needed by thousands. £300,000 in England: £2,500 standard, £20,000 at additional rates.
+- **The strategy switch moved to the bottom, with the handoff button.** It no longer changes any figure on the panel; it chooses which analyser opens. Putting it beside the button is what makes that plain, and it keeps it from reading as a lever on numbers it does not touch.
+- **One input survived: the floor area,** and only when neither the listing nor the EPC register supplied one. It is what unlocks £/m² and the whole comparison, and it keeps `area` travelling in the handoff. Removing it would have silently dropped a parameter the operator explicitly required.
+- **A floor-area RANGE is declared.** A listing giving "70–80 m²" has not given a size, and a £/m² off its midpoint must not be set in the same typeface as one off a real figure.
+- **468px, up from 420px** — and three declarations had to move together, not one. `.panel`, `.gb-header` and `.gb-firstrun` all capped at 420; the header and hint are siblings of `#app`, not children, so changing the panel alone would have inset the logo from the card below it. They now share one `--panel-w`.
+- **The logo misalignment was the FILE, not the CSS.** The panel was loading the uncropped 900×225 wordmark, whose alpha box starts at x=46, y=72 — about 6px of invisible padding down the left at render size. The credit began at x=0 while the visible "P" began 6px in, so no CSS could line them up. It now uses the same cropped 603×75 artwork the web app has, at 201×25 (preserving 603/75 exactly). Also 39KB smaller.
+- **The two social marks are now ONE asset, in core,** rendered by both surfaces. The panel had been drawing its own monochrome tracing — which neither Meta nor YouTube permits — while the web app carried the official gradient and red. The size table moved with it, including the geometric-mean matching, and `headerRail.test.ts` now asserts against the returned data rather than grepping a stylesheet. That rewrite mattered: the old size checks scanned the component's CSS with a regex and asserted **inside the loop**, so once the sizes moved the loop ran zero times and four assertions went green having looked at nothing.
+- **The panel did not fit, so content came off it — not a scrollbar.** Measured at 468px: 861px tall. Three cuts got it to 749–771px, which fits a laptop side panel. "Verify with the agent" moved from every flag to once under the list; the no-floor-area message stopped being printed twice on one screen; and the two caveats merged, because both said "it cannot tell one street from the next" in different words, one directly under the other.
+- **The merged caveat was 35 words and the N5 copy test caught it.** Rewritten to 28, keeping the size-not-quality point, the 1,500-people resolution and the cheap-for-a-reason warning.
+- **~130 lines of the panel's stylesheet were already dead** before this sprint — the entire `.tp-*` room-tracer block, an orphaned copy of the web app's floorplan.css that no extension markup ever referenced. Removed with the rest.
+
+### Things found in passing
+
+- **`handoff.why` named tenure, which has never travelled.** The operator's must-arrive list included tenure; the handoff has never carried it. The copy was corrected to describe what the URL actually does rather than what it ought to. Adding tenure is a one-line change and an operator decision, not something to slip in under a rewrite.
+- **"semi_detached" was reaching the screen with its underscore.** A data artefact, not the portal's wording. Formatted for display only; the value and the handoff are untouched.
+- **A test expectation was wrong, not the code.** £300,000 at England's additional rates is £20,000 (£2,500 standard plus £17,500 surcharge), not £17,500. The module was right.
+
 ## 2026-09-15 — Sprint S2: performance, measured honestly
 
 - **My own step-1 number was wrong, and the trace corrected it.** I reported the analyser "settling" at 2,034ms. Watching the figures appear frame by frame: 3 at 340ms, **182 at 530ms**, 184 at 545ms, and the last two at 1,057ms with NO new elements — two text nodes refining in place. The page is complete at ~545ms; the 2,034ms was my harness's 800ms stability window plus a two-figure tail. The honest target was never 1.6 seconds.
