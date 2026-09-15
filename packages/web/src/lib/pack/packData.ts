@@ -9,8 +9,8 @@
  */
 import {
   MIN_TRANSACTIONS, fmtMoney, growthOver, historyPoints, bandEnds, trajectoryFor,
-  codesForSector, salesByPrice, type AreaCodesFile, type EvidencedFigure, type PackNumbers,
-  type SectorFile, type TrajectoryFile,
+  codesForSector, type AreaCodesFile, type Comp, type EvidencedFigure, type PackNumbers,
+  type TrajectoryFile,
 } from '@gil-bricks/core';
 import { PACK_COPY } from '../../config/pack';
 import type { CompRow } from '../../components/pack/PackDocument';
@@ -53,17 +53,28 @@ export function waterfallFrom(n: PackNumbers): WaterfallStep[] {
 }
 
 /**
- * NEARBY SOLD HOMES, ranked by price.
+ * NEARBY SOLD HOMES — THE SAME COMPARABLES THE ANALYSER USED (C1).
  *
- * Land Registry price-paid records for the sector the property sits in — the
- * same data the comparables engine reads, and the same data the area figures
- * come from. Nothing is fetched from a portal and nothing is a live asking price.
+ * ── WHAT THIS USED TO DO, AND WHY IT WAS WRONG ──────────────────────────────
+ * It took the EIGHT HIGHEST-PRICED SALES IN THE WHOLE POSTCODE SECTOR. Not the
+ * subject's type, not the last twelve months, not half a mile — and ranked so
+ * that the dearest houses in the sector led the page. A pack is a document
+ * somebody sends to an investor. Flattering the deal by choosing the evidence
+ * is the single worst thing this product could do, and it was the default.
+ *
+ * ── WHAT IT DOES NOW ────────────────────────────────────────────────────────
+ * It is handed the comparables the ONE engine produced for this property, on
+ * the same three rules every other surface works to: the subject's own type,
+ * sold within twelve months, within half a mile. They arrive sorted by
+ * distance, so taking the first `limit` takes the NEAREST — never the dearest.
+ *
+ * Nothing is fetched from a portal and nothing is a live asking price.
  */
-export function compsFrom(sector: SectorFile | null, subjectPrice: number, limit = 8): CompRow[] {
-  if (sector === null || sector.sales.length === 0) return [];
-  // Ranked by core, because which comparables a reader is shown is a decision
-  // about the deal rather than about the page.
-  const rows: CompRow[] = salesByPrice(sector.sales, limit)
+export function compsFrom(comps: readonly Comp[] | null, subjectPrice: number, limit = 8): CompRow[] {
+  if (comps === null || comps.length === 0) return [];
+  const rows: CompRow[] = comps
+    .filter((c) => c.included)
+    .slice(0, limit)
     .map((s) => ({
       address: [s.paon, s.street].filter((x) => x !== '').join(' ') || s.postcode,
       value: s.price,
@@ -80,7 +91,8 @@ export function compsFrom(sector: SectorFile | null, subjectPrice: number, limit
       subject: true,
     });
     // Re-ranked on the display figure, which is geometry for the list's own
-    // order and not a second opinion about the deal.
+    // order and not a second opinion about the deal: the SET was already
+    // chosen, by distance, before anything got here.
     rows.sort((a, b) => b.value - a.value);
   }
   return rows;

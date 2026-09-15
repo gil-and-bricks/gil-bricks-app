@@ -89,6 +89,8 @@ export * from './tools/rentalYield';
 // X1 — the extension's triage panel: the price comparison, the evidenced flags,
 // and every word the panel says. Maths and copy in core so the panel renders
 // and never decides (charter rule 3), and so one test can sweep all the words.
+// C1 — the ONE definition of a comparable, shared by every surface.
+export * from './comparables/rules';
 export * from './triage/priceBand';
 export * from './triage/flags';
 export * from './triage/copy';

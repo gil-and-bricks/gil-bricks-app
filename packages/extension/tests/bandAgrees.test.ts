@@ -43,6 +43,16 @@ import { priceFor, type PriceDeps } from '../src/price';
 const CORPUS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'core', 'fixtures', 'listings');
 const NOW = new Date('2026-09-15');
 
+/**
+ * C1 — WHERE THE SUBJECT IS, AND WHETHER IT COULD BE PLACED AT ALL.
+ *
+ * The band now applies the same half mile as every other surface, which means
+ * both surfaces need the subject's point and both must get the SAME one. A null
+ * point is the real case where the geocode failed, and it takes a different
+ * branch — a sector-wide comparison — so it is exercised rather than assumed.
+ */
+const AT = { lat: 51.6014, lng: -3.3405 };
+
 function read(portal: 'rightmove' | 'zoopla', file: string, url: string): NormalisedListing {
   const w = new Window({
     url,
@@ -62,9 +72,24 @@ const LISTINGS: { name: string; listing: () => NormalisedListing }[] = [
 ];
 
 type Sale = Record<string, unknown>;
+// C1 — a sale now has to be SOMEWHERE: the band applies the same half mile as
+// every other surface, and a sale it cannot place is a sale it cannot count.
+// These sit on top of the subject, so distance never decides these cases.
+/**
+ * C1 — THE DATE HAD TO MOVE, AND IT SHOWS WHY THE WINDOW MATTERED.
+ *
+ * These sales were dated 2025-06-01 against a 2026-09-15 subject — fifteen
+ * months back. They counted only because the band's window was three years
+ * while every other surface in the product worked to twelve months, so this
+ * fixture was quietly exercising the disagreement the sprint set out to remove.
+ * Inside the window now, and stated relative to NOW so it cannot rot again.
+ */
+const IN_WINDOW = '2026-06-01';
+/** The month the sold data runs to — both surfaces count the window from it. */
+const AS_OF = '2026-09';
 const sale = (ppsqm: number, area: number, type: string, over: Sale = {}): Sale => ({
-  id: `s${ppsqm}`, date: '2025-06-01', price: Math.round(ppsqm * area), type,
-  floorAreaSqm: area, ppsqm, ...over,
+  id: `s${ppsqm}`, date: IN_WINDOW, price: Math.round(ppsqm * area), type,
+  floorAreaSqm: area, ppsqm, lat: AT.lat, lng: AT.lng, ...over,
 });
 
 function sectorOf(sales: Sale[]): SectorFile {
@@ -133,17 +158,23 @@ function subject(l: NormalisedListing): { type: string; area: number } {
  */
 function panelBand(
   listing: NormalisedListing, sector: SectorFile, wider: BandSale[], registerAreaSqm: number | null,
+  subjectAt: { lat: number; lng: number } | null = AT,
 ): BandOutcome | null {
   document.body.innerHTML = '<main id="app"></main>';
   (globalThis as unknown as { chrome: unknown }).chrome = { tabs: { create: () => {} } };
-  __mountForTest(listing, { sector, widerSales: wider.length ? wider : null, registerAreaSqm });
+  __mountForTest(listing, { sector, widerSales: wider.length ? wider : null, registerAreaSqm, subjectAt, asOf: AS_OF });
   return __lastBand();
 }
 
 /** THE BOX'S OWN PATH: the content script's real function, its reads stubbed. */
-function boxDeps(sector: SectorFile, wider: BandSale[], epcArea: number | null): PriceDeps {
+function boxDeps(
+  sector: SectorFile, wider: BandSale[], epcArea: number | null,
+  subjectAt: { lat: number; lng: number } | null = AT,
+): PriceDeps {
   return {
     sector: async () => sector,
+    subjectAt: async () => subjectAt,
+    asOf: async () => AS_OF,
     epcArea: async () => epcArea,
     widerSales: async () => wider,
     now: () => NOW,
@@ -153,9 +184,15 @@ function boxDeps(sector: SectorFile, wider: BandSale[], epcArea: number | null):
 beforeEach(() => { document.body.innerHTML = '<main id="app"></main>'; });
 
 describe('the panel and the box produce the same comparison', () => {
-  const CASES = LISTINGS.flatMap((l) => SECTORS.map((s) => [`${l.name} × ${s.name}`, l, s] as const));
+  const PLACED: { name: string; at: { lat: number; lng: number } | null }[] = [
+    { name: 'placed', at: AT },
+    { name: 'could not be placed', at: null },
+  ];
+  const CASES = LISTINGS.flatMap((l) => SECTORS.flatMap((s) => PLACED.map(
+    (p) => [`${l.name} × ${s.name} × ${p.name}`, l, s, p.at] as const,
+  )));
 
-  it.each(CASES)('%s', async (_name, l, s) => {
+  it.each(CASES)('%s', async (_name, l, s, at) => {
     const listing = l.listing();
     const { type, area } = subject(listing);
     const sector = s.sector(type, area);
@@ -167,8 +204,8 @@ describe('the panel and the box produce the same comparison', () => {
     // than a gate this test reached around for one of them.
     const epcArea = registerCouldAnswer(listing) ? area : null;
 
-    const panel = panelBand(listing, sector, wider, epcArea);
-    const box = await priceFor(listing, boxDeps(sector, wider, epcArea));
+    const panel = panelBand(listing, sector, wider, epcArea, at);
+    const box = await priceFor(listing, boxDeps(sector, wider, epcArea, at));
 
     expect(box, 'the box produced no comparison where the panel did').toEqual(panel);
   });
@@ -185,12 +222,16 @@ describe('the panel and the box produce the same comparison', () => {
         const listing = l.listing();
         const { type, area } = subject(listing);
         const epcArea = registerCouldAnswer(listing) ? area : null;
-        const band = await priceFor(listing, boxDeps(s.sector(type, area), s.wider(type, area), epcArea));
-        if (band === null) { kinds.add('null'); continue; }
-        kinds.add(band.kind === 'none' ? `none/${band.reason}` : band.kind === 'range' && band.widened ? 'range/widened' : band.kind);
+        for (const at of [AT, null]) {
+          const band = await priceFor(listing, boxDeps(s.sector(type, area), s.wider(type, area), epcArea, at));
+          if (band === null) { kinds.add('null'); continue; }
+          kinds.add(band.kind === 'none' ? `none/${band.reason}` : band.kind === 'range' && band.widened ? 'range/widened' : band.kind);
+          // C1 — and every area the comparison can honestly have cover.
+          if (band.kind !== 'none') kinds.add(`area/${band.area}`);
+        }
       }
     }
-    for (const wanted of ['range', 'range/widened', 'none/too-few', 'spread']) {
+    for (const wanted of ['range', 'range/widened', 'none/too-few', 'spread', 'area/half-mile', 'area/sector']) {
       expect([...kinds], `nothing in the matrix produced ${wanted}`).toContain(wanted);
     }
   });
@@ -198,24 +239,52 @@ describe('the panel and the box produce the same comparison', () => {
 
 /**
  * THE DIVERGENCE THAT WAS REALLY THERE, pinned as its own case so it cannot
- * come back quietly. A thin sector with neighbours to widen into: the panel
- * widened, the box said "too few", and each was rendering its answer as fact.
+ * come back quietly. A thin sector with neighbours to reach into: the panel
+ * used one answer and the box used another, and each rendered its own as fact.
+ *
+ * C1 CHANGED WHAT "WIDENING" MEANS HERE, so both halves are now pinned. The
+ * band applies the same half mile as every other surface, so neighbouring
+ * sales that are CLOSE simply complete the circle and nothing is widened; only
+ * when the half mile itself cannot reach five does the radius step out to a
+ * mile. Both cases are exercised, because a test that only ever saw the first
+ * would let the second rot.
  */
 describe('the widening, which is where they actually differed', () => {
-  it('both widen, and both say so', async () => {
+  /** Neighbouring sales INSIDE the half mile: included, and not called widened. */
+  it('both reach into the neighbouring sales, and neither calls that widening', async () => {
     const listing = LISTINGS[1].listing();
     const { type, area } = subject(listing);
     const thin = sectorOf(Array.from({ length: 2 }, (_, i) => sale(1400 + i * 10, area, type)));
-    const wider = Array.from({ length: 7 }, (_, i) => sale(1300 + i * 40, area, type) as unknown as BandSale);
+    const near = Array.from({ length: 7 }, (_, i) => sale(1300 + i * 40, area, type) as unknown as BandSale);
 
     // The detached listing carries a house number, so the register can answer
     // for it — which is what makes this the widening case rather than a
     // no-area one.
-    const panel = panelBand(listing, thin, wider, area);
-    const box = await priceFor(listing, boxDeps(thin, wider, area));
+    const panel = panelBand(listing, thin, near, area);
+    const box = await priceFor(listing, boxDeps(thin, near, area));
+
+    expect(panel?.kind, 'nine sales within half a mile is a range').toBe('range');
+    expect(panel?.kind === 'range' && panel.count, 'the subject’s own two are in it').toBe(9);
+    expect(panel?.kind === 'range' && panel.widened, 'nothing was widened').toBe(false);
+    expect(panel?.kind === 'range' && panel.area).toBe('half-mile');
+    expect(box, 'and the box says exactly the same').toEqual(panel);
+  });
+
+  /** Neighbouring sales OUTSIDE it: the one step out to a mile, on both. */
+  it('both widen to a mile when half a mile cannot reach five, and both say so', async () => {
+    const listing = LISTINGS[1].listing();
+    const { type, area } = subject(listing);
+    const thin = sectorOf(Array.from({ length: 2 }, (_, i) => sale(1400 + i * 10, area, type)));
+    // ~0.69 miles north of the subject: outside half a mile, inside one mile.
+    const far = Array.from({ length: 7 }, (_, i) =>
+      sale(1300 + i * 40, area, type, { lat: AT.lat + 0.01 }) as unknown as BandSale);
+
+    const panel = panelBand(listing, thin, far, area);
+    const box = await priceFor(listing, boxDeps(thin, far, area));
 
     expect(panel?.kind, 'the panel widens').toBe('range');
     expect(panel?.kind === 'range' && panel.widened).toBe(true);
+    expect(panel?.kind === 'range' && panel.area, 'and names the area it used').toBe('wider');
     expect(box, 'and so does the box, to the same answer').toEqual(panel);
   });
 
@@ -231,4 +300,3 @@ describe('the widening, which is where they actually differed', () => {
     expect(box).toEqual(panel);
   });
 });
-

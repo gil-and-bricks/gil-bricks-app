@@ -9,8 +9,8 @@
  * nothing unless something checks. See `tests/bandAgrees.test.ts`.
  */
 import {
-  getSector, getSectorsIndex, nearestSectors, postcodeToSector,
-  bandForListing, salesFromSector, floorAreaFromSector,
+  getManifest, getSector, getSectorsIndex, nearestSectors, postcodeToSector,
+  bandForListing, salesFromSector, floorAreaFromSector, subjectPointFor,
   type BandOutcome, type BandSale, type NormalisedListing, type SectorFile,
 } from '@gil-bricks/core';
 import { lookupEpcArea } from './epcLookup';
@@ -38,6 +38,20 @@ import { lookupEpcArea } from './epcLookup';
  */
 export interface PriceDeps {
   sector: (sectorId: string) => Promise<SectorFile>;
+  /**
+   * C1 — where the property is, so the same half-mile rule the analyser and the
+   * pack work to can be applied here too. It resolves through core's ONE
+   * helper, never a second copy: two answers to "where is this property" is the
+   * shape of fault that put a widened range on the panel and "too few" in this
+   * box, on the same screen, for the same house.
+   */
+  subjectAt: (postcode: string) => Promise<{ lat: number; lng: number } | null>;
+  /**
+   * C1 — the month the sold data runs to. The window counts back from THIS and
+   * not from today, exactly as the analyser's does; counting from today
+   * shortened it by however far behind the pipeline happened to be.
+   */
+  asOf: () => Promise<string | null>;
   epcArea: (postcode: string, paon: string, saon: string) => Promise<number | null>;
   widerSales: (sectorId: string) => Promise<BandSale[]>;
   now: () => Date;
@@ -45,6 +59,8 @@ export interface PriceDeps {
 
 const LIVE: PriceDeps = {
   sector: getSector,
+  subjectAt: subjectPointFor,
+  asOf: async () => getManifest().then((m) => m.ppdMonth, () => null),
   epcArea: async (postcode, paon, saon) => {
     const got = await lookupEpcArea(postcode, paon, saon);
     return got.ok && got.source === 'register' ? got.sqm : null;
@@ -82,16 +98,22 @@ export async function priceFor(listing: NormalisedListing, deps: PriceDeps = LIV
       registerAreaSqm = await deps.epcArea(postcode, listing.address.value.paon, listing.address.value.saon ?? '');
     }
 
-    const sector = await deps.sector(pc.sector);
+    // C1 — the sector and the subject's point together, because the band needs
+    // both to apply the half-mile rule, and the panel fetches them together too.
+    const [sector, subjectAt, asOf] = await Promise.all([
+      deps.sector(pc.sector), deps.subjectAt(postcode), deps.asOf(),
+    ]);
     const now = deps.now();
     // THE ONE ASSEMBLY, shared with the panel. See `bandForListing`.
-    const first = bandForListing({ listing, sector, registerAreaSqm, now }, floorAreaFromSector);
+    const first = bandForListing({ listing, sector, registerAreaSqm, subjectAt, asOf, now }, floorAreaFromSector);
     if (first.band.kind !== 'none' || first.band.reason !== 'too-few') return first.band;
 
     // Only now is a widening worth its fetches — and the panel widens here too.
     const widerSales = await deps.widerSales(pc.sector);
     if (widerSales.length === 0) return first.band;
-    return bandForListing({ listing, sector, registerAreaSqm, widerSales, now }, floorAreaFromSector).band;
+    return bandForListing(
+      { listing, sector, registerAreaSqm, widerSales, subjectAt, asOf, now }, floorAreaFromSector,
+    ).band;
   } catch {
     // A page we do not own is the last place to surface our own plumbing.
     return null;

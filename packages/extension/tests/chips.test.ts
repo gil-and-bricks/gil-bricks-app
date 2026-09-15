@@ -18,7 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   extractListing, portalForUrl, FALLBACK_CONFIG, pageFindings, allFindings,
-  FINDING_COPY, EXTENSION_FLAGS, PRICE_LINE,
+  FINDING_COPY, EXTENSION_FLAGS, PRICE_LINE, BAND_AREA_WORDS,
   type NormalisedListing, type Portal, type Finding, type BandOutcome,
 } from '@gil-bricks/core';
 import { mountChips, removeChips, findAnchor, findBoxAnchor, ourHosts, buildGroupContent, priceLine, CHIP_HOST_TAG, CHIPS_ROOT_ATTR } from '../src/chips';
@@ -288,7 +288,7 @@ describe('never twice, however often they re-render', () => {
  */
 describe('the price position', () => {
   const band = (over: Partial<Extract<BandOutcome, { kind: 'range' }>> = {}): BandOutcome => ({
-    kind: 'range', count: 9, widened: false, low: 1300, high: 1520,
+    kind: 'range', count: 9, widened: false, area: 'half-mile', low: 1300, high: 1520,
     subjectPpsqm: 1400, position: 'within', ...over,
   });
 
@@ -310,16 +310,51 @@ describe('the price position', () => {
     expect(priceLine(band({ position }))!.position).toBe(expected);
   });
 
-  it('says when it had to widen, rather than passing it off as this sector', () => {
-    expect(priceLine(band({ widened: true }))!.basis).toContain(PRICE_LINE.widened);
-    expect(priceLine(band())!.basis).not.toContain(PRICE_LINE.widened);
+  /**
+   * C1 — THE AREA IS NAMED, ALWAYS, AND THE NAME IS THE ONE IT ACTUALLY USED.
+   *
+   * This used to look for a "wider area" suffix appended beside a basis that
+   * named no area at all — so the DEFAULT case said nothing about where the
+   * sales came from, and a reader had no way to tell half a mile from a whole
+   * postcode sector. Every state now carries its own words, and the widened one
+   * is distinguished by saying "1 mile" rather than by a tacked-on label.
+   */
+  /**
+   * C1 — THE ONE LINE THAT SENDS THEM TO THE EVIDENCE. This box is a position,
+   * not a valuation; every figure the analyser then produces rests on which
+   * sold sales the property is compared against, and the box says so.
+   */
+  it('the box points at the comparables, where the real answer is', () => {
+    const { doc, listing } = page(CASES[0]);
+    const content = buildGroupContent({
+      doc, findings: pageFindings(listing), brand: 'PropLaunch', asBox: true, band: band(),
+    })!;
+    expect(content.textContent).toContain(PRICE_LINE.checkComparables);
+  });
+
+  it('and says nothing about comparables where there is no comparison to point at', () => {
+    const { doc, listing } = page(CASES[0]);
+    const content = buildGroupContent({
+      doc, findings: pageFindings(listing), brand: 'PropLaunch', asBox: true,
+      band: { kind: 'none', reason: 'too-few', countFound: 3 },
+    })!;
+    expect(content.textContent, 'a pointer to nothing').not.toContain(PRICE_LINE.checkComparables);
+  });
+
+  it('names the area it compared against, in every state it has', () => {
+    expect(priceLine(band())!.basis).toContain(BAND_AREA_WORDS['half-mile']);
+    expect(priceLine(band({ widened: true, area: 'wider' }))!.basis).toContain(BAND_AREA_WORDS.wider);
+    expect(priceLine(band({ area: 'sector' }))!.basis).toContain(BAND_AREA_WORDS.sector);
+    expect(priceLine(band({ widened: true, area: 'sectors' }))!.basis).toContain(BAND_AREA_WORDS.sectors);
+    // …and never claims half a mile for a comparison that could not draw one.
+    expect(priceLine(band({ area: 'sector' }))!.basis).not.toContain(BAND_AREA_WORDS['half-mile']);
   });
 
   /** Every honest refusal produces NO line at all, rather than a hedge. */
   it.each([
     ['no floor area', { kind: 'none', reason: 'no-area', countFound: 0 }],
     ['too few comparables', { kind: 'none', reason: 'too-few', countFound: 3 }],
-    ['a spread with no middle', { kind: 'spread', count: 9, widened: false, low: 900, high: 2400 }],
+    ['a spread with no middle', { kind: 'spread', count: 9, widened: false, area: 'half-mile', low: 900, high: 2400 }],
   ] as const)('shows nothing at all on %s', (_what, outcome) => {
     expect(priceLine(outcome as BandOutcome)).toBeNull();
   });

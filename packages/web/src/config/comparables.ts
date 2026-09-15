@@ -19,7 +19,9 @@ export const COMPARABLES = {
     groupLabel: 'Comparable filters',
     /** Each filter: the label on it, then the words in its dropdown. */
     radius: { label: 'Radius', quarterMile: '¼ mile', halfMile: '½ mile', oneMile: '1 mile' },
-    period: { label: 'Period', sixMonths: '6 months', twelveMonths: '12 months' },
+    period: {
+      label: 'Period', sixMonths: '6 months', twelveMonths: '12 months', twentyFourMonths: '24 months',
+    },
     propertyType: {
       label: 'Type',
       all: 'All',
@@ -29,6 +31,30 @@ export const COMPARABLES = {
       detachedAndSemi: 'Det + semi',
       terraced: 'Terraced',
       flats: 'Flats',
+    },
+    /**
+     * C1 — THE 'AUTOMATIC' OPTION ON THE THREE THAT MATTER, AND WHY IT IS A
+     * LABEL RATHER THAN A NUMBER.
+     *
+     * Each of these reports what is ACTUALLY IN FORCE, read off the result the
+     * engine returned — not off whatever was passed in. That is the difference
+     * between a control that agrees with the list below it and one that usually
+     * does: when a thin set widens to 24 months, a select reading its own input
+     * would say "12 months" over 24-month sales, and be believed.
+     */
+    auto: {
+      radius: (miles: string): string => `Automatic · ${miles}`,
+      period: (months: number): string => `Automatic · ${months} months`,
+      /** The subject's own type. */
+      type: 'Same as this property',
+      /** Said instead when no type is set — never a guessed one. */
+      typeUnknown: 'All · no type set',
+    },
+    /** What changing each one does. Tooltips: the short home, 20 words. */
+    why: {
+      radius: 'Wider finds more sales but reaches a different street. Narrower keeps the local market and may find too few.',
+      period: 'Longer reaches back for more sales, into a market that has since moved. Shorter is fresher and thinner.',
+      type: 'A flat compared against detached houses values it far too high. Type is the one thing we can match.',
     },
     tenure: { label: 'Tenure', any: 'Any', freehold: 'Freehold', leasehold: 'Leasehold' },
     age: { label: 'Age', all: 'All', newBuild: 'New build', existing: 'Existing' },
@@ -48,6 +74,66 @@ export const COMPARABLES = {
       minLabel: 'Minimum price (£)',
       maxLabel: 'Maximum price (£)',
     },
+  },
+  /**
+   * C1 — WHAT THIS LIST IS, WHAT IT CANNOT BE, AND WHAT TO TAKE OUT.
+   *
+   * ── SAYING WHAT WE CAN ACTUALLY MATCH ───────────────────────────────────
+   * Type, distance and date are the three things Land Registry publishes for
+   * every sale, so they are the three we filter on. Bedrooms, condition, which
+   * side of the main road, whether the garden backs onto a railway — none of
+   * that is in free sold data. The copy says so plainly rather than letting a
+   * filtered list imply it has been vetted, because a list that LOOKS vetted is
+   * exactly how somebody ends up trusting a number nobody checked.
+   *
+   * ── THE PRUNING, WITHOUT A LESSON ───────────────────────────────────────
+   * Three lines, no jargon, and never the vocabulary of a course: no BMV, no
+   * off-market, no stacking, no motivated seller. Somebody who repeats our
+   * wording to an agent should sound like a buyer, not a graduate.
+   */
+  rules: {
+    /** Said beside the filters, before the list. */
+    whatWeMatch: 'We match type, distance and date. Size, condition and the street itself are not in sold data.',
+    /**
+     * …so the last part is theirs. Four words, because it sits in the SAME
+     * paragraph as the line above: the copy gate measures what a person reads
+     * as one block, and the two together ran to 33 words. The unit test could
+     * not see that — it measures each string on its own — which is exactly why
+     * the gate reads the rendered page.
+     */
+    yourRead: 'That part is your read.',
+    prune: {
+      heading: 'What to take out',
+      /** One line each, plain, no jargon — never a lesson. */
+      items: [
+        'Anything much bigger or smaller than this one.',
+        'Anything on a road that feels different to this one.',
+        'Anything far above or below the rest for no reason you can see.',
+      ] as readonly string[],
+    },
+  },
+  /**
+   * C1 — THE ONE WIDENING STEP, SAID OUT LOUD.
+   *
+   * Nothing widens silently. Time first, then distance: widening the radius
+   * changes WHERE, and location is the one thing no adjustment can correct for
+   * afterwards, whereas older sales in the same streets can at least be read
+   * with the market in mind. Every figure is a formatter's argument, so the
+   * words and the numbers can never describe different searches.
+   */
+  widened: {
+    time: (min: number, from: number, to: number): string =>
+      `Fewer than ${min} sales matched in ${from} months, so this list reaches back ${to}.`,
+    area: (min: number, from: string, to: string): string =>
+      `Still fewer than ${min}, so this list reaches ${to} rather than ${from}.`,
+    /** Why the time window moves before the radius does. */
+    whyTimeFirst: 'Older sales on these streets beat recent sales on different ones. Location is what no adjustment fixes.',
+    /** Widened as far as is honest and still short. */
+    exhausted: (count: number, min: number): string =>
+      `Only ${count} sales match, after looking as far as is honest. ${min} is the fewest we will value from.`,
+    /** Short of the bar on filters the person set themselves. */
+    yourFilters: (count: number, min: number): string =>
+      `Only ${count} sales match these filters. ${min} is the fewest we will value from.`,
   },
   /** The line above the list: how many sales are in, what is typical, how wide
    * the spread is, and the month the sold data runs to. */

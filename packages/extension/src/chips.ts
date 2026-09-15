@@ -138,7 +138,10 @@ const CSS = `
 .price { flex: 1 1 100%; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
 .price-pos { font-size: 13px; font-weight: 700; color: #1a1a1a; }
 .price-basis { font-size: 11px; color: #5c5c5c; font-variant-numeric: tabular-nums; }
-.price-caveat { flex: 1 1 100%; margin: 2px 0 6px; font-size: 11px; line-height: 1.4; color: #5c5c5c; }
+.price-caveat { flex: 1 1 100%; margin: 2px 0 4px; font-size: 11px; line-height: 1.4; color: #5c5c5c; }
+/* C1 — where the real answer is. Same weight as the caveat: it is a pointer,
+   not a second headline, and this box already has its one. */
+.price-check { flex: 1 1 100%; margin: 0 0 6px; font-size: 11px; line-height: 1.4; color: #5c5c5c; }
 .why { flex: 1 1 100%; margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #333; }
 .why[hidden] { display: none; }
 .box { border: 1px solid #dcff00; border-left: 4px solid #dcff00; border-radius: 10px;
@@ -214,8 +217,9 @@ const gbp = (n: number): string => `£${Math.round(n).toLocaleString('en-GB')}`;
  */
 export function priceLine(band: BandOutcome | null | undefined): { position: string; basis: string } | null {
   if (!band || band.kind !== 'range') return null;
-  const basis = `${gbp(band.low)}–${gbp(band.high)}/m² · ${PRICE_LINE.basis(band.count)}`
-    + (band.widened ? ` · ${PRICE_LINE.widened}` : '');
+  // C1 — the basis NAMES the area it covered, so a widened search needs no
+  // second clause: "within 1 mile" already says what "wider area" used to.
+  const basis = `${gbp(band.low)}–${gbp(band.high)}/m² · ${PRICE_LINE.basis(band.count, band.area)}`;
   return { position: PRICE_LINE[band.position], basis };
 }
 
@@ -290,6 +294,18 @@ export function buildGroupContent({ doc, findings, brand, asBox, band, onHide }:
     cav.className = 'price-caveat';
     cav.textContent = PRICE_LINE.caveat;
     wrap.append(cav);
+    /**
+     * C1 — AND WHERE THE REAL ANSWER IS.
+     *
+     * This box states a POSITION against similar sales. The end value, the
+     * refinance figure and the flip margin are none of them computed here, and
+     * every one of them rests on WHICH sold sales the property is set against.
+     * One line saying so, and no attempt to teach it on somebody else's page.
+     */
+    const check = doc.createElement('p');
+    check.className = 'price-check';
+    check.textContent = PRICE_LINE.checkComparables;
+    wrap.append(check);
   }
 
   const why = doc.createElement('p');

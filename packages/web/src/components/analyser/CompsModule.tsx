@@ -3,7 +3,7 @@ import { COPY } from '../../config/copy';
 import { compLinks, fullAddress, identifiesAProperty } from '@gil-bricks/core';
 import type { Comp, ComparablesResult, SortKey } from '@gil-bricks/core';
 import { computeStats, sortComps } from '@gil-bricks/core';
-import { useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { state, update } from './state';
 import { Tooltip } from './Tooltip';
 import { MathsAccordion } from './Accordion';
@@ -15,10 +15,22 @@ import { hoveredCompId } from './mapSync';
 import { features } from '../../config/features';
 import { SECTION_STRIP } from '../../config/analyserSections';
 import { COMPARABLES } from '../../config/comparables';
-import { activeFilterCount, clearedFilters, wantsCards } from '../../lib/comparables';
+import { activeFilterCount, clearedFilters, laddered, wantsCards } from '../../lib/comparables';
+import { markEndOfListSeen, markWorked } from './looked';
+import { COMPARABLE_RULES, type RadiusMiles, type WidenStage } from '@gil-bricks/core';
 import { useViewportWidth } from './useViewportWidth';
 
 const AGE_LABEL = (c: Comp) => (c.newBuild ? COMPARABLES.saleAge.newBuild : COMPARABLES.saleAge.existing);
+
+/**
+ * C1 — how a radius READS. Keyed by the number the engine works in, so the word
+ * and the figure can never come apart; the words themselves are config.
+ */
+const RADIUS_LABEL: Record<RadiusMiles, string> = {
+  0.25: COMPARABLES.filters.radius.quarterMile,
+  0.5: COMPARABLES.filters.radius.halfMile,
+  1: COMPARABLES.filters.radius.oneMile,
+};
 const TYPE_LABEL: Record<string, string> = COMPARABLES.propertyTypes;
 const TENURE_LABEL: Record<string, string> = COMPARABLES.tenures;
 
@@ -81,8 +93,30 @@ function CompActions({ c, scope }: { c: Comp; scope: 'property' | 'postcode' }) 
   );
 }
 
-export function CompsModule({ result, article4 = false, folded = false }: { result: ComparablesResult | null; article4?: boolean; folded?: boolean }) {
+export function CompsModule({ result, stage = 'default', tooFew = false, article4 = false, folded = false }: {
+  result: ComparablesResult | null;
+  /** C1 — which rung of the ladder produced this set, from core's own run. */
+  stage?: WidenStage;
+  /** C1 — still short of the bar after widening as far as is honest. */
+  tooFew?: boolean;
+  article4?: boolean;
+  folded?: boolean;
+}) {
   const s = state.value;
+  /**
+   * C1 — THE FILTERS IN FORCE, READ OFF THE RESULT AND NEVER OFF THE STATE.
+   *
+   * The engine echoes what it actually ran with, so the 'Automatic' options and
+   * the map's ring describe the list underneath them rather than the request
+   * that produced it. Before the first result lands there is no list to
+   * disagree with, so the defaults stand in.
+   */
+  const inForce = {
+    radiusMiles: result?.radiusMiles ?? COMPARABLE_RULES.radiusMiles,
+    periodMonths: result?.periodMonths ?? COMPARABLE_RULES.periodMonths,
+  };
+
+
   const [sortKey, setSortKey] = useState<SortKey>('distance');
   const [dir, setDir] = useState<'asc' | 'desc'>('asc');
 
@@ -94,6 +128,35 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   }, [result, excluded, sortKey, dir]);
   const stats = useMemo(() => computeStats(comps), [comps]);
 
+  /**
+   * C1 — THE FIFTH COMPARABLE, WATCHED.
+   *
+   * Not the last one. On a real Pontypridd terrace the default filters return
+   * FIFTY comparables, and demanding the fiftieth be scrolled past would be an
+   * endurance test rather than attention. Five is `minComparables` — the same
+   * figure, from the same config, that decides whether a valuation may exist at
+   * all — so the bar for having looked is the bar for there being anything to
+   * look at. Fewer than five in the list and it is the last row.
+   *
+   * The observer is rebuilt whenever the list changes, because the row it
+   * watches moves with it; and it is never created at all where the browser has
+   * no IntersectionObserver, which is the case the gate opens for.
+   */
+  const endRef = useRef<Element | null>(null);
+  /** Which row satisfies the gate: the fifth, or the last of a shorter list. */
+  const gateRow = Math.min(COMPARABLE_RULES.minComparables, comps.length) - 1;
+  const subject = { postcode: s.postcode, paon: s.paon, saon: s.saon };
+  const subjectSeen = `${subject.postcode}|${subject.paon}|${subject.saon}`;
+  useEffect(() => {
+    const el = endRef.current;
+    if (el === null || typeof IntersectionObserver !== 'function') return undefined;
+    const io = new IntersectionObserver((entries) => {
+      if (entries.some((e) => e.isIntersecting)) markEndOfListSeen(subject);
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [subjectSeen, result === null, comps.length, gateRow]);
+
   // retain scroll position across the list⇄map swap (heights differ)
   const setView = (view: 'list' | 'map') => {
     const y = typeof window !== 'undefined' ? window.scrollY : 0;
@@ -102,6 +165,9 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   };
 
   const toggle = (id: string) => {
+    // C1 — ticking a sale off IS looking at the comparables. Withholding the
+    // figure from somebody actively pruning the set would be absurd.
+    markWorked(s);
     const next = new Set(excluded);
     if (next.has(id)) next.delete(id);
     else next.add(id);
@@ -123,49 +189,96 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   // The filters, written ONCE: folded behind one button at EVERY width while
   // compsMobile is on (seven controls dominate a phone and clutter a desktop),
   // or laid out as they always were when the flag is off.
+  // C1 — changing a filter is working the evidence, so it satisfies the gate.
+  // One wrapper, so a filter added later cannot forget to say so.
+  const setFilter = (patch: Parameters<typeof update>[0]) => {
+    markWorked(subject);
+    update(patch);
+  };
   const filterFields = (
         <div class="filter-strip" role="group" aria-label={COMPARABLES.filters.groupLabel}>
-          <label>{COMPARABLES.filters.radius.label}
-            <select value={s.radius} onChange={(e) => update({ radius: (e.target as HTMLSelectElement).value as never })}>
+          <label>{COMPARABLES.filters.radius.label} <Tooltip text={COMPARABLES.filters.why.radius} />
+            <select value={s.radius} onChange={(e) => setFilter({ radius: (e.target as HTMLSelectElement).value as never })}>
+              <option value="auto">{COMPARABLES.filters.auto.radius(RADIUS_LABEL[inForce.radiusMiles])}</option>
               <option value="0.25">{COMPARABLES.filters.radius.quarterMile}</option><option value="0.5">{COMPARABLES.filters.radius.halfMile}</option><option value="1">{COMPARABLES.filters.radius.oneMile}</option>
             </select>
           </label>
-          <label>{COMPARABLES.filters.period.label}
-            <select value={s.period} onChange={(e) => update({ period: (e.target as HTMLSelectElement).value as never })}>
-              <option value="6">{COMPARABLES.filters.period.sixMonths}</option><option value="12">{COMPARABLES.filters.period.twelveMonths}</option>
+          <label>{COMPARABLES.filters.period.label} <Tooltip text={COMPARABLES.filters.why.period} />
+            <select value={s.period} onChange={(e) => setFilter({ period: (e.target as HTMLSelectElement).value as never })}>
+              <option value="auto">{COMPARABLES.filters.auto.period(inForce.periodMonths)}</option>
+              <option value="6">{COMPARABLES.filters.period.sixMonths}</option><option value="12">{COMPARABLES.filters.period.twelveMonths}</option><option value="24">{COMPARABLES.filters.period.twentyFourMonths}</option>
             </select>
           </label>
-          <label>{COMPARABLES.filters.propertyType.label}
-            <select value={s.ctype} onChange={(e) => update({ ctype: (e.target as HTMLSelectElement).value as never })}>
+          <label>{COMPARABLES.filters.propertyType.label} <Tooltip text={COMPARABLES.filters.why.type} />
+            <select value={s.ctype} onChange={(e) => setFilter({ ctype: (e.target as HTMLSelectElement).value as never })}>
+              <option value="auto">{s.type === '' ? COMPARABLES.filters.auto.typeUnknown : COMPARABLES.filters.auto.type}</option>
               <option value="all">{COMPARABLES.filters.propertyType.all}</option><option value="houses">{COMPARABLES.filters.propertyType.houses}</option><option value="D">{COMPARABLES.filters.propertyType.detached}</option>
               <option value="S">{COMPARABLES.filters.propertyType.semi}</option><option value="DS">{COMPARABLES.filters.propertyType.detachedAndSemi}</option><option value="T">{COMPARABLES.filters.propertyType.terraced}</option>
               <option value="F">{COMPARABLES.filters.propertyType.flats}</option>
             </select>
           </label>
           <label>{COMPARABLES.filters.tenure.label}
-            <select value={s.tenure} onChange={(e) => update({ tenure: (e.target as HTMLSelectElement).value as never })}>
+            <select value={s.tenure} onChange={(e) => setFilter({ tenure: (e.target as HTMLSelectElement).value as never })}>
               <option value="any">{COMPARABLES.filters.tenure.any}</option><option value="F">{COMPARABLES.filters.tenure.freehold}</option><option value="L">{COMPARABLES.filters.tenure.leasehold}</option>
             </select>
           </label>
           <label>{COMPARABLES.filters.age.label}
-            <select value={s.cage} onChange={(e) => update({ cage: (e.target as HTMLSelectElement).value as never })}>
+            <select value={s.cage} onChange={(e) => setFilter({ cage: (e.target as HTMLSelectElement).value as never })}>
               <option value="all">{COMPARABLES.filters.age.all}</option><option value="new">{COMPARABLES.filters.age.newBuild}</option><option value="old">{COMPARABLES.filters.age.existing}</option>
             </select>
           </label>
           <label>{COMPARABLES.filters.area.label}
             <span class="pair">
-              <input inputMode="numeric" placeholder={COMPARABLES.filters.area.minPlaceholder} aria-label={COMPARABLES.filters.area.minLabel} value={s.minArea} onInput={(e) => update({ minArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
-              <input inputMode="numeric" placeholder={COMPARABLES.filters.area.maxPlaceholder} aria-label={COMPARABLES.filters.area.maxLabel} value={s.maxArea} onInput={(e) => update({ maxArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.area.minPlaceholder} aria-label={COMPARABLES.filters.area.minLabel} value={s.minArea} onInput={(e) => setFilter({ minArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.area.maxPlaceholder} aria-label={COMPARABLES.filters.area.maxLabel} value={s.maxArea} onInput={(e) => setFilter({ maxArea: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
             </span>
           </label>
           <label>{COMPARABLES.filters.price.label}
             <span class="pair">
-              <input inputMode="numeric" placeholder={COMPARABLES.filters.price.minPlaceholder} aria-label={COMPARABLES.filters.price.minLabel} value={s.minPrice} onInput={(e) => update({ minPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
-              <input inputMode="numeric" placeholder={COMPARABLES.filters.price.maxPlaceholder} aria-label={COMPARABLES.filters.price.maxLabel} value={s.maxPrice} onInput={(e) => update({ maxPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.price.minPlaceholder} aria-label={COMPARABLES.filters.price.minLabel} value={s.minPrice} onInput={(e) => setFilter({ minPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
+              <input inputMode="numeric" placeholder={COMPARABLES.filters.price.maxPlaceholder} aria-label={COMPARABLES.filters.price.maxLabel} value={s.maxPrice} onInput={(e) => setFilter({ maxPrice: (e.target as HTMLInputElement).value.replace(/[^0-9]/g, '') })} />
             </span>
           </label>
           </div>
   );
+
+  /**
+   * C1 — WHAT WE CAN HONESTLY MATCH, AND WHAT TO TAKE OUT.
+   *
+   * It sits WITH the filters, because that is where somebody is deciding what
+   * this list should be. Type, distance and date are the three things Land
+   * Registry publishes for every sale; a list filtered on them looks vetted and
+   * is not, and the difference is a number somebody would otherwise trust. The
+   * three lines under it are the pruning, in the fewest plain words that can
+   * carry it — never a lesson, and never the vocabulary of a course.
+   */
+  const guidance = (
+    <div class="comps-guidance">
+      <p class="hint">{COMPARABLES.rules.whatWeMatch} {COMPARABLES.rules.yourRead}</p>
+      <p class="prune-head">{COMPARABLES.rules.prune.heading}</p>
+      <ul class="prune-list">
+        {COMPARABLES.rules.prune.items.map((line) => <li key={line}>{line}</li>)}
+      </ul>
+    </div>
+  );
+
+  /**
+   * C1 — THE WIDENING, SAID OUT LOUD, AND NEVER INFERRED HERE.
+   *
+   * The stage comes from core's own run. Both rungs print when both fired,
+   * because two steps were taken and saying only the second would hide one.
+   * Where even the widened set is short, no valuation is shown at all and this
+   * is where the reason goes — the card beside it is not the place to explain
+   * an absence it did not decide.
+   */
+  const W = COMPARABLES.widened;
+  const R = COMPARABLE_RULES;
+  const widenNotes = result === null ? [] : [
+    ...(stage === 'wider-time' || stage === 'wider-area' || stage === 'exhausted'
+      ? [W.time(R.minComparables, R.periodMonths, R.widen.periodMonths)] : []),
+    ...(stage === 'wider-area' || stage === 'exhausted'
+      ? [W.area(R.minComparables, RADIUS_LABEL[R.radiusMiles], RADIUS_LABEL[R.widen.radiusMiles])] : []),
+  ];
 
   // A phone gets a card per sale; a desktop keeps the table. ONE of the two is
   // built — never both — so a phone never carries an invisible 11-column table.
@@ -178,6 +291,16 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   // Seeded once, never re-asserted: re-asserting `open` on every render would
   // slam it shut under anyone who had closed it.
   const seedOpen = useRef(true);
+  /**
+   * C1 — THE FILTERS ARE OPEN BEFORE ANYONE PRESSES ANYTHING.
+   *
+   * They were behind a button, so the three decisions the whole valuation rests
+   * on were invisible until somebody went looking for them — and the number one
+   * press away looked like a property of the house rather than of a set they
+   * could change. Seeded once, never re-asserted: re-asserting `open` on every
+   * render would slam the sheet shut under anyone who had closed it.
+   */
+  const seedFiltersOpen = useRef(true);
   const fold = folded && features.sectionOverview && result !== null && result.comps.length > 0
     ? { line: SECTION_STRIP.compsSummary(stats.count, perSqm), open: seedOpen.current }
     : null;
@@ -186,16 +309,17 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
   const body = (
     <>
         {features.compsMobile ? (
-        <details class="filter-sheet">
+        <details class="filter-sheet" open={seedFiltersOpen.current}>
           <summary class="filter-summary">
             {filtersSet === 0 ? COMPARABLES.filters.label : COMPARABLES.filters.withCount(filtersSet)}
           </summary>
           {filtersSet > 0 && (
-            <button type="button" class="filter-clear" onClick={() => update(clearedFilters())}>{COMPARABLES.filters.clear}</button>
+            <button type="button" class="filter-clear" onClick={() => setFilter(clearedFilters())}>{COMPARABLES.filters.clear}</button>
           )}
           {filterFields}
+          {guidance}
         </details>
-      ) : filterFields}
+      ) : <>{filterFields}{guidance}</>}
 
         {result === null ? (
           <p class="hint">{COPY.comps.waiting}</p>
@@ -206,6 +330,18 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
           </div>
         ) : (
           <>
+            {widenNotes.map((note, i) => (
+              <p class="hint widen-note" role="status" key={note}>
+                {note}{i === 0 && <> <Tooltip text={W.whyTimeFirst} /></>}
+              </p>
+            ))}
+            {tooFew && (
+              <p class="hint widen-note" role="status">
+                {laddered(s)
+                  ? W.exhausted(stats.count, R.minComparables)
+                  : W.yourFilters(stats.count, R.minComparables)}
+              </p>
+            )}
             {stats.count > 0 && stats.count < 3 && (
               <p class="hint thin-note" role="status">
                 <strong>{COMPARABLES.stats.thinEvidenceLabel}</strong>{' '}{COMPARABLES.stats.thinEvidence(stats.count)}
@@ -256,7 +392,7 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
               <CompMap
                 article4={article4}
                 subject={{ lat: result.subject.lat, lng: result.subject.lng }}
-                radiusMiles={Number(s.radius)}
+                radiusMiles={inForce.radiusMiles}
                 comps={comps}
                 selectedId={null}
               />
@@ -264,10 +400,15 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
             {s.view === 'list' && <p class="hint">{COPY.comps.untick}</p>}
             {cards && (
               <ul class="comp-cards" aria-label={COMPARABLES.card.listLabel} hidden={s.view === 'map'}>
-                {comps.map((c) => {
+                {comps.map((c, i) => {
                   const address = [c.saon, c.paon, c.street].filter(Boolean).join(' ');
                   return (
-                    <li class={c.included ? 'comp-card' : 'comp-card is-out'} key={c.id}>
+                    <li
+                      class={c.included ? 'comp-card' : 'comp-card is-out'}
+                      key={c.id}
+                      ref={i === gateRow ? (el) => { endRef.current = el; } : undefined}
+                      data-gate-row={i === gateRow ? '' : undefined}
+                    >
                       <label class="comp-tick">
                         <input type="checkbox" checked={c.included} onChange={() => toggle(c.id)}
                           aria-label={COMPARABLES.card.include(address)} />
@@ -318,10 +459,12 @@ export function CompsModule({ result, article4 = false, folded = false }: { resu
                   </tr>
                 </thead>
                 <tbody>
-                  {comps.map((c) => (
+                  {comps.map((c, i) => (
                     <tr
                       class={c.included ? '' : 'excluded'}
                       key={c.id}
+                      ref={i === gateRow ? (el) => { endRef.current = el; } : undefined}
+                      data-gate-row={i === gateRow ? '' : undefined}
                       onMouseEnter={() => (hoveredCompId.value = c.id)}
                       onMouseLeave={() => (hoveredCompId.value = null)}
                     >

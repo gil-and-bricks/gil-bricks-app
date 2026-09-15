@@ -22,7 +22,7 @@
  * our own published data files.
  */
 import { useEffect, useState } from 'preact/hooks';
-import { getOutcodePostcodes, refurbDuration, salesByPrice, sayWeeks, sectorOfPostcode } from '@gil-bricks/core';
+import { getOutcodePostcodes, refurbDuration, sayWeeks, sectorOfPostcode } from '@gil-bricks/core';
 import { loadMe, me, meUnknown, openLoginWall } from '../../lib/auth/session';
 import { ACCOUNT } from '../../config/account';
 import { COPY } from '../../config/copy';
@@ -34,6 +34,7 @@ import { packFloorPlan } from '../../lib/pack/floorPlan';
 import { packNumbersFor, packSourceFor, tickedKeys, tickedScope } from '../../lib/pack/fromDeal';
 import { areaHighlights, loadAreaFacts, type HighlightSources } from '../../lib/pack/areaHighlights';
 import { compsFrom, growthFrom, heroAndStrip, waterfallFrom, type GrowthModel } from '../../lib/pack/packData';
+import { packComparables } from '../../lib/comparablesRun';
 import { partsSumToTotal } from '@gil-bricks/core';
 import { ownWeeksFrom } from '../analyser/RefurbSection';
 import { PackComposer, type Base, type Branding } from './PackComposer';
@@ -170,7 +171,21 @@ export function PackApp() {
         if (live && facts !== null) {
           setArea(areaHighlights(facts));
           const price = Number(new URLSearchParams(found.url_params).get('price') ?? 0);
-          setComps(compsFrom(facts.sector, Number.isFinite(price) ? price : 0));
+          /**
+           * C1 — THE PACK COMPARES AGAINST THE SAME SALES THE ANALYSER DID.
+           *
+           * It used to take the eight highest-priced sales in the sector, which
+           * is to say it chose the evidence that flattered the deal, in a
+           * document somebody sends to an investor. It now runs the ONE engine
+           * on the ONE definition — the subject's type, twelve months, half a
+           * mile, widened once if that is too thin — so the pack and the
+           * analyser cannot disagree about what this property is worth.
+           *
+           * Failure is silence, as everywhere else on this page: no ranked list
+           * rather than a list built on a different rule.
+           */
+          const packComps = await packComparables(new URLSearchParams(found.url_params));
+          if (live) setComps(compsFrom(packComps, Number.isFinite(price) ? price : 0));
           setGrowth(growthFrom(facts.trajectory, facts.codes, sector, Number.isFinite(price) ? price : null));
 
           /**
@@ -184,8 +199,7 @@ export function PackApp() {
            */
           const here = postcode.trim().toUpperCase().replace(/\s+/g, ' ');
           const outcode = here.split(' ')[0] ?? '';
-          const sales = facts.sector?.sales ?? [];
-          if (outcode !== '' && sales.length > 0) {
+          if (outcode !== '' && packComps !== null && packComps.length > 0) {
             void getOutcodePostcodes(outcode)
               .then(async (places) => {
                 // The geocode map keys postcodes WITHOUT a space (SA16HW),
@@ -198,8 +212,11 @@ export function PackApp() {
                   subject: { lat: at[0], lng: at[1] },
                   radiusMiles: 0.5,
                   selectedId: null,
-                  comps: salesByPrice(sales, 12)
-                    .map((sale) => ({ ...sale, distanceMiles: 0, included: true, links: {} as never })),
+                  // C1 — the SAME comparables the list prints, so the map and
+                  // the list can never show different sets. They already carry
+                  // their real distance, which the old line hardcoded to zero
+                  // under a half-mile ring it therefore could not contradict.
+                  comps: (packComps ?? []).slice(0, 12),
                 }, branding?.accentColour ?? '');
                 if (live && shot.png !== null) setMapImage(shot.png);
               })

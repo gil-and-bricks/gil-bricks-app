@@ -27,6 +27,7 @@ import { DealFacts } from './DealFacts';
 import { DealDates } from './DealDates';
 import { ScoreHistory } from './ScoreHistory';
 import { DealFindings } from './DealFindings';
+import { comparablesMoved } from '../../lib/deals/comparablesMoved';
 
 export interface DealDetailProps {
   deal: BoardDeal;
@@ -60,6 +61,15 @@ export function DealDetail({
       {/* X2 — the reason this page exists: what the listing said and did not say. */}
       <h2 class="dp-h2">{DEAL_PAGE_COPY.fromTheListing}</h2>
       <DealFindings codes={findingCodes} />
+
+      {/* C1 — said once, on the deal's own page, the way a moved score is.
+          Nothing stored is rewritten: the deal keeps the numbers it was saved
+          with, and re-running it is what takes this line away. */}
+      {comparablesMoved(deal) && (
+        <p class="dc-fact-note" role="note">
+          {COPY.valuation.rulesMoved.label}: {COPY.valuation.rulesMoved.why}
+        </p>
+      )}
 
       {deal.is_auction && (
         <p class="dc-auction" role="note">⚠ {COPY.account.auctionWarning}</p>

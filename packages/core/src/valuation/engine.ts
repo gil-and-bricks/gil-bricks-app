@@ -16,6 +16,7 @@ import type { Breakdown } from '../maths/breakdown';
 import { fmtMoney } from '../maths/format';
 import { valuationRange, type Confidence, type ValuationRange } from '../maths/valuation';
 import { computeStats, findComparables, type ComparablesResult } from '../comparables/engine';
+import { runComparables } from '../comparables/rules';
 import { fetchSaleHistory } from '../landregistry/history';
 import { ComparablesError } from '../comparables/errors';
 
@@ -33,8 +34,15 @@ export interface ValuationInput {
   lastSalePrice?: number;
   /** Completion date of that sale, yyyy-mm-dd or yyyy-mm. */
   lastSaleDate?: string;
+  /**
+   * The subject's own type letter (D/S/T/F). C1 — the fallback run matches it,
+   * so a flat is never valued off detached-house £/sqm. Unknown runs unfiltered
+   * rather than guessing.
+   */
+  propertyType?: string | null;
   /** Reuse an existing comparables search (must be for the SAME postcode);
-   * otherwise the engine runs its own (1 mile, 12 months, all types). */
+   * otherwise the engine runs its own on the shared rules: the subject's type,
+   * 12 months, half a mile — see `comparables/rules.ts`. */
   comparables?: ComparablesResult;
 }
 
@@ -117,15 +125,20 @@ export async function valueProperty(input: ValuationInput): Promise<Valuation> {
   }
 
   // Comparables run also resolves the subject (postcode → country) for line A.
-  const comps = input.comparables ??
-    (await findComparables({
-      postcode: input.postcode,
-      radiusMiles: 1,
-      periodMonths: 12,
-      propertyType: 'all',
-      tenure: 'any',
-      age: 'all',
-    }));
+  /**
+   * C1 — THE FALLBACK USES THE SHARED RULES, AND MATCHES THE SUBJECT'S TYPE.
+   *
+   * It used to be one mile and ALL TYPES, hardcoded here — so any caller that
+   * did not hand in its own comparables valued a flat off detached-house £/sqm.
+   * `typeMismatch.ts` existed to warn about that afterwards; it is now mostly a
+   * backstop for a filter a person has widened themselves.
+   */
+  const comps = input.comparables ?? (await runComparables({
+    postcode: input.postcode,
+    subjectType: input.propertyType ?? null,
+    tenure: 'any',
+    age: 'all',
+  }, findComparables)).result;
   if (compact(comps.subject.postcode) !== compact(input.postcode)) {
     throw new ComparablesError(
       'BadInput',

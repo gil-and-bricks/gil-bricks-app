@@ -14,6 +14,9 @@
  * opportunity or value appear here as a judgement. That test is the enforcement;
  * this comment is the reason.
  */
+import { COMPARABLE_RULES } from '../comparables/rules';
+import { BAND_AREA_WORDS } from '../findings/copy';
+import type { BandArea } from './priceBand';
 
 export const TRIAGE_COPY = {
   /** ZONE ONE — the numbers. Labels, not sentences. */
@@ -65,8 +68,19 @@ export const TRIAGE_COPY = {
     above: 'Above the typical range for this size and type in this area',
     below: 'Below the typical range for this size and type in this area',
     range: (low: string, high: string): string => `Typical range ${low}–${high} per m²`,
-    basis: (n: number): string => `Based on ${n} sales of the same type and a similar size, last 3 years`,
-    widened: 'Not enough in this postcode sector, so this is the wider area',
+    /**
+     * C1 — the window and the AREA both come from the shared rules. It used to
+     * say "last 3 years" and name no area at all, over a comparison that ran to
+     * twelve months and to whatever the postcode sector happened to be.
+     */
+    basis: (n: number, area: BandArea): string =>
+      `Based on ${n} sales of the same type and a similar size ${BAND_AREA_WORDS[area]}, last ${COMPARABLE_RULES.periodMonths} months`,
+    /**
+     * C1 — said when the default half mile could not reach five, so the search
+     * stepped out to a mile. It used to say "this postcode sector", which was
+     * the area the band actually used and is no longer the area it means.
+     */
+    widened: 'Not enough within ½ mile, so this reaches 1 mile',
     /**
      * PERMANENTLY BESIDE THE COMPARISON, and it carries BOTH required caveats:
      * what the comparison cannot see, and how coarse the area data is.

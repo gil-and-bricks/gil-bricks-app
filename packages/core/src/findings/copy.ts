@@ -41,6 +41,8 @@
  * listing does not give this" is a fact about the listing. "There is no ground
  * rent" would be a claim about a lease nobody here has read.
  */
+import { COMPARABLE_RULES } from '../comparables/rules';
+import type { BandArea } from '../triage/priceBand';
 import type { FindingCode } from './findings';
 
 export interface FindingWords {
@@ -133,20 +135,46 @@ export const FINDING_COPY: Record<FindingCode, FindingWords> = {
  * street this tool cannot resolve. The caveat is not decoration: cheap for the
  * size very often means cheap for a reason.
  */
+/**
+ * C1 — WHAT AREA THE COMPARISON COVERED, IN WORDS. Four, because there are four
+ * things it can honestly be: the product's default, its one widened step, and
+ * the two sector fallbacks for a property that could not be placed on a map.
+ * Never omitted: an area left unsaid is read as the default one.
+ */
+export const BAND_AREA_WORDS: Record<BandArea, string> = {
+  'half-mile': 'within ½ mile',
+  wider: 'within 1 mile',
+  sector: 'in this postcode sector',
+  sectors: 'in this and nearby sectors',
+};
+
 export const PRICE_LINE = {
   within: 'Within the typical range for this size and type',
   above: 'Above the typical range for this size and type',
   below: 'Below the typical range for this size and type',
-  /** Always the count, so the reader can weigh the evidence themselves. */
-  basis: (n: number): string => `${n} similar sales, last 3 years`,
-  /** Said when the sector could not reach five and the wider area was used. */
-  widened: 'wider area',
+  /** Always the count and the area, so the reader can weigh the evidence. */
+  /**
+   * C1 — THE WINDOW IS READ, NOT RETYPED. This said "last 3 years" while the
+   * comparison it describes ran to twelve months: the sentence was describing
+   * a different search from the one that produced the range beside it.
+   */
+  basis: (n: number, area: BandArea): string =>
+    `${n} similar sales ${BAND_AREA_WORDS[area]}, last ${COMPARABLE_RULES.periodMonths} months`,
   /**
    * PERMANENT, and carrying both halves: what the comparison cannot see, and how
    * coarse the data underneath it is. Tighter than the panel's wording because
    * this sits on somebody else's page, but it loses neither fact.
    */
   caveat: 'Compares size, not quality, across about 1,500 people. Cheap for the size can mean cheap for a reason.',
+  /**
+   * C1 — THE ONE LINE THAT SENDS THEM TO THE EVIDENCE.
+   *
+   * This box is a position, not a valuation, and the full numbers are not
+   * computed here at all. Which sold sales they are set against is the single
+   * biggest lever on every figure the analyser then produces, so the box says
+   * so — once, in a line, without trying to teach it on somebody else's page.
+   */
+  checkComparables: 'Which sales you compare against decides the end value. Check them in the analyser.',
 } as const;
 
 /**

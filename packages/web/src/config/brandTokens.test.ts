@@ -135,6 +135,12 @@ describe('pink is on the primary actions, and on nothing else', () => {
     ['deals/DealBoard.tsx', 'Log in (board)', /class="btn-action"[^>]*>\{BOARD_COPY\.screen\.signInButton\}/],
     ['deals/DealFacts.tsx', 'Save (a fact)', /class="btn-action"[^>]*onClick=\{save\}/],
     ['finance/BridgingEnquiry.tsx', 'Sign in to continue', /class="btn-action"[^>]*>\{BRIDGING\.signedOut\.cta\}/],
+    /**
+     * C1 — the one press that stands where the valuation waits. It is the most
+     * important thing on the page at that moment: there is no figure until it
+     * is pressed or the list has been scrolled, so it leads like a primary.
+     */
+    ['analyser/ValuationGate.tsx', 'Check the comparables', /class="btn-action"[^>]*>\{G\.cta\}/],
   ];
 
   it.each(PRIMARY)('%s — %s is pink', (file, _what, pattern) => {
@@ -190,7 +196,7 @@ describe('pink is on the primary actions, and on nothing else', () => {
 
   it('no other component reached for the action token', () => {
     const used = ['analyser/ActionBar.tsx', 'auth/AccountApp.tsx', 'deals/DealBoard.tsx',
-      'deals/DealFacts.tsx', 'finance/BridgingEnquiry.tsx'];
+      'deals/DealFacts.tsx', 'finance/BridgingEnquiry.tsx', 'analyser/ValuationGate.tsx'];
     // The class is the only route in; the token itself belongs to the stylesheet.
     for (const p of used) expect(FILE(p)).not.toContain('var(--action');
   });

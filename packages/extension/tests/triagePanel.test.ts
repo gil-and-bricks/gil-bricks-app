@@ -44,7 +44,10 @@ function listing(over: Partial<NormalisedListing> = {}): NormalisedListing {
 /** A sector with enough same-type, similar-size sales to draw a range from. */
 function sector(ppsqmValues: number[] = [], type = 'T'): SectorFile {
   const sales = ppsqmValues.map((pps, i) => ({
-    id: `s${i}`, date: '2025-06-01', price: Math.round(pps * 82), type,
+    // C1 — inside the twelve-month window. It was 2025-06-01 against a
+    // 2026-09-15 subject, which counted only while the band's window was three
+    // years and every other surface in the product used twelve months.
+    id: `s${i}`, date: '2026-06-01', price: Math.round(pps * 82), type,
     floorAreaSqm: 82, ppsqm: pps, paon: String(i), street: 'Earl Street',
     town: 'Swansea', postcode: 'SA1 2HG', tenure: 'F', newBuild: false, lat: 0, lng: 0,
   }));

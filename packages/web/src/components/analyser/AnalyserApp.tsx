@@ -6,11 +6,12 @@
 import { useEffect, useState } from 'preact/hooks';
 import { COPY } from '../../config/copy';
 import { effect } from '@preact/signals';
-import { findComparables, getAreaStats, youtubeFor, type ComparablesResult } from '@gil-bricks/core';
+import { findComparables, getAreaStats, youtubeFor, runComparables, COMPARABLE_RULES, type ComparablesResult, type WidenStage } from '@gil-bricks/core';
 import { ComparablesError } from '@gil-bricks/core';
 import { fetchSaleHistory, type AddressCandidate } from '@gil-bricks/core';
 import { valueProperty, type Valuation } from '@gil-bricks/core';
 import { initFromUrl, isCompsReady, isReady, state, type UrlState } from './state';
+import { analyserComparables } from '../../lib/comparablesRun';
 import { READ_ONCE } from './arrival';
 import { initArrivedFacts } from './analyserEvidence';
 import { initProvenance, editedKeys } from './provenance';
@@ -27,6 +28,8 @@ import type { StrategyConfig } from '@gil-bricks/core';
 const VERDICTS: Record<string, typeof BtlVerdict> = { BtlVerdict, BrrrrVerdict, FlipVerdict, HmoVerdict };
 import { ValuationCard } from './ValuationCard';
 import { CompsModule } from './CompsModule';
+import { ValuationGate } from './ValuationGate';
+import { lookedAt } from './looked';
 import { ActionBar } from './ActionBar';
 import { features } from '../../config/features';
 import { SECTION_STRIP } from '../../config/analyserSections';
@@ -42,10 +45,18 @@ interface Results {
    *  built from (D4). Null when the companion file could not be read; the
    *  caveat is then simply absent, never guessed. */
   byType: Partial<Record<'D' | 'S' | 'T' | 'F', number | null>> | null;
+  /**
+   * C1 — WHICH RUNG OF THE LADDER PRODUCED THIS SET, and whether it is still
+   * too thin after it. Both come from core's `runComparables`, never inferred
+   * from the filters here: the section says what happened, and the valuation
+   * refuses on `tooFew`.
+   */
+  stage: WidenStage;
+  tooFew: boolean;
 }
 
 export function AnalyserApp({ strategyName, config = null, showVerdict = true }: { strategyName: string; config?: StrategyConfig | null; showVerdict?: boolean }) {
-  const [results, setResults] = useState<Results>({ comps: null, valuation: null, candidates: null, lrState: null, byType: null });
+  const [results, setResults] = useState<Results>({ comps: null, valuation: null, candidates: null, lrState: null, byType: null, stage: 'default', tooFew: false });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [postcodeError, setPostcodeError] = useState<string | null>(null);
@@ -100,19 +111,23 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                 () => ({ ok: false as const, h: null }),
               )
             : Promise.resolve(null);
-          const comps = await findComparables({
-            postcode: s.postcode,
-            radiusMiles: Number(s.radius) as 0.25 | 0.5 | 1,
-            periodMonths: Number(s.period) as 6 | 12,
-            propertyType: s.ctype,
-            tenure: s.tenure,
-            age: s.cage,
-            minAreaSqm: s.minArea === '' ? undefined : Number(s.minArea),
-            maxAreaSqm: s.maxArea === '' ? undefined : Number(s.maxArea),
-            minPrice: s.minPrice === '' ? undefined : Number(s.minPrice),
-            maxPrice: s.maxPrice === '' ? undefined : Number(s.maxPrice),
-            excludedIds: s.excluded === '' ? [] : s.excluded.split(','),
-          });
+          /**
+           * C1 — THE SHARED RULES, AND THE ONE WIDENING STEP.
+           *
+           * `runComparables` is the product's own definition of a comparable,
+           * in core, used by every surface: the subject's own type, the last 12
+           * months, half a mile — and one deliberate widening step when that is
+           * too thin. Nothing here decides any of it; it decides only whether
+           * the ladder applies, which it does only while the person has left
+           * the radius and the window alone.
+           */
+          /**
+           * C1 — THE ANALYSER'S ASK, which is a named function so that a test
+           * can run it side by side with the deal pack's and compare the SETS
+           * they produce. See lib/comparablesRun.ts.
+           */
+          const outcome = await analyserComparables(s);
+          const comps = outcome.result;
           if (mySeq !== seq) return;
 
           let valuation: Valuation | null = null;
@@ -134,6 +149,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
               paon: s.paon.trim() === '' ? undefined : s.paon,
               saon: s.saon.trim() === '' ? undefined : s.saon,
               floorAreaSqm: s.area === '' ? undefined : Number(s.area),
+              propertyType: s.type,
               comparables: comps,
             });
           } catch (err) {
@@ -141,7 +157,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
             if (!(err instanceof ComparablesError && (err.kind === 'DataUnavailable' || err.kind === 'BadInput'))) throw err;
           }
           if (mySeq !== seq) return;
-          setResults({ comps, valuation, candidates, lrState, byType: null });
+          setResults({ comps, valuation, candidates, lrState, byType: null, stage: outcome.stage, tooFew: outcome.tooFew });
           // The per-type sold prices for the subject's own sector, fetched AFTER
           // the cards are on screen — the valuation must never wait on the
           // caveat. A miss is not an error: without it there is simply no type
@@ -164,7 +180,7 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
           } else {
             setError(COPY.analyser.loadFailed);
           }
-          setResults({ comps: null, valuation: null, candidates: null, lrState: null, byType: null });
+          setResults({ comps: null, valuation: null, candidates: null, lrState: null, byType: null, stage: 'default', tooFew: false });
         } finally {
           if (mySeq === seq) setBusy(false);
         }
@@ -298,8 +314,26 @@ export function AnalyserApp({ strategyName, config = null, showVerdict = true }:
                   {/* C1 — THE EVIDENCE COMES FIRST. You work through the
                       comparables and satisfy yourself they are right before you
                       are shown a valuation built on them. */}
-                  <CompsModule result={results.comps} article4={config?.id === 'hmo'} folded={showVerdict} />
-                  <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
+                  <CompsModule
+                    result={results.comps}
+                    stage={results.stage}
+                    tooFew={results.tooFew}
+                    article4={config?.id === 'hmo'}
+                    folded={showVerdict}
+                  />
+                  {/* C1 — THE FIGURE WAITS UNTIL THE EVIDENCE HAS BEEN SEEN.
+                      Only where there IS a figure to withhold: an absent
+                      valuation already says why, and standing a gate in front
+                      of nothing would blame the reader for our missing data. */}
+                  {features.comparablesFirst && results.valuation !== null && !lookedAt(state.value) ? (
+                    <ValuationGate onGo={() => {
+                      const el = typeof document === 'undefined' ? null : document.getElementById('sec-comps');
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      (el?.querySelector('select') as HTMLSelectElement | null)?.focus();
+                    }} />
+                  ) : (
+                    <ValuationCard valuation={results.valuation} lrState={results.lrState} candidates={results.candidates} byType={results.byType} sectorSales={results.comps?.subjectSector?.sales ?? null} />
+                  )}
                 </>
               )}
               <ActionBar valuation={results.valuation} comps={results.comps} strategyId={config?.id ?? 'comparables'} />

@@ -61,6 +61,30 @@ export const COPY = {
     needAreaTitle: 'Add the floor area for £/m²',
     needArea: 'Add the internal area to see £ per square metre. It’s on the EPC.',
     thinEvidence: 'Not enough evidence yet. Add the internal area, or a house number.',
+    /**
+     * C1 — THE VALUATION WAITS UNTIL THE COMPARABLES HAVE BEEN LOOKED AT.
+     *
+     * Every end value, every refinance figure and every flip margin rests on
+     * which sold properties this was compared against, and a figure shown
+     * before the list has been seen is read as a fact about the house rather
+     * than as arithmetic over a set somebody could have pruned in ten seconds.
+     * So the number is withheld and this stands in its place: what it depends
+     * on, and one press to go and look.
+     */
+    reviewGate: {
+      line: 'The end value depends on which sold sales this is compared against.',
+      why: 'Look through them, take out the ones that are not like this property, and the figure appears.',
+      cta: 'Check the comparables',
+    },
+    /**
+     * C1 — THE SET MOVED, AND A SAVED FIGURE WAS BUILT ON THE OLD ONE. Said
+     * once, on the deal, the same way a moved score already is. Nothing is
+     * rewritten: the deal keeps the number it was saved with.
+     */
+    rulesMoved: {
+      label: 'Saved before the comparables changed',
+      why: 'It was compared against a wider set of sales. Re-run it to see today’s figures.',
+    },
     contextOnly: 'Beds, baths, garden and parking are context only.',
     /**
      * D4 — the sector's evidence is about a different kind of home. Said BESIDE

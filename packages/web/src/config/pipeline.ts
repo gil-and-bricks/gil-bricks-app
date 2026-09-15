@@ -382,6 +382,24 @@ export const SCORE_MOVED_COPY = {
   failed: 'That didn’t save. Try again in a moment.',
 } as const;
 
+/**
+ * C1 — THE DAY WHAT COUNTS AS A COMPARABLE CHANGED.
+ *
+ * Before this date the analyser compared a property against every sale within a
+ * MILE, of ANY type, and the deal pack against the eight highest-priced sales in
+ * the whole postcode sector. A deal saved then was judged by a person looking at
+ * a different set of sales from the one they would see today.
+ *
+ * Nothing stored is rewritten — the deal keeps the numbers it was saved with —
+ * but it says so, once, on its own page, until it is re-run. Re-running a deal
+ * moves `updated_at` past this date and the note stops applying, which is what
+ * makes "once" true without a dismissal anybody has to remember.
+ */
+export const COMPARABLES_CHANGED = {
+  /** ISO date. Compared against a deal's `updated_at`. */
+  at: '2026-09-15',
+} as const;
+
 export const CHANGE_RULES = {
   onBandChange: true,
   minPoints: 1,

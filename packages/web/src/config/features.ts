@@ -295,6 +295,22 @@ export interface FeatureFlags {
    * or to anything on the analyser.
    */
   dealPack: boolean;
+
+  /**
+   * C1 — THE VALUATION WAITS UNTIL THE COMPARABLES HAVE BEEN LOOKED AT.
+   *
+   * On: where the sold evidence exists, the estimate is withheld until the end
+   * of the comparables list has been on screen, or the person has touched a
+   * filter or a tick. In its place stands one line saying the end value depends
+   * on which sales it is compared against, and a button that takes them there.
+   * Once satisfied it stays satisfied for that property, for the session.
+   *
+   * Off: the estimate renders immediately, exactly as it did before, and
+   * nothing else on the comparables section changes — the new defaults, the
+   * widening notices and the open filters are not behind this flag, because
+   * they are the correct behaviour rather than an experiment.
+   */
+  comparablesFirst: boolean;
 }
 
 export const features: FeatureFlags = {
@@ -342,6 +358,7 @@ export const features: FeatureFlags = {
   onPageChips: EXTENSION_FLAGS.onPageChips,
   areaTrajectory: true,
   dealPack: true,
+  comparablesFirst: true,
 };
 
 /** The sticky bar can only show a Deal Score, so it is live only when BOTH flags

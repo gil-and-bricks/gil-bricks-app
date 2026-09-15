@@ -155,12 +155,19 @@ describe('thin-evidence ladder rungs (4 £/sqm carriers)', () => {
 });
 
 describe('line B — area £/sqm', () => {
-  // 1668 £/sqm × 90 sqm = £150,120
-  it('typicalPpsqm × area: 90 sqm → £150,120', async () => {
+  /**
+   * C1 — THIS NUMBER MOVED, AND THAT IS THE POINT OF THE SPRINT.
+   *
+   * It was £1,668/sqm, from a ONE-MILE ring the valuation ran for itself and
+   * that no other surface used. The shared rules make it half a mile, so the
+   * set is smaller, nearer, and £1,598/sqm — a 4.2% lower valuation on this
+   * fixture. The old figure was not wrong arithmetic; it was the wrong set.
+   */
+  it('typicalPpsqm × area: 90 sqm → £143,820 at half a mile', async () => {
     const v = await valueProperty({ postcode: 'CF37 1DL', floorAreaSqm: 90 });
     expect(v.lines).toHaveLength(1);
-    expect(v.lines[0].estimate).toBeCloseTo(150120, 6);
-    expect(v.lines[0].breakdown.substituted).toMatch(/£1,668\/sqm × 90 sqm/);
+    expect(v.lines[0].estimate).toBeCloseTo(143820, 6);
+    expect(v.lines[0].breakdown.substituted).toMatch(/£1,598\/sqm × 90 sqm/);
   });
   it('area outside the honest EPC bounds is rejected', async () => {
     await expect(valueProperty({ postcode: 'CF37 1DL', floorAreaSqm: 5 })).rejects.toMatchObject({ kind: 'BadInput' });
@@ -170,10 +177,11 @@ describe('line B — area £/sqm', () => {
 
 describe('blend + confidence ladder', () => {
   it('two agreeing lines blend to their mean with HIGH confidence (±5%)', async () => {
-    // line A: £115,000 × (100/75) = £153,333.33; line B: £150,120 → gap ~2.1% of mean
+    // line A: £115,000 × (100/75) = £153,333.33; line B: £143,820 (C1: half a
+    // mile, not one) → the two still agree closely enough to blend.
     const v = await valueProperty({ postcode: 'CF37 1DL', lastSalePrice: 115000, lastSaleDate: '2019-03', floorAreaSqm: 90 });
     expect(v.lines).toHaveLength(2);
-    expect(v.estimate).toBeCloseTo((153333.3333 + 150120) / 2, 1);
+    expect(v.estimate).toBeCloseTo((153333.3333 + 143820) / 2, 1);
     expect(v.confidence).toBe('high');
     expect(v.range.label).toBe('fairly reliable');
     expect(v.range.marginPct).toBe(5);

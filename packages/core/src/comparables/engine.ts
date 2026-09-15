@@ -8,6 +8,7 @@
  * Radius is HARD-CAPPED at 1 mile and never auto-widened: thin results get
  * an honest empty state with a suggestion instead of quietly casting wider.
  */
+import { COMPARABLE_RULES, type RadiusMiles, type PeriodMonths } from './rules';
 import { getManifest, getSector, getSectorsIndex } from '../data/client';
 import type { Sale, SectorFile } from '../data/types';
 import { iqm, percentile } from '../maths/stats';
@@ -16,8 +17,7 @@ import { distanceMiles } from './geo';
 import { geocodePostcode, type GeocodedPostcode } from './geocode';
 import { compLinks, type CompLinks } from './links';
 
-export type RadiusMiles = 0.25 | 0.5 | 1;
-export type PeriodMonths = 6 | 12;
+export type { RadiusMiles, PeriodMonths } from './rules';
 export type PropertyTypeFilter = 'D' | 'S' | 'DS' | 'T' | 'houses' | 'F' | 'all';
 export type TenureFilter = 'any' | 'F' | 'L';
 export type AgeFilter = 'all' | 'new' | 'old';
@@ -63,8 +63,18 @@ export interface ComparablesResult {
   sectorsSearched: string[];
   /** Data as-of month (manifest ppdMonth) — the period counts back from here. */
   asOf: string;
-  /** The radius this search actually used (echoed for downstream wording). */
+  /**
+   * THE FILTERS THIS SEARCH ACTUALLY USED, echoed back (C1).
+   *
+   * Every surface reads the effective filters off the RESULT rather than off
+   * whatever it happened to pass in. That is the difference between a control
+   * that agrees with the list and one that merely usually agrees with it: when
+   * the ladder widens a thin set to 24 months, a "12 months" select reading
+   * from its own input would sit above 24-month sales and be believed.
+   */
   radiusMiles: RadiusMiles;
+  periodMonths: PeriodMonths;
+  propertyType: PropertyTypeFilter;
   /** Present only when there are zero matching comps. */
   suggestion?: string;
   /**
@@ -135,8 +145,10 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
   if (![0.25, 0.5, 1].includes(input.radiusMiles)) {
     throw new ComparablesError('BadInput', `radiusMiles must be 0.25, 0.5 or 1 (got ${String(input.radiusMiles)})`);
   }
-  if (![6, 12].includes(input.periodMonths)) {
-    throw new ComparablesError('BadInput', `periodMonths must be 6 or 12 (got ${String(input.periodMonths)})`);
+  // C1 — 24 joined the list so the widening ladder has a rung to climb to.
+  // The ladder never reaches past it; see `comparables/rules.ts`.
+  if (![6, 12, 24].includes(input.periodMonths)) {
+    throw new ComparablesError('BadInput', `periodMonths must be 6, 12 or 24 (got ${String(input.periodMonths)})`);
   }
   if (!(input.propertyType in TYPE_SETS)) {
     throw new ComparablesError('BadInput', `propertyType must be D, S, DS, T, houses, F or all (got ${String(input.propertyType)})`);
@@ -195,13 +207,17 @@ export async function findComparables(input: ComparablesInput): Promise<Comparab
     sectorsSearched: candidates.map((c) => c.sectorId).sort(),
     asOf: manifest.ppdMonth,
     radiusMiles: input.radiusMiles,
+    periodMonths: input.periodMonths,
+    propertyType: input.propertyType,
     // Already in hand: the subject's sector is one of the files just loaded.
     subjectSector: sectorFiles.find((f) => f.sector === subject.sectorId) ?? null,
   };
   if (comps.length === 0) {
     const widenables: string[] = [];
     if (input.radiusMiles < MAX_RADIUS_MILES) widenables.push('widening the radius');
-    if (input.periodMonths < 12) widenables.push('looking back 12 months');
+    if (input.periodMonths < COMPARABLE_RULES.widen.periodMonths) {
+      widenables.push(`looking back ${COMPARABLE_RULES.widen.periodMonths} months`);
+    }
     const boundsSet =
       input.minPrice !== undefined || input.maxPrice !== undefined ||
       input.minAreaSqm !== undefined || input.maxAreaSqm !== undefined;

@@ -21,9 +21,34 @@ export interface SubjectState {
 }
 
 export interface CompsFilterState {
-  radius: '0.25' | '0.5' | '1';
-  period: '6' | '12';
-  ctype: 'all' | 'D' | 'S' | 'DS' | 'T' | 'houses' | 'F';
+  /**
+   * C1 — 'auto' IS THE DEFAULT ON ALL THREE OF THESE, and it is a sentinel, not
+   * a value. It means "use the product's own definition of a comparable" —
+   * half a mile, the last 12 months, the subject's own type — and it lets the
+   * one widening step move the radius and the window without the select
+   * afterwards claiming a number that is not what the list is showing.
+   *
+   * That disagreement is the whole reason for the sentinel. With a concrete
+   * '12' in state, a thin set widened to 24 months would leave "12 months"
+   * sitting above 24-month sales, and it would be believed. The 'auto' option's
+   * LABEL reports what is actually in force, read off the result the engine
+   * returned, so the control cannot say one thing while the list says another.
+   */
+  radius: 'auto' | '0.25' | '0.5' | '1';
+  period: 'auto' | '6' | '12' | '24';
+  /**
+   * 'auto' here means MATCH THE SUBJECT'S OWN TYPE.
+   *
+   * It used to default to 'all', which was passed straight to the engine as "no
+   * type filter" — so a flat was valued off detached-house £/sqm, and a separate
+   * module existed to warn about that afterwards.
+   *
+   * It is a sentinel rather than seeding `ctype` with the subject's letter
+   * because the select must SAY what it is doing: "Same type as this property"
+   * is honest, whereas silently showing "Terraced" would look like a choice the
+   * person made. Choosing anything else overrides it.
+   */
+  ctype: 'auto' | 'all' | 'D' | 'S' | 'DS' | 'T' | 'houses' | 'F';
   tenure: 'any' | 'F' | 'L';
   cage: 'all' | 'new' | 'old';
   minArea: string;
@@ -40,7 +65,7 @@ export type UrlState = SubjectState & CompsFilterState;
 export const DEFAULTS: UrlState = {
   postcode: '', price: '', type: '', area: '', beds: '', baths: '',
   age: '', garden: '', parking: '', paon: '', saon: '',
-  radius: '0.5', period: '12', ctype: 'all', tenure: 'any', cage: 'all',
+  radius: 'auto', period: 'auto', ctype: 'auto', tenure: 'any', cage: 'all',
   minArea: '', maxArea: '', minPrice: '', maxPrice: '', excluded: '', view: 'list',
 };
 
@@ -55,9 +80,11 @@ const ALLOWED: Partial<Record<keyof UrlState, string[]>> = {
   age: ['', 'pre1900', '1900-1949', '1950-1999', '2000plus'],
   garden: ['', 'none', 'yes'],
   parking: ['', '0', '1', '2plus'],
-  radius: ['0.25', '0.5', '1'],
-  period: ['6', '12'],
-  ctype: ['all', 'D', 'S', 'DS', 'T', 'houses', 'F'],
+  radius: ['auto', '0.25', '0.5', '1'],
+  // C1 — 24 is the widening ladder's second rung; see comparables/rules.ts. It
+  // must survive a URL round-trip or a shared widened link would snap back.
+  period: ['auto', '6', '12', '24'],
+  ctype: ['auto', 'all', 'D', 'S', 'DS', 'T', 'houses', 'F'],
   tenure: ['any', 'F', 'L'],
   cage: ['all', 'new', 'old'],
   view: ['list', 'map'],

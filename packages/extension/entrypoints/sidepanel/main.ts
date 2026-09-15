@@ -57,6 +57,8 @@ import {
   FINDING_COPY,
   triageNumbers,
   bandForListing,
+  subjectPointFor,
+  getManifest,
   resolveListingArea,
   salesFromSector,
   detectFlags,
@@ -418,7 +420,7 @@ function bandBlock(view: PanelView): HTMLElement {
     // An area holding two markets: say so rather than average them.
     box.append(e('p', 'band-none', C.band.spread));
     box.append(e('p', 'band-range', C.band.range(fmtGBP(view.band.low), fmtGBP(view.band.high))));
-    box.append(e('p', 'band-basis', C.band.basis(view.band.count)));
+    box.append(e('p', 'band-basis', C.band.basis(view.band.count, view.band.area)));
     if (view.band.widened) box.append(e('p', 'band-widened', C.band.widened));
     box.append(e('p', 'band-caveat', C.band.caveat));
     return box;
@@ -427,7 +429,7 @@ function bandBlock(view: PanelView): HTMLElement {
   const position = e('p', `band-position band-${view.band.position}`, C.band[view.band.position]);
   box.append(position);
   box.append(e('p', 'band-range', C.band.range(fmtGBP(view.band.low), fmtGBP(view.band.high))));
-  box.append(e('p', 'band-basis', C.band.basis(view.band.count)));
+  box.append(e('p', 'band-basis', C.band.basis(view.band.count, view.band.area)));
   if (view.band.widened) box.append(e('p', 'band-widened', C.band.widened));
   box.append(e('p', 'band-caveat', C.band.caveat));
   return box;
@@ -855,6 +857,14 @@ interface Ctx {
   /** Sales from neighbouring sectors, fetched ONLY when the subject's own
    *  sector cannot reach five comparables (X1). */
   widerSales: BandSale[] | null;
+  /**
+   * C1 — WHERE THE PROPERTY IS, so the price comparison can apply the same half
+   * mile as every other surface. Null means it could not be placed, which the
+   * band reports as a sector-wide comparison rather than pretending to a radius.
+   */
+  subjectAt: { lat: number; lng: number } | null;
+  /** C1 — the month the sold data runs to; the band's window counts back from it. */
+  asOf: string | null;
   ewReject: string | null;
   ewRejectReason: 'outside-england-wales' | 'not-a-postcode' | null;
   /** X3 — a house number the person typed, when the listing gave none. */
@@ -964,6 +974,8 @@ function draw(ctx: Ctx): void {
     sector: ctx.sector,
     registerAreaSqm: ctx.registerArea?.sqm ?? null,
     widerSales: ctx.widerSales,
+    subjectAt: ctx.subjectAt,
+    asOf: ctx.asOf,
     now: new Date(),
   }, floorAreaFromSector);
   lastBandForTest = band;
@@ -1092,7 +1104,7 @@ async function widenIfNeeded(ctx: Ctx, faSqm: number | null): Promise<void> {
   if (!ctx.sectorId || !ctx.listing || ctx.widerSales !== null) return;
   if (!faSqm || faSqm <= 0) return;
   const first = bandForListing({
-    listing: ctx.listing, sector: ctx.sector,
+    listing: ctx.listing, sector: ctx.sector, subjectAt: ctx.subjectAt, asOf: ctx.asOf,
     registerAreaSqm: ctx.registerArea?.sqm ?? null, now: new Date(),
   }, floorAreaFromSector).band;
   if (first.kind !== 'none' || first.reason !== 'too-few') return;
@@ -1118,7 +1130,8 @@ async function loadFor(tabId: number, url: string): Promise<void> {
     url, listing: null, failure: null, screen: 'triage',
     strategy: (await store.getStrategy()) as StrategyId,
     settings: await store.getSettings(), criteria: await store.getCriteria(),
-    sector: null, sectorId: null, widerSales: null, ewReject: null, ewRejectReason: null,
+    sector: null, sectorId: null, widerSales: null, subjectAt: null, asOf: null,
+    ewReject: null, ewRejectReason: null,
     manualPaon: '', registerArea: null,
     openerHidden: await store.getOpenerHidden(),
     reminders: await store.getReminders(),
@@ -1155,6 +1168,17 @@ async function loadFor(tabId: number, url: string): Promise<void> {
   draw(ctx);
 
   if (ctx.sectorId && !ctx.ewReject) {
+    /**
+     * C1 — THE POINT IS FETCHED ALONGSIDE THE SECTOR, NOT AFTER IT.
+     *
+     * The band needs both before it can be drawn once. Resolving the point
+     * later would paint a sector-wide comparison and then silently replace it
+     * with a half-mile one a moment later — a number changing under somebody
+     * reading it, which is worse than either answer on its own. The postcode
+     * file is small, cached, and fetched in parallel, so it costs no wait.
+     */
+    const point = subjectPointFor(ctx.listing.postcode.value);
+    const asOf = getManifest().then((m) => m.ppdMonth, () => null);
     try {
       ctx.sector = await getSector(ctx.sectorId);
       ctx.sectorLoad = 'ok';
@@ -1163,6 +1187,8 @@ async function loadFor(tabId: number, url: string): Promise<void> {
       const kind = (err as { kind?: string })?.kind;
       ctx.sectorLoad = kind === 'NotFound' ? 'not-found' : 'load-failed';
     }
+    ctx.subjectAt = await point;
+    ctx.asOf = await asOf;
     if (activeCtx !== ctx) return;
     draw(ctx);
   }
@@ -1231,6 +1257,10 @@ export function __mountForTest(
   opts: {
     sector?: SectorFile | null; strategy?: StrategyId; settings?: Record<string, string>;
     criteria?: Criteria; sectorLoad?: SectorLoad; manualPaon?: string; widerSales?: BandSale[] | null;
+    /** C1 — the subject's point, so a test can hand both surfaces the same one. */
+    subjectAt?: { lat: number; lng: number } | null;
+    /** C1 — the month the sold data runs to, so both surfaces get the same one. */
+    asOf?: string | null;
     /**
      * X5 — what the EPC register answered, as `lookupArea` would have set it.
      * Present so a test can hand the panel and the chips the SAME register
@@ -1244,6 +1274,8 @@ export function __mountForTest(
     settings: opts.settings ?? {}, criteria: opts.criteria ?? {},
     sector: opts.sector ?? null, sectorId: opts.sector ? 'X' : null,
     widerSales: opts.widerSales ?? null,
+    subjectAt: opts.subjectAt ?? null,
+    asOf: opts.asOf ?? null,
     ewReject: null, ewRejectReason: null,
     manualPaon: opts.manualPaon ?? '',
     registerArea: typeof opts.registerAreaSqm === 'number' ? { sqm: opts.registerAreaSqm } : null,

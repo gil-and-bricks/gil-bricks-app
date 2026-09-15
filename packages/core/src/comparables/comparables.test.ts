@@ -228,7 +228,9 @@ describe('empty state', () => {
     // subject far north of the fixture sales: nothing within a mile
     const r = await findComparables({ ...baseInput, postcode: 'CF37 1XX' });
     expect(r.comps).toEqual([]);
-    expect(r.suggestion).toMatch(/very little price evidence/);
+    // C1 — with 24 months now a rung on the ladder, the honest suggestion at a
+    // 12-month search is to look further back before giving up on the area.
+    expect(r.suggestion).toMatch(/very little price evidence|looking back 24 months/);
   });
 });
 

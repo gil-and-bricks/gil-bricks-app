@@ -20,6 +20,8 @@ import { COPY } from './copy';
 import { BRIDGING, FACTFIND, FACTFIND_VIEW } from './bridging';
 import { CALENDAR, CHAIN_RISK, GRAVEYARD_COPY, PARK_REASONS, RETRADE } from './pipeline';
 import { NAV } from './nav';
+import { COMPARABLES } from './comparables';
+import { COMPARABLE_RULES } from '@gil-bricks/core';
 import { BANNED_COPY, DECLARATION, PACK_COPY, PACK_DISCLAIMER, PACK_DISCLAIMER_FULL, PACK_FIGURES } from './pack';
 import { STRATEGY_LANDING } from './strategyLanding';
 import { EQUITY, STAMP, TOOLS, TOOLS_COPY, YIELD } from './tools';
@@ -134,6 +136,51 @@ describe('COPY RULES (N5) — nothing visible runs long', () => {
     for (const [key, c] of Object.entries(PACK_FIGURES)) {
       expect(c.basis, key).not.toBe('');
       expect(wordCount(c.label), key).toBeLessThan(6);
+    }
+  });
+
+  /**
+   * C1 — THE COMPARABLES CONFIG WAS NEVER SWEPT, AND IT IS THE SECTION THE
+   * WHOLE VALUATION RESTS ON.
+   *
+   * Every word around the sold sales lives in this file, and nothing was
+   * measuring any of it. The sentences the module BUILDS are rendered here with
+   * real figures, because a formatter is invisible to the flattener and it is
+   * the built sentence somebody actually reads.
+   */
+  it('the comparables section obeys the same rules, sentences it builds included', () => {
+    const R = COMPARABLE_RULES;
+    const built = [
+      { key: 'widened.time', text: COMPARABLES.widened.time(R.minComparables, R.periodMonths, R.widen.periodMonths) },
+      { key: 'widened.area', text: COMPARABLES.widened.area(R.minComparables, '½ mile', '1 mile') },
+      { key: 'widened.exhausted', text: COMPARABLES.widened.exhausted(3, R.minComparables) },
+      { key: 'widened.yourFilters', text: COMPARABLES.widened.yourFilters(2, R.minComparables) },
+      { key: 'filters.auto.radius', text: COMPARABLES.filters.auto.radius('½ mile') },
+      { key: 'filters.auto.period', text: COMPARABLES.filters.auto.period(R.periodMonths) },
+      { key: 'stats.thinEvidence', text: COMPARABLES.stats.thinEvidence(2) },
+    ];
+    const strings = [...flatten(COMPARABLES, 'COMPARABLES'), ...built];
+    expect(strings.length, 'nothing was walked — has the config moved?').toBeGreaterThan(40);
+    const long = strings
+      .filter((s) => wordCount(s.text) > MAX_WORDS || sentencesOf(s.text).length > MAX_SENTENCES)
+      .map((s) => `${s.key}: ${wordCount(s.text)} words, ${sentencesOf(s.text).length} sentences`);
+    expect(long).toEqual([]);
+    const longSentence = strings
+      .flatMap((s) => sentencesOf(s.text).map((sentence) => ({ key: s.key, sentence })))
+      .filter((s) => wordCount(s.sentence) > MAX_WORDS_PER_SENTENCE)
+      .map((s) => `${s.key}: ${wordCount(s.sentence)} words`);
+    expect(longSentence).toEqual([]);
+  });
+
+  /**
+   * C1 — AND NEVER THE VOCABULARY OF A COURSE. Somebody who repeats our wording
+   * to an agent should sound like a buyer. These are the words that mark
+   * somebody out, and they may not appear anywhere near the evidence.
+   */
+  it('the comparables section uses no investor jargon', () => {
+    const banned = /\b(BMV|below market value|off.?market|motivated seller|stack(ing|ed)?|deal.?stacking|distressed)\b/i;
+    for (const s of flatten(COMPARABLES, 'COMPARABLES')) {
+      expect(banned.test(s.text), `${s.key}: ${s.text}`).toBe(false);
     }
   });
 
