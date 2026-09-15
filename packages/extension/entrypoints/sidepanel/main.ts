@@ -57,6 +57,8 @@ import {
   FINDING_COPY,
   triageNumbers,
   priceBand,
+  sectorTypeLetter,
+  salesFromSector,
   detectFlags,
   nearestSectors,
   socialMark,
@@ -893,26 +895,6 @@ function resolveFloorArea(ctx: Ctx): { sqm: number | null; source: PanelView['fl
   return { sqm: null, source: 'none', range: null };
 }
 
-/** The sector's sales in the shape `priceBand` reads. */
-function salesOf(sector: SectorFile | null): BandSale[] {
-  if (!sector || !Array.isArray(sector.sales)) return [];
-  return sector.sales.map((s) => ({
-    date: String(s.date ?? ''), price: Number(s.price ?? 0), type: String(s.type ?? ''),
-    floorAreaSqm: typeof s.floorAreaSqm === 'number' ? s.floorAreaSqm : null,
-    ppsqm: typeof s.ppsqm === 'number' ? s.ppsqm : null,
-  }));
-}
-
-/** The subject's own type letter, as the sector files use it (D/S/T/F/O). */
-function typeLetter(listing: NormalisedListing): string {
-  const t = (listing.propertyType.value ?? '').toLowerCase();
-  if (/semi/.test(t)) return 'S';
-  if (/detached/.test(t)) return 'D';
-  if (/terrac|town\s?house|end[- ]?of[- ]?terrace/.test(t)) return 'T';
-  if (/flat|apartment|maisonette/.test(t)) return 'F';
-  return 'O';
-}
-
 /**
  * X3 — WHAT A STRATEGY ACTUALLY CHANGES ON THIS PANEL.
  *
@@ -962,10 +944,10 @@ function draw(ctx: Ctx): void {
   });
 
   const band = priceBand({
-    type: typeLetter(ctx.listing),
+    type: sectorTypeLetter(ctx.listing.propertyType.value),
     floorAreaSqm: fa.sqm ?? 0,
     askingPrice: ctx.listing.askingPrice.value ?? 0,
-    sales: salesOf(ctx.sector),
+    sales: salesFromSector(ctx.sector),
     widerSales: ctx.widerSales ?? undefined,
     now: new Date(),
   });
@@ -1094,9 +1076,9 @@ async function widenIfNeeded(ctx: Ctx, faSqm: number | null): Promise<void> {
   if (!ctx.sectorId || !ctx.listing || ctx.widerSales !== null) return;
   if (!faSqm || faSqm <= 0) return;
   const first = priceBand({
-    type: typeLetter(ctx.listing), floorAreaSqm: faSqm,
+    type: sectorTypeLetter(ctx.listing.propertyType.value), floorAreaSqm: faSqm,
     askingPrice: ctx.listing.askingPrice.value ?? 0,
-    sales: salesOf(ctx.sector), now: new Date(),
+    sales: salesFromSector(ctx.sector), now: new Date(),
   });
   if (first.kind !== 'none' || first.reason !== 'too-few') return;
   try {
@@ -1106,7 +1088,7 @@ async function widenIfNeeded(ctx: Ctx, faSqm: number | null): Promise<void> {
     const files = await Promise.all(ids.map((id) => getSector(id).catch(() => null)));
     if (activeCtx !== ctx) return;
     const wider: BandSale[] = [];
-    for (const f of files) if (f) wider.push(...salesOf(f));
+    for (const f of files) if (f) wider.push(...salesFromSector(f));
     ctx.widerSales = wider;
     draw(ctx);
   } catch {

@@ -142,3 +142,35 @@ export function priceBand(input: BandInput): BandOutcome {
   const position = subjectPpsqm < low ? 'below' : subjectPpsqm > high ? 'above' : 'within';
   return { kind: 'range', count: sorted.length, widened, low, high, subjectPpsqm, position };
 }
+
+/**
+ * X4 — THE TWO HELPERS BOTH SURFACES NEED, IN ONE PLACE.
+ *
+ * The panel had its own copy of each and the content script was about to grow a
+ * second. A property type read one way on the panel and another on the portal's
+ * page would put two different answers about one house on one screen.
+ */
+
+/** The subject's type letter, as the sector files use it (D/S/T/F/O). */
+export function sectorTypeLetter(propertyType: string | null | undefined): string {
+  const t = (propertyType ?? '').toLowerCase();
+  if (/semi/.test(t)) return 'S';
+  if (/detached/.test(t)) return 'D';
+  if (/terrac|town\s?house|end[- ]?of[- ]?terrace/.test(t)) return 'T';
+  if (/flat|apartment|maisonette/.test(t)) return 'F';
+  return 'O';
+}
+
+/** A sector file's sales in the shape `priceBand` reads. */
+export function salesFromSector(
+  sector: { sales?: readonly unknown[] } | null | undefined,
+): BandSale[] {
+  if (!sector || !Array.isArray(sector.sales)) return [];
+  return (sector.sales as readonly Record<string, unknown>[]).map((s) => ({
+    date: String(s.date ?? ''),
+    price: Number(s.price ?? 0),
+    type: String(s.type ?? ''),
+    floorAreaSqm: typeof s.floorAreaSqm === 'number' ? s.floorAreaSqm : null,
+    ppsqm: typeof s.ppsqm === 'number' ? s.ppsqm : null,
+  }));
+}

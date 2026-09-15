@@ -116,6 +116,40 @@ export const FINDING_COPY: Record<FindingCode, FindingWords> = {
 };
 
 /**
+ * X4 — THE ONE THING ON THEIR PAGE THAT IS NOT A WORRY.
+ *
+ * Everything else we put on a portal's page is a risk or a gap: things to check,
+ * things to ask about. Useful, and relentlessly negative — and none of it
+ * answers the question somebody actually opened the listing with.
+ *
+ * This does. It is the asking price set against what similar-sized homes of the
+ * same type ACTUALLY SOLD FOR nearby, which is the one number the portal never
+ * shows and the one thing this product computes that nobody else can: Land
+ * Registry sold prices joined to EPC floor areas.
+ *
+ * ONE LINE, and it obeys the same law as everywhere else. It states a POSITION —
+ * within, above, below — and never an adjective. "Below the range" is a fact
+ * about arithmetic; "a bargain" is a claim about a house nobody has seen, on a
+ * street this tool cannot resolve. The caveat is not decoration: cheap for the
+ * size very often means cheap for a reason.
+ */
+export const PRICE_LINE = {
+  within: 'Within the typical range for this size and type',
+  above: 'Above the typical range for this size and type',
+  below: 'Below the typical range for this size and type',
+  /** Always the count, so the reader can weigh the evidence themselves. */
+  basis: (n: number): string => `${n} similar sales, last 3 years`,
+  /** Said when the sector could not reach five and the wider area was used. */
+  widened: 'wider area',
+  /**
+   * PERMANENT, and carrying both halves: what the comparison cannot see, and how
+   * coarse the data underneath it is. Tighter than the panel's wording because
+   * this sits on somebody else's page, but it loses neither fact.
+   */
+  caveat: 'Compares size, not quality, across about 1,500 people. Cheap for the size can mean cheap for a reason.',
+} as const;
+
+/**
  * The headings on the deal's own page. Two groups, plainly named — one for
  * things that might end the purchase, one for things to ask about.
  */

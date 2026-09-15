@@ -28,8 +28,8 @@
  * the main content. There is no path here that drops a finding on the floor.
  */
 import {
-  FINDING_COPY, FINDINGS_COPY, FINDING_TONE, FINDING_ICON,
-  type Finding, type FindingAnchor, type Portal,
+  FINDING_COPY, FINDINGS_COPY, FINDING_TONE, FINDING_ICON, PRICE_LINE,
+  type Finding, type FindingAnchor, type Portal, type BandOutcome,
 } from '@gil-bricks/core';
 
 export const CHIPS_ROOT_ATTR = 'data-gb-chips';
@@ -135,6 +135,10 @@ const CSS = `
 .chip.pink { color: #8a1141; border-color: #ff2d78; background: #ffe9f1; }
 .chip.yellow { color: #6b4e00; border-color: #e0b400; background: #fff6d6; }
 .ico { width: 11px; height: 11px; flex: 0 0 auto; }
+.price { flex: 1 1 100%; margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.price-pos { font-size: 13px; font-weight: 700; color: #1a1a1a; }
+.price-basis { font-size: 11px; color: #5c5c5c; font-variant-numeric: tabular-nums; }
+.price-caveat { flex: 1 1 100%; margin: 2px 0 6px; font-size: 11px; line-height: 1.4; color: #5c5c5c; }
 .why { flex: 1 1 100%; margin: 4px 0 0; font-size: 12px; line-height: 1.4; color: #333; }
 .why[hidden] { display: none; }
 .box { border: 1px solid #dcff00; border-left: 4px solid #dcff00; border-radius: 10px;
@@ -189,7 +193,30 @@ export interface ChipGroupDeps {
   brand: string;
   /** Rendered as the box (branded, with a Hide) rather than a bare chip row. */
   asBox: boolean;
+  /**
+   * X4 — the price position, shown in the box ABOVE the chips.
+   *
+   * It goes first because it is the only thing we put on their page that is not
+   * a worry: the chips are what to check, this is the answer. Only ever passed
+   * for the box, and only when there is a real position to state.
+   */
+  band?: BandOutcome | null;
   onHide?: () => void;
+}
+
+/** Money, in the panel's own format — the chips carry no formatter of their own. */
+const gbp = (n: number): string => `£${Math.round(n).toLocaleString('en-GB')}`;
+
+/**
+ * The price line, or null. Null on every honest refusal: no floor area, too few
+ * comparables, a spread too wide to have a middle. A missing line is a state
+ * this box is designed for, not a failure.
+ */
+export function priceLine(band: BandOutcome | null | undefined): { position: string; basis: string } | null {
+  if (!band || band.kind !== 'range') return null;
+  const basis = `${gbp(band.low)}–${gbp(band.high)}/m² · ${PRICE_LINE.basis(band.count)}`
+    + (band.widened ? ` · ${PRICE_LINE.widened}` : '');
+  return { position: PRICE_LINE[band.position], basis };
 }
 
 /**
@@ -201,8 +228,8 @@ export interface ChipGroupDeps {
  * an inherited `font-size: 0` or `text-transform` from their page still
  * applies to the host box itself.
  */
-export function buildGroup({ doc, findings, brand, asBox, onHide }: ChipGroupDeps): HTMLElement | null {
-  const content = buildGroupContent({ doc, findings, brand, asBox, onHide });
+export function buildGroup({ doc, findings, brand, asBox, band, onHide }: ChipGroupDeps): HTMLElement | null {
+  const content = buildGroupContent({ doc, findings, brand, asBox, band, onHide });
   if (content === null) return null;
   const host = doc.createElement(CHIP_HOST_TAG);
   host.setAttribute(CHIPS_ROOT_ATTR, asBox ? 'box' : 'anchored');
@@ -226,8 +253,10 @@ export function buildGroup({ doc, findings, brand, asBox, onHide }: ChipGroupDep
  * call it covered, the CONTENT is built here and the root is attached above.
  * Tests get the real markup; the page still cannot reach it.
  */
-export function buildGroupContent({ doc, findings, brand, asBox, onHide }: ChipGroupDeps): HTMLElement | null {
-  if (findings.length === 0) return null;
+export function buildGroupContent({ doc, findings, brand, asBox, band, onHide }: ChipGroupDeps): HTMLElement | null {
+  const price = asBox ? priceLine(band) : null;
+  // A box with a price line earns its place even with no chips in it.
+  if (findings.length === 0 && price === null) return null;
 
   const wrap = doc.createElement('div');
   wrap.className = asBox ? 'wrap box' : 'wrap';
@@ -241,6 +270,27 @@ export function buildGroupContent({ doc, findings, brand, asBox, onHide }: ChipG
   dot.className = 'dot';
   mark.append(dot, doc.createTextNode(brand));
   wrap.append(mark);
+
+  /**
+   * THE PRICE, FIRST. Everything after it is a caveat; this is the answer, and
+   * it is the one line on this page that nobody else can give them.
+   */
+  if (price !== null) {
+    const row = doc.createElement('p');
+    row.className = 'price';
+    const pos = doc.createElement('strong');
+    pos.className = 'price-pos';
+    pos.textContent = price.position;
+    const basis = doc.createElement('span');
+    basis.className = 'price-basis';
+    basis.textContent = price.basis;
+    row.append(pos, basis);
+    wrap.append(row);
+    const cav = doc.createElement('p');
+    cav.className = 'price-caveat';
+    cav.textContent = PRICE_LINE.caveat;
+    wrap.append(cav);
+  }
 
   const why = doc.createElement('p');
   why.className = 'why';
@@ -286,6 +336,8 @@ export interface MountDeps {
   portal: Portal;
   findings: readonly Finding[];
   brand: string;
+  /** X4 — the price position, which goes in the box above the chips. */
+  band?: BandOutcome | null;
   onHide?: () => void;
 }
 
@@ -297,9 +349,10 @@ export interface MountDeps {
  * re-render constantly; every mount clears our own nodes first, so a re-render
  * that fires while we are working can never leave two of anything.
  */
-export function mountChips({ doc, portal, findings, brand, onHide }: MountDeps): { anchored: number; inBox: number } {
+export function mountChips({ doc, portal, findings, brand, band, onHide }: MountDeps): { anchored: number; inBox: number; price: boolean } {
   removeChips(doc);
-  if (findings.length === 0) return { anchored: 0, inBox: 0 };
+  const hasPrice = priceLine(band) !== null;
+  if (findings.length === 0 && !hasPrice) return { anchored: 0, inBox: 0, price: false };
 
   const boxed: Finding[] = [];
   let anchored = 0;
@@ -325,13 +378,15 @@ export function mountChips({ doc, portal, findings, brand, onHide }: MountDeps):
     anchored += group.length;
   }
 
-  if (boxed.length > 0) {
-    const host = buildGroup({ doc, findings: boxed, brand, asBox: true, onHide });
+  // The box is drawn whenever there is a price to state, even with no chips in
+  // it: the price IS the reason the box is worth having.
+  if (boxed.length > 0 || hasPrice) {
+    const host = buildGroup({ doc, findings: boxed, brand, asBox: true, band, onHide });
     const target = findBoxAnchor(doc, portal);
     if (host !== null && target !== null) {
       if (target === doc.body) target.prepend(host);
       else target.insertAdjacentElement('afterend', host);
     }
   }
-  return { anchored, inBox: boxed.length };
+  return { anchored, inBox: boxed.length, price: hasPrice };
 }

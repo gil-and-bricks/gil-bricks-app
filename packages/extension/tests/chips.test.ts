@@ -18,9 +18,10 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   extractListing, portalForUrl, FALLBACK_CONFIG, pageFindings, allFindings,
-  FINDING_COPY, EXTENSION_FLAGS, type NormalisedListing, type Portal, type Finding,
+  FINDING_COPY, EXTENSION_FLAGS, PRICE_LINE,
+  type NormalisedListing, type Portal, type Finding, type BandOutcome,
 } from '@gil-bricks/core';
-import { mountChips, removeChips, findAnchor, findBoxAnchor, ourHosts, buildGroupContent, CHIP_HOST_TAG, CHIPS_ROOT_ATTR } from '../src/chips';
+import { mountChips, removeChips, findAnchor, findBoxAnchor, ourHosts, buildGroupContent, priceLine, CHIP_HOST_TAG, CHIPS_ROOT_ATTR } from '../src/chips';
 
 const CORPUS = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'core', 'fixtures', 'listings');
 
@@ -277,6 +278,98 @@ describe('never twice, however often they re-render', () => {
   });
 });
 
+/**
+ * X4 — THE ONE LINE ON THEIR PAGE THAT IS NOT A WORRY.
+ *
+ * Everything else here is a risk or a gap. This is the answer: the asking price
+ * against what similar homes actually sold for, which is the one thing the
+ * portal never shows and the one thing this product can compute that nobody
+ * else can.
+ */
+describe('the price position', () => {
+  const band = (over: Partial<Extract<BandOutcome, { kind: 'range' }>> = {}): BandOutcome => ({
+    kind: 'range', count: 9, widened: false, low: 1300, high: 1520,
+    subjectPpsqm: 1400, position: 'within', ...over,
+  });
+
+  it('states a POSITION and the count, never an adjective', () => {
+    const line = priceLine(band())!;
+    expect(line.position).toBe(PRICE_LINE.within);
+    expect(line.basis, 'the count, so they can weigh it').toContain('9 similar sales');
+    expect(line.basis, 'and the range itself').toMatch(/£1,300–£1,520\/m²/);
+    for (const adjective of ['good', 'cheap', 'bargain', 'great', 'value']) {
+      expect(`${line.position} ${line.basis}`.toLowerCase(), adjective).not.toContain(adjective);
+    }
+  });
+
+  it.each([
+    ['within', PRICE_LINE.within],
+    ['above', PRICE_LINE.above],
+    ['below', PRICE_LINE.below],
+  ] as const)('reports %s as a position', (position, expected) => {
+    expect(priceLine(band({ position }))!.position).toBe(expected);
+  });
+
+  it('says when it had to widen, rather than passing it off as this sector', () => {
+    expect(priceLine(band({ widened: true }))!.basis).toContain(PRICE_LINE.widened);
+    expect(priceLine(band())!.basis).not.toContain(PRICE_LINE.widened);
+  });
+
+  /** Every honest refusal produces NO line at all, rather than a hedge. */
+  it.each([
+    ['no floor area', { kind: 'none', reason: 'no-area', countFound: 0 }],
+    ['too few comparables', { kind: 'none', reason: 'too-few', countFound: 3 }],
+    ['a spread with no middle', { kind: 'spread', count: 9, widened: false, low: 900, high: 2400 }],
+  ] as const)('shows nothing at all on %s', (_what, outcome) => {
+    expect(priceLine(outcome as BandOutcome)).toBeNull();
+  });
+
+  it('and nothing at all when there is no band to speak of', () => {
+    expect(priceLine(null)).toBeNull();
+    expect(priceLine(undefined)).toBeNull();
+  });
+
+  it('goes in the BOX, above the chips — it is the answer, they are the caveats', () => {
+    const wrap = buildGroupContent({
+      doc: document, brand: 'PropLaunch', asBox: true, band: band(),
+      findings: [{ code: 'LEASE', kind: 'risk', anchor: 'tenure' }],
+    })!;
+    const price = wrap.querySelector('.price')!;
+    const chip = wrap.querySelector('.chip')!;
+    expect(price).not.toBeNull();
+    expect(
+      price.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the price must come first',
+    ).toBeTruthy();
+  });
+
+  it('carries its caveat, permanently', () => {
+    const wrap = buildGroupContent({
+      doc: document, brand: 'PropLaunch', asBox: true, band: band(), findings: [],
+    })!;
+    expect(wrap.querySelector('.price-caveat')?.textContent).toBe(PRICE_LINE.caveat);
+    expect(PRICE_LINE.caveat, 'what it cannot see').toMatch(/size, not quality/);
+    expect(PRICE_LINE.caveat, 'how coarse the data is').toMatch(/1,500 people/);
+    expect(PRICE_LINE.caveat, 'and why cheap is not the same as worth buying')
+      .toMatch(/cheap for a reason/);
+  });
+
+  /** A box with a price and no chips still earns its place — the price IS the box. */
+  it('draws the box for a price alone, with no chips in it', () => {
+    const { doc } = page(CASES[0]);
+    const res = mountChips({ doc, portal: 'rightmove', brand: 'PropLaunch', findings: [], band: band() });
+    expect(res.price).toBe(true);
+    expect(ourHosts(doc)).toHaveLength(1);
+    expect(ourHosts(doc)[0].getAttribute(CHIPS_ROOT_ATTR)).toBe('box');
+  });
+
+  it('and draws no box at all when there is neither a price nor a chip', () => {
+    const { doc } = page(CASES[0]);
+    mountChips({ doc, portal: 'rightmove', brand: 'PropLaunch', findings: [], band: null });
+    expect(ourHosts(doc)).toHaveLength(0);
+  });
+});
+
 describe('four at most, and it is obviously ours', () => {
   it.each(CASES.map((c) => [c.file, c] as const))('%s shows no more than four chips in total', (_f, c) => {
     const { res, findings } = mount(c);
@@ -345,7 +438,7 @@ describe('four at most, and it is obviously ours', () => {
   it('a listing with nothing to say gets nothing injected', () => {
     const { doc } = page(CASES[0]);
     const res = mountChips({ doc, portal: 'rightmove', brand: 'PropLaunch', findings: [] });
-    expect(res).toEqual({ anchored: 0, inBox: 0 });
+    expect(res).toEqual({ anchored: 0, inBox: 0, price: false });
     expect(ourHosts(doc)).toHaveLength(0);
   });
 });
